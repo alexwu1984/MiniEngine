@@ -1,0 +1,67 @@
+#pragma once
+#include "math/vector3.h"
+
+namespace math
+{
+	class Matrix4x4;
+
+	class Vector4
+	{
+	public:
+		union
+		{
+			float m[4];
+			struct
+			{
+				float x, y, z, w;
+			};
+		};
+
+
+		Vector4(void);
+		Vector4(float _x, float _y, float _z, float _w = 1.0f);
+		Vector4(const Vector3& V,float _w = 0);
+
+		float Dot(const Vector4& rhs) const
+		{
+			return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w;
+		}
+
+		float& operator [] (int i)
+		{
+			return m[i];
+		}
+		const float& operator [] (int i) const
+		{
+			return m[i];
+		}
+
+		Vector4& operator += (const Vector4& rhs)
+		{
+			x += rhs.x;
+			y += rhs.y;
+			z += rhs.z;
+			w += rhs.w;
+			return *this;
+		}
+
+		Vector4 operator + (const Vector4& rhs) const
+		{
+			Vector4 Res(*this);
+			Res += rhs;
+			return Res;
+		}
+
+		Vector4 operator/(const float& other) const
+		{
+			return Vector4(this->x / other, this->y / other, this->z / other, this->w / other);
+		}
+
+		Vector4 operator*(const Matrix4x4& mat) const;
+	};
+
+	Vector4 operator * (const Vector4& lhs, float s);
+	Vector4 operator * (float s, const Vector4& lhs);
+	
+
+}

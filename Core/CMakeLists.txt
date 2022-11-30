@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.6)
+project(Core)
+
+#-------------------------------------------------------------------------------------------
+# Library definition
+#-------------------------------------------------------------------------------------------
+file(GLOB core_headers core/*.h)
+file(GLOB network_headers network/*.h)
+file(GLOB win_headers win/*.h)
+file(GLOB common_headers common/*.h)
+file(GLOB math_headers math/*.h)
+
+include_directories(${PROJECT_SOURCE_DIR})
+
+source_group("Header Files\\core" FILES ${core_headers} )
+source_group("Header Files\\network" FILES ${network_headers} )
+source_group("Header Files\\win" FILES ${win_headers} )
+source_group("Header Files\\common" FILES ${common_headers} )
+source_group("Header Files\\math" FILES ${math_headers} )
+
+file(GLOB Core_sources "*.cpp")
+add_library(Core ${Core_sources} ${core_headers} ${network_headers} ${win_headers} ${common_headers} ${math_headers})
+
+#-------------------------------------------------------------------------------------------
+# Defines
+#-------------------------------------------------------------------------------------------
+add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+
+#-------------------------------------------------------------------------------------------
+# Include dirs
+#-------------------------------------------------------------------------------------------
+target_include_directories(Core PUBLIC common core network win)
+
+
+
+#-----target_link_libraries(EASTL EABase)
+

@@ -12,8 +12,7 @@ namespace Engine
 		virtual ~WindowApplication();
 
 		bool Main(HINSTANCE hInst, int aargs, wchar_t** arguments);
-		virtual int64_t WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam);
-		void Run();
+		int32_t Run();
 	private:
 		bool CreateAppWindow();
 

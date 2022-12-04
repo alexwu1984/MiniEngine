@@ -5,9 +5,25 @@
 namespace core
 {
 
-	CommandLine::CommandLine(int argc, wchar_t** wargs)
+	CommandLine::CommandLine()
 	{
-		core::inf() << __FUNCTION__ " " << argc << (wargs ? " wide ":" ") << " arguments";
+	
+	}
+
+	CommandLine::~CommandLine()
+	{
+
+	}
+
+	CommandLine& CommandLine::Get()
+	{
+		static CommandLine CmdLIne;
+		return CmdLIne;
+	}
+
+	void CommandLine::SetCommandLine(int argc, wchar_t** wargs)
+	{
+		core::inf() << __FUNCTION__ " " << argc << (wargs ? " wide " : " ") << " arguments";
 		for (int iarg = 0; iarg < argc; ++iarg)
 		{
 			if (wargs)
@@ -28,11 +44,6 @@ namespace core
 				_CommandMap[name] = value;
 			}
 		}
-	}
-
-	CommandLine::~CommandLine()
-	{
-
 	}
 
 	bool CommandLine::GetName(const std::string& name)

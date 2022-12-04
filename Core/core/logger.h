@@ -247,4 +247,6 @@ namespace core
    inline logger_stream act() { return global_logger::ref()[log_act]; }
    inline logger_stream war() { return global_logger::ref()[log_war]; }
    inline logger_stream err() { return global_logger::ref()[log_err]; }
+
+   void LOG(core::log_e lg, const wchar_t* Format, ...);
 }

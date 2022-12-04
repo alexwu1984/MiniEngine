@@ -1,8 +1,19 @@
 #include "RHI/DynamicRHI.h"
+#include "D3D11/D3D11RHI.h"
 
 namespace RenderCore
 {
+	std::shared_ptr<DynamicRHI> PlatformCreateDynamicRHI(RHIAPIType apiType)
+	{
+		return std::make_shared<D3D11DynamicRHI>();
+	}
+
+
+	std::wstring GRHIAdapterName;
 	uint32_t GRHIVendorId = 0;
+	uint32_t GRHIDeviceId = 0;
+	uint32_t GRHIDeviceRevision = 0;
+
 	DynamicRHI::~DynamicRHI()
 	{
 

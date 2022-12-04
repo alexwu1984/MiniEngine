@@ -3,6 +3,8 @@
 
 namespace RenderCore
 {
+	struct D3D11DynamicRHIP;
+
 	class D3D11DynamicRHI : public DynamicRHI
 	{
 	public:
@@ -19,5 +21,9 @@ namespace RenderCore
 
 	private:
 		bool InitD3DDevice();
+		bool FindAdapter();
+
+	private:
+		std::shared_ptr< D3D11DynamicRHIP> Data;
 	};
 }

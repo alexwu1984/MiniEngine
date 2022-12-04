@@ -3,6 +3,12 @@
 
 namespace RenderCore
 {
+	enum class RHIAPIType
+	{
+		E_D3D11,
+		E_D3D12,
+	};
+
 	class DynamicRHI
 	{
 	public:
@@ -30,6 +36,11 @@ namespace RenderCore
 *	Each platform that utilizes dynamic RHIs should implement this function
 *	Called to create the instance of the dynamic RHI.
 */
-	DynamicRHI* PlatformCreateDynamicRHI();
+	std::shared_ptr<DynamicRHI> PlatformCreateDynamicRHI(RHIAPIType apiType);
+
+	extern uint32_t GRHIVendorId;
+	extern std::wstring GRHIAdapterName;
+	extern uint32_t GRHIDeviceId;
+	extern uint32_t GRHIDeviceRevision;
 }
 

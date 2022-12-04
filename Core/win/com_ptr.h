@@ -128,6 +128,16 @@ namespace win32
         void ** getvv() const { if (_ptr) throw 1;  return (void **)(&_ptr); }
         template<typename UT2>
         UT2 ** gettt() const { if (_ptr) throw 1;  return reinterpret_cast<UT2 **>(getvv()); }
+        UT** get_init_ref()
+		{
+			*this = nullptr;
+			return getpp();
+		}
+
+		bool is_valid() const
+		{
+			return _ptr != nullptr;
+		}
 
         UT * ref() const
         {

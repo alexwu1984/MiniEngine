@@ -6,9 +6,12 @@ namespace core
 	class CommandLine
 	{
 	public:
-		CommandLine(int aargs, wchar_t** arguments);
+		CommandLine();
 		~CommandLine();
 
+		static CommandLine& Get() ;
+
+		void SetCommandLine(int argc, wchar_t** wargs);
 		bool GetName(const std::string& name);
 		bool GetInteger(const std::string& name, int& value);
 		bool GetReal(const std::string& name, float& value);

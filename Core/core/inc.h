@@ -75,6 +75,7 @@ typedef uint32_t uintx_h;
 #include "./vec2.h"
 #include "./vec4.h"
 
+
 #if !_HAS_CXX17
 namespace std
 {
@@ -118,3 +119,10 @@ namespace win32 {
 #else
 #define Assert(s)
 #endif
+
+template <typename T, uint32_t N>
+char(&UE4ArrayCountHelper(const T(&)[N]))[N + 1];
+
+// Number of elements in an array.
+#define UE_ARRAY_COUNT( array ) (sizeof(UE4ArrayCountHelper(array)) - 1)
+#define VERIFYD3D11RESULT(x) {HRESULT hr = x; if (FAILED(hr)) { Assert(false);}}

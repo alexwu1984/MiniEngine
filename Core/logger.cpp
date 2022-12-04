@@ -2,6 +2,7 @@
 #include <sys/timeb.h>
 #include "core/system.h"
 #include "win/win32.h"
+#include <varargs.h>
 
 #define LOG_FILE_MAX_SIZE 1024*1024*20 // 20MB
 namespace core
@@ -328,5 +329,38 @@ namespace core
         }
         return *__global_logger;
     }
+
+	void LOG(core::log_e lg,const wchar_t* formatstring, ...)
+	{
+		int nSize = 0;
+        wchar_t buff[2048]{0};
+		memset(buff, 0, sizeof(buff));
+		va_list args;
+		va_start(args, formatstring);
+		nSize = _vsnwprintf_s(buff, _countof(buff), _TRUNCATE, formatstring, args);
+		
+        if (lg == log_dbg)
+        {
+            core::logger::dbg() << buff;
+        }
+        else if (lg == log_act)
+        {
+            core::logger::act() << buff;
+        }
+        else if (lg == log_inf)
+        {
+            core::logger::inf() << buff;
+        }
+        else if (lg == log_war)
+        {
+            core::logger::war() << buff;
+        }
+        else if (lg == log_err)
+        {
+            core::logger::err() << buff;
+        }
+
+		va_end(args);
+	}
 
 }

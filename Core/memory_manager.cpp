@@ -417,6 +417,122 @@ namespace win32
 		fnSymInitializeW = NULL;
 	}
 
+	stack_memory::stack_memory(size_t uiDefaultChunkSize /*= 65536*/)
+		:DefaultChunkSize(uiDefaultChunkSize)
+	{
+
+	}
+
+	stack_memory::~stack_memory()
+	{
+		FreeChunks(nullptr);
+		while (UnusedChunks)
+		{
+			void* Old = UnusedChunks;
+			UnusedChunks = UnusedChunks->Next;
+			memory_object::GetMemManager().Deallocate((char*)Old, 0, true);
+		}
+	}
+
+	void* stack_memory::Allocate(size_t uiSize, size_t uiAlignment, bool bIsArray)
+	{
+		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
+		// Debug checks.
+		Assert(uiSize >= 0);
+		if (uiAlignment > 0)
+		{
+			Assert((uiAlignment & (uiAlignment - 1)) == 0);
+		}
+		Assert(Top <= End);
+		//Assert(NumMarks > 0);
+
+		// Try to get memory from the current chunk.
+		uint8_t* Result = Top;
+		if (uiAlignment > 0)
+		{
+			Result = (uint8_t*)(((unsigned int)Top + (uiAlignment - 1)) & ~(uiAlignment - 1));
+		}
+		Top = Result + uiSize;
+
+		// Make sure we didn't overflow.
+		if (Top > End)
+		{
+			// We'd pass the end of the current chunk, so allocate a new one.
+			AllocateNewChunk(uiSize + uiAlignment);
+			Result = Top;
+			if (uiAlignment > 0)
+			{
+				Result = (uint8_t*)(((unsigned int)Top + (uiAlignment - 1)) & ~(uiAlignment - 1));
+			}
+			Top = Result + uiSize;
+		}
+		return Result;
+	}
+
+
+	void stack_memory::Clear()
+	{
+		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
+		FreeChunks(nullptr);
+	}
+
+	void stack_memory::PopMemory()
+	{
+		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
+		if (TopChunk)
+		{
+			FreeChunks(TopChunk->Next);
+		}
+		
+	}
+
+	uint8_t* stack_memory::AllocateNewChunk(int32_t MinSize)
+	{
+		FTaggedMemory* Chunk = nullptr;
+		for (FTaggedMemory** Link = &UnusedChunks; *Link; Link = &(*Link)->Next)
+		{
+			// Find existing chunk.
+			if ((*Link)->DataSize >= MinSize)
+			{
+				Chunk = *Link;
+				*Link = (*Link)->Next;
+				break;
+			}
+		}
+		if (!Chunk)
+		{
+			// Create new chunk.
+			int32_t DataSize = std::max(MinSize, (int32_t)DefaultChunkSize - (int32_t)sizeof(FTaggedMemory));
+			Chunk = (FTaggedMemory*)memory_object::GetMemManager().Allocate(DataSize + sizeof(FTaggedMemory), 0, true);
+			Chunk->DataSize = DataSize;
+		}
+
+		Chunk->Next = TopChunk;
+		TopChunk = Chunk;
+		Top = Chunk->Data;
+		End = Top + Chunk->DataSize;
+		return Top;
+	}
+
+	void stack_memory::FreeChunks(FTaggedMemory* NewTopChunk)
+	{
+		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
+		while (TopChunk != NewTopChunk)
+		{
+			FTaggedMemory* RemoveChunk = TopChunk;
+			TopChunk = TopChunk->Next;
+			RemoveChunk->Next = UnusedChunks;
+			UnusedChunks = RemoveChunk;
+		}
+		Top = nullptr;
+		End = nullptr;
+		if (TopChunk)
+		{
+			Top = TopChunk->Data;
+			End = Top + TopChunk->DataSize;
+		}
+	}
+
 }
 
 

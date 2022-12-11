@@ -102,6 +102,55 @@ namespace win32
 		void PrintInfo();
 		void FreeDbgHelpLib();
 	};
+
+
+	class  stack_memory : public memory_manager
+	{
+	public:
+		stack_memory(size_t uiDefaultChunkSize = 65536);
+		~stack_memory();
+		virtual void* Allocate(size_t uiSize, size_t uiAlignment, bool bIsArray);
+		virtual void Deallocate(char* pcAddr, size_t uiAlignment, bool bIsArray) {}
+
+		//每帧结束或者开始的时候调用
+		void Clear();
+		void PopMemory();
+
+	private:
+
+		// Types.
+		struct FTaggedMemory
+		{
+			FTaggedMemory* Next;
+			int32_t DataSize;
+			uint8_t Data[1];
+		};
+
+		// Variables.
+		uint8_t* Top = nullptr;				// Top of current chunk (Top<=End).
+		uint8_t* End = nullptr;				// End of current chunk.
+		size_t DefaultChunkSize = 0;	// Maximum chunk size to allocate.
+		FTaggedMemory* TopChunk = nullptr;			// Only chunks 0..ActiveChunks-1 are valid.
+
+		/** The memory chunks that have been allocated but are currently unused. */
+		FTaggedMemory* UnusedChunks = nullptr;
+
+		/** The number of marks on this stack. */
+		int32_t NumMarks = 0;
+
+		/**
+		* Allocate a new chunk of memory of at least MinSize size,
+		* and return it aligned to Align. Updates the memory stack's
+		* Chunks table and ActiveChunks counter.
+		*/
+		uint8_t* AllocateNewChunk(int32_t MinSize);
+
+		/** Frees the chunks above the specified chunk on the stack. */
+		/*移除这个chunk和这个chunk之前的所有chunk*/
+		void FreeChunks(FTaggedMemory* NewTopChunk);
+
+		
+	};
 }
 
 

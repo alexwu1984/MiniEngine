@@ -1,5 +1,6 @@
 #pragma once
 #include "win/win32.h"
+#include "RHI/RHIDefinitions.h"
 
 namespace RenderCore
 {
@@ -8,6 +9,8 @@ namespace RenderCore
 		E_D3D11,
 		E_D3D12,
 	};
+
+	class RHIViewPort;
 
 	class DynamicRHI
 	{
@@ -22,6 +25,8 @@ namespace RenderCore
 		virtual void Shutdown() = 0;
 
 		virtual const TCHAR* GetName() = 0;
+
+		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) { return nullptr; }
 	};
 
 	bool IsRHIDeviceAMD();

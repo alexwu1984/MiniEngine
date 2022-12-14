@@ -11,11 +11,11 @@ namespace Engine
 	{
 		WindowApplicationP()
 		{
-			_Engine = std::make_shared<MainEngine>();
+			Engine = std::make_shared<MainEngine>();
 		}
-		std::shared_ptr< AppWindow> _AppWindow;
-		HINSTANCE _hInst = nullptr;
-		std::shared_ptr<MainEngine> _Engine;
+		std::shared_ptr< AppWindow> AppWin;
+		HINSTANCE hInst = nullptr;
+		std::shared_ptr<MainEngine> Engine;
 	};
 
 
@@ -34,12 +34,12 @@ namespace Engine
 
 	bool WindowApplication::Main(HINSTANCE hInst, int args, wchar_t** arguments)
 	{
-		Data->_hInst = hInst;
+		Data->hInst = hInst;
 		core::CommandLine::Get().SetCommandLine(args, arguments);
-		Data->_AppWindow = std::make_shared<AppWindow>(hInst);
+		Data->AppWin = std::make_shared<AppWindow>(hInst);
 		if (CreateAppWindow())
 		{
-			Data->_Engine->Init();
+			Data->Engine->Init(Data->AppWin);
 			return true;
 		}
 		return false;
@@ -48,7 +48,7 @@ namespace Engine
 
 	int32_t WindowApplication::Run()
 	{
-		return Data->_AppWindow->RunLoop();
+		return Data->AppWin->RunLoop();
 	}
 
 	bool WindowApplication::CreateAppWindow()
@@ -59,7 +59,7 @@ namespace Engine
 		core::CommandLine::Get().GetInteger("height", DefHeight);
 
 
-		return Data->_AppWindow->CreateAppWindow(DefWidth,DefHeight);
+		return Data->AppWin->CreateAppWindow(DefWidth,DefHeight);
 	}
 
 }

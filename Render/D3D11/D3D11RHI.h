@@ -19,6 +19,8 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() { return TEXT("D3D11"); }
 
+		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) override;
+
 	private:
 		bool InitD3DDevice();
 		bool FindAdapter();

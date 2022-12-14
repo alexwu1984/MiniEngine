@@ -14,6 +14,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct MainEngineP;
+	class AppWindow;
 
 	class MainEngine
 	{
@@ -21,7 +22,7 @@ namespace Engine
 		MainEngine();
 		~MainEngine();
 
-		void Init();
+		void Init(std::shared_ptr< AppWindow> AppWin);
 
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
 

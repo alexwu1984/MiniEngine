@@ -77,7 +77,26 @@ namespace RenderCore
 		PF_ETC2_R11_EAC = 69,
 		PF_ETC2_RG11_EAC = 70,
 		PF_R8 = 71,
+		PF_MAX_COUT = 72,
 	};
+
+	/** Information about a pixel format. */
+	struct FPixelFormatInfo
+	{
+		const TCHAR* Name;
+		int32_t		BlockSizeX,
+			BlockSizeY,
+			BlockSizeZ,
+			BlockBytes,
+			NumComponents;
+		/** Platform specific token, e.g. D3DFORMAT with D3DDrv										*/
+		uint32_t		PlatformFormat;
+		/** Whether the texture format is supported on the current platform/ rendering combination	*/
+		bool			Supported;
+		EPixelFormat	UnrealFormat;
+	};
+
+	extern FPixelFormatInfo GPixelFormats[PF_MAX_COUT];
 
 	enum EShaderFrequency : uint8_t
 	{

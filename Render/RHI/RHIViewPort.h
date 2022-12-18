@@ -39,5 +39,9 @@ namespace RenderCore
 		 * AddParam could represent any additional platform-specific data (could be null).
 		 */
 		virtual void* GetNativeWindow(void** AddParam = nullptr) const { return nullptr; }
+
+		virtual void SetRenderTarget() {};
+		virtual void Clear(float r, float g, float b, float a) {};
+		virtual void Present() {};
 	};
 }

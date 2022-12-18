@@ -12,7 +12,7 @@ namespace Engine
 		virtual ~WindowApplication();
 
 		bool Main(HINSTANCE hInst, int aargs, wchar_t** arguments);
-		int32_t Run();
+		void Run();
 	private:
 		bool CreateAppWindow();
 

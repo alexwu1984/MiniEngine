@@ -1,9 +1,32 @@
 #include "D3D11/D3D11ViewPort.h"
 #include "win/com_ptr.h"
 #include "D3D11/D3D11RHI.h"
+#include "core/logger.h"
 
 namespace RenderCore
 {
+	static DXGI_SWAP_EFFECT GSwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	static DXGI_SCALING GSwapScaling = DXGI_SCALING_STRETCH;
+	static uint32_t GSwapChainBufferCount = 1;
+
+	uint32_t D3D11ViewPort::GSwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+
+	static DXGI_FORMAT GetRenderTargetFormat(EPixelFormat PixelFormat)
+	{
+		DXGI_FORMAT	DXFormat = (DXGI_FORMAT)GPixelFormats[PixelFormat].PlatformFormat;
+		switch (DXFormat)
+		{
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case DXGI_FORMAT_BC1_TYPELESS:			return DXGI_FORMAT_BC1_UNORM;
+		case DXGI_FORMAT_BC2_TYPELESS:			return DXGI_FORMAT_BC2_UNORM;
+		case DXGI_FORMAT_BC3_TYPELESS:			return DXGI_FORMAT_BC3_UNORM;
+		case DXGI_FORMAT_R16_TYPELESS:			return DXGI_FORMAT_R16_UNORM;
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS:		return DXGI_FORMAT_R8G8B8A8_UNORM;
+		default: 								return DXFormat;
+		}
+	}
+
 	struct D3D11ViewPortP
 	{
 		D3D11DynamicRHI* D3D11RHI;
@@ -11,6 +34,10 @@ namespace RenderCore
 		uint32_t SizeY;
 		uint32_t BackBufferCount;
 		HWND WindowHandle = nullptr;
+		EPixelFormat PixelFormat = PF_B8G8R8A8;
+		win32::com_ptr<IDXGISwapChain> SwapChain;
+		win32::com_ptr<ID3D11RenderTargetView> BackBufferRenderTargetView;
+		//win32::com_ptr<FD3D11Texture2D> BackBuffer;
 	};
 	D3D11ViewPort::D3D11ViewPort(D3D11DynamicRHI* D3D11RHI, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
 		:Data(new D3D11ViewPortP)
@@ -19,11 +46,96 @@ namespace RenderCore
 		Data->WindowHandle = InWindowHandle;
 		Data->SizeX = InSizeX;
 		Data->SizeY = InSizeY;
+
+		win32::com_ptr<IDXGIDevice> DXGIDevice;
+		Data->D3D11RHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.get_init_ref());
+
+
+		{
+			Data->BackBufferCount = GSwapChainBufferCount;
+
+			// Create the swapchain.
+			DXGI_SWAP_CHAIN_DESC SwapChainDesc;
+			ZeroMemory(&SwapChainDesc, sizeof(DXGI_SWAP_CHAIN_DESC));
+
+			SwapChainDesc.BufferDesc = SetupDXGI_MODE_DESC();
+			// MSAA Sample count
+			SwapChainDesc.SampleDesc.Count = 1;
+			SwapChainDesc.SampleDesc.Quality = 0;
+			SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT;
+			// 1:single buffering, 2:double buffering, 3:triple buffering
+			SwapChainDesc.BufferCount = Data->BackBufferCount;
+			SwapChainDesc.OutputWindow = InWindowHandle;
+			SwapChainDesc.Windowed = TRUE;
+			// DXGI_SWAP_EFFECT_DISCARD / DXGI_SWAP_EFFECT_SEQUENTIAL
+			SwapChainDesc.SwapEffect = GSwapEffect;
+			SwapChainDesc.Flags = GSwapChainFlags;
+
+			HRESULT CreateSwapChainResult = D3D11RHI->GetFactory()->CreateSwapChain(D3D11RHI->GetDevice(), &SwapChainDesc, Data->SwapChain.get_init_ref());
+			if (CreateSwapChainResult == E_INVALIDARG)
+			{
+
+				core::LOG(core::log_e::log_inf,
+					TEXT("CreateSwapChain invalid arguments: \n")
+					TEXT(" Size:%ix%i Format:0x%08X \n")
+					TEXT(" Windowed:%i SwapEffect:%i Flags: 0x%08X"),
+					SwapChainDesc.BufferDesc.Width, SwapChainDesc.BufferDesc.Height, SwapChainDesc.BufferDesc.Format,
+					SwapChainDesc.Windowed, SwapChainDesc.SwapEffect, SwapChainDesc.Flags);
+			}
+			VERIFYD3D11RESULT(CreateSwapChainResult);
+			GetSwapChainSurface();
+		}
 	}
 
 	D3D11ViewPort::~D3D11ViewPort()
 	{
 		Data = {};
+	}
+
+	void D3D11ViewPort::SetRenderTarget()
+	{
+		Data->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Data->BackBufferRenderTargetView, nullptr);
+	}
+
+	void D3D11ViewPort::Clear(float r, float g, float b, float a)
+	{
+		float ClearColor[4] = { r, g, b, a }; // rgba  
+		Data->D3D11RHI->GetDeviceContext()->ClearRenderTargetView(Data->BackBufferRenderTargetView.get(), ClearColor);
+	}
+
+	void D3D11ViewPort::Present()
+	{
+		if (Data->SwapChain)
+		{
+			Data->SwapChain->Present(0, 0);
+		}
+	}
+
+	DXGI_MODE_DESC D3D11ViewPort::SetupDXGI_MODE_DESC() const
+	{
+		DXGI_MODE_DESC Ret;
+		ZeroMemory(&Ret, sizeof(Ret));
+		Ret.Width = Data->SizeX;
+		Ret.Height = Data->SizeY;
+		Ret.RefreshRate.Numerator = 60;	
+		Ret.RefreshRate.Denominator = 1;	
+		Ret.Format = GetRenderTargetFormat(Data->PixelFormat);
+		//Ret.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+		//Ret.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+
+		return Ret;
+	}
+
+	void D3D11ViewPort::GetSwapChainSurface()
+	{
+		win32::com_ptr<ID3D11Texture2D> BackBufferResource;
+		VERIFYD3D11RESULT(Data->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)BackBufferResource.get_init_ref()));
+
+		D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
+		RTVDesc.Format = DXGI_FORMAT_UNKNOWN;
+		RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		RTVDesc.Texture2D.MipSlice = 0;
+		VERIFYD3D11RESULT(Data->D3D11RHI->GetDevice()->CreateRenderTargetView(BackBufferResource.get(), &RTVDesc, Data->BackBufferRenderTargetView.get_init_ref()));
 	}
 
 }

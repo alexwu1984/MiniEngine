@@ -46,9 +46,10 @@ namespace Engine
 	}
 
 
-	int32_t WindowApplication::Run()
+	void WindowApplication::Run()
 	{
-		return Data->AppWin->RunLoop();
+		Data->AppWin->RunLoop();
+		Data->Engine->ShutDown();
 	}
 
 	bool WindowApplication::CreateAppWindow()

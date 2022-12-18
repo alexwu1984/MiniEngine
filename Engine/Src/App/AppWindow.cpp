@@ -6,6 +6,8 @@ namespace Engine
 	{
 		HINSTANCE _hInst = nullptr;
 		HWND _hWnd = nullptr;
+		int32_t width = 0;
+		int32_t height = 0;
 		void* _proc_old = nullptr;
 	};
 
@@ -38,6 +40,8 @@ namespace Engine
 
 	bool AppWindow::CreateAppWindow(int32_t width, int32_t height)
 	{
+		Data->width = width;
+		Data->height = height;
 		WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
 		wcex.lpfnWndProc = ApplicationWndProc;
@@ -88,7 +92,7 @@ namespace Engine
 		{
 			DWORD dwWait = MsgWaitForMultipleObjectsEx(0, nullptr, INFINITE, QS_ALLINPUT, MWMO_ALERTABLE);
 
-			while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+			if (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
 				if (msg.message == WM_QUIT)
 				{
@@ -97,6 +101,9 @@ namespace Engine
 				::TranslateMessage(&msg);
 				::DispatchMessageW(&msg);
 			}
+			idle();
+			std::this_thread::sleep_for(1ms);
+
 		}
 		return static_cast<int32_t>(msg.wParam);
 	}
@@ -104,6 +111,16 @@ namespace Engine
 	HWND AppWindow::GetWnd() const
 	{
 		return Data->_hWnd;
+	}
+
+	int32_t AppWindow::GetWidth() const
+	{
+		return Data->width;
+	}
+
+	int32_t AppWindow::GetHeight() const
+	{
+		return Data->height;
 	}
 
 }

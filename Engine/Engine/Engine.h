@@ -23,8 +23,12 @@ namespace Engine
 		~MainEngine();
 
 		void Init(std::shared_ptr< AppWindow> AppWin);
+		void ShutDown();
 
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
+
+	private:
+		void Render();
 
 	private:
 		std::shared_ptr<MainEngineP> Data;

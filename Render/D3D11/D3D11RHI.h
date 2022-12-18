@@ -1,6 +1,10 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
 
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+struct IDXGIFactory1;
+
 namespace RenderCore
 {
 	struct D3D11DynamicRHIP;
@@ -20,6 +24,11 @@ namespace RenderCore
 		virtual const TCHAR* GetName() { return TEXT("D3D11"); }
 
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) override;
+
+		// Accessors.
+		ID3D11Device* GetDevice() const;
+		ID3D11DeviceContext* GetDeviceContext() const;
+		IDXGIFactory1* GetFactory() const;
 
 	private:
 		bool InitD3DDevice();

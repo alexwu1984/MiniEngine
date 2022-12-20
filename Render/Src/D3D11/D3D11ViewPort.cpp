@@ -107,7 +107,7 @@ namespace RenderCore
 	{
 		if (Data->SwapChain)
 		{
-			Data->SwapChain->Present(0, 0);
+			Data->SwapChain->Present(1, 0);
 		}
 	}
 

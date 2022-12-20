@@ -1,4 +1,4 @@
-﻿#include "win/thread_pool.h"
+﻿#include "win/tpp_thread_pool.h"
 #include "win/win32.h"
 #include "core/logger.h"
 
@@ -13,16 +13,16 @@ namespace win32
         }
     }
 
-    thread_pool::thread_pool()
+    tpp_thread_pool::tpp_thread_pool()
     {
     }
 
-    thread_pool::~thread_pool()
+    tpp_thread_pool::~tpp_thread_pool()
     {
         uninit();
     }
 
-    core::error_e thread_pool::init()
+    core::error_e tpp_thread_pool::init()
     {
         // 在 windows7 以下，在 dll 中自定义线程池，如果 dll 没有手动卸载，这些销毁 API 都会抛异常，干脆就用默认的线程池了
         //auto pfnClean = [](PVOID ObjectContext, PVOID CleanupContext)
@@ -49,7 +49,7 @@ namespace win32
         return core::error_ok;
     }
 
-    core::error_e thread_pool::uninit()
+    core::error_e tpp_thread_pool::uninit()
     {
         //if (_env)
         //{
@@ -61,7 +61,7 @@ namespace win32
         return core::error_ok;
     }
 
-    std::shared_ptr<tpp_waiter> thread_pool::create_waiter()
+    std::shared_ptr<tpp_waiter> tpp_thread_pool::create_waiter()
     {
         class tpp_waiter_impl : public tpp_waiter
         {
@@ -120,7 +120,7 @@ namespace win32
         return waiter;
     }
 
-    std::shared_ptr<tpp_ovlp> thread_pool::create_ovlp()
+    std::shared_ptr<tpp_ovlp> tpp_thread_pool::create_ovlp()
     {
         class tpp_ovlp_impl : public tpp_ovlp
         {
@@ -192,7 +192,7 @@ namespace win32
         return ovlp;
     }
 
-    std::shared_ptr<tpp_iocp> thread_pool::create_iocp()
+    std::shared_ptr<tpp_iocp> tpp_thread_pool::create_iocp()
     {
         class tpp_iocp_impl : public tpp_iocp
         {
@@ -298,7 +298,7 @@ namespace win32
         return iocp;
     }
 
-    std::shared_ptr<tpp_timer> thread_pool::create_timer()
+    std::shared_ptr<tpp_timer> tpp_thread_pool::create_timer()
     {
         class tpp_timer_impl : public tpp_timer
         {
@@ -396,9 +396,9 @@ namespace win32
         return timer;
     }
 
-    thread_pool & thread_pool::instance()
+    tpp_thread_pool & tpp_thread_pool::instance()
     {
-        static thread_pool __pool;
+        static tpp_thread_pool __pool;
         static std::once_flag __pool_once_flag;
         std::call_once(__pool_once_flag, []() {__pool.init(); });
         return __pool;

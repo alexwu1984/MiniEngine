@@ -184,7 +184,7 @@ namespace network
     {
         if (!_recv_worker)
         {
-            _recv_worker = win32::thread_pool::instance().create_ovlp();
+            _recv_worker = win32::tpp_thread_pool::instance().create_ovlp();
             _recv_worker->done += [this](core::error_e state)
             {
                 _state = state;

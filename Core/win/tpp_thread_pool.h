@@ -112,11 +112,11 @@ namespace win32
     };
 
     // 所有等待对象的析构都会等待回调执行完毕，如果这导致了死锁发生，说明是程序设计的失误，不应该在回调里占用主逻辑的临界区
-    class thread_pool
+    class tpp_thread_pool
     {
     public:
-        thread_pool();
-        ~thread_pool();
+        tpp_thread_pool();
+        ~tpp_thread_pool();
 
         core::error_e init();
         core::error_e uninit();
@@ -133,7 +133,7 @@ namespace win32
         std::shared_ptr<void> _cleangroup;
 
     public:
-        static thread_pool & instance();
+        static tpp_thread_pool & instance();
     };
 
 }

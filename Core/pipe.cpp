@@ -39,11 +39,11 @@ namespace win32
         _name = name;
         _state = core::error_broken;
 
-        _listen_worker = win32::thread_pool::instance().create_ovlp();
+        _listen_worker = win32::tpp_thread_pool::instance().create_ovlp();
         _listen_worker->done += [this](core::error_e state) { _state = core::error_ok;  arrived(state); };
         _listen_worker->wait();
 
-        _tpp_worker = win32::thread_pool::instance().create_iocp();
+        _tpp_worker = win32::tpp_thread_pool::instance().create_iocp();
         _tpp_worker->iocp_done += [this](core::error_e state, void * ovlp)
         {
             _state = state;
@@ -100,7 +100,7 @@ namespace win32
         _name = name;
         _state = core::error_ok;
 
-        _tpp_worker = win32::thread_pool::instance().create_iocp();
+        _tpp_worker = win32::tpp_thread_pool::instance().create_iocp();
         _tpp_worker->iocp_done += [this](core::error_e state, void * ovlp)
         {
             _state = state;

@@ -6,6 +6,7 @@ project(Engine)
 #-------------------------------------------------------------------------------------------
 file(GLOB App_Header App/*.h)
 file(GLOB Engine_Header Engine/*.h)
+file(GLOB Engine_thread_Header Engine/Thread/*.h)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty)
@@ -14,15 +15,17 @@ include_directories(${PROJECT_SOURCE_DIR}/../Render)
 
 source_group("Header Files\\App" FILES ${App_Header} )
 source_group("Header Files\\Engine" FILES ${Engine_Header} )
-
+source_group("Header Files\\Engine\\Thread" FILES ${Engine_thread_Header} )
 
 file(GLOB App_Source Src/App/*.cpp)
 file(GLOB Engine_Source Src/Engine/*.cpp)
+file(GLOB Engine_Source Src/Engine/Thread/*.cpp)
 
 source_group("Source Files\\Src\\App" FILES ${App_Source} )
 source_group("Source Files\\Src\\Engine" FILES ${Engine_Source} )
+source_group("Source Files\\Src\\Engine\\Thread" FILES ${Engine_thread_Source} )
 
-add_library(Engine ${App_Source} ${Engine_Source} ${App_Header} ${Engine_Header})
+add_library(Engine ${App_Source} ${Engine_Source} ${App_Header} ${Engine_Header} ${Engine_thread_Source} ${Engine_thread_Header})
 
 #-------------------------------------------------------------------------------------------
 # Defines

@@ -6,8 +6,8 @@ namespace Engine
 	{
 		HINSTANCE _hInst = nullptr;
 		HWND _hWnd = nullptr;
-		int32_t width = 0;
-		int32_t height = 0;
+		int32_t _width = 0;
+		int32_t _height = 0;
 		void* _proc_old = nullptr;
 	};
 
@@ -40,8 +40,8 @@ namespace Engine
 
 	bool AppWindow::CreateAppWindow(int32_t width, int32_t height)
 	{
-		Data->width = width;
-		Data->height = height;
+		Data->_width = width;
+		Data->_height = height;
 		WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
 		wcex.lpfnWndProc = ApplicationWndProc;
@@ -115,12 +115,12 @@ namespace Engine
 
 	int32_t AppWindow::GetWidth() const
 	{
-		return Data->width;
+		return Data->_width;
 	}
 
 	int32_t AppWindow::GetHeight() const
 	{
-		return Data->height;
+		return Data->_height;
 	}
 
 }

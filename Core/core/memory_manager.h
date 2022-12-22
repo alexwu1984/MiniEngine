@@ -1,5 +1,6 @@
 #pragma once
 #pragma warning(disable:4595)
+#include "core/inc.h"
 namespace win32
 {
 	template< class T > inline T Align(const T Ptr, size_t Alignment)

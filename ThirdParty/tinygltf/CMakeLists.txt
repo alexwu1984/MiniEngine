@@ -43,7 +43,7 @@ if (TINYGLTF_HEADER_ONLY)
 else (TINYGLTF_HEADER_ONLY)
   add_library(tinygltf)
   target_sources(tinygltf PRIVATE
-          ${CMAKE_CURRENT_SOURCE_DIR}/tiny_gltf.cc)
+          ${CMAKE_CURRENT_SOURCE_DIR}/tiny_gltf.cpp)
   target_include_directories(tinygltf
           INTERFACE
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

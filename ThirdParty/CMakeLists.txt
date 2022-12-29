@@ -4,7 +4,7 @@ add_subdirectory(DirectXTex)
 add_subdirectory(AGS)
 
 SET(TINYGLTF_BUILD_LOADER_EXAMPLE OFF)
-SET(TINYGLTF_HEADER_ONLY ON)
+SET(TINYGLTF_HEADER_ONLY OFF)
 add_subdirectory(tinygltf)
 
 set_target_properties(
@@ -12,6 +12,7 @@ set_target_properties(
 	texassemble
 	texconv
 	texdiag
+	tinygltf
 	PROPERTIES
 		FOLDER ThirdParty
 )

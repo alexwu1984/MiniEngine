@@ -1,5 +1,5 @@
 #pragma once
-#include "math/vector3.h"
+#include "math/vector4.h"
 
 namespace math
 {
@@ -14,6 +14,11 @@ namespace math
 		Quaternion()
 		{
 			*this = Quaternion::Identity;
+		}
+
+		explicit Quaternion(const Vector4& InVec)
+		{
+			Set(InVec.x, InVec.y, InVec.z, InVec.w);
 		}
 
 		explicit Quaternion(float inX, float inY, float inZ, float inW)

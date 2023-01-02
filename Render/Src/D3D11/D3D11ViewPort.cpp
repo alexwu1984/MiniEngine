@@ -37,7 +37,7 @@ namespace RenderCore
 		EPixelFormat PixelFormat = PF_B8G8R8A8;
 		win32::com_ptr<IDXGISwapChain> SwapChain;
 		win32::com_ptr<ID3D11RenderTargetView> BackBufferRenderTargetView;
-		//win32::com_ptr<FD3D11Texture2D> BackBuffer;
+		win32::com_ptr<ID3D11Texture2D> BackBufferResource;
 	};
 	D3D11ViewPort::D3D11ViewPort(D3D11DynamicRHI* D3D11RHI, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
 		:Data(new D3D11ViewPortP)
@@ -92,6 +92,21 @@ namespace RenderCore
 		Data = {};
 	}
 
+	void* D3D11ViewPort::GetNativeSwapChain() const
+	{
+		return Data->SwapChain.get();
+	}
+
+	void* D3D11ViewPort::GetNativeBackBufferTexture() const
+	{
+		return Data->BackBufferResource.get();
+	}
+
+	void* D3D11ViewPort::GetNativeBackBufferRT() const
+	{
+		return Data->BackBufferRenderTargetView.get();
+	}
+
 	void D3D11ViewPort::SetRenderTarget()
 	{
 		Data->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Data->BackBufferRenderTargetView, nullptr);
@@ -128,14 +143,13 @@ namespace RenderCore
 
 	void D3D11ViewPort::GetSwapChainSurface()
 	{
-		win32::com_ptr<ID3D11Texture2D> BackBufferResource;
-		VERIFYD3D11RESULT(Data->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)BackBufferResource.get_init_ref()));
+		VERIFYD3D11RESULT(Data->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)Data->BackBufferResource.get_init_ref()));
 
 		D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 		RTVDesc.Format = DXGI_FORMAT_UNKNOWN;
 		RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 		RTVDesc.Texture2D.MipSlice = 0;
-		VERIFYD3D11RESULT(Data->D3D11RHI->GetDevice()->CreateRenderTargetView(BackBufferResource.get(), &RTVDesc, Data->BackBufferRenderTargetView.get_init_ref()));
+		VERIFYD3D11RESULT(Data->D3D11RHI->GetDevice()->CreateRenderTargetView(Data->BackBufferResource.get(), &RTVDesc, Data->BackBufferRenderTargetView.get_init_ref()));
 	}
 
 }

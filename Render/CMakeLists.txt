@@ -11,6 +11,7 @@ file(GLOB D3D11_Private_Header RHIPrivate/*.h)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty)
+include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty/DirectXTex)
 include_directories(${PROJECT_SOURCE_DIR}/../Core)
 
 source_group("Header Files\\RHI" FILES ${RHI_Header} )

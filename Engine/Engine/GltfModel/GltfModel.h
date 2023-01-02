@@ -11,6 +11,10 @@ namespace Engine
 		GltfModel();
 		~GltfModel();
 
+		bool Load(const std::wstring& FileName);
+	private:
+		void LoadNode();
+		void LoadMesh();
 	private:
 		std::shared_ptr< GltfModelP> Data;
 	};

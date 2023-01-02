@@ -11,6 +11,8 @@ namespace RenderCore
 	};
 
 	class RHIViewPort;
+	class RHIVertexBuffer;
+	class RHIIndexBuffer;
 
 	class DynamicRHI
 	{
@@ -27,6 +29,10 @@ namespace RenderCore
 		virtual const TCHAR* GetName() = 0;
 
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) { return nullptr; }
+		virtual std::shared_ptr< RHIVertexBuffer> RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count) = 0;
+		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex) = 0;
+		virtual std::shared_ptr< RHIIndexBuffer> RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) = 0;
+		virtual std::shared_ptr< RHIIndexBuffer> RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) = 0;
 	};
 
 	bool IsRHIDeviceAMD();

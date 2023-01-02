@@ -1,6 +1,7 @@
 #include "D3D11/D3D11RHI.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "D3D11/D3D11ViewPort.h"
+#include "D3D11/D3D11ReourceTraits.h"
 
 namespace RenderCore
 {
@@ -104,6 +105,50 @@ namespace RenderCore
 	{
 		std::shared_ptr<D3D11ViewPort> ViewPortRHI = std::make_shared<D3D11ViewPort>(this, (HWND)WindowHandle,SizeX,SizeY);
 		return ViewPortRHI;
+	}
+
+	std::shared_ptr<RHIVertexBuffer> D3D11DynamicRHI::RHICreateVertexBuffer(const void* Data, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)
+	{
+		std::shared_ptr<D3D11VertexBuffer> VertexBufferRHI = std::make_shared<D3D11VertexBuffer>(this);
+		if (VertexBufferRHI->CreateVertexBuffer(Data,InUsage,StrideByteWidth,Count))
+		{
+			return VertexBufferRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	void D3D11DynamicRHI::RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer,const void* InData, int32_t nVertex, int32_t sizePerVertex)
+	{
+		VertexBuffer->UpdateVertexBUffer(InData, nVertex, sizePerVertex);
+	}
+
+	std::shared_ptr< RHIIndexBuffer> D3D11DynamicRHI::RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount)
+	{
+		std::shared_ptr<D3D11IndexBuffer> IndexBufferRHI = std::make_shared<D3D11IndexBuffer>(this);
+		if (IndexBufferRHI->CreateIndexBuffer(InData,InUsage,IndexCount))
+		{
+			return IndexBufferRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIIndexBuffer> D3D11DynamicRHI::RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount)
+	{
+		std::shared_ptr<D3D11IndexBuffer> IndexBufferRHI = std::make_shared<D3D11IndexBuffer>(this);
+		if (IndexBufferRHI->CreateIndexBuffer(InData, InUsage, IndexCount))
+		{
+			return IndexBufferRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
 	}
 
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const

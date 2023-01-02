@@ -11,6 +11,7 @@ namespace Engine
 		std::thread _thread;
 		std::condition_variable _notify;
 		bool _Stop = false;
+		std::thread::id _RenderThreadId = {};
 	};
 
 	RenderThread::RenderThread()
@@ -47,16 +48,30 @@ namespace Engine
 
 	void RenderThread::AppendCommand(std::function<void()> fun)
 	{
+		if (!fun)
 		{
-			std::unique_lock<std::mutex> lock(Data->_Lock);
-			Data->_CmdQueue.push(fun);
+			return;
 		}
-		Data->_notify.notify_one();
+
+		if (std::this_thread::get_id() == Data->_RenderThreadId)
+		{
+			fun();
+		}
+		else
+		{
+			{
+				std::unique_lock<std::mutex> lock(Data->_Lock);
+				Data->_CmdQueue.push(fun);
+			}
+			Data->_notify.notify_one();
+		}
+
 	}
 
 
 	void RenderThread::Run()
 	{
+		Data->_RenderThreadId = std::this_thread::get_id();
 		while (!Data->_Stop)
 		{
 			{

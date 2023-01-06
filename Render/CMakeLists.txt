@@ -35,6 +35,7 @@ add_library(Render ${Render_RHI_Src} ${Render_D3D11_Src} ${RHI_Header} ${D3D11_H
 #-------------------------------------------------------------------------------------------
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+add_definitions(-DGUARDED_TEXTURE_CREATES)
 
 target_link_libraries(Render LINK_PUBLIC DirectXTex)
 target_link_libraries(Render LINK_PUBLIC amd_ags)

@@ -28,12 +28,13 @@ if (TINYGLTF_BUILD_BUILDER_EXAMPLE)
   ADD_SUBDIRECTORY ( examples/build-gltf )
 endif (TINYGLTF_BUILD_BUILDER_EXAMPLE)
 
+ add_definitions(-DSTBI_WINDOWS_UTF8)
 #
 # for add_subdirectory and standalone build
 #
 if (TINYGLTF_HEADER_ONLY)
   add_library(tinygltf INTERFACE)
-
+ 
   target_include_directories(tinygltf
           INTERFACE
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -42,8 +43,11 @@ if (TINYGLTF_HEADER_ONLY)
 
 else (TINYGLTF_HEADER_ONLY)
   add_library(tinygltf)
+
+  file(GLOB Header ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
+
   target_sources(tinygltf PRIVATE
-          ${CMAKE_CURRENT_SOURCE_DIR}/tiny_gltf.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/tiny_gltf.cpp ${Header})
   target_include_directories(tinygltf
           INTERFACE
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -51,12 +55,14 @@ else (TINYGLTF_HEADER_ONLY)
           )
 endif (TINYGLTF_HEADER_ONLY)
 
+
+
 if (TINYGLTF_INSTALL)
-
+    
   # Do not install .lib even if !TINYGLTF_HEADER_ONLY
-
+  #STBI_WINDOWS_UTF8
   INSTALL ( FILES
-    json.hpp
+    json.h
     stb_image.h
     stb_image_write.h
     tiny_gltf.h

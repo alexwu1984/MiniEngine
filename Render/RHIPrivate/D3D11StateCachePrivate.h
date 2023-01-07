@@ -6,8 +6,10 @@ namespace RenderCore
 	//-----------------------------------------------------------------------------
 //	FD3D11StateCache Class Definition
 //-----------------------------------------------------------------------------
+	class D3D11CommandContext;
 	class D3D11StateCacheBase
 	{
+		friend D3D11CommandContext;
 	public:
 		enum ESRV_Type
 		{

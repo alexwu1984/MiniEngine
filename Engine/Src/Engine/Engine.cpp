@@ -65,11 +65,11 @@ namespace Engine
 
 	void MainEngine::Render()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND([Data = Data](){
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Data = Data](){
 			Data->MainViewPort->Clear(1, 0, 0, 1);
 
 			Data->MainViewPort->Present();
-			});
+		}));
 
 	}
 

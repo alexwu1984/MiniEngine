@@ -24,7 +24,7 @@ namespace RenderCore
 
 	}
 
-	bool D3D11VertexBuffer::CreateVertexBuffer(const void* InData, int32_t InUsage, int32_t StrideByteWidth, int32_t Count)
+	bool D3D11VertexBuffer::CreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)
 	{
 		if (!Data->D3D11RHI)
 		{

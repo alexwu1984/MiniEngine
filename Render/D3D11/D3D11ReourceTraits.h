@@ -1,6 +1,9 @@
 #pragma once
 #include "D3D11/D3D11IndexBuffer.h"
 #include "D3D11/D3D11VertexBuffer.h"
+#include "D3D11/D3D11Texture2D.h"
+#include "D3D11/D3D11Texture1D.h"
+#include "D3D11/D3D11RenderTarget.h"
 
 namespace RenderCore
 {
@@ -20,5 +23,29 @@ namespace RenderCore
 	{
 		typedef D3D11IndexBuffer TConcreteType;
 	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHITexture2D>
+	{
+		typedef D3D11Texture2D TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHITexture1D>
+	{
+		typedef D3D11Texture1D TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHIRenderTarget>
+	{
+		typedef D3D11RenderTarget TConcreteType;
+	};
+
+	template<typename TRHIType>
+	static FORCEINLINE typename TD3D11ResourceTraits<TRHIType>::TConcreteType* RHIResourceCast(TRHIType* Resource)
+	{
+		return static_cast<typename TD3D11ResourceTraits<TRHIType>::TConcreteType*>(Resource);
+	}
 }
 

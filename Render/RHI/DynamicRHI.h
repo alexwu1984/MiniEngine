@@ -10,9 +10,14 @@ namespace RenderCore
 		E_D3D12,
 	};
 
+	class RHICommandContext;
 	class RHIViewPort;
 	class RHIVertexBuffer;
 	class RHIIndexBuffer;
+	class RHITexture2D;
+	class RHITexture1D;
+	class RHIRenderTarget;
+
 
 	class DynamicRHI
 	{
@@ -28,11 +33,23 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() = 0;
 
+		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() = 0;
+
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) { return nullptr; }
 		virtual std::shared_ptr< RHIVertexBuffer> RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count) = 0;
 		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex) = 0;
 		virtual std::shared_ptr< RHIIndexBuffer> RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) = 0;
 		virtual std::shared_ptr< RHIIndexBuffer> RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) = 0;
+
+		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, ETextureCreateFlags Flags, int32_t width, int32_t height, void* pBuffer = nullptr, int rowBytes = 0) = 0;
+		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) = 0;
+		virtual std::shared_ptr< RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName) = 0;
+
+		virtual std::shared_ptr< RHITexture1D> RHICreateTexture1D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes) = 0;
+
+		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth) = 0;
+		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool CreateDepth) = 0;
+
 	};
 
 	bool IsRHIDeviceAMD();

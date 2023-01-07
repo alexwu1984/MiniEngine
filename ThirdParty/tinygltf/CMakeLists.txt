@@ -29,6 +29,8 @@ if (TINYGLTF_BUILD_BUILDER_EXAMPLE)
 endif (TINYGLTF_BUILD_BUILDER_EXAMPLE)
 
  add_definitions(-DSTBI_WINDOWS_UTF8)
+ add_definitions(-DSTBI_MSC_SECURE_CRT)
+ add_definitions(-D_SILENCE_CXX20_CISO646_REMOVED_WARNING)
 #
 # for add_subdirectory and standalone build
 #

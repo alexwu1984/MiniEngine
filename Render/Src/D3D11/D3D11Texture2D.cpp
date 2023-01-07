@@ -15,12 +15,13 @@ namespace RenderCore
 		win32::com_ptr<ID3D11ShaderResourceView> TexSRV;
 		win32::com_ptr<ID3D11RenderTargetView> TexRTV;
 		win32::com_ptr<ID3D11DepthStencilView> TexDSV;
+		core::vec2i Size;
 	};
 
 	/**
  * Creates a 2D texture optionally guarded by a structured exception handler.
  */
-	void SafeCreateTexture2D(ID3D11Device* Direct3DDevice, int32_t UEFormat, const D3D11_TEXTURE2D_DESC* TextureDesc, const D3D11_SUBRESOURCE_DATA* SubResourceData, ID3D11Texture2D** OutTexture2D)
+	bool SafeCreateTexture2D(ID3D11Device* Direct3DDevice, int32_t UEFormat, const D3D11_TEXTURE2D_DESC* TextureDesc, const D3D11_SUBRESOURCE_DATA* SubResourceData, ID3D11Texture2D** OutTexture2D)
 	{
 #if GUARDED_TEXTURE_CREATES
 		bool bDriverCrash = true;
@@ -47,7 +48,9 @@ namespace RenderCore
 					TextureDesc->MipLevels,
 					UEFormat
 				);
+				return false;
 			}
+			return true;
 		}
 #endif // #if GUARDED_TEXTURE_CREATES
 	}
@@ -63,14 +66,13 @@ namespace RenderCore
 
 	}
 
-	bool D3D11Texture2D::InitTexture(uint32_t Format, uint32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
+	bool D3D11Texture2D::CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
-
+		Data->Size.cx = SizeX;
+		Data->Size.cy = SizeY;
 		const bool bSRGB = (Flags & TexCreate_SRGB) != 0;
 
 		const DXGI_FORMAT PlatformResourceFormat = GetPlatformTextureResourceFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat, Flags);
-		const DXGI_FORMAT PlatformShaderResourceFormat = FindShaderResourceDXGIFormat(PlatformResourceFormat, bSRGB);
-		const DXGI_FORMAT PlatformRenderTargetFormat = FindShaderResourceDXGIFormat(PlatformResourceFormat, bSRGB);
 
 		uint32_t CPUAccessFlags = 0;
 		D3D11_USAGE TextureUsage = D3D11_USAGE_DEFAULT;
@@ -190,25 +192,24 @@ namespace RenderCore
 		HRESULT hr = S_OK;
 		if (Flags & TexCreate_GenerateMipCapable)
 		{
-			hr = Device->CreateTexture2D(&TextureDesc, nullptr, Data->Tex2D.get_init_ref());
-			if (FAILED(hr))
+			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, nullptr, Data->Tex2D.get_init_ref()))
 			{
 				return false;
 			}
-			if (InBuffer != NULL)
+
+			if (InBuffer)
 			{
 				DeviceContext->UpdateSubresource(Data->Tex2D.get(), 0, nullptr, InBuffer, RowBytes, 0);
 			}
 		}
 		else
 		{
-			D3D11_SUBRESOURCE_DATA initData{};
-			initData.pSysMem = InBuffer;
-			initData.SysMemPitch = RowBytes;
-			initData.SysMemSlicePitch = SizeY * RowBytes;
+			D3D11_SUBRESOURCE_DATA SubRes{};
+			SubRes.pSysMem = InBuffer;
+			SubRes.SysMemPitch = RowBytes;
+			SubRes.SysMemSlicePitch = SizeY * RowBytes;
 
-			hr = Device->CreateTexture2D(&TextureDesc, &initData,Data->Tex2D.get_init_ref());
-			if (FAILED(hr))
+			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, &SubRes, Data->Tex2D.get_init_ref()))
 			{
 				return false;
 			}
@@ -288,6 +289,59 @@ namespace RenderCore
 		}
 
 		return true;
+	}
+
+	bool D3D11Texture2D::CreateFromFile(const std::wstring& FileName)
+	{
+		std::string Utf8FileName = core::ucs2_u8(FileName);
+		int32_t ImageChannel = 0;
+		int32_t SizeX = 0;
+		int32_t SizeY = 0;
+		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
+		if (ImageBuffer)
+		{
+			return CreateWithData(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
+		}
+		return false;
+	}
+
+	bool D3D11Texture2D::CreateHDRFromFile(const std::wstring& FileName)
+	{
+		std::string Utf8FileName = core::ucs2_u8(FileName);
+		int32_t ImageChannel = 0;
+		int32_t SizeX = 0;
+		int32_t SizeY = 0;
+		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
+		if (ImageBuffer)
+		{
+			return CreateWithData(PF_FloatRGBA, TexCreate_ShaderResource, SizeX, SizeY, ImageBuffer.get(), 4 * SizeX * sizeof(float));
+		}
+		return false;
+	}
+
+	core::vec2i D3D11Texture2D::GetSize() const
+	{
+		return Data->Size;
+	}
+
+	ID3D11Texture2D* D3D11Texture2D::GetNativeTex() const
+	{
+		return Data->Tex2D.get();
+	}
+
+	ID3D11RenderTargetView* D3D11Texture2D::GetRTV() const
+	{
+		return Data->TexRTV.get();
+	}
+
+	ID3D11ShaderResourceView* D3D11Texture2D::GetSRV() const
+	{
+		return Data->TexSRV.get();
+	}
+
+	ID3D11DepthStencilView* D3D11Texture2D::GetDSV() const
+	{
+		return Data->TexDSV.get();
 	}
 
 }

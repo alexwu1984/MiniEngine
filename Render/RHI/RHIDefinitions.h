@@ -236,7 +236,7 @@ namespace RenderCore
 	};
 
 	/** Flags used for texture creation */
-	enum ETextureCreateFlags
+	enum ETextureCreateFlags : int32_t
 	{
 		TexCreate_None = 0,
 

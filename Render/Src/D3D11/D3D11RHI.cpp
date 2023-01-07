@@ -13,6 +13,7 @@ namespace RenderCore
 	D3D11DynamicRHI::D3D11DynamicRHI()
 		:Data(std::make_shared<D3D11DynamicRHIP>())
 	{
+		Data->CommandContext = std::make_shared<D3D11CommandContext>(this);
 		// Initialize the platform pixel format map.
 		GPixelFormats[PF_Unknown].PlatformFormat = DXGI_FORMAT_UNKNOWN;
 		GPixelFormats[PF_A32B32G32R32F].PlatformFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -101,6 +102,11 @@ namespace RenderCore
 		Data = {};
 	}
 
+	std::shared_ptr<RHICommandContext> D3D11DynamicRHI::GetDefaultCommandContext()
+	{
+		return Data->CommandContext;
+	}
+
 	std::shared_ptr<RHIViewPort> D3D11DynamicRHI::RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 	{
 		std::shared_ptr<D3D11ViewPort> ViewPortRHI = std::make_shared<D3D11ViewPort>(this, (HWND)WindowHandle,SizeX,SizeY);
@@ -151,6 +157,84 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
+	{
+		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
+		if (Tex2DRHI->CreateWithData(Format, Flags, SizeX, SizeY, InBuffer, RowBytes))
+		{
+			return Tex2DRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(const std::wstring& FileName)
+	{
+		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
+		if (Tex2DRHI->CreateFromFile(FileName))
+		{
+			return Tex2DRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
+	{
+		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
+		if (Tex2DRHI->CreateHDRFromFile(FileName))
+		{
+			return Tex2DRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHITexture1D> D3D11DynamicRHI::RHICreateTexture1D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes)
+	{
+		std::shared_ptr<D3D11Texture1D> Tex1DRHI = std::make_shared<D3D11Texture1D>(this);
+		if (Tex1DRHI->CreateWithData(Format,Flags,SizeX,InBuffer,RowBytes))
+		{
+			return Tex1DRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth)
+	{
+		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);
+		if (RenderTargetRHI->CreateWithTexture(Tex,CreateDepth))
+		{
+			return RenderTargetRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool CreateDepth)
+	{
+		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);
+		if (RenderTargetRHI->Create(Format, SizeX,SizeY,CreateDepth))
+		{
+			return RenderTargetRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const
 	{
 		return Data->Direct3DDevice.get();
@@ -164,6 +248,11 @@ namespace RenderCore
 	IDXGIFactory1* D3D11DynamicRHI::GetFactory() const
 	{
 		return Data->DXGIFactory1.get();
+	}
+
+	D3D11StateCacheBase& D3D11DynamicRHI::GetStateCache()
+	{
+		return Data->StateCache;
 	}
 
 }

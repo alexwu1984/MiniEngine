@@ -6,6 +6,7 @@
 #include <dxgi1_6.h>
 #include <delayimp.h>
 #include "D3D11StateCachePrivate.h"
+#include "D3D11/D3D11CommandContext.h"
 
 namespace RenderCore
 {
@@ -62,6 +63,8 @@ namespace RenderCore
 		D3D_FEATURE_LEVEL FeatureLevel = D3D_FEATURE_LEVEL_11_0;
 
 		D3D11StateCacheBase StateCache;
+
+		std::shared_ptr< D3D11CommandContext> CommandContext;
 	};
 
 	/** Find an appropriate DXGI format for the input format and SRGB setting. */
@@ -163,7 +166,7 @@ namespace RenderCore
 		{
 			return FindSharedResourceDXGIFormat(InFormat, InFlags & TexCreate_SRGB);
 		}
-		return InFormat;
+		return FindShaderResourceDXGIFormat(InFormat, InFlags & TexCreate_SRGB);
 	}
 
 	inline const TCHAR* GetD3D11TextureFormatString(DXGI_FORMAT TextureFormat)

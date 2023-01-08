@@ -1,17 +1,18 @@
 #include "Engine/Thread/RenderThread.h"
+#include "win/sync.h"
 
 namespace Engine
 {
 	RenderThread* GRenderThread = nullptr;
 	struct RenderThreadP
 	{
-		std::queue<std::function<void()>> _CmdQueue;
-		std::mutex _Lock;
-		std::mutex _DataLock;
-		std::thread _thread;
-		std::condition_variable _notify;
-		bool _Stop = false;
-		std::thread::id _RenderThreadId = {};
+		std::queue<std::function<void()>> CmdQueue;
+		std::mutex DataLock;
+		std::thread Thread;
+		std::condition_variable Notify;
+		win32::signal WaitForFinish;
+		bool Stop = false;
+		std::thread::id RenderThreadId = {};
 	};
 
 	RenderThread::RenderThread()
@@ -29,20 +30,21 @@ namespace Engine
 
 	void RenderThread::Start()
 	{
-		if (!Data->_thread.joinable())
+		if (!Data->Thread.joinable())
 		{
-			Data->_thread = std::thread(&RenderThread::Run, this);
-			Data->_Stop = false;
+			Data->WaitForFinish.create(true, true);
+			Data->Thread = std::thread(&RenderThread::Run, this);
+			Data->Stop = false;
 		}
 	}
 
 	void RenderThread::Stop()
 	{
-		if (Data->_thread.joinable())
+		if (Data->Thread.joinable())
 		{
-			Data->_Stop = true;
-			Data->_notify.notify_one();
-			Data->_thread.join();
+			Data->Stop = true;
+			Data->Notify.notify_one();
+			Data->Thread.join();
 		}
 	}
 
@@ -53,38 +55,45 @@ namespace Engine
 			return;
 		}
 
-		if (std::this_thread::get_id() == Data->_RenderThreadId)
+		if (std::this_thread::get_id() == Data->RenderThreadId)
 		{
 			fun();
 		}
 		else
 		{
 			{
-				std::unique_lock<std::mutex> lock(Data->_Lock);
-				Data->_CmdQueue.push(fun);
+				std::unique_lock<std::mutex> lock(Data->DataLock);
+				Data->CmdQueue.push(fun);
 			}
-			Data->_notify.notify_one();
+			Data->Notify.notify_one();
 		}
 
 	}
 
 
+	void RenderThread::WaitForFinish()
+	{
+		Data->WaitForFinish.wait();
+	}
+
 	void RenderThread::Run()
 	{
-		Data->_RenderThreadId = std::this_thread::get_id();
-		while (!Data->_Stop)
+		Data->RenderThreadId = std::this_thread::get_id();
+		while (!Data->Stop)
 		{
 			{
-				std::unique_lock<std::mutex> ConLock(Data->_Lock);
-				Data->_notify.wait(ConLock, [this]() {
-					return Data->_Stop || !Data->_CmdQueue.empty();
+				std::unique_lock<std::mutex> ConLock(Data->DataLock);
+				Data->Notify.wait(ConLock, [this]() {
+					return Data->Stop || !Data->CmdQueue.empty();
 					});
 			}
 
+			Data->WaitForFinish.reset();
+
 			std::queue<std::function<void()>> SwapCmd;
 			{
-				std::unique_lock<std::mutex> ConLock(Data->_Lock);
-				Data->_CmdQueue.swap(SwapCmd);
+				std::unique_lock<std::mutex> ConLock(Data->DataLock);
+				Data->CmdQueue.swap(SwapCmd);
 			}
 			
 			while (!SwapCmd.empty())
@@ -97,6 +106,7 @@ namespace Engine
 				SwapCmd.pop();
 			}
 
+			Data->WaitForFinish.set();
 		}
 	}
 

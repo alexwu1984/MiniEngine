@@ -35,13 +35,24 @@ namespace win32
         core::bitflag<uint32_t> flags = nullptr;
         flags.set(CREATE_EVENT_INITIAL_SET, init);
         flags.set(CREATE_EVENT_MANUAL_RESET, manual);
-        _handle = CreateEventExW(NULL, core::u8_ucs2(name).c_str(), flags, SYNCHRONIZE | EVENT_MODIFY_STATE);
+        _handle = CreateEventExW(nullptr, core::u8_ucs2(name).c_str(), flags, SYNCHRONIZE | EVENT_MODIFY_STATE);
         if (!_handle)
             return win32::winerr();
         return core::error_ok;
     }
 
-    core::error_e signal::open(std::string name)
+	core::error_e signal::create(bool init, bool manual)
+	{
+		core::bitflag<uint32_t> flags = nullptr;
+		flags.set(CREATE_EVENT_INITIAL_SET, init);
+		flags.set(CREATE_EVENT_MANUAL_RESET, manual);
+		_handle = CreateEventExW(nullptr, nullptr, flags, SYNCHRONIZE | EVENT_MODIFY_STATE);
+		if (!_handle)
+			return win32::winerr();
+		return core::error_ok;
+	}
+
+	core::error_e signal::open(std::string name)
     {
         _handle = OpenEventW(SYNCHRONIZE | EVENT_MODIFY_STATE, false, core::u8_ucs2(name).c_str());
         if (!_handle)

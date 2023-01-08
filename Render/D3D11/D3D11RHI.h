@@ -31,6 +31,7 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, int32_t SizeY, void* InBuffer = nullptr, int RowBytes = 0) override;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) override;
+		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const math::Vector4& Color) override;
 		virtual std::shared_ptr< RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName) override;
 
 		virtual std::shared_ptr< RHITexture1D> RHICreateTexture1D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes) override;

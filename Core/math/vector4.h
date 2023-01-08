@@ -15,6 +15,10 @@ namespace math
 			{
 				float x, y, z, w;
 			};
+			struct
+			{
+				float r, g, b, a;
+			};
 		};
 
 

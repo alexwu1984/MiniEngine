@@ -14,6 +14,7 @@ namespace Engine
 		void Stop();
 
 		void AppendCommand(std::function<void()> fun);
+		void WaitForFinish();
 
 	private:
 		void Run();

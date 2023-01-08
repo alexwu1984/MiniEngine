@@ -47,37 +47,25 @@ namespace Engine
 ****************************************************/
 	struct GltfMeshInfo
 	{
-		GltfMeshInfo()
-		{
-			nNumVertices = 0;
-			nNumFaces = 0;
-			pVertices = nullptr;
-			pNormals = nullptr;
-			pTextureCoords = nullptr;
-			pFacesIndex = nullptr;
-			pBoneIDs = nullptr;
-			pBoneWeights = nullptr;
-			pFacesIndex32 = nullptr;
-		}
 		//顶点数目
-		uint32_t nNumVertices;
+		uint32_t nNumVertices = 0;
 		//面数目（三角形数目）
-		uint32_t nNumFaces;
+		uint32_t nNumFaces = 0;
 		//顶点位置
-		math::Vector3* pVertices = nullptr;
+		math::Vector3* Vertices = nullptr;
 		//顶点法向量
-		math::Vector3* pNormals = nullptr;
+		math::Vector3* Normals = nullptr;
 		//顶点纹理采样坐标
-		math::Vector2* pTextureCoords = nullptr;
+		math::Vector2* TextureCoords = nullptr;
 		//切线
-		math::Vector4* pTangents = nullptr;
+		math::Vector4* Tangents = nullptr;
 		//faces（三角形）索引
-		uint16_t* pFacesIndex = nullptr;
-		uint32_t* pFacesIndex32 = nullptr;
-		int type;
+		uint16_t* FacesIndex = nullptr;
+		uint32_t* FacesIndex32 = nullptr;
+		int type = 0;
 		////骨骼ID
-		VertexBoneID* pBoneIDs;
+		VertexBoneID* BoneIDs = nullptr;
 		////骨骼权重
-		VertexBoneWeight* pBoneWeights;
+		VertexBoneWeight* BoneWeights = nullptr;
 	};
 }

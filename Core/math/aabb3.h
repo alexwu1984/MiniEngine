@@ -111,6 +111,16 @@ namespace math
 
 		bool GetIntersect(AABB3& AABB, AABB3& OutAABB)const;
 
+		float GetRadius() const
+		{
+			return std::sqrt(GetSqrRadius());
+		}
+
+		float GetSqrRadius() const
+		{
+			return 0.25f * (_Max - _Min).GetSqrLength();
+		}
+
 	private:
 		static const Vector3 _A[3]; //3个轴
 		Vector3 _Center;			//中心点

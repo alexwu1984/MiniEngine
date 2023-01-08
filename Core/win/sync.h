@@ -14,6 +14,7 @@ namespace win32
         ~signal();
 
         core::error_e create(std::string name, bool init, bool manual);
+		core::error_e create(bool init, bool manual);
         core::error_e open(std::string name);
 
         core::error_e wait();

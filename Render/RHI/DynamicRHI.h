@@ -1,6 +1,7 @@
 #pragma once
 #include "win/win32.h"
 #include "RHI/RHIDefinitions.h"
+#include "math/vector4.h"
 
 namespace RenderCore
 {
@@ -43,6 +44,7 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, ETextureCreateFlags Flags, int32_t width, int32_t height, void* pBuffer = nullptr, int rowBytes = 0) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) = 0;
+		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const math::Vector4& Color) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName) = 0;
 
 		virtual std::shared_ptr< RHITexture1D> RHICreateTexture1D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes) = 0;

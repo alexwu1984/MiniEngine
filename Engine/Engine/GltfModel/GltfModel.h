@@ -4,6 +4,9 @@
 namespace Engine
 {
 	struct GltfModelP;
+	class GltfMaterial;
+	class GltfNode;
+	class GltfMesh;
 
 	class GltfModel
 	{
@@ -15,6 +18,7 @@ namespace Engine
 	private:
 		void LoadNode();
 		void LoadMesh();
+		std::vector <std::shared_ptr<GltfMaterial>> LoadMaterial();
 	private:
 		std::shared_ptr< GltfModelP> Data;
 	};

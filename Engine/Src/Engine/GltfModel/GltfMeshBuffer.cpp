@@ -29,48 +29,48 @@ namespace Engine
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([MeshInfo = MeshInfo, Data = Data]() {
 			auto RHI = GEngine->GetRHI();
-			Data->VerticesBuffer[VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->pVertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
-			Data->VerticesBuffer[VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->pNormals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
-			if (MeshInfo->pTextureCoords)
+			Data->VerticesBuffer[VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
+			Data->VerticesBuffer[VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
+			if (MeshInfo->TextureCoords)
 			{
-				Data->VerticesBuffer[VT_Texcoord] = RHI->RHICreateVertexBuffer(MeshInfo->pTextureCoords, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
+				Data->VerticesBuffer[VT_Texcoord] = RHI->RHICreateVertexBuffer(MeshInfo->TextureCoords, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
 
 			}
 			else
 			{
-				Data->VerticesBuffer[VT_Texcoord] = RHI->RHICreateVertexBuffer(MeshInfo->pNormals, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
+				Data->VerticesBuffer[VT_Texcoord] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
 			}
-			if (MeshInfo->pTangents)
+			if (MeshInfo->Tangents)
 			{
-				Data->VerticesBuffer[VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->pTangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				Data->VerticesBuffer[VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->Tangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 			}
 			else
 			{
-				Data->VerticesBuffer[VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->pVertices, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				Data->VerticesBuffer[VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 			}
-			if (MeshInfo->pBoneIDs)
+			if (MeshInfo->BoneIDs)
 			{
 				int nSize = MeshInfo->nNumVertices * 4;
 				std::vector<float> BondId;
 				BondId.resize(nSize);
-				uint16_t* pSrcID = (uint16_t*)MeshInfo->pBoneIDs->BoneIDs;
+				uint16_t* pSrcID = (uint16_t*)MeshInfo->BoneIDs->BoneIDs;
 				for (int i = 0; i < nSize; i++)
 				{
 					BondId[i] = (float)pSrcID[i];
 				}
 				Data->VerticesBuffer[VT_BoneID] = RHI->RHICreateVertexBuffer(BondId.data(), RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 
-				Data->VerticesBuffer[VT_BoneWidget] = RHI->RHICreateVertexBuffer(MeshInfo->pBoneWeights->BoneWeights, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				Data->VerticesBuffer[VT_BoneWidget] = RHI->RHICreateVertexBuffer(MeshInfo->BoneWeights->BoneWeights, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 				Data->AtrributeCount += 2;
 			}
 
-			if (MeshInfo->pFacesIndex)
+			if (MeshInfo->FacesIndex)
 			{
-				Data->IndexBuffer = RHI->RHICreateIndexBuffer(MeshInfo->pFacesIndex, RenderCore::BUF_IndexBuffer, MeshInfo->nNumFaces);
+				Data->IndexBuffer = RHI->RHICreateIndexBuffer(MeshInfo->FacesIndex, RenderCore::BUF_IndexBuffer, MeshInfo->nNumFaces);
 			}
 			else
 			{
-				Data->IndexBuffer = RHI->RHICreateIndexBuffer(MeshInfo->pFacesIndex32, RenderCore::BUF_IndexBuffer, MeshInfo->nNumFaces);
+				Data->IndexBuffer = RHI->RHICreateIndexBuffer(MeshInfo->FacesIndex32, RenderCore::BUF_IndexBuffer, MeshInfo->nNumFaces);
 			}
 
 		}));

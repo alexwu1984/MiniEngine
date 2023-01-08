@@ -183,6 +183,20 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(const math::Vector4& Color)
+	{
+		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
+		uint8_t tmp[] = { (uint8_t)(Color.r * 255),(uint8_t)(Color.g * 255),(uint8_t)(Color.b * 255),(uint8_t)(Color.a * 255) };
+		if (Tex2DRHI->CreateWithData(EPixelFormat::PF_B8G8R8A8,ETextureCreateFlags::TexCreate_ShaderResource,1,1,tmp,4))
+		{
+			return Tex2DRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
 	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);

@@ -4,29 +4,30 @@ project(Render)
 #-------------------------------------------------------------------------------------------
 # Library definition
 #-------------------------------------------------------------------------------------------
-file(GLOB RHI_Header RHI/*.h)
-file(GLOB D3D11_Header D3D11/*.h)
-file(GLOB D3D12_Header D3D12/*.h)
-file(GLOB D3D11_Private_Header RHIPrivate/*.h)
+file(GLOB Header_RHI RHI/*.h)
+file(GLOB Header_D3D11 D3D11/*.h)
+file(GLOB Header_D3D12 D3D12/*.h)
+file(GLOB Header_RHIPrivate RHIPrivate/*.h)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty)
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty/DirectXTex)
 include_directories(${PROJECT_SOURCE_DIR}/../Core)
 
-source_group("Header Files\\RHI" FILES ${RHI_Header} )
-source_group("Header Files\\D3D11" FILES ${D3D11_Header} )
-source_group("Header Files\\D3D12" FILES ${D3D12_Header} )
-source_group("Header Files\\RHIPrivate" FILES ${D3D11_Private_Header} )
+source_group("Header Files\\RHI" FILES ${Header_RHI} )
+source_group("Header Files\\D3D11" FILES ${Header_D3D11} )
+source_group("Header Files\\D3D12" FILES ${Header_D3D12} )
+source_group("Header Files\\RHIPrivate" FILES ${Header_RHIPrivate} )
 
-file(GLOB Render_RHI_Src Src/RHI/*.cpp)
-file(GLOB Render_D3D11_Src Src/D3D11/*.cpp)
+file(GLOB Src_RHI Src/RHI/*.cpp)
+file(GLOB Src_D3D11 Src/D3D11/*.cpp)
+file(GLOB Src_RHIPrivate Src/RHIPrivate/*.cpp)
 
+source_group("Source Files\\Src\\RHI" FILES ${Src_RHI} )
+source_group("Source Files\\Src\\D3D11" FILES ${Src_D3D11} )
+source_group("Source Files\\Src\\RHIPrivate" FILES ${Src_RHIPrivate} )
 
-source_group("Source Files\\Src\\RHI" FILES ${Render_RHI_Src} )
-source_group("Source Files\\Src\\D3D11" FILES ${Render_D3D11_Src} )
-
-add_library(Render ${Render_RHI_Src} ${Render_D3D11_Src} ${RHI_Header} ${D3D11_Header} ${D3D12_Header} ${D3D11_Private_Header} )
+add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} )
 
 
 

@@ -14,9 +14,9 @@ namespace RenderCore
 	};
 
 	D3D11Texture1D::D3D11Texture1D(D3D11DynamicRHI* D3D11RHI)
-		:Data(std::make_shared<D3D11Texture1DP>())
+		:Impl(std::make_shared<D3D11Texture1DP>())
 	{
-		Data->D3D11RHI = D3D11RHI;
+		Impl->D3D11RHI = D3D11RHI;
 	}
 
 	bool SafeCreateTexture1D(ID3D11Device* Direct3DDevice, int32_t UEFormat, const D3D11_TEXTURE1D_DESC* TextureDesc, const D3D11_SUBRESOURCE_DATA* SubResourceData, ID3D11Texture1D** OutTexture2D)
@@ -53,23 +53,23 @@ namespace RenderCore
 	}
 
 
-	bool D3D11Texture1D::CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes)
+	bool D3D11Texture1D::CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int32_t RowBytes)
 	{
 		const DXGI_FORMAT PlatformResourceFormat = GetPlatformTextureResourceFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat, Flags);
 
 		CD3D11_TEXTURE1D_DESC texDesc(PlatformResourceFormat, SizeX, 1, 1);
-		D3D11_SUBRESOURCE_DATA initData{ InBuffer, RowBytes };
+		D3D11_SUBRESOURCE_DATA initData{ InBuffer, uint32_t(RowBytes)};
 
-		auto Device = Data->D3D11RHI->GetDevice();
+		auto Device = Impl->D3D11RHI->GetDevice();
 
-		if (!SafeCreateTexture1D(Device, Format, &texDesc, &initData, Data->Tex1D.get_init_ref()))
+		if (!SafeCreateTexture1D(Device, Format, &texDesc, &initData, Impl->Tex1D.get_init_ref()))
 		{
 			return false;
 		}
 
 		if (Flags & TexCreate_ShaderResource)
 		{
-			return SUCCEEDED(Device->CreateShaderResourceView(Data->Tex1D.get(), nullptr, Data->TexSRV.get_init_ref()));
+			return SUCCEEDED(Device->CreateShaderResourceView(Impl->Tex1D.get(), nullptr, Impl->TexSRV.get_init_ref()));
 		}
 
 		return true;
@@ -77,17 +77,17 @@ namespace RenderCore
 
 	int32_t D3D11Texture1D::GetSize() const
 	{
-		return Data->SizeX;
+		return Impl->SizeX;
 	}
 
 	ID3D11Texture1D* D3D11Texture1D::GetNativeTex() const
 	{
-		return Data->Tex1D.get();
+		return Impl->Tex1D.get();
 	}
 
 	ID3D11ShaderResourceView* D3D11Texture1D::GetSRV() const
 	{
-		return Data->TexSRV.get();
+		return Impl->TexSRV.get();
 	}
 
 }

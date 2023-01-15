@@ -94,4 +94,29 @@ namespace Engine
 		return Data->IsTransParent;
 	}
 
+	std::shared_ptr<RHITexture2D> GltfMaterial::GetBaseColorTexture() const
+	{
+		return Data->BaseColorTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> GltfMaterial::GetMetallicRoughnessTexture() const
+	{
+		return Data->MetallicRoughnessTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> GltfMaterial::GetNormalTexture() const
+	{
+		return Data->NormalTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> GltfMaterial::GetEmissiveTexture() const
+	{
+		return Data->EmissiveTexture;
+	}
+
+	std::shared_ptr<RenderCore::RHITexture2D> GltfMaterial::GetOcclusionTexture() const
+	{
+		return Data->OcclusionTexture;
+	}
+
 }

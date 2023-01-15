@@ -14,9 +14,9 @@ namespace RenderCore
 	};
 
 	D3D11VertexBuffer::D3D11VertexBuffer(D3D11DynamicRHI* D3D11RHI)
-		:Data(std::make_shared<D3D11VertexBufferP>())
+		:Impl(std::make_shared<D3D11VertexBufferP>())
 	{
-		Data->D3D11RHI = D3D11RHI;
+		Impl->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11VertexBuffer::~D3D11VertexBuffer()
@@ -26,12 +26,12 @@ namespace RenderCore
 
 	bool D3D11VertexBuffer::CreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)
 	{
-		if (!Data->D3D11RHI)
+		if (!Impl->D3D11RHI)
 		{
 			return false;
 		}
-		Data->Stride = StrideByteWidth;
-		Data->Count = Count;
+		Impl->Stride = StrideByteWidth;
+		Impl->Count = Count;
 
 		D3D11_BUFFER_DESC Desc;
 		ZeroMemory(&Desc, sizeof(D3D11_BUFFER_DESC));
@@ -72,33 +72,33 @@ namespace RenderCore
 			Desc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 		}
 
-		D3D11_SUBRESOURCE_DATA vertexInitData;
-		memset(&vertexInitData, 0, sizeof(D3D11_SUBRESOURCE_DATA));
+		D3D11_SUBRESOURCE_DATA vertexInitData{};
+		//memset(&vertexInitData, 0, sizeof(D3D11_SUBRESOURCE_DATA));
 		vertexInitData.pSysMem = InData;
-		HRESULT hr = Data->D3D11RHI->GetDevice()->CreateBuffer(&Desc, &vertexInitData, Data->Buffer.get_init_ref());
+		HRESULT hr = Impl->D3D11RHI->GetDevice()->CreateBuffer(&Desc, &vertexInitData, Impl->Buffer.get_init_ref());
 		return SUCCEEDED(hr);
 	}
 
 	void D3D11VertexBuffer::UpdateVertexBUffer(const void* InData, int32_t nVertex, int32_t sizePerVertex)
 	{
 		D3D11_MAPPED_SUBRESOURCE mapSubResource;
-		HRESULT hr = Data->D3D11RHI->GetDeviceContext()->Map(Data->Buffer.get(), 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &mapSubResource);
+		HRESULT hr = Impl->D3D11RHI->GetDeviceContext()->Map(Impl->Buffer.get(), 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &mapSubResource);
 		if (FAILED(hr))
 		{
 			return;
 		}
 		memcpy((uint8_t*)mapSubResource.pData + sizePerVertex, InData, nVertex * sizePerVertex);
-		Data->D3D11RHI->GetDeviceContext()->Unmap(Data->Buffer.get(), 0);
+		Impl->D3D11RHI->GetDeviceContext()->Unmap(Impl->Buffer.get(), 0);
 	}
 
 	int32_t D3D11VertexBuffer::GetStride() const
 	{
-		return Data->Stride;
+		return Impl->Stride;
 	}
 
 	int32_t D3D11VertexBuffer::GetCount() const
 	{
-		return Data->Count;
+		return Impl->Count;
 	}
 
 }

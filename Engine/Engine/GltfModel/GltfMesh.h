@@ -7,6 +7,7 @@ namespace Engine
 {
 	struct GltfMeshP;
 	class GltfMaterial;
+	class GltfMeshBuffer;
 	class GltfNode;
 
 	class GltfMesh
@@ -19,6 +20,9 @@ namespace Engine
 		bool HasSkin() const;
 		const math::AABB3& GetBoundingBox() const;
 		const math::Matrix4x4& GetMeshMat() const;
+		std::shared_ptr<GltfMeshBuffer> GetMeshBuffer();
+		std::shared_ptr<GltfMaterial> GetMaterial();
+
 	private:
 		void* Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType);
 	private:

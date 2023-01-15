@@ -21,7 +21,7 @@ namespace Engine
 	};
 
 	MainEngine::MainEngine()
-		:Data(std::make_shared<MainEngineP>())
+		:Impl(std::make_shared<MainEngineP>())
 	{
 		GEngine = this;
 	}
@@ -33,42 +33,42 @@ namespace Engine
 
 	void MainEngine::Init(std::shared_ptr< AppWindow> AppWin)
 	{
-		if (Data->DynamicRHI)
+		if (Impl->DynamicRHI)
 		{
 			AppWin->idle.bind(std::bind(&MainEngine::Render, this), this);
-			Data->DynamicRHI->Init();
-			Data->MainViewPort = Data->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
-			Data->RThread = std::make_unique<RenderThread>();
-			Data->RThread->Start();
+			Impl->DynamicRHI->Init();
+			Impl->MainViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
+			Impl->RThread = std::make_unique<RenderThread>();
+			Impl->RThread->Start();
 		}
 	}
 
 	void MainEngine::ShutDown()
 	{
-		if (Data->RThread)
+		if (Impl->RThread)
 		{
-			Data->RThread->Stop();
+			Impl->RThread->Stop();
 		}
-		if (Data->DynamicRHI)
+		if (Impl->DynamicRHI)
 		{
-			Data->DynamicRHI->Shutdown();
+			Impl->DynamicRHI->Shutdown();
 		}
-		Data->DynamicRHI = {};
-		Data->MainViewPort = {};
-		Data->RThread = {};
+		Impl->DynamicRHI = {};
+		Impl->MainViewPort = {};
+		Impl->RThread = {};
 	}
 
 	std::shared_ptr<RenderCore::DynamicRHI> MainEngine::GetRHI() const
 	{
-		return Data->DynamicRHI;
+		return Impl->DynamicRHI;
 	}
 
 	void MainEngine::Render()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Data = Data](){
-			Data->MainViewPort->Clear(1, 0, 0, 1);
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](){
+			Impl->MainViewPort->Clear(1, 0, 0, 1);
 
-			Data->MainViewPort->Present();
+			Impl->MainViewPort->Present();
 		}));
 
 	}

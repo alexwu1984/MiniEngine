@@ -15,6 +15,7 @@ namespace Engine
 		~GltfModel();
 
 		bool Load(const std::wstring& FileName);
+		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
 	private:
 		void LoadNode();
 		void LoadMesh();

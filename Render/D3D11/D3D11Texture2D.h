@@ -24,6 +24,6 @@ namespace RenderCore
 		ID3D11DepthStencilView* GetDSV() const;
 
 	private:
-		std::shared_ptr< D3D11Texture2DP> Data;
+		std::shared_ptr< D3D11Texture2DP> Impl;
 	};
 }

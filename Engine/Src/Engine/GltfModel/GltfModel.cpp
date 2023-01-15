@@ -65,6 +65,11 @@ namespace Engine
 		}
 	}
 
+	std::vector<std::shared_ptr<GltfMesh>>& GltfModel::GetModelMesh()
+	{
+		return Data->ModelMesh;
+	}
+
 	void GltfModel::LoadNode()
 	{
 		if (!Data->GltfMode.nodes.empty())

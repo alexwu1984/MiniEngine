@@ -28,9 +28,9 @@ namespace Engine
 	}
 
 	AppWindow::AppWindow(HINSTANCE hInst)
-		:Data(std::make_shared<AppWindowP>())
+		:Impl(std::make_shared<AppWindowP>())
 	{
-		Data->_hInst = hInst;
+		Impl->_hInst = hInst;
 	}
 
 	AppWindow::~AppWindow()
@@ -40,14 +40,14 @@ namespace Engine
 
 	bool AppWindow::CreateAppWindow(int32_t width, int32_t height)
 	{
-		Data->_width = width;
-		Data->_height = height;
+		Impl->_width = width;
+		Impl->_height = height;
 		WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
 		wcex.lpfnWndProc = ApplicationWndProc;
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = 0;
-		wcex.hInstance = Data->_hInst;
+		wcex.hInstance = Impl->_hInst;
 		wcex.hIcon = nullptr;
 		wcex.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
 		wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
@@ -60,11 +60,11 @@ namespace Engine
 		int32_t ScreenX = ::GetSystemMetrics(SM_CXSCREEN);
 		int32_t ScreenY = ::GetSystemMetrics(SM_CYSCREEN);
 
-		Data->_hWnd = ::CreateWindowExW(0, L"EngineAppWindow", L"MiniEngine", WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, Data->_hInst, nullptr);
-		if (IsWindow(Data->_hWnd))
+		Impl->_hWnd = ::CreateWindowExW(0, L"EngineAppWindow", L"MiniEngine", WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, Impl->_hInst, nullptr);
+		if (IsWindow(Impl->_hWnd))
 		{
-			::SetPropW(Data->_hWnd, WINDOW_PROP_THIS_PTR, (void*)(AppWindow*)this);
-			::SetWindowPos(Data->_hWnd, HWND_TOP, (ScreenX - width) / 2, (ScreenY - height) / 2, width, height, SWP_SHOWWINDOW);
+			::SetPropW(Impl->_hWnd, WINDOW_PROP_THIS_PTR, (void*)(AppWindow*)this);
+			::SetWindowPos(Impl->_hWnd, HWND_TOP, (ScreenX - width) / 2, (ScreenY - height) / 2, width, height, SWP_SHOWWINDOW);
 			return true;
 		}
 		return false;
@@ -79,8 +79,8 @@ namespace Engine
 			break;
 		}
 
-		if (Data->_proc_old)
-			return CallWindowProcW((WNDPROC)Data->_proc_old, (HWND)pWnd, message, wParam, lParam);
+		if (Impl->_proc_old)
+			return CallWindowProcW((WNDPROC)Impl->_proc_old, (HWND)pWnd, message, wParam, lParam);
 		else
 			return CallWindowProcW(DefWindowProcW, (HWND)pWnd, message, wParam, lParam);
 	}
@@ -110,17 +110,17 @@ namespace Engine
 
 	HWND AppWindow::GetWnd() const
 	{
-		return Data->_hWnd;
+		return Impl->_hWnd;
 	}
 
 	int32_t AppWindow::GetWidth() const
 	{
-		return Data->_width;
+		return Impl->_width;
 	}
 
 	int32_t AppWindow::GetHeight() const
 	{
-		return Data->_height;
+		return Impl->_height;
 	}
 
 }

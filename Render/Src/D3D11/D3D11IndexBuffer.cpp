@@ -16,9 +16,9 @@ namespace RenderCore
 	};
 
 	D3D11IndexBuffer::D3D11IndexBuffer(D3D11DynamicRHI* D3D11RHI)
-		:Data(std::make_shared<D3D11IndexBufferP>())
+		:Impl(std::make_shared<D3D11IndexBufferP>())
 	{
-		Data->D3D11RHI = D3D11RHI;
+		Impl->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11IndexBuffer::~D3D11IndexBuffer()
@@ -28,17 +28,17 @@ namespace RenderCore
 
 	bool D3D11IndexBuffer::CreateIndexBuffer(const uint16_t* InData, int32_t InUsage, int32_t IndexCount)
 	{
-		Data->IndexFormat = DXGI_FORMAT_R16_UINT;
-		Data->IndexCount = IndexCount;
-		Data->Size = sizeof(uint16_t) * IndexCount;
+		Impl->IndexFormat = DXGI_FORMAT_R16_UINT;
+		Impl->IndexCount = IndexCount;
+		Impl->Size = sizeof(uint16_t) * IndexCount;
 		return CreateBuffer(InData,InUsage);
 	}
 
 	bool D3D11IndexBuffer::CreateIndexBuffer(const uint32_t* InData, int32_t InUsage, int32_t IndexCount)
 	{
-		Data->IndexFormat = DXGI_FORMAT_R32_UINT;
-		Data->IndexCount = IndexCount;
-		Data->Size = sizeof(uint32_t) * IndexCount;
+		Impl->IndexFormat = DXGI_FORMAT_R32_UINT;
+		Impl->IndexCount = IndexCount;
+		Impl->Size = sizeof(uint32_t) * IndexCount;
 		return CreateBuffer(InData, InUsage);
 	}
 
@@ -47,7 +47,7 @@ namespace RenderCore
 		// Describe the index buffer.
 		D3D11_BUFFER_DESC Desc;
 		ZeroMemory(&Desc, sizeof(D3D11_BUFFER_DESC));
-		Desc.ByteWidth = Data->Size;
+		Desc.ByteWidth = Impl->Size;
 		Desc.Usage = (InUsage & BUF_AnyDynamic) ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_DEFAULT;
 		Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 		Desc.CPUAccessFlags = (InUsage & BUF_AnyDynamic) ? D3D11_CPU_ACCESS_WRITE : 0;
@@ -73,10 +73,9 @@ namespace RenderCore
 			Desc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 		}
 
-		D3D11_SUBRESOURCE_DATA indexInitData;
-		memset(&indexInitData, 0, sizeof(D3D11_SUBRESOURCE_DATA));
-		indexInitData.pSysMem = InData;
-		HRESULT hr = Data->D3D11RHI->GetDevice()->CreateBuffer(&Desc, &indexInitData, Data->Buffer.get_init_ref());
+		D3D11_SUBRESOURCE_DATA IndexInitData{};
+		IndexInitData.pSysMem = InData;
+		HRESULT hr = Impl->D3D11RHI->GetDevice()->CreateBuffer(&Desc, &IndexInitData, Impl->Buffer.get_init_ref());
 		return SUCCEEDED(hr);
 	}
 

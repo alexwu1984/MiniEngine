@@ -141,6 +141,16 @@ namespace Engine
 		return Data->MeshMat;
 	}
 
+	std::shared_ptr<GltfMeshBuffer> GltfMesh::GetMeshBuffer()
+	{
+		return Data->MeshBuffer;
+	}
+
+	std::shared_ptr<Engine::GltfMaterial> GltfMesh::GetMaterial()
+	{
+		return Data->Material;
+	}
+
 	void* GltfMesh::Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType)
 	{
 		const auto& indicesAccessor = Data->Model->accessors[attributeIndex];

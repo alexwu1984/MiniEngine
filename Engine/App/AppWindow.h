@@ -22,6 +22,6 @@ namespace Engine
 	public:
 		core::event<void()> idle;
 	private:
-		std::shared_ptr< AppWindowP> Data;
+		std::shared_ptr< AppWindowP> Impl;
 	};
 }

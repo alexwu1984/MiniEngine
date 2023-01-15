@@ -12,13 +12,13 @@ namespace RenderCore
 		D3D11Texture1D(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11Texture1D() {}
 
-		virtual bool CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes) override;
+		virtual bool CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int32_t RowBytes) override;
 		virtual int32_t GetSize() const override;
 
 		ID3D11Texture1D* GetNativeTex() const;
 		ID3D11ShaderResourceView* GetSRV() const;
 
 	private:
-		std::shared_ptr< D3D11Texture1DP> Data;
+		std::shared_ptr< D3D11Texture1DP> Impl;
 	};
 }

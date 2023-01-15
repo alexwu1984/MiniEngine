@@ -26,7 +26,7 @@ namespace RenderCore
 		void GetSwapChainSurface();
 
 	private:
-		std::shared_ptr< D3D11ViewPortP> Data;
+		std::shared_ptr< D3D11ViewPortP> Impl;
 		static uint32_t GSwapChainFlags;
 	};
 }

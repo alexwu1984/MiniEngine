@@ -18,6 +18,6 @@ namespace RenderCore
 		virtual int32_t GetCount() const override;
 
 	private:
-		std::shared_ptr< D3D11VertexBufferP> Data;
+		std::shared_ptr< D3D11VertexBufferP> Impl;
 	};
 }

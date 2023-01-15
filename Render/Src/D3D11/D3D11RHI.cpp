@@ -11,9 +11,9 @@ namespace RenderCore
 	int64_t D3D11GlobalStats::GTotalGraphicsMemory{ 0 };
 
 	D3D11DynamicRHI::D3D11DynamicRHI()
-		:Data(std::make_shared<D3D11DynamicRHIP>())
+		:Impl(std::make_shared<D3D11DynamicRHIP>())
 	{
-		Data->CommandContext = std::make_shared<D3D11CommandContext>(this);
+		Impl->CommandContext = std::make_shared<D3D11CommandContext>(this);
 		// Initialize the platform pixel format map.
 		GPixelFormats[PF_Unknown].PlatformFormat = DXGI_FORMAT_UNKNOWN;
 		GPixelFormats[PF_A32B32G32R32F].PlatformFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -99,12 +99,12 @@ namespace RenderCore
 
 	void D3D11DynamicRHI::Shutdown()
 	{
-		Data = {};
+		Impl = {};
 	}
 
 	std::shared_ptr<RHICommandContext> D3D11DynamicRHI::GetDefaultCommandContext()
 	{
-		return Data->CommandContext;
+		return Impl->CommandContext;
 	}
 
 	std::shared_ptr<RHIViewPort> D3D11DynamicRHI::RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
@@ -251,22 +251,22 @@ namespace RenderCore
 
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const
 	{
-		return Data->Direct3DDevice.get();
+		return Impl->Direct3DDevice.get();
 	}
 
 	ID3D11DeviceContext* D3D11DynamicRHI::GetDeviceContext() const
 	{
-		return Data->Direct3DDeviceIMContext.get();
+		return Impl->Direct3DDeviceIMContext.get();
 	}
 
 	IDXGIFactory1* D3D11DynamicRHI::GetFactory() const
 	{
-		return Data->DXGIFactory1.get();
+		return Impl->DXGIFactory1.get();
 	}
 
 	D3D11StateCacheBase& D3D11DynamicRHI::GetStateCache()
 	{
-		return Data->StateCache;
+		return Impl->StateCache;
 	}
 
 }

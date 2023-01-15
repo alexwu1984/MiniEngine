@@ -40,19 +40,19 @@ namespace RenderCore
 		win32::com_ptr<ID3D11Texture2D> BackBufferResource;
 	};
 	D3D11ViewPort::D3D11ViewPort(D3D11DynamicRHI* D3D11RHI, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
-		:Data(new D3D11ViewPortP)
+		:Impl(new D3D11ViewPortP)
 	{ 
-		Data->D3D11RHI = D3D11RHI;
-		Data->WindowHandle = InWindowHandle;
-		Data->SizeX = InSizeX;
-		Data->SizeY = InSizeY;
+		Impl->D3D11RHI = D3D11RHI;
+		Impl->WindowHandle = InWindowHandle;
+		Impl->SizeX = InSizeX;
+		Impl->SizeY = InSizeY;
 
 		win32::com_ptr<IDXGIDevice> DXGIDevice;
-		Data->D3D11RHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.get_init_ref());
+		Impl->D3D11RHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.get_init_ref());
 
 
 		{
-			Data->BackBufferCount = GSwapChainBufferCount;
+			Impl->BackBufferCount = GSwapChainBufferCount;
 
 			// Create the swapchain.
 			DXGI_SWAP_CHAIN_DESC SwapChainDesc;
@@ -64,14 +64,14 @@ namespace RenderCore
 			SwapChainDesc.SampleDesc.Quality = 0;
 			SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT;
 			// 1:single buffering, 2:double buffering, 3:triple buffering
-			SwapChainDesc.BufferCount = Data->BackBufferCount;
+			SwapChainDesc.BufferCount = Impl->BackBufferCount;
 			SwapChainDesc.OutputWindow = InWindowHandle;
 			SwapChainDesc.Windowed = TRUE;
 			// DXGI_SWAP_EFFECT_DISCARD / DXGI_SWAP_EFFECT_SEQUENTIAL
 			SwapChainDesc.SwapEffect = GSwapEffect;
 			SwapChainDesc.Flags = GSwapChainFlags;
 
-			HRESULT CreateSwapChainResult = D3D11RHI->GetFactory()->CreateSwapChain(D3D11RHI->GetDevice(), &SwapChainDesc, Data->SwapChain.get_init_ref());
+			HRESULT CreateSwapChainResult = D3D11RHI->GetFactory()->CreateSwapChain(D3D11RHI->GetDevice(), &SwapChainDesc, Impl->SwapChain.get_init_ref());
 			if (CreateSwapChainResult == E_INVALIDARG)
 			{
 
@@ -89,40 +89,40 @@ namespace RenderCore
 
 	D3D11ViewPort::~D3D11ViewPort()
 	{
-		Data = {};
+		Impl = {};
 	}
 
 	void* D3D11ViewPort::GetNativeSwapChain() const
 	{
-		return Data->SwapChain.get();
+		return Impl->SwapChain.get();
 	}
 
 	void* D3D11ViewPort::GetNativeBackBufferTexture() const
 	{
-		return Data->BackBufferResource.get();
+		return Impl->BackBufferResource.get();
 	}
 
 	void* D3D11ViewPort::GetNativeBackBufferRT() const
 	{
-		return Data->BackBufferRenderTargetView.get();
+		return Impl->BackBufferRenderTargetView.get();
 	}
 
 	void D3D11ViewPort::SetRenderTarget()
 	{
-		Data->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Data->BackBufferRenderTargetView, nullptr);
+		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Impl->BackBufferRenderTargetView, nullptr);
 	}
 
 	void D3D11ViewPort::Clear(float r, float g, float b, float a)
 	{
 		float ClearColor[4] = { r, g, b, a }; // rgba  
-		Data->D3D11RHI->GetDeviceContext()->ClearRenderTargetView(Data->BackBufferRenderTargetView.get(), ClearColor);
+		Impl->D3D11RHI->GetDeviceContext()->ClearRenderTargetView(Impl->BackBufferRenderTargetView.get(), ClearColor);
 	}
 
 	void D3D11ViewPort::Present()
 	{
-		if (Data->SwapChain)
+		if (Impl->SwapChain)
 		{
-			Data->SwapChain->Present(1, 0);
+			Impl->SwapChain->Present(1, 0);
 		}
 	}
 
@@ -130,11 +130,11 @@ namespace RenderCore
 	{
 		DXGI_MODE_DESC Ret;
 		ZeroMemory(&Ret, sizeof(Ret));
-		Ret.Width = Data->SizeX;
-		Ret.Height = Data->SizeY;
+		Ret.Width = Impl->SizeX;
+		Ret.Height = Impl->SizeY;
 		Ret.RefreshRate.Numerator = 60;	
 		Ret.RefreshRate.Denominator = 1;	
-		Ret.Format = GetRenderTargetFormat(Data->PixelFormat);
+		Ret.Format = GetRenderTargetFormat(Impl->PixelFormat);
 		//Ret.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 		//Ret.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
@@ -143,13 +143,13 @@ namespace RenderCore
 
 	void D3D11ViewPort::GetSwapChainSurface()
 	{
-		VERIFYD3D11RESULT(Data->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)Data->BackBufferResource.get_init_ref()));
+		VERIFYD3D11RESULT(Impl->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)Impl->BackBufferResource.get_init_ref()));
 
 		D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 		RTVDesc.Format = DXGI_FORMAT_UNKNOWN;
 		RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 		RTVDesc.Texture2D.MipSlice = 0;
-		VERIFYD3D11RESULT(Data->D3D11RHI->GetDevice()->CreateRenderTargetView(Data->BackBufferResource.get(), &RTVDesc, Data->BackBufferRenderTargetView.get_init_ref()));
+		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateRenderTargetView(Impl->BackBufferResource.get(), &RTVDesc, Impl->BackBufferRenderTargetView.get_init_ref()));
 	}
 
 }

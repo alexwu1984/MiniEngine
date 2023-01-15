@@ -31,7 +31,7 @@ namespace Engine
 		void Render();
 
 	private:
-		std::shared_ptr<MainEngineP> Data;
+		std::shared_ptr<MainEngineP> Impl;
 	};
 
 	extern MainEngine* GEngine ;

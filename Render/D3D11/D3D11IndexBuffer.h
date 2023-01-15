@@ -21,6 +21,6 @@ namespace RenderCore
 		bool CreateBuffer(const void* InData, int32_t InUsage);
 
 	private:
-		std::shared_ptr< D3D11IndexBufferP> Data;
+		std::shared_ptr< D3D11IndexBufferP> Impl;
 	};
 }

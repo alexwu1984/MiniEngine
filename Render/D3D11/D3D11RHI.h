@@ -51,6 +51,6 @@ namespace RenderCore
 		bool FindAdapter();
 
 	private:
-		std::shared_ptr< D3D11DynamicRHIP> Data;
+		std::shared_ptr< D3D11DynamicRHIP> Impl;
 	};
 }

@@ -18,7 +18,10 @@ namespace RenderCore
 	class RHITexture2D;
 	class RHITexture1D;
 	class RHIRenderTarget;
-
+	class RHIVertexShader;
+	class RHIPixelShader;
+	class RHIVertexDeclare;
+	struct RHIShaderMacro;
 
 	class DynamicRHI
 	{
@@ -51,6 +54,9 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth) = 0;
 		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool CreateDepth) = 0;
+
+		virtual std::shared_ptr< RHIVertexShader> RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines ) = 0;
+		virtual std::shared_ptr< RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain) = 0;
 
 	};
 

@@ -103,6 +103,8 @@ namespace RenderCore
 	public:
 		RHIVertexShader() = default;
 		virtual ~RHIVertexShader() = default;
+		virtual bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
+		virtual std::tuple<const void*,size_t> GetShaderCode() = 0;
 	};
 
 	class RHIPixelShader
@@ -110,6 +112,8 @@ namespace RenderCore
 	public:
 		RHIPixelShader() = default;
 		virtual ~RHIPixelShader() = default;
+		virtual bool CreateShader(const std::wstring& FileName, const std::string& PSMain) = 0;
+		virtual std::tuple<const void*, size_t> GetShaderCode() = 0;
 	};
 
 }

@@ -41,6 +41,6 @@ add_definitions(-DGUARDED_TEXTURE_CREATES)
 target_link_libraries(Render LINK_PUBLIC DirectXTex)
 target_link_libraries(Render LINK_PUBLIC amd_ags)
 
-target_link_libraries(Render LINK_PUBLIC Core dinput8.lib dxguid.lib xinput.lib dxgi.lib d3d11.lib)
+target_link_libraries(Render LINK_PUBLIC Core dinput8.lib dxguid.lib xinput.lib dxgi.lib d3d11.lib D3DCompiler.lib)
 
 target_include_directories(Render PUBLIC RHI)

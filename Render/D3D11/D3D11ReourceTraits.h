@@ -4,6 +4,7 @@
 #include "D3D11/D3D11Texture2D.h"
 #include "D3D11/D3D11Texture1D.h"
 #include "D3D11/D3D11RenderTarget.h"
+#include "D3D11/D3D11Shader.h"
 
 namespace RenderCore
 {
@@ -40,6 +41,18 @@ namespace RenderCore
 	struct TD3D11ResourceTraits<RHIRenderTarget>
 	{
 		typedef D3D11RenderTarget TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHIVertexShader>
+	{
+		typedef D3D11VertexShader TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHIPixelShader>
+	{
+		typedef D3D11PixelShader TConcreteType;
 	};
 
 	template<typename TRHIType>

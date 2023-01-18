@@ -3,13 +3,14 @@
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "D3D11/D3D11RHI.h"
 #include "core/logger.h"
+#include "RHIPrivate/D3DShaderUtil.h"
 
 namespace RenderCore
 {
 	struct D3D11VertexShaderP
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
-		win32::com_ptr<ID3DBlob> VSBlob;
+		win32::com_ptr<ID3DBlob> SharderCode;
 		win32::com_ptr<ID3D11InputLayout> InputLayout;
 	};
 
@@ -24,6 +25,32 @@ namespace RenderCore
 
 	}
 
+	bool D3D11VertexShader::CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines /*= {}*/)
+	{
+		win32::com_ptr<ID3DBlob> SharderCode = ShaderUtil::CreateShader(FileName, VSMain, "vs_5_0");
+		if (!SharderCode.is_valid())
+		{
+			return false;
+		}
+		Impl->SharderCode = SharderCode;
+
+		if (VertexDeclare.GetDeclareDesc().empty())
+		{
+			return true;
+		}
+
+		return CreateLayout(VertexDeclare.GetDeclareDesc());
+	}
+
+	std::tuple<const void*, size_t> D3D11VertexShader::GetShaderCode()
+	{
+		if (Impl->SharderCode.is_valid())
+		{
+			return { Impl->SharderCode->GetBufferPointer(),Impl->SharderCode->GetBufferSize() };
+		}
+		return { nullptr,0 };
+	}
+
 	bool D3D11VertexShader::CreateLayout(const std::vector< VertexElementDesc>& ElementDescs)
 	{
 		if (ElementDescs.empty() )
@@ -31,7 +58,7 @@ namespace RenderCore
 			return false;
 		}
 
-		if (!Impl->VSBlob.is_valid())
+		if (!Impl->SharderCode.is_valid())
 		{
 
 			Assert(false);
@@ -57,7 +84,7 @@ namespace RenderCore
 		}
 
 		HRESULT hr = Device->CreateInputLayout(D3D11ElementDescs.data(), D3D11ElementDescs.size(), 
-			Impl->VSBlob->GetBufferPointer(), Impl->VSBlob->GetBufferSize(), Impl->InputLayout.get_init_ref());
+			Impl->SharderCode->GetBufferPointer(), Impl->SharderCode->GetBufferSize(), Impl->InputLayout.get_init_ref());
 		if (FAILED(hr))
 		{
 			core::err() << "CreateInputLayout Failed -------";
@@ -69,6 +96,38 @@ namespace RenderCore
 			return false;
 		}
 		return true;
+	}
+
+	struct D3D11PixelShaderP
+	{
+		D3D11DynamicRHI* D3D11RHI = nullptr;
+		win32::com_ptr<ID3DBlob> SharderCode;
+	};
+
+	D3D11PixelShader::D3D11PixelShader(D3D11DynamicRHI* D3D11RHI)
+		:Impl(std::make_shared<D3D11PixelShaderP>())
+	{
+		Impl->D3D11RHI = D3D11RHI;
+	}
+
+	D3D11PixelShader::~D3D11PixelShader()
+	{
+
+	}
+
+	bool D3D11PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain)
+	{
+		Impl->SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0");
+		return Impl->SharderCode.is_valid();
+	}
+
+	std::tuple<const void*, size_t> D3D11PixelShader::GetShaderCode()
+	{
+		if (Impl->SharderCode.is_valid())
+		{
+			return { Impl->SharderCode->GetBufferPointer(),Impl->SharderCode->GetBufferSize() };
+		}
+		return { nullptr,0 };
 	}
 
 }

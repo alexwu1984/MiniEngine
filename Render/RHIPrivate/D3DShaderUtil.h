@@ -5,5 +5,10 @@
 
 namespace RenderCore
 {
-	win32::com_ptr<ID3DBlob> CreateShader(const std::wstring& ShaderFile, const std::string& EntryPoint, const std::string& TargetModel);
+	class ShaderUtil
+	{
+	public:
+		static win32::com_ptr<ID3DBlob> CreateShader(const std::wstring& ShaderFile, const std::string& EntryPoint, const std::string& TargetModel);
+	};
+	
 }

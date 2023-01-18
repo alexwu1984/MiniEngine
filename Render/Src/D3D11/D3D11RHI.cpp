@@ -249,6 +249,32 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr< RHIVertexShader> D3D11DynamicRHI::RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines /*= {}*/)
+	{
+		std::shared_ptr<D3D11VertexShader> VertexShaderRHI = std::make_shared<D3D11VertexShader>(this);
+		if (VertexShaderRHI->CreateShader(FileName,VSMain,VertexDeclare,MacroDefines))
+		{
+			return VertexShaderRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIPixelShader> D3D11DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain)
+	{
+		std::shared_ptr<D3D11PixelShader> PixelShaderRHI = std::make_shared<D3D11PixelShader>(this);
+		if (PixelShaderRHI->CreateShader(FileName,PSMain))
+		{
+			return PixelShaderRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const
 	{
 		return Impl->Direct3DDevice.get();
@@ -269,5 +295,5 @@ namespace RenderCore
 		return Impl->StateCache;
 	}
 
-}
 
+}

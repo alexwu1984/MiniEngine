@@ -3,7 +3,8 @@
 
 namespace RenderCore
 {
-	win32::com_ptr<ID3DBlob> CreateShader(const std::wstring& ShaderFile, const std::string& EntryPoint, const std::string& TargetModel)
+
+	win32::com_ptr<ID3DBlob> ShaderUtil::CreateShader(const std::wstring& ShaderFile, const std::string& EntryPoint, const std::string& TargetModel)
 	{
 		// Declare handles
 		ID3DBlob* errors = nullptr;

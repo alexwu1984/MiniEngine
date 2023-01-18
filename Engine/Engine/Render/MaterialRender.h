@@ -14,6 +14,7 @@ namespace Engine
 		virtual ~MaterialRender();
 		
 		virtual void InitRenderResource(nlohmann::json& jsonObj);
+		virtual void InitShader(const std::string& Path) = 0;
 
 	protected:
 		std::shared_ptr< MaterialRenderP> MaterialRenderData;

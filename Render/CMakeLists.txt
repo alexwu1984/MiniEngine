@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 project(Render)
-
+include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 #-------------------------------------------------------------------------------------------
 # Library definition
 #-------------------------------------------------------------------------------------------
@@ -27,6 +27,18 @@ source_group("Source Files\\Src\\RHI" FILES ${Src_RHI} )
 source_group("Source Files\\Src\\D3D11" FILES ${Src_D3D11} )
 source_group("Source Files\\Src\\RHIPrivate" FILES ${Src_RHIPrivate} )
 
+#-----shader
+
+set(Shaders_GLTF_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFPbrPass-IO.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFVertexFactory.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFPbrPass-VS.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PBRMaterial.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PerFrameStruct.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Skinning.hlsl
+)
+
+
 add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} )
 
 
@@ -44,3 +56,13 @@ target_link_libraries(Render LINK_PUBLIC amd_ags)
 target_link_libraries(Render LINK_PUBLIC Core dinput8.lib dxguid.lib xinput.lib dxgi.lib d3d11.lib D3DCompiler.lib)
 
 target_include_directories(Render PUBLIC RHI)
+
+copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/ShaderLibDX copied_dx_shaders_gltf_debug)
+copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}/ShaderLibDX copied_dx_shaders_gltf_release)
+copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/ShaderLibDX copied_dx_shaders_gltf_release_debinfo)
+
+add_dependencies(Render copied_dx_shaders_gltf_debug copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release_debinfo)
+
+
+set_source_files_properties(${Shaders_GLTF_src} PROPERTIES VS_TOOL_OVERRIDE "Text")
+set_source_files_properties(${Shaders_PostProc_src} PROPERTIES VS_TOOL_OVERRIDE "Text")

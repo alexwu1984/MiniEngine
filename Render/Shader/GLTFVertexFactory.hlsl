@@ -2,17 +2,31 @@
 #include "GLTFPbrPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
 
+//struct VS_INPUT_SCENE
+//{
+//	float3 Position : POSITION; // vertex position
+//	float3 Normal : NORMAL; // this normal comes in per-vertex
+//	float2 UV0 : TEXCOORD0;   // vertex texture coords
+//#ifdef HAS_TANGENT
+//    float4 Tangent: TANGENT; // this normal comes in per-vertex
+//#endif
+//#ifdef HAS_WEIGHTS_0
+//    float4 JointsWeights0  : BLENDWEIGHT; //joints weights
+//	float4 JointsIndices0  : BLENDINDICES; // joints indices
+//#endif
+//};
+
 struct VS_INPUT_SCENE
 {
-	float3 Position : POSITION; // vertex position
-	float3 Normal : NORMAL; // this normal comes in per-vertex
-	float2 UV0 : TEXCOORD0;   // vertex texture coords
+    float3 Position : ATTRIBUTE0; // vertex position
+    float3 Normal : ATTRIBUTE1; // this normal comes in per-vertex
+    float2 UV0 : ATTRIBUTE2;   // vertex texture coords
 #ifdef HAS_TANGENT
-    float4 Tangent: TANGENT; // this normal comes in per-vertex
+    float4 Tangent: ATTRIBUTE3; // this normal comes in per-vertex
 #endif
 #ifdef HAS_WEIGHTS_0
-    float4 JointsWeights0  : BLENDWEIGHT; //joints weights
-	float4 JointsIndices0  : BLENDINDICES; // joints indices
+    float4 JointsWeights0  : ATTRIBUTE4; //joints weights
+    float4 JointsIndices0  : ATTRIBUTE5; // joints indices
 #endif
 };
 

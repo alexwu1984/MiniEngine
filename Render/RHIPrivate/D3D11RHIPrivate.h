@@ -7,6 +7,7 @@
 #include <delayimp.h>
 #include "D3D11StateCachePrivate.h"
 #include "D3D11/D3D11CommandContext.h"
+#include "RHI/RHIShdader.h"
 
 namespace RenderCore
 {
@@ -65,6 +66,8 @@ namespace RenderCore
 		D3D11StateCacheBase StateCache;
 
 		std::shared_ptr< D3D11CommandContext> CommandContext;
+
+		RHIShaderCache ShaderCache;
 	};
 
 	/** Find an appropriate DXGI format for the input format and SRGB setting. */

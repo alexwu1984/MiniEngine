@@ -14,11 +14,11 @@ namespace Engine
 		{
 			VT_Position = 0,
 			VT_Normal = 1,
-			VT_Texcoord = 2,
+			VT_UV0 = 2,
 			VT_Tangent = 3,
-			VT_BoneID = 4,
-			VT_BoneWidget = 5,
-			VT_Max = 6
+			VT_JointsWeights0 = 4,
+			VT_JointsIndices0 = 5,
+			VT_Max
 		};
 	public:
 		GltfMeshBuffer();
@@ -30,6 +30,6 @@ namespace Engine
 		std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, VT_Max>& GetVerticesBuffer();
 
 	private:
-		std::shared_ptr<GltfMeshBufferP> Data;
+		std::shared_ptr<GltfMeshBufferP> Impl;
 	};
 }

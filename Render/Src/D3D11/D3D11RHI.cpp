@@ -252,8 +252,17 @@ namespace RenderCore
 	std::shared_ptr< RHIVertexShader> D3D11DynamicRHI::RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines /*= {}*/)
 	{
 		std::shared_ptr<D3D11VertexShader> VertexShaderRHI = std::make_shared<D3D11VertexShader>(this);
+
+		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + VSMain);
+		auto It = Impl->ShaderCache.VertexShaderCache.find(HashCode);
+		if (It != Impl->ShaderCache.VertexShaderCache.end())
+		{
+			return It->second;
+		}
+
 		if (VertexShaderRHI->CreateShader(FileName,VSMain,VertexDeclare,MacroDefines))
 		{
+			Impl->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
 			return VertexShaderRHI;
 		}
 		else
@@ -262,11 +271,20 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHIPixelShader> D3D11DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain)
+	std::shared_ptr< RHIPixelShader> D3D11DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
 		std::shared_ptr<D3D11PixelShader> PixelShaderRHI = std::make_shared<D3D11PixelShader>(this);
-		if (PixelShaderRHI->CreateShader(FileName,PSMain))
+		
+		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + PSMain);
+		auto It = Impl->ShaderCache.PixelShaderCache.find(HashCode);
+		if (It != Impl->ShaderCache.PixelShaderCache.end())
 		{
+			return It->second;
+		}
+
+		if (PixelShaderRHI->CreateShader(FileName,PSMain, MacroDefines))
+		{
+			Impl->ShaderCache.PixelShaderCache.insert({ HashCode,PixelShaderRHI });
 			return PixelShaderRHI;
 		}
 		else

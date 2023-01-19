@@ -27,7 +27,10 @@ namespace RenderCore
 
 	bool D3D11VertexShader::CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines /*= {}*/)
 	{
-		win32::com_ptr<ID3DBlob> SharderCode = ShaderUtil::CreateShader(FileName, VSMain, "vs_5_0");
+		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+
+		win32::com_ptr<ID3DBlob> SharderCode = ShaderUtil::CreateShader(FileName, VSMain, "vs_5_0", D3DShaderMacros.data());
 		if (!SharderCode.is_valid())
 		{
 			return false;
@@ -115,9 +118,11 @@ namespace RenderCore
 
 	}
 
-	bool D3D11PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain)
+	bool D3D11PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines )
 	{
-		Impl->SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0");
+		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+		Impl->SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0", D3DShaderMacros.data());
 		return Impl->SharderCode.is_valid();
 	}
 

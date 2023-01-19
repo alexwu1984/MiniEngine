@@ -86,7 +86,8 @@ namespace RenderCore
 		RHIVertexDeclare();
 		~RHIVertexDeclare() = default;
 
-		std::vector< VertexElementDesc> CreateDeclare(const std::vector< VertexDeclareInput>& Inputs);
+		void CreateDeclare(const std::vector< VertexDeclareInput>& Inputs);
+		void AppendDeclareInput(const VertexDeclareInput& DeclareInput);
 		const std::vector< VertexElementDesc>& GetDeclareDesc() const;
 	private:
 		std::shared_ptr< RHIVertexDeclareP> Data;
@@ -105,6 +106,7 @@ namespace RenderCore
 		virtual ~RHIVertexShader() = default;
 		virtual bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
 		virtual std::tuple<const void*,size_t> GetShaderCode() = 0;
+
 	};
 
 	class RHIPixelShader
@@ -112,8 +114,17 @@ namespace RenderCore
 	public:
 		RHIPixelShader() = default;
 		virtual ~RHIPixelShader() = default;
-		virtual bool CreateShader(const std::wstring& FileName, const std::string& PSMain) = 0;
+		virtual bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
 		virtual std::tuple<const void*, size_t> GetShaderCode() = 0;
 	};
 
+	class RHIShaderCache
+	{
+	public:
+		RHIShaderCache() = default;
+		~RHIShaderCache() = default;
+	public:
+		std::unordered_map<size_t, std::shared_ptr< RHIVertexShader>> VertexShaderCache;
+		std::unordered_map<size_t, std::shared_ptr< RHIPixelShader>> PixelShaderCache;
+	};
 }

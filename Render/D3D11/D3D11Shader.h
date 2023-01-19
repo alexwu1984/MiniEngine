@@ -13,7 +13,7 @@ namespace RenderCore
 		D3D11VertexShader(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11VertexShader();
 
-		bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines = {}) override;
+		bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines) override;
 		std::tuple<const void*, size_t> GetShaderCode() override;
 
 	private:
@@ -30,7 +30,7 @@ namespace RenderCore
 		D3D11PixelShader(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11PixelShader();
 
-		bool CreateShader(const std::wstring& FileName, const std::string& PSMain) override;
+		bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
 		std::tuple<const void*, size_t> GetShaderCode() override;
 	private:
 		std::shared_ptr<D3D11PixelShaderP> Impl;

@@ -21,6 +21,6 @@ namespace Engine
 		void LoadMesh();
 		std::vector <std::shared_ptr<GltfMaterial>> LoadMaterial();
 	private:
-		std::shared_ptr< GltfModelP> Data;
+		std::shared_ptr< GltfModelP> Impl;
 	};
 }

@@ -4,19 +4,14 @@
 
 namespace Engine
 {
-	struct MaterialRenderP;
-	class GltfMaterial;
 
 	class MaterialRender
 	{
 	public:
-		MaterialRender(std::shared_ptr<GltfMaterial> Material);
+		MaterialRender() = default;
 		virtual ~MaterialRender();
 		
-		virtual void InitRenderResource(nlohmann::json& jsonObj);
-		virtual void InitShader(const std::string& Path) = 0;
-
-	protected:
-		std::shared_ptr< MaterialRenderP> MaterialRenderData;
+		virtual void InitRenderResource(nlohmann::json& jsonObj) = 0;
+		virtual void InitShader(const std::wstring& Path) = 0;
 	};
 }

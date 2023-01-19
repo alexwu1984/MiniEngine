@@ -148,7 +148,7 @@ namespace win32
 
 		m_uiNumNewCalls++;
 
-		uint32_t uiExtendedSize = sizeof(Block) + sizeof(unsigned int) + uiSize + sizeof(unsigned int);
+		size_t uiExtendedSize = sizeof(Block) + sizeof(unsigned int) + uiSize + sizeof(unsigned int);
 
 		char* pcAddr = (char*)memory_object::GetAsciiManager().Allocate(uiExtendedSize, uiAlignment, bIsArray);
 

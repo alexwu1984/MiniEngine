@@ -22,10 +22,11 @@ namespace Engine
 		const math::Matrix4x4& GetMeshMat() const;
 		std::shared_ptr<GltfMeshBuffer> GetMeshBuffer();
 		std::shared_ptr<GltfMaterial> GetMaterial();
+		std::string GetMeshName() const;
 
 	private:
 		void* Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType);
 	private:
-		std::shared_ptr< GltfMeshP> Data;
+		std::shared_ptr< GltfMeshP> Impl;
 	};
 }

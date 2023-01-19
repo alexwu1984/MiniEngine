@@ -19,7 +19,7 @@ namespace Engine
 	};
 
 	GltfModel::GltfModel()
-		:Data(std::make_shared<GltfModelP>())
+		:Impl(std::make_shared<GltfModelP>())
 	{
 
 	}
@@ -37,7 +37,7 @@ namespace Engine
 
 		if (FileName.find(L".gltf") != std::wstring::npos)
 		{
-			if (Data->GltfCtx.LoadASCIIFromFile(&Data->GltfMode, &err, &warn, utf8FileName))
+			if (Impl->GltfCtx.LoadASCIIFromFile(&Impl->GltfMode, &err, &warn, utf8FileName))
 			{
 				LoadNode();
 				LoadMesh();
@@ -51,7 +51,7 @@ namespace Engine
 		}
 		else
 		{
-			if (Data->GltfCtx.LoadBinaryFromFile(&Data->GltfMode, &err, &warn, utf8FileName))
+			if (Impl->GltfCtx.LoadBinaryFromFile(&Impl->GltfMode, &err, &warn, utf8FileName))
 			{
 				LoadNode();
 				LoadMesh();
@@ -67,22 +67,22 @@ namespace Engine
 
 	std::vector<std::shared_ptr<GltfMesh>>& GltfModel::GetModelMesh()
 	{
-		return Data->ModelMesh;
+		return Impl->ModelMesh;
 	}
 
 	void GltfModel::LoadNode()
 	{
-		if (!Data->GltfMode.nodes.empty())
+		if (!Impl->GltfMode.nodes.empty())
 		{
-			Data->RootNode = std::make_shared<GltfNode>(&Data->GltfMode);
+			Impl->RootNode = std::make_shared<GltfNode>(&Impl->GltfMode);
 
-			auto& Scenes = Data->GltfMode.scenes;
+			auto& Scenes = Impl->GltfMode.scenes;
 			if (Scenes.size() > 0)
 			{
 				auto& NodeIds = Scenes[0].nodes;
 				for (int k = 0; k < NodeIds.size(); k++)
 				{
-					Data->RootNode->InitGroupNode(NodeIds[k]);
+					Impl->RootNode->InitGroupNode(NodeIds[k]);
 				}
 			}
 		}
@@ -91,42 +91,42 @@ namespace Engine
 	void GltfModel::LoadMesh()
 	{
 		std::vector <std::shared_ptr<GltfMaterial>> ModelMaterial(std::move(LoadMaterial()));
-		for (int i = 0; i < Data->GltfMode.meshes.size(); i++)
+		for (int i = 0; i < Impl->GltfMode.meshes.size(); i++)
 		{
-			auto& ModelMesh = Data->GltfMode.meshes[i];
+			auto& ModelMesh = Impl->GltfMode.meshes[i];
 			for (int j = 0; j < ModelMesh.primitives.size(); j++)
 			{
-				std::shared_ptr<GltfMesh> Mesh = std::make_shared<GltfMesh>(&Data->GltfMode);
-				Mesh->Init(i, j, ModelMaterial, Data->RootNode);
+				std::shared_ptr<GltfMesh> Mesh = std::make_shared<GltfMesh>(&Impl->GltfMode);
+				Mesh->Init(i, j, ModelMaterial, Impl->RootNode);
 
-				Data->HasSkin = Mesh->HasSkin();
-				Data->ModelMesh.push_back(Mesh);
+				Impl->HasSkin = Mesh->HasSkin();
+				Impl->ModelMesh.push_back(Mesh);
 			}
 		}
 
 		bool isInit = false;
-		for (int i = 0; i < Data->ModelMesh.size(); i++)
+		for (int i = 0; i < Impl->ModelMesh.size(); i++)
 		{
-			const AABB3& MeshBox = Data->ModelMesh[i]->GetBoundingBox();
+			const AABB3& MeshBox = Impl->ModelMesh[i]->GetBoundingBox();
 
-			AABB3 TmpMeshBox = MeshBox.Transform(Data->ModelMesh[i]->GetMeshMat());
+			AABB3 TmpMeshBox = MeshBox.Transform(Impl->ModelMesh[i]->GetMeshMat());
 
 			if (!isInit)
 			{
-				Data->ModelBox = TmpMeshBox;
+				Impl->ModelBox = TmpMeshBox;
 				isInit = true;
 			}
-			Data->ModelBox.UpdateMinMax(TmpMeshBox.GetMinPoint());
-			Data->ModelBox.UpdateMinMax(TmpMeshBox.GetMaxPoint());
+			Impl->ModelBox.UpdateMinMax(TmpMeshBox.GetMinPoint());
+			Impl->ModelBox.UpdateMinMax(TmpMeshBox.GetMaxPoint());
 		}
 	}
 
 	std::vector <std::shared_ptr<GltfMaterial>> GltfModel::LoadMaterial()
 	{
 		std::vector <std::shared_ptr<GltfMaterial>> ModelMaterial;
-		for (int i = 0; i < Data->GltfMode.materials.size(); i++)
+		for (int i = 0; i < Impl->GltfMode.materials.size(); i++)
 		{
-			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<GltfMaterial>(&Data->GltfMode);
+			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<GltfMaterial>(&Impl->GltfMode);
 			PBRMaterial->InitMaterial(i);
 			ModelMaterial.push_back(PBRMaterial);
 		}

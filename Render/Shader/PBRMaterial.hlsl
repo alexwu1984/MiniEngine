@@ -10,7 +10,7 @@ struct PS_OUTPUT_SCENE
 	float4 Color : SV_Target0;
 };
 
-PS_OUTPUT_SCENE PS(VS_OUTPUT_SCENE Input) : SV_Target
+PS_OUTPUT_SCENE PBRMainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
 	PS_OUTPUT_SCENE Output;
     Output.Color = AlbedoMap.Sample(SampleLinear, Input.UV0);

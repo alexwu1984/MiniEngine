@@ -1,24 +1,26 @@
 #pragma once
-#include "Engine/Scene/Scene.h"
+#include "Engine/Scene/SceneView.h"
 #include "Engine/Scene/Component.h"
 
 namespace Engine 
 {
+	using namespace math;
+
 	struct ActorP
 	{
 		// Actor's state
-		Actor::State State = Actor::State::EActive;
+		Actor::AState State = Actor::AState::EActive;
 
 		// Transform
-		math::Vector3 Position;
+		Vector3 Position;
 		float Scale = 1.0f;
-		math::Quaternion Rotation;
+		Quaternion Rotation;
 
 		std::vector<std::shared_ptr<Component>> Components;
-		std::weak_ptr<Scene> SceneMgr;
+		std::weak_ptr<SceneView> Scene;
 
 		bool RecomputeWorldTransform = true;
 
-		math::Matrix4x4 WorldTransform;
+		Matrix4x4 WorldTransform;
 	};
 }

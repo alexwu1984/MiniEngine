@@ -5,7 +5,7 @@
 
 namespace Engine
 {
-	class Scene;
+	class SceneView;
 	class Component;
 
 
@@ -22,7 +22,7 @@ namespace Engine
 	class Actor : public std::enable_shared_from_this<Actor>
 	{
 	public:
-		enum State : uint8_t
+		enum AState : uint8_t
 		{
 			EActive,
 			EPaused,
@@ -36,7 +36,7 @@ namespace Engine
 
 	public:
 		DECLARE_ACTOR_CLASS_NAME(Actor)
-		Actor(std::weak_ptr<Scene> world);
+		Actor(std::weak_ptr<SceneView> world);
 		virtual ~Actor();
 
 		virtual void InitResouce();
@@ -50,8 +50,28 @@ namespace Engine
 		void SetScale(float scale);
 		math::Quaternion GetRotation() const;
 		void SetRotation(const math::Quaternion& rotation);
+
+		void ComputeWorldTransform();
+		const math::Matrix4x4& GetWorldTransform() const;
+
+		AState GetState() const;
+		void SetState(AState state);
+
+		std::weak_ptr<SceneView> GetScene() const;
+
+		math::Vector3 GetForward() const;
+		math::Vector3 GetRight() const;
+		math::Vector3 GetUp() const;
+
+		void RotateToNewForward(const math::Vector3& forward);
+
+		void AddComponent(std::shared_ptr<Component> component);
+		void RemoveComponent(std::shared_ptr<Component> component);
+
+		std::vector<std::shared_ptr<Component>>& GetComponents() const;
+
 	protected:
-		std::shared_ptr<ActorP> GetActorP() {return ImplActorP;}
+		std::shared_ptr<ActorP> GetActorP() const {return ImplActorP;}
 	private:
 		std::shared_ptr<ActorP> ImplActorP;
 	};

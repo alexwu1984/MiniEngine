@@ -3,10 +3,10 @@
 
 namespace Engine 
 {
-	class Scene
+	class SceneView
 	{
 	public:
-		Scene();
-		~Scene();
+		SceneView();
+		~SceneView();
 	};
 }

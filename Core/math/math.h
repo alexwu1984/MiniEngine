@@ -242,13 +242,13 @@ namespace math
 	static FORCEINLINE float Tan(float Value) { return std::tanf(Value); }
 	static FORCEINLINE float Atan(float Value) { return std::atanf(Value); }
 	static  float Atan2(float Y, float X);
-	static FORCEINLINE float Sqrt(float Value) { return sqrtf(Value); }
-	static FORCEINLINE float Pow(float A, float B) { return powf(A, B); }
+	static FORCEINLINE float Sqrt(float Value) { return std::sqrtf(Value); }
+	static FORCEINLINE float Pow(float A, float B) { return std::powf(A, B); }
 
 	/** Computes a fully accurate inverse square root */
 	static FORCEINLINE float InvSqrt(float F)
 	{
-		return 1.0f / sqrtf(F);
+		return 1.0f / std::sqrtf(F);
 	}
 
 	/** Computes a faster but less accurate inverse square root */

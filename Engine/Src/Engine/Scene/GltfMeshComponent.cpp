@@ -2,6 +2,7 @@
 #include "GltfModel/GltfModel.h"
 #include "Render/PBRMaterialRender.h"
 #include "GltfModel/GltfMesh.h"
+#include "RHI/RHICommandContext.h"
 
 namespace Engine
 {
@@ -42,7 +43,7 @@ namespace Engine
 		return true;
 	}
 
-	void GltfMeshComponent::Draw(RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera)
+	void GltfMeshComponent::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera)
 	{
 
 	}

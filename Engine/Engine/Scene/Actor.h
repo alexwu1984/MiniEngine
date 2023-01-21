@@ -75,4 +75,18 @@ namespace Engine
 	private:
 		std::shared_ptr<ActorP> ImplActorP;
 	};
+
+	DECLARE_ACTOR_TRAITS_CLASS_NAME(Actor);
+
+	template<typename TActorType>
+	static __forceinline std::shared_ptr<TActorType> ActorCast(std::shared_ptr<Actor> Resource)
+	{
+		static_assert(TActorType::Flag::IsActor);
+
+		if (Resource->GetName() == ActorTraitsClassName<TActorType>::Name)
+		{
+			return std::static_pointer_cast<TActorType>(Resource);
+		}
+		return nullptr;
+	}
 }

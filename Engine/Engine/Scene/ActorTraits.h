@@ -11,15 +11,13 @@ namespace Engine
 
 	};
 
-#define  DECLARE_ACTOR_TRAITS_CLASS_NAME(ClassName)\
-template<> struct ActorTraitsClassName<ClassName>\
-{\
-	static std::string Name;\
-};\
+	#define  DECLARE_ACTOR_TRAITS_CLASS_NAME(ClassName)\
+	template<> struct ActorTraitsClassName<ClassName>\
+	{\
+		static std::string Name;\
+	};\
 
-#define IMP_ACTOR_TRAITS_CLASS_NAME(ClassName)\
-std::string ActorTraitsClassName<ClassName>::Name={#ClassName};
+	#define IMP_ACTOR_TRAITS_CLASS_NAME(ClassName)\
+	std::string ActorTraitsClassName<ClassName>::Name={#ClassName};
 
-
-	template<typename TActorType> std::shared_ptr<TActorType> ActorCast(std::shared_ptr<Actor> Resource);
 }

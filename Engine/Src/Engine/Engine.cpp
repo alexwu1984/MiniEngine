@@ -5,6 +5,7 @@
 #include "RHI/RHIViewPort.h"
 #include "Thread/RenderThread.h"
 #include "Scene/SceneView.h"
+#include "Render/SceneRender.h"
 
 namespace Engine
 {
@@ -16,11 +17,14 @@ namespace Engine
 		{
 			DynamicRHI = RenderCore::PlatformCreateDynamicRHI(RenderCore::RHIAPIType::E_D3D11);
 			Scene = std::make_shared<SceneView>();
+			SeRender = std::make_shared<SceneRender>(Scene);
 		}
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
-		std::shared_ptr<RenderCore::RHIViewPort> MainViewPort;
 		std::unique_ptr<RenderThread> RThread;
 		std::shared_ptr<SceneView> Scene;
+		std::shared_ptr<SceneRender> SeRender;
+		std::chrono::high_resolution_clock::time_point TStart;
+		std::chrono::high_resolution_clock::time_point TEnd;
 	};
 
 	MainEngine::MainEngine()
@@ -38,12 +42,14 @@ namespace Engine
 	{
 		if (Impl->DynamicRHI)
 		{
-			AppWin->idle.bind(std::bind(&MainEngine::Render, this), this);
+			AppWin->idle.bind(std::bind(&MainEngine::Tick, this), this);
 			Impl->DynamicRHI->Init();
-			Impl->MainViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
+			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
 			Impl->RThread = std::make_unique<RenderThread>();
 			Impl->RThread->Start();
 			Impl->Scene->Init();
+			Impl->SeRender->InitResource(ViewPort);
+			Impl->TStart = std::chrono::high_resolution_clock::now();
 		}
 	}
 
@@ -57,8 +63,9 @@ namespace Engine
 		{
 			Impl->DynamicRHI->Shutdown();
 		}
+		Impl->SeRender = {};
+		Impl->Scene = {};
 		Impl->DynamicRHI = {};
-		Impl->MainViewPort = {};
 		Impl->RThread = {};
 	}
 
@@ -67,14 +74,18 @@ namespace Engine
 		return Impl->DynamicRHI;
 	}
 
-	void MainEngine::Render()
+	void MainEngine::Tick()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](){
-			Impl->MainViewPort->Clear(1, 0, 0, 1);
 
-			Impl->MainViewPort->Present();
-		}));
+		Impl->TEnd = std::chrono::high_resolution_clock::now();
+		float DeltaTime = std::chrono::duration<float, std::milli>(Impl->TEnd - Impl->TStart).count();
+		if (DeltaTime < (1000.0f / 60.f))
+		{
+			return ;
+		}
 
+		Impl->Scene->Tick(DeltaTime);
+		Impl->SeRender->Render();
 	}
 
 }

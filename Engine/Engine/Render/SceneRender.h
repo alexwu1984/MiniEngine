@@ -1,8 +1,15 @@
 #pragma once
 #include "core/inc.h"
 
+namespace RenderCore
+{
+	class RHICommandContext;
+	class RHIViewPort;
+}
+
 namespace Engine
 {
+	
 	class SceneView;
 	struct SceneRenderP;
 
@@ -13,7 +20,9 @@ namespace Engine
 		~SceneRender();
 		std::shared_ptr<SceneView> GetOwner() const;
 
-		void InitResource();
+		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
+
+		void Render();
 
 	private:
 		std::shared_ptr< SceneRenderP> Impl;

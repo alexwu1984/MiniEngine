@@ -28,7 +28,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
 
 	private:
-		void Render();
+		void Tick();
 
 	private:
 		std::shared_ptr<MainEngineP> Impl;

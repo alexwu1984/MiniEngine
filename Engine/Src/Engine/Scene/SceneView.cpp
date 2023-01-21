@@ -1,12 +1,11 @@
+
 #include "Scene/SceneView.h"
-#include "Render/SceneRender.h"
 #include "Scene/Actor.h"
 
 namespace Engine 
 {
 	struct SceneViewP
 	{
-		std::unique_ptr <SceneRender> Render;
 		std::vector<std::shared_ptr<Actor>> Actors;
 		std::vector<std::shared_ptr<Actor>> PendingActors;
 
@@ -26,8 +25,6 @@ namespace Engine
 
 	void SceneView::Init()
 	{
-		Impl->Render = std::make_unique<SceneRender>(this->shared_from_this());
-		Impl->Render->InitResource();
 	}
 
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)
@@ -96,19 +93,9 @@ namespace Engine
 		}
 	}
 
-	template<typename ActorType> std::vector<std::shared_ptr<ActorType>>
-	SceneView::GetActors()
+	std::vector<std::shared_ptr<Actor>>& SceneView::AllActors()
 	{
-		std::vector<std::shared_ptr<ActorType>> Actors;
-		for (auto Item : Impl->Actors)
-		{
-			std::shared_ptr<ActorType> convertActor = ActorCast<ActorType>(Item);
-			if (convertActor)
-			{
-				Actors.push_back(convertActor);
-			}
-		}
-		return Actors;
+		return Impl->Actors;
 	}
 
 }

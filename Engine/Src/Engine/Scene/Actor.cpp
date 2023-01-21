@@ -18,10 +18,10 @@ namespace Engine
 
 	IMP_ACTOR_CLASS_NAME(Actor)
 
-	Actor::Actor(std::weak_ptr<SceneView> world)
+	Actor::Actor(std::weak_ptr<SceneView> Scene)
 		:ImplActorP(std::make_shared<ActorP>())
 	{
-
+		ImplActorP->Scene = Scene;
 	}
 	Actor::~Actor()
 	{
@@ -33,17 +33,25 @@ namespace Engine
 
 	}
 
-	void Actor::Update(float deltaTime)
+	void Actor::Tick(float deltaTime)
+	{
+		if (ImplActorP->State == AState::EActive)
+		{
+			ComputeWorldTransform();
+
+			TickComponents(deltaTime);
+			TickActor(deltaTime);
+
+			ComputeWorldTransform();
+		}
+	}
+
+	void Actor::TickComponents(float deltaTime)
 	{
 
 	}
 
-	void Actor::UpdateComponents(float deltaTime)
-	{
-
-	}
-
-	void Actor::UpdateActor(float deltaTime)
+	void Actor::TickActor(float deltaTime)
 	{
 
 	}
@@ -111,9 +119,9 @@ namespace Engine
 		ImplActorP->Scale = State;
 	}
 
-	std::weak_ptr<SceneView> Actor::GetScene() const
+	std::shared_ptr<SceneView> Actor::GetScene() const
 	{
-		return ImplActorP->Scene;
+		return ImplActorP->Scene.lock();
 	}
 
 	Vector3 Actor::GetForward() const

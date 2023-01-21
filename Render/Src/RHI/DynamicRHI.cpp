@@ -5,7 +5,7 @@ namespace RenderCore
 {
 	std::shared_ptr<DynamicRHI> PlatformCreateDynamicRHI(RHIAPIType apiType)
 	{
-		return std::make_shared<D3D11DynamicRHI>();
+		return std::make_unique<D3D11DynamicRHI>();
 	}
 
 

@@ -37,12 +37,12 @@ namespace Engine
 		Data->hInst = hInst;
 		core::CommandLine::Get().SetCommandLine(args, arguments);
 		Data->AppWin = std::make_shared<AppWindow>(hInst);
-		if (CreateAppWindow())
+		if (!CreateAppWindow())
 		{
-			Data->Engine->Init(Data->AppWin);
-			return true;
+			return false;
 		}
-		return false;
+		Data->Engine->Init(Data->AppWin);
+		return Init();
 	}
 
 

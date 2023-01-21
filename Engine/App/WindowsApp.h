@@ -13,6 +13,7 @@ namespace Engine
 
 		bool Main(HINSTANCE hInst, int aargs, wchar_t** arguments);
 		void Run();
+		virtual bool Init() { return true; }
 	private:
 		bool CreateAppWindow();
 

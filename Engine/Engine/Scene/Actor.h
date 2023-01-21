@@ -36,13 +36,13 @@ namespace Engine
 
 	public:
 		DECLARE_ACTOR_CLASS_NAME(Actor)
-		Actor(std::weak_ptr<SceneView> world);
+		Actor(std::weak_ptr<SceneView> Scene);
 		virtual ~Actor();
 
 		virtual void InitResouce();
-		void Update(float deltaTime);
-		void UpdateComponents(float deltaTime);
-		virtual void UpdateActor(float deltaTime);
+		void Tick(float deltaTime);
+		void TickComponents(float deltaTime);
+		virtual void TickActor(float deltaTime);
 
 		math::Vector3 GetPosition() const;
 		void SetPosition(const math::Vector3& pos);
@@ -57,7 +57,7 @@ namespace Engine
 		AState GetState() const;
 		void SetState(AState state);
 
-		std::weak_ptr<SceneView> GetScene() const;
+		std::shared_ptr<SceneView> GetScene() const;
 
 		math::Vector3 GetForward() const;
 		math::Vector3 GetRight() const;

@@ -4,6 +4,7 @@
 #include "App/AppWindow.h"
 #include "RHI/RHIViewPort.h"
 #include "Thread/RenderThread.h"
+#include "Scene/SceneView.h"
 
 namespace Engine
 {
@@ -14,10 +15,12 @@ namespace Engine
 		MainEngineP()
 		{
 			DynamicRHI = RenderCore::PlatformCreateDynamicRHI(RenderCore::RHIAPIType::E_D3D11);
+			Scene = std::make_shared<SceneView>();
 		}
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
 		std::shared_ptr<RenderCore::RHIViewPort> MainViewPort;
 		std::unique_ptr<RenderThread> RThread;
+		std::shared_ptr<SceneView> Scene;
 	};
 
 	MainEngine::MainEngine()
@@ -40,6 +43,7 @@ namespace Engine
 			Impl->MainViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
 			Impl->RThread = std::make_unique<RenderThread>();
 			Impl->RThread->Start();
+			Impl->Scene->Init();
 		}
 	}
 

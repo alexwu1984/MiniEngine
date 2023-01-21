@@ -5,6 +5,8 @@ namespace Engine
 {
 	class Actor;
 	struct ComponentP;
+	class RHICommandContext;
+	class CameraComponent;
 
 	class Component : public std::enable_shared_from_this<Component>
 	{
@@ -18,14 +20,14 @@ namespace Engine
 		virtual void InitResource() {};
 		// Update this component by delta time
 		virtual void Update(float deltaTime) {};
-		//virtual void Draw(FCommandContext& GfxContext, std::shared_ptr<CameraComponent> Camera) {}
+		virtual void Draw(RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera) {}
 		// Process input for this component
 		//virtual void ProcessInput(const InputState& State) { (State); }
 		// Called when world transform changes
 		virtual void OnUpdateWorldTransform() { }
 
 		std::shared_ptr<Actor> GetOwner() const;
-	protected:
+	private:
 		std::shared_ptr< ComponentP> ImplComponentP;
 	};
 }

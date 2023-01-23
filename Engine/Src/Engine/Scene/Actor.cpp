@@ -1,5 +1,6 @@
-#include "Engine/Scene/Actor.h"
-#include "Engine/Scene/ActorPrivate.h"
+#include "Scene/Actor.h"
+#include "Scene/ActorPrivate.h"
+#include "Scene/Component.h"
 
 namespace Engine
 {
@@ -37,7 +38,10 @@ namespace Engine
 
 	void Actor::TickComponents(float deltaTime)
 	{
-
+		for (auto comp : ImplActorP->Components)
+		{
+			comp->Tick(deltaTime);
+		}
 	}
 
 	void Actor::TickActor(float deltaTime)

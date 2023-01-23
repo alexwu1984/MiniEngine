@@ -26,6 +26,7 @@ namespace Engine
 		void ShutDown();
 
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
+		std::shared_ptr<AppWindow> GetAppWindow()const;
 
 	private:
 		void Tick();

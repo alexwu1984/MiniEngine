@@ -4,7 +4,7 @@
 namespace Engine 
 {
 	class Actor;
-	
+	class CameraComponent;
 	struct SceneViewP;
 
 	class SceneView : public std::enable_shared_from_this<SceneView>
@@ -32,6 +32,8 @@ namespace Engine
 			}
 			return Actors;
 		}
+		void SetMainCamera(std::shared_ptr<CameraComponent> Camera);
+		std::shared_ptr<CameraComponent> GetMainCamera() const;
 	private:
 		std::vector<std::shared_ptr<Actor>>& AllActors();
 	private:

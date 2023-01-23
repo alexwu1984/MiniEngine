@@ -19,6 +19,7 @@ namespace Engine
 			Scene = std::make_shared<SceneView>();
 			SeRender = std::make_shared<SceneRender>(Scene);
 		}
+		std::shared_ptr< AppWindow> AppWin;
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
 		std::unique_ptr<RenderThread> RThread;
 		std::shared_ptr<SceneView> Scene;
@@ -40,6 +41,7 @@ namespace Engine
 
 	void MainEngine::Init(std::shared_ptr< AppWindow> AppWin)
 	{
+		Impl->AppWin = AppWin;
 		if (Impl->DynamicRHI)
 		{
 			AppWin->idle.bind(std::bind(&MainEngine::Tick, this), this);
@@ -72,6 +74,11 @@ namespace Engine
 	std::shared_ptr<RenderCore::DynamicRHI> MainEngine::GetRHI() const
 	{
 		return Impl->DynamicRHI;
+	}
+
+	std::shared_ptr<Engine::AppWindow> MainEngine::GetAppWindow() const
+	{
+		return Impl->AppWin;
 	}
 
 	void MainEngine::Tick()

@@ -1,7 +1,7 @@
 #include "win/win32.h"
 #include "math/vector2.h"
 #include "core/commandline.h"
-#include "App/windowsapp.h"
+#include "GltfViewerApp.h"
 #include "core/memory_manager.h"
 #include <shellapi.h>
 
@@ -12,7 +12,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	LPWSTR* argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
 
 	
-	Engine::WindowApplication App;
+	GltfViewApp App;
 	if (App.Main(hInstance, argc, argv))
 	{
 		App.Run();

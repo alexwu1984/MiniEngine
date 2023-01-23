@@ -22,7 +22,7 @@ namespace math
 		};
 
 
-		Vector3() = default;
+		Vector3();
 		Vector3(const Vector3& v);
 		Vector3(float _x, float _y, float _z);
 
@@ -43,7 +43,7 @@ namespace math
 		{
 			x = -x; y = -y; z = -z;
 		}
-		void  Normalize(void)
+		Vector3  Normalize(void)
 		{
 			float f = x * x + y * y + z * z;
 			if (f > EPSILON_E4)
@@ -55,6 +55,7 @@ namespace math
 			{
 				*this = Zero;
 			}
+			return *this;
 		}
 
 		float Dot(const Vector3& v)const

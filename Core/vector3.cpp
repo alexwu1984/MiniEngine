@@ -27,6 +27,11 @@ namespace math
 		Set(v.x, v.y,v.z);
 	}
 
+	Vector3::Vector3()
+	{
+		Set(0.f, 0.f, 0.f);
+	}
+
 	Vector3 Vector3::operator * (const Matrix4x4& m)const
 	{
 		Vector3 vcResult;

@@ -64,7 +64,7 @@ namespace Engine
 				auto& Components = ActorItem->GetComponents();
 				for (auto& ComponentItem : Components)
 				{
-					ComponentItem->Draw(*CommandContext, nullptr);
+					ComponentItem->Draw(*CommandContext, GetOwner()->GetMainCamera());
 				}
 			}
 		}

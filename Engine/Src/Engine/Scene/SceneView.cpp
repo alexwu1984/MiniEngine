@@ -1,6 +1,7 @@
 
 #include "Scene/SceneView.h"
 #include "Scene/Actor.h"
+#include "Scene/CameraComponent.h"
 
 namespace Engine 
 {
@@ -8,6 +9,7 @@ namespace Engine
 	{
 		std::vector<std::shared_ptr<Actor>> Actors;
 		std::vector<std::shared_ptr<Actor>> PendingActors;
+		std::shared_ptr<CameraComponent> MainCamera;
 
 		bool UpdatingActors = false;
 	};
@@ -91,6 +93,16 @@ namespace Engine
 				++ItActor;
 			}
 		}
+	}
+
+	void SceneView::SetMainCamera(std::shared_ptr<CameraComponent> Camera)
+	{
+		Impl->MainCamera = Camera;
+	}
+
+	std::shared_ptr<Engine::CameraComponent> SceneView::GetMainCamera() const
+	{
+		return Impl->MainCamera;
 	}
 
 	std::vector<std::shared_ptr<Actor>>& SceneView::AllActors()

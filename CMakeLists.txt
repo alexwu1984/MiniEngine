@@ -28,13 +28,16 @@ include_directories(${PROJECT_SOURCE_DIR}/Engine)
 
 set ( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS" )
 
-add_executable(Tutorial01 Tutorial01/Tutorial01.cpp)
-target_link_libraries(Tutorial01 LINK_PUBLIC Core DirectXTex Render Engine)
-set_target_properties(Tutorial01 PROPERTIES
-	PROJECT_LABEL "Tutorial01 - Empty Project")
+file(GLOB Headers "GLFFViewer/*.h")
+file(GLOB Sources "GLFFViewer/*.cpp")
+
+add_executable(GLFFViewer ${Sources} ${Headers})
+target_link_libraries(GLFFViewer LINK_PUBLIC Core DirectXTex Render Engine)
+set_target_properties(GLFFViewer PROPERTIES
+	PROJECT_LABEL "GLFFViewer")
 
 set_target_properties(
-	Tutorial01
+	GLFFViewer
 	PROPERTIES
-		FOLDER Tutorials
+	FOLDER Projects
 )

@@ -157,7 +157,7 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
 		if (Tex2DRHI->CreateWithData(Format, Flags, SizeX, SizeY, InBuffer, RowBytes))
@@ -210,7 +210,7 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHITexture1D> D3D11DynamicRHI::RHICreateTexture1D(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int RowBytes)
+	std::shared_ptr< RHITexture1D> D3D11DynamicRHI::RHICreateTexture1D(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int RowBytes)
 	{
 		std::shared_ptr<D3D11Texture1D> Tex1DRHI = std::make_shared<D3D11Texture1D>(this);
 		if (Tex1DRHI->CreateWithData(Format,Flags,SizeX,InBuffer,RowBytes))
@@ -236,10 +236,10 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool CreateDepth)
+	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth)
 	{
 		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);
-		if (RenderTargetRHI->Create(Format, SizeX,SizeY,CreateDepth))
+		if (RenderTargetRHI->Create(Format, SizeX,SizeY,IsMultiSampled, CreateDepth))
 		{
 			return RenderTargetRHI;
 		}

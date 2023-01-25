@@ -53,7 +53,7 @@ namespace RenderCore
 	}
 
 
-	bool D3D11Texture1D::CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, void* InBuffer, int32_t RowBytes)
+	bool D3D11Texture1D::CreateWithData(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int32_t RowBytes)
 	{
 		const DXGI_FORMAT PlatformResourceFormat = GetPlatformTextureResourceFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat, Flags);
 

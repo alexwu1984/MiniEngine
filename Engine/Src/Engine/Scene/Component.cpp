@@ -8,7 +8,7 @@ namespace Engine
 	};
 
 	Component::Component(std::weak_ptr<Actor> Owner)
-		:ImplComponentP(std::shared_ptr<ComponentP>())
+		:ImplComponentP(std::make_shared<ComponentP>())
 	{
 		ImplComponentP->Owner = Owner;
 	}

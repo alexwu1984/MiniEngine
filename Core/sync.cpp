@@ -26,8 +26,12 @@ namespace win32
 
     signal::~signal()
     {
-        if(_handle)
+        if (_handle)
+        {
             CloseHandle((HANDLE)_handle);
+        }
+        _handle = nullptr;
+            
     }
 
     core::error_e signal::create(std::string name, bool init, bool manual)

@@ -40,6 +40,15 @@ namespace Engine
 
 	bool AppWindow::CreateAppWindow(int32_t width, int32_t height)
 	{
+		int32_t ScreenX = ::GetSystemMetrics(SM_CXSCREEN);
+		int32_t ScreenY = ::GetSystemMetrics(SM_CYSCREEN);
+
+		if (width > ScreenX )
+		{
+			width = 1280;
+			height = 720;
+		}
+
 		Impl->_width = width;
 		Impl->_height = height;
 		WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
@@ -57,8 +66,6 @@ namespace Engine
 
 		RegisterClassExW(&wcex);
 
-		int32_t ScreenX = ::GetSystemMetrics(SM_CXSCREEN);
-		int32_t ScreenY = ::GetSystemMetrics(SM_CYSCREEN);
 
 		Impl->_hWnd = ::CreateWindowExW(0, L"EngineAppWindow", L"MiniEngine", WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, Impl->_hInst, nullptr);
 		if (IsWindow(Impl->_hWnd))

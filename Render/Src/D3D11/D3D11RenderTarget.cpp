@@ -34,22 +34,40 @@ namespace RenderCore
 		if (CreateDepth)
 		{
 			Data->DepthTex = std::make_shared<D3D11Texture2D>(Data->D3D11RHI);
-			return Data->DepthTex->CreateWithData(EPixelFormat::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, Tex->GetSize().x, Tex->GetSize().y);
+			int32_t Flags = ETextureCreateFlags::TexCreate_DepthStencilTargetable;
+			if (Tex->IsMultisampled())
+			{
+				Flags |= ETextureCreateFlags::TexCreate_MSAA;
+			}
+
+			return Data->DepthTex->CreateWithData(EPixelFormat::PF_DepthStencil, Flags, Tex->GetSize().x, Tex->GetSize().y);
 		}
 		return true;
 	}
 
-	bool D3D11RenderTarget::Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool CreateDepth)
+	bool D3D11RenderTarget::Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth)
 	{
 		Data->Tex2D = std::make_shared<D3D11Texture2D>(Data->D3D11RHI);
-		if (!Data->Tex2D->CreateWithData(Format,ETextureCreateFlags::TexCreate_RenderTargetable ,SizeX,SizeY))
+		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable;
+		if (IsMultiSampled)
+		{
+			Flags |= ETextureCreateFlags::TexCreate_MSAA;
+		}
+
+		if (!Data->Tex2D->CreateWithData(Format, Flags,SizeX,SizeY))
 		{
 			return false;
 		}
 		if (CreateDepth)
 		{
 			Data->DepthTex = std::make_shared<D3D11Texture2D>(Data->D3D11RHI);
-			return Data->DepthTex->CreateWithData(EPixelFormat::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
+			Flags = ETextureCreateFlags::TexCreate_DepthStencilTargetable;
+			if (IsMultiSampled)
+			{
+				Flags |= ETextureCreateFlags::TexCreate_MSAA;
+			}
+
+			return Data->DepthTex->CreateWithData(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
 		}
 		return true;
 	}

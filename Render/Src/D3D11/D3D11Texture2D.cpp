@@ -16,6 +16,7 @@ namespace RenderCore
 		win32::com_ptr<ID3D11RenderTargetView> TexRTV;
 		win32::com_ptr<ID3D11DepthStencilView> TexDSV;
 		core::vec2i Size;
+		bool IsMultisampled = false;
 	};
 
 	/**
@@ -28,9 +29,8 @@ namespace RenderCore
 		__try
 		{
 #endif // #if GUARDED_TEXTURE_CREATES
-			VERIFYD3D11RESULT(
-				Direct3DDevice->CreateTexture2D(TextureDesc, SubResourceData, OutTexture2D)
-			);
+			HRESULT hResult = Direct3DDevice->CreateTexture2D(TextureDesc, SubResourceData, OutTexture2D);
+			VERIFYD3D11RESULT(hResult);
 #if GUARDED_TEXTURE_CREATES
 			bDriverCrash = false;
 		}
@@ -66,7 +66,7 @@ namespace RenderCore
 
 	}
 
-	bool D3D11Texture2D::CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
+	bool D3D11Texture2D::CreateWithData(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
 		Impl->Size.cx = SizeX;
 		Impl->Size.cy = SizeY;
@@ -78,19 +78,23 @@ namespace RenderCore
 		D3D11_USAGE TextureUsage = D3D11_USAGE_DEFAULT;
 		bool bCreateShaderResource = true;
 
-		uint32_t ActualMSAACount = 4;
+		auto Device = Impl->D3D11RHI->GetDevice();
 
-		uint32_t ActualMSAAQuality = GetMaxMSAAQuality(ActualMSAACount);
-
-		// 0xffffffff means not supported
-		if (ActualMSAAQuality == 0xffffffff || (Flags & TexCreate_Shared) != 0)
+		uint32_t ActualMSAACount = 1;
+		uint32_t ActualMSAAQuality = 0;
+		if (Flags & TexCreate_MSAA)
 		{
-			// no MSAA
-			ActualMSAACount = 1;
-			ActualMSAAQuality = 0;
+			ActualMSAAQuality = GetMaxMSAAQuality(Device, PlatformResourceFormat, ActualMSAACount);
+			// 0xffffffff means not supported
+			if (ActualMSAAQuality == 0xffffffff || (Flags & TexCreate_Shared) != 0)
+			{
+				// no MSAA
+				ActualMSAACount = 1;
+				ActualMSAAQuality = 0;
+			}
 		}
 
-		const bool bIsMultisampled = ActualMSAACount > 1;
+		Impl->IsMultisampled = ActualMSAACount > 1;
 
 		if (Flags & TexCreate_CPUReadback)
 		{
@@ -146,7 +150,7 @@ namespace RenderCore
 		bool bCreateRTV = false;
 		bool bCreateDSV = false;
 
-		if (Flags & TexCreate_RenderTargetable || bIsMultisampled || Flags & TexCreate_GenerateMipCapable)
+		if (Flags & TexCreate_RenderTargetable || Impl->IsMultisampled || Flags & TexCreate_GenerateMipCapable)
 		{
 			Assert(!(Flags & TexCreate_DepthStencilTargetable));
 			Assert(!(Flags & TexCreate_ResolveTargetable));
@@ -187,7 +191,7 @@ namespace RenderCore
 			bCreateShaderResource = false;
 		}
 
-		auto Device = Impl->D3D11RHI->GetDevice();
+		
 		auto DeviceContext = Impl->D3D11RHI->GetDeviceContext();
 		HRESULT hr = S_OK;
 		if (Flags & TexCreate_GenerateMipCapable)
@@ -220,7 +224,7 @@ namespace RenderCore
 			D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
 			memset(&SRVDesc, 0, sizeof(SRVDesc));
 			SRVDesc.Format = TextureDesc.Format;
-			if (bIsMultisampled)
+			if (Impl->IsMultisampled)
 			{
 				SRVDesc.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2DMS;
 			}
@@ -250,7 +254,7 @@ namespace RenderCore
 			D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 			memset(&RTVDesc, 0, sizeof(RTVDesc));
 			RTVDesc.Format = TextureDesc.Format;
-			if (bIsMultisampled)
+			if (Impl->IsMultisampled)
 			{
 				RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
 			}
@@ -271,7 +275,7 @@ namespace RenderCore
 			D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
 			memset(&DSVDesc, 0, sizeof(DSVDesc));
 			DSVDesc.Format = TextureDesc.Format;
-			if (bIsMultisampled)
+			if (Impl->IsMultisampled)
 			{
 				DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
 			}
@@ -317,6 +321,11 @@ namespace RenderCore
 			return CreateWithData(PF_FloatRGBA, TexCreate_ShaderResource, SizeX, SizeY, ImageBuffer.get(), 4 * SizeX * sizeof(float));
 		}
 		return false;
+	}
+
+	bool D3D11Texture2D::IsMultisampled() const
+	{
+		return Impl->IsMultisampled;
 	}
 
 	core::vec2i D3D11Texture2D::GetSize() const

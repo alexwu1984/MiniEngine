@@ -57,6 +57,7 @@ namespace Engine
 
 	void MainEngine::ShutDown()
 	{
+
 		if (Impl->RThread)
 		{
 			Impl->RThread->Stop();
@@ -76,9 +77,14 @@ namespace Engine
 		return Impl->DynamicRHI;
 	}
 
-	std::shared_ptr<Engine::AppWindow> MainEngine::GetAppWindow() const
+	std::shared_ptr<AppWindow> MainEngine::GetAppWindow() const
 	{
 		return Impl->AppWin;
+	}
+
+	std::shared_ptr<SceneView> MainEngine::GetScene() const
+	{
+		return Impl->Scene;
 	}
 
 	void MainEngine::Tick()

@@ -4,6 +4,9 @@
 
 namespace Engine
 {
+	IMP_ACTOR_CLASS_NAME(GltfOrbitActor)
+	IMP_ACTOR_TRAITS_CLASS_NAME(GltfOrbitActor)
+
 	struct GltfOrbitActorP
 	{
 		std::wstring ModelFileName;

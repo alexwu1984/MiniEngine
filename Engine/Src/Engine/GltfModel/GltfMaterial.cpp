@@ -64,7 +64,7 @@ namespace Engine
 			return TexRHI;
 		};
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Data = Data, Material, CreateTexture]() {
+		auto CreateTexCommand = [Data = Data, Material, CreateTexture]() {
 
 			int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
 			Data->BaseColorTexture = CreateTexture(Index, Vector4(1.f, 1.0f, 1.f, 1.f));
@@ -74,14 +74,16 @@ namespace Engine
 
 			auto EmissiveColor = Material.emissiveFactor;
 			Index = Material.emissiveTexture.index;
-			Data->EmissiveTexture = CreateTexture(Index, Vector4(float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2]), float(EmissiveColor[3])));
+			Data->EmissiveTexture = CreateTexture(Index, Vector4(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])));
 
 			Index = Material.normalTexture.index;
 			Data->NormalTexture = CreateTexture(Index, Vector4(0.5f, 0.5f, 1.f, 1.f));
 
 			Index = Material.occlusionTexture.index;
 			Data->OcclusionTexture = CreateTexture(Index, Vector4(0.5f, 0.5f, 1.f, 1.f));
-		}));
+		};
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
 	}
 
 	std::string GltfMaterial::GetMaterialName() const

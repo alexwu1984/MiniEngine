@@ -13,9 +13,10 @@ namespace RenderCore
 		D3D11Texture2D(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11Texture2D();
 
-		virtual bool CreateWithData(EPixelFormat Format, ETextureCreateFlags Flags, int32_t SizeX, int32_t SizeY, void* InBuffer = nullptr, int RowBytes = 0) override;
+		virtual bool CreateWithData(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer = nullptr, int RowBytes = 0) override;
 		virtual bool CreateFromFile(const std::wstring& FileName) override;
 		virtual bool CreateHDRFromFile(const std::wstring& FileName) override;
+		virtual bool IsMultisampled() const override;
 		virtual core::vec2i GetSize() const;
 
 		ID3D11Texture2D* GetNativeTex() const;

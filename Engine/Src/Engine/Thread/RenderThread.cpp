@@ -7,7 +7,7 @@ namespace Engine
 	struct RenderThreadP
 	{
 		std::queue<std::function<void()>> CmdQueue;
-		std::mutex DataLock;
+		std::mutex CondLock;
 		std::thread Thread;
 		std::condition_variable Notify;
 		win32::signal WaitForFinish;
@@ -22,7 +22,6 @@ namespace Engine
 	}
 
 	RenderThread::~RenderThread()
-		
 	{
 
 	}
@@ -62,7 +61,7 @@ namespace Engine
 		else
 		{
 			{
-				std::unique_lock<std::mutex> lock(Data->DataLock);
+				std::unique_lock<std::mutex> lock(Data->CondLock);
 				Data->CmdQueue.push(fun);
 			}
 			Data->Notify.notify_one();
@@ -82,7 +81,7 @@ namespace Engine
 		while (!Data->Stop)
 		{
 			{
-				std::unique_lock<std::mutex> ConLock(Data->DataLock);
+				std::unique_lock<std::mutex> ConLock(Data->CondLock);
 				Data->Notify.wait(ConLock, [this]() {
 					return Data->Stop || !Data->CmdQueue.empty();
 					});
@@ -92,7 +91,7 @@ namespace Engine
 
 			std::queue<std::function<void()>> SwapCmd;
 			{
-				std::unique_lock<std::mutex> ConLock(Data->DataLock);
+				std::unique_lock<std::mutex> ConLock(Data->CondLock);
 				Data->CmdQueue.swap(SwapCmd);
 			}
 			

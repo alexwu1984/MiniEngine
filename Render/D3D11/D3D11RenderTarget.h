@@ -15,7 +15,7 @@ namespace RenderCore
 		virtual ~D3D11RenderTarget();
 
 		virtual bool CreateWithTexture(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth) override;
-		virtual bool Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool CreateDepth) override;
+		virtual bool Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY,bool IsMultiSampled, bool CreateDepth) override;
 
 		virtual void Bind() override;
 		virtual void UnBind() override;

@@ -15,7 +15,7 @@ namespace Engine
 	};
 
 	GltfMeshBuffer::GltfMeshBuffer()
-		:Impl(std::shared_ptr<GltfMeshBufferP>())
+		:Impl(std::make_shared<GltfMeshBufferP>())
 	{
 
 	}
@@ -27,7 +27,7 @@ namespace Engine
 
 	void GltfMeshBuffer::InitMesh(std::shared_ptr< GltfMeshInfo> MeshInfo)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([MeshInfo = MeshInfo, Impl = Impl]() {
+		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, Impl = Impl]() {
 			auto RHI = GEngine->GetRHI();
 			Impl->VerticesBuffer[VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
 			Impl->VerticesBuffer[VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
@@ -46,7 +46,7 @@ namespace Engine
 				Impl->VerticesBuffer[VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->Tangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 				Impl->AtrributeCount += 1;
 			}
-	
+
 			// If BoneID not exist,It's no necessary to create JointsWeights0
 			if (MeshInfo->BoneIDs)
 			{
@@ -59,7 +59,7 @@ namespace Engine
 				{
 					BondId[i] = (float)pSrcID[i];
 				}
-				
+
 				Impl->VerticesBuffer[VT_JointsIndices0] = RHI->RHICreateVertexBuffer(BondId.data(), RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 
 				Impl->AtrributeCount += 2;
@@ -74,7 +74,9 @@ namespace Engine
 				Impl->IndexBuffer = RHI->RHICreateIndexBuffer(MeshInfo->FacesIndex32, RenderCore::BUF_IndexBuffer, MeshInfo->nNumFaces);
 			}
 
-		}));
+		};
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateVertexBufferCommand);
 	}
 
 	void GltfMeshBuffer::UpdateVert(math::Vector3* pVert, int nVert)

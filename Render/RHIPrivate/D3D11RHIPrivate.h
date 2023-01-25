@@ -216,14 +216,13 @@ namespace RenderCore
 		return TextureFormatText;
 	}
 
-	inline uint32_t GetMaxMSAAQuality(uint32_t SampleCount)
+	inline uint32_t GetMaxMSAAQuality(ID3D11Device* device, DXGI_FORMAT InFormat,uint32_t SampleCount)
 	{
 		if (SampleCount <= DX_MAX_MSAA_COUNT)
 		{
-			// 0 has better quality (a more even distribution)
-			// higher quality levels might be useful for non box filtered AA or when using weighted samples 
-			return 0;
-			//		return AvailableMSAAQualities[SampleCount];
+			uint32_t Level;
+			device->CheckMultisampleQualityLevels(InFormat, SampleCount, &Level);
+			return Level > SampleCount ? SampleCount : Level-1;
 		}
 		// not supported
 		return 0xffffffff;

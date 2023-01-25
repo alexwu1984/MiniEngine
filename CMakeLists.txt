@@ -1,6 +1,7 @@
 ﻿cmake_minimum_required(VERSION 3.10)
-
+include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngineTutorial)
+
 
 add_compile_definitions(_UNICODE UNICODE)
 add_compile_options("/std:c++20")
@@ -41,3 +42,13 @@ set_target_properties(
 	PROPERTIES
 	FOLDER Projects
 )
+
+set(GLTFModel_GLB
+    ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/huojian.glb
+)
+
+copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)
+copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}/GLTFModel copied_glb_release)
+copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/GLTFModel copied_glb_debinfo)
+
+add_dependencies(GLFFViewer copied_glb_debug copied_glb_release copied_glb_debinfo)

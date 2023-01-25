@@ -15,6 +15,7 @@ namespace Engine
 {
 	struct MainEngineP;
 	class AppWindow;
+	class SceneView;
 
 	class MainEngine
 	{
@@ -27,6 +28,7 @@ namespace Engine
 
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
 		std::shared_ptr<AppWindow> GetAppWindow()const;
+		std::shared_ptr<SceneView> GetScene() const;
 
 	private:
 		void Tick();

@@ -49,6 +49,7 @@ namespace Engine
 	void WindowApplication::Run()
 	{
 		Data->AppWin->RunLoop();
+		ShutDown();
 		Data->Engine->ShutDown();
 	}
 

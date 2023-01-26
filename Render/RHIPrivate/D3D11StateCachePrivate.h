@@ -112,5 +112,33 @@ namespace RenderCore
 		}
 
 		void ClearState();
+
+		template <EShaderFrequency ShaderFrequency>
+		void InternalSetSamplerState(uint32_t SamplerIndex, ID3D11SamplerState*& SamplerState)
+		{
+			switch (ShaderFrequency)
+			{
+			case SF_Vertex:		Direct3DDeviceIMContext->VSSetSamplers(SamplerIndex, 1, &SamplerState); break;
+			case SF_Hull:		Direct3DDeviceIMContext->HSSetSamplers(SamplerIndex, 1, &SamplerState); break;
+			case SF_Domain:		Direct3DDeviceIMContext->DSSetSamplers(SamplerIndex, 1, &SamplerState); break;
+			case SF_Geometry:	Direct3DDeviceIMContext->GSSetSamplers(SamplerIndex, 1, &SamplerState); break;
+			case SF_Pixel:		Direct3DDeviceIMContext->PSSetSamplers(SamplerIndex, 1, &SamplerState); break;
+			case SF_Compute:	Direct3DDeviceIMContext->CSSetSamplers(SamplerIndex, 1, &SamplerState); break;
+			}
+		}
+
+		template <EShaderFrequency ShaderFrequency>
+		void SetSamplerState(ID3D11SamplerState* SamplerState, uint32_t SamplerIndex)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			if ((CurrentSamplerStates[ShaderFrequency][SamplerIndex] != SamplerState) )
+			{
+				CurrentSamplerStates[ShaderFrequency][SamplerIndex] = SamplerState;
+				InternalSetSamplerState<ShaderFrequency>(SamplerIndex, SamplerState);
+			}
+#else
+			InternalSetSamplerState<ShaderFrequency>(SamplerIndex, SamplerState);
+#endif
+		}
 	};
 }

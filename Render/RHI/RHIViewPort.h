@@ -1,5 +1,6 @@
 #pragma once
 #include "win/win32.h"
+#include "core/color.h"
 
 namespace RenderCore
 {
@@ -41,7 +42,7 @@ namespace RenderCore
 		virtual void* GetNativeWindow(void** AddParam = nullptr) const { return nullptr; }
 
 		virtual void SetRenderTarget() {};
-		virtual void Clear(float r, float g, float b, float a) {};
+		virtual void Clear(const core::FLinearColor& Color) {};
 		virtual void Present() {};
 	};
 }

@@ -36,6 +36,17 @@ namespace math
 	const float MATH_INFINITY = std::numeric_limits<float>::infinity();
 	const float MATH_NEG_INFINITY = -std::numeric_limits<float>::infinity();
 
+	const float DELTA = 0.00001f;
+	const float KINDA_SMALL_NUMBER = 1.e-8f;
+	const float FLOAT_NON_FRACTIONAL = 8388608.f;
+
+	/** Multiples value by itself */
+	template< class T >
+	static FORCEINLINE T Square(const T A)
+	{
+		return A * A;
+	}
+
 	/** Computes absolute value in a generic way */
 	template< class T >
 	static constexpr FORCEINLINE T Abs(const T A)
@@ -63,6 +74,21 @@ namespace math
 	{
 		return (A <= B) ? A : B;
 	}
+
+	/** Returns highest of 3 values */
+	template< class T >
+	static FORCEINLINE T Max3(const T A, const T B, const T C)
+	{
+		return Max(Max(A, B), C);
+	}
+
+	/** Returns lowest of 3 values */
+	template< class T >
+	static FORCEINLINE T Min3(const T A, const T B, const T C)
+	{
+		return Min(Min(A, B), C);
+	}
+
 	/**
  * Converts a float to an integer with truncation towards zero.
  * @param F		Floating point value to convert
@@ -202,6 +228,17 @@ namespace math
 	{
 		return Value - FloorToFloat(Value);
 	}
+
+	/**
+* Returns the floating-point remainder of X / Y
+* Warning: Always returns remainder toward 0, not toward the smaller multiple of Y.
+*			So for example Fmod(2.8f, 2) gives .8f as you would expect, however, Fmod(-2.8f, 2) gives -.8f, NOT 1.2f
+* Use Floor instead when snapping positions that can be negative to a grid
+*
+* This is forced to *NOT* inline so that divisions by constant Y does not get optimized in to an inverse scalar multiply,
+* which is not consistent with the intent nor with the vectorized version.
+*/
+	float Fmod(float X, float Y);
 
 	/**
 	* Breaks the given value into an integral and a fractional part.
@@ -467,5 +504,60 @@ namespace math
 	static FORCEINLINE uint64_t RoundUpToPowerOfTwo64(uint64_t V)
 	{
 		return uint64_t(1) << CeilLogTwo64(V);
+	}
+
+	/** Returns a random integer between 0 and RAND_MAX, inclusive */
+	static FORCEINLINE int32_t Rand() { return rand(); }
+
+	/** Seeds global random number functions Rand() and FRand() */
+	static FORCEINLINE void RandInit(int32_t Seed) { srand(Seed); }
+
+	/** Returns a random float between 0 and 1, inclusive. */
+	static FORCEINLINE float FRand()
+	{
+		// FP32 mantissa can only represent 24 bits before losing precision
+		constexpr int32_t RandMax = 0x00ffffff < RAND_MAX ? 0x00ffffff : RAND_MAX;
+		return (Rand() & RandMax) / (float)RandMax;
+	}
+
+	/** Seeds future calls to SRand() */
+	void SRandInit(int32_t Seed);
+
+	/** Returns the current seed for SRand(). */
+	int32_t GetRandSeed();
+
+	/** Returns a seeded random float in the range [0,1), using the seed from SRandInit(). */
+	float SRand();
+
+	/** Performs a linear interpolation between two values, Alpha ranges from 0-1 */
+	template< class T, class U >
+	static  T Lerp(const T& A, const T& B, const U& Alpha)
+	{
+		return (T)(A + Alpha * (B - A));
+	}
+
+	/** Performs a linear interpolation between two values, Alpha ranges from 0-1. Handles full numeric range of T */
+	template< class T >
+	static  T LerpStable(const T& A, const T& B, double Alpha)
+	{
+		return (T)((A * (1.0 - Alpha)) + (B * Alpha));
+	}
+
+	/** Performs a linear interpolation between two values, Alpha ranges from 0-1. Handles full numeric range of T */
+	template< class T >
+	static  T LerpStable(const T& A, const T& B, float Alpha)
+	{
+		return (T)((A * (1.0f - Alpha)) + (B * Alpha));
+	}
+
+	/** Performs a 2D linear interpolation between four values values, FracX, FracY ranges from 0-1 */
+	template< class T, class U >
+	static  T BiLerp(const T& P00, const T& P10, const T& P01, const T& P11, const U& FracX, const U& FracY)
+	{
+		return Lerp(
+			Lerp(P00, P10, FracX),
+			Lerp(P01, P11, FracX),
+			FracY
+		);
 	}
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/RHIShdader.h"
+#include "RHIPrivate/D3D11RHIDeclare.h"
 
 namespace RenderCore
 {
@@ -14,7 +15,7 @@ namespace RenderCore
 		virtual ~D3D11VertexShader();
 
 		bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines) override;
-		std::tuple<const void*, size_t> GetShaderCode() override;
+		ID3D11VertexShader* GetNativeVertexShader() const ;
 
 	private:
 		bool CreateLayout(const std::vector< VertexElementDesc>& ElementDescs);
@@ -31,7 +32,7 @@ namespace RenderCore
 		virtual ~D3D11PixelShader();
 
 		bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
-		std::tuple<const void*, size_t> GetShaderCode() override;
+		ID3D11PixelShader* GetNativePixelShader() const;
 	private:
 		std::shared_ptr<D3D11PixelShaderP> Impl;
 

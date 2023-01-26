@@ -22,7 +22,7 @@ namespace Engine
 		template<typename ActorType>  std::vector<std::shared_ptr<ActorType>> GetActors()
 		{
 			std::vector<std::shared_ptr<ActorType>> Actors;
-			for (auto ActorItem : AllActors())
+			for (auto ActorItem : GetAllActors())
 			{
 				std::shared_ptr<ActorType> convertActor = ActorCast<ActorType>(ActorItem);
 				if (convertActor)
@@ -34,8 +34,8 @@ namespace Engine
 		}
 		void SetMainCamera(std::shared_ptr<CameraComponent> Camera);
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
-	private:
-		std::vector<std::shared_ptr<Actor>>& AllActors();
+		std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
+		
 	private:
 		std::unique_ptr< SceneViewP> Impl;
 	};

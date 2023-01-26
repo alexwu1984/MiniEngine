@@ -11,11 +11,12 @@ namespace RenderCore
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		win32::com_ptr<ID3DBlob> SharderCode;
+		win32::com_ptr<ID3D11VertexShader> VertexShader;
 		win32::com_ptr<ID3D11InputLayout> InputLayout;
 	};
 
 	D3D11VertexShader::D3D11VertexShader(D3D11DynamicRHI* D3D11RHI)
-		:Impl(std::make_shared<D3D11VertexShaderP>())
+		:RHIVertexShader(SF_Vertex),Impl(std::make_shared<D3D11VertexShaderP>())
 	{
 		Impl->D3D11RHI = D3D11RHI;
 	}
@@ -37,21 +38,20 @@ namespace RenderCore
 		}
 		Impl->SharderCode = SharderCode;
 
+		auto Device = Impl->D3D11RHI->GetDevice();
+		VERIFYD3D11RESULT(Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, Impl->VertexShader.get_init_ref()));
+
 		if (VertexDeclare.GetDeclareDesc().empty())
 		{
-			return true;
+			return Impl->VertexShader.is_valid();
 		}
 
 		return CreateLayout(VertexDeclare.GetDeclareDesc());
 	}
 
-	std::tuple<const void*, size_t> D3D11VertexShader::GetShaderCode()
+	ID3D11VertexShader* D3D11VertexShader::GetNativeVertexShader() const
 	{
-		if (Impl->SharderCode.is_valid())
-		{
-			return { Impl->SharderCode->GetBufferPointer(),Impl->SharderCode->GetBufferSize() };
-		}
-		return { nullptr,0 };
+		return Impl->VertexShader.get();
 	}
 
 	bool D3D11VertexShader::CreateLayout(const std::vector< VertexElementDesc>& ElementDescs)
@@ -104,11 +104,11 @@ namespace RenderCore
 	struct D3D11PixelShaderP
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
-		win32::com_ptr<ID3DBlob> SharderCode;
+		win32::com_ptr<ID3D11PixelShader> PixelShader;
 	};
 
 	D3D11PixelShader::D3D11PixelShader(D3D11DynamicRHI* D3D11RHI)
-		:Impl(std::make_shared<D3D11PixelShaderP>())
+		:RHIPixelShader(SF_Pixel), Impl(std::make_shared<D3D11PixelShaderP>())
 	{
 		Impl->D3D11RHI = D3D11RHI;
 	}
@@ -122,17 +122,19 @@ namespace RenderCore
 	{
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
-		Impl->SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0", D3DShaderMacros.data());
-		return Impl->SharderCode.is_valid();
+		auto SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0", D3DShaderMacros.data());
+		if (!SharderCode.is_valid())
+		{
+			return false;
+		}
+		auto Device = Impl->D3D11RHI->GetDevice();
+		HRESULT hr =  Device->CreatePixelShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, Impl->PixelShader.get_init_ref());
+		return SUCCEEDED(hr);
 	}
 
-	std::tuple<const void*, size_t> D3D11PixelShader::GetShaderCode()
+	ID3D11PixelShader* D3D11PixelShader::GetNativePixelShader() const
 	{
-		if (Impl->SharderCode.is_valid())
-		{
-			return { Impl->SharderCode->GetBufferPointer(),Impl->SharderCode->GetBufferSize() };
-		}
-		return { nullptr,0 };
+		return Impl->PixelShader.get();
 	}
 
 }

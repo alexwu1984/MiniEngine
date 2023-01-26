@@ -3,6 +3,7 @@
 #include "Engine/Engine.h"
 #include "RHI/RHITexture2D.h"
 #include "Thread/RenderThread.h"
+#include "core/color.h"
 
 namespace Engine
 {
@@ -46,7 +47,7 @@ namespace Engine
 		Data->IsTransParent = (Material.alphaMode != "OPAQUE");
 
 		
-		auto CreateTexture = [Data = Data](int32_t Index,const Vector4& Color) {
+		auto CreateTexture = [Data = Data](int32_t Index,const core::FLinearColor& Color) {
 			auto& gltfTexture = Data->Model->textures;
 			std::shared_ptr<RHITexture2D> TexRHI;
 			if (Index > -1 && Index < gltfTexture.size())
@@ -67,20 +68,20 @@ namespace Engine
 		auto CreateTexCommand = [Data = Data, Material, CreateTexture]() {
 
 			int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
-			Data->BaseColorTexture = CreateTexture(Index, Vector4(1.f, 1.0f, 1.f, 1.f));
+			Data->BaseColorTexture = CreateTexture(Index, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));
 
 			Index = Material.pbrMetallicRoughness.metallicRoughnessTexture.index;
-			Data->MetallicRoughnessTexture = CreateTexture(Index, Vector4(1.f, float(Material.pbrMetallicRoughness.roughnessFactor), float(Material.pbrMetallicRoughness.metallicFactor), 1.0));
+			Data->MetallicRoughnessTexture = CreateTexture(Index, core::FLinearColor(1.f, float(Material.pbrMetallicRoughness.roughnessFactor), float(Material.pbrMetallicRoughness.metallicFactor), 1.0));
 
 			auto EmissiveColor = Material.emissiveFactor;
 			Index = Material.emissiveTexture.index;
-			Data->EmissiveTexture = CreateTexture(Index, Vector4(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])));
+			Data->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])));
 
 			Index = Material.normalTexture.index;
-			Data->NormalTexture = CreateTexture(Index, Vector4(0.5f, 0.5f, 1.f, 1.f));
+			Data->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
 
 			Index = Material.occlusionTexture.index;
-			Data->OcclusionTexture = CreateTexture(Index, Vector4(0.5f, 0.5f, 1.f, 1.f));
+			Data->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);

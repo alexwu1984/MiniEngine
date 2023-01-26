@@ -1,4 +1,4 @@
-#include "RHI/RHIDefinitions.h"
+#include "RHI/RHI.h"
 #include "win/win32.h"
 
 namespace RenderCore
@@ -109,4 +109,36 @@ namespace RenderCore
 			}
 		}
 	} ValidatePixelFormats;
+
+
+	uint32_t GetTypeHash(const SamplerStateInitializerRHI& Initializer)
+	{
+		uint32_t Hash = GetTypeHash(Initializer.Filter);
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.AddressU));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.AddressV));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.AddressW));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.MipBias));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.MinMipLevel));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.MaxMipLevel));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.MaxAnisotropy));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.BorderColor));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.SamplerComparisonFunction));
+		return Hash;
+	}
+
+	bool operator== (const SamplerStateInitializerRHI& A, const SamplerStateInitializerRHI& B)
+	{
+		bool bSame =
+			A.Filter == B.Filter &&
+			A.AddressU == B.AddressU &&
+			A.AddressV == B.AddressV &&
+			A.AddressW == B.AddressW &&
+			A.MipBias == B.MipBias &&
+			A.MinMipLevel == B.MinMipLevel &&
+			A.MaxMipLevel == B.MaxMipLevel &&
+			A.MaxAnisotropy == B.MaxAnisotropy &&
+			A.BorderColor == B.BorderColor &&
+			A.SamplerComparisonFunction == B.SamplerComparisonFunction;
+		return bSame;
+	}
 }

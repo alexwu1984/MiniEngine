@@ -9,6 +9,7 @@ file(GLOB network_headers network/*.h)
 file(GLOB win_headers win/*.h)
 file(GLOB common_headers common/*.h)
 file(GLOB math_headers math/*.h)
+file(GLOB templates_headers templates/*.h)
 
 include_directories(${PROJECT_SOURCE_DIR})
 
@@ -17,9 +18,10 @@ source_group("Header Files\\network" FILES ${network_headers} )
 source_group("Header Files\\win" FILES ${win_headers} )
 source_group("Header Files\\common" FILES ${common_headers} )
 source_group("Header Files\\math" FILES ${math_headers} )
+source_group("Header Files\\templates" FILES ${templates_headers} )
 
 file(GLOB Core_sources "*.cpp")
-add_library(Core ${Core_sources} ${core_headers} ${network_headers} ${win_headers} ${common_headers} ${math_headers})
+add_library(Core ${Core_sources} ${core_headers} ${network_headers} ${win_headers} ${common_headers} ${math_headers} ${templates_headers})
 
 #-------------------------------------------------------------------------------------------
 # Defines

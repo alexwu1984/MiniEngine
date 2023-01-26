@@ -52,11 +52,11 @@ namespace Engine
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl]() {
-			Impl->MainViewPort->Clear(1, 0, 0, 1);
+			Impl->MainViewPort->Clear(core::FLinearColor::Blue);
 
 		}));
 
-		const auto& Actors = GetOwner()->GetActors<Actor>();
+		const auto& Actors = GetOwner()->GetAllActors();
 		for (const auto& ActorItem: Actors )
 		{
 			if (ActorItem->GetState() == Actor::EActive)

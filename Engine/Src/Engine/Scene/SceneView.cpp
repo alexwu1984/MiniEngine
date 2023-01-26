@@ -105,7 +105,7 @@ namespace Engine
 		return Impl->MainCamera;
 	}
 
-	std::vector<std::shared_ptr<Actor>>& SceneView::AllActors()
+	std::vector<std::shared_ptr<Actor>>& SceneView::GetAllActors() const
 	{
 		return Impl->Actors;
 	}

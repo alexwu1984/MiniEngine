@@ -41,4 +41,7 @@ namespace core
 	{
 		return get_time_hr() * 1000;
 	}
+
+	uint32_t Cycles();
+	uint64_t Cycles64();
 }

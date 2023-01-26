@@ -149,6 +149,21 @@ namespace core
 	{
         tick(std::ref(*this), _tick++);
 	}
+
+	uint32_t Cycles()
+	{
+		LARGE_INTEGER Cycles;
+		QueryPerformanceCounter(&Cycles);
+		return (uint32_t)Cycles.QuadPart;
+	}
+
+	uint64_t Cycles64()
+	{
+		LARGE_INTEGER Cycles;
+		QueryPerformanceCounter(&Cycles);
+		return Cycles.QuadPart;
+	}
+
 }
 #ifdef WINDOWS_PLATFORM_TYPES_GUARD
 #include "Windows/HideWindowsPlatformTypes.h"

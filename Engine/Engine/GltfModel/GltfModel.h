@@ -1,5 +1,5 @@
 #pragma once
-#include "inc.h"
+#include "math/aabb3.h"
 
 namespace Engine
 {
@@ -16,6 +16,7 @@ namespace Engine
 
 		bool Load(const std::wstring& FileName);
 		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
+		math::AABB3 GetModelBox() const;
 	private:
 		void LoadNode();
 		void LoadMesh();

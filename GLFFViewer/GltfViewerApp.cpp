@@ -21,6 +21,7 @@ bool GltfViewApp::Init()
 	auto Scene = Engine::GEngine->GetScene();
 	GltfActor = std::make_shared<Engine::GltfOrbitActor>(Scene, ModelFile);
 	GltfActor->InitResouce();
+	Scene->AddActor(GltfActor);
 	return true;
 }
 

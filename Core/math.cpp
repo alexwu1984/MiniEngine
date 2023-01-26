@@ -2,6 +2,56 @@
 
 namespace math
 {
+	static int32_t GSRandSeed;
+
+
+	void SRandInit(int32_t Seed)
+	{
+		GSRandSeed = Seed;
+	}
+
+	int32_t GetRandSeed()
+	{
+		return GSRandSeed;
+	}
+
+	float SRand()
+	{
+		GSRandSeed = (GSRandSeed * 196314165) + 907633515;
+		union { float f; int32_t i; } Result;
+		union { float f; int32_t i; } Temp;
+		const float SRandTemp = 1.0f;
+		Temp.f = SRandTemp;
+		Result.i = (Temp.i & 0xff800000) | (GSRandSeed & 0x007fffff);
+		return Fractional(Result.f);
+	}
+
+	float Fmod(float X, float Y)
+	{
+		const float AbsY = std::fabsf(Y);
+		if (AbsY <= 1.e-8f)
+		{
+			//FmodReportError(X, Y);
+			return 0.f;
+		}
+		const float Div = (X / Y);
+		// All floats where abs(f) >= 2^23 (8388608) are whole numbers so do not need truncation, and avoid overflow in TruncToFloat as they get even larger.
+		const float Quotient = std::fabsf(Div) < FLOAT_NON_FRACTIONAL ? TruncToFloat(Div) : Div;
+		float IntPortion = Y * Quotient;
+
+		// Rounding and imprecision could cause IntPortion to exceed X and cause the result to be outside the expected range.
+		// For example Fmod(55.8, 9.3) would result in a very small negative value!
+		if (std::fabsf(IntPortion) > std::fabsf(X))
+		{
+			IntPortion = X;
+		}
+
+		const float Result = X - IntPortion;
+		// Clamp to [-AbsY, AbsY] because of possible failures for very large numbers (>1e10) due to precision loss.
+		// We could instead fall back to stock fmodf() for large values, however this would diverge from the SIMD VectorMod() which has no similar fallback with reasonable performance.
+		return Clamp(Result, -AbsY, AbsY);
+	}
+
 	float Atan2(float Y, float X)
 	{
 		//return atan2f(Y,X);

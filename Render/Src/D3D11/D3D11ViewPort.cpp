@@ -112,10 +112,9 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Impl->BackBufferRenderTargetView, nullptr);
 	}
 
-	void D3D11ViewPort::Clear(float r, float g, float b, float a)
+	void D3D11ViewPort::Clear(const core::FLinearColor& Color)
 	{
-		float ClearColor[4] = { r, g, b, a }; // rgba  
-		Impl->D3D11RHI->GetDeviceContext()->ClearRenderTargetView(Impl->BackBufferRenderTargetView.get(), ClearColor);
+		Impl->D3D11RHI->GetDeviceContext()->ClearRenderTargetView(Impl->BackBufferRenderTargetView.get(), &Color.R);
 	}
 
 	void D3D11ViewPort::Present()

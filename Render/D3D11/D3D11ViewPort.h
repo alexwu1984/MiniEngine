@@ -18,7 +18,7 @@ namespace RenderCore
 		virtual void* GetNativeBackBufferRT() const;
 
 		virtual void SetRenderTarget() override;
-		virtual void Clear(float r, float g, float b, float a) override;
+		virtual void Clear(const core::FLinearColor& Color) override;
 		virtual void Present() override;
 
 	private:

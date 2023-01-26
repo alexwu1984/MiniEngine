@@ -1,7 +1,11 @@
 #include "D3D11/D3D11RHI.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
+#include "RHI/RHI.h"
 #include "D3D11/D3D11ViewPort.h"
 #include "D3D11/D3D11ReourceTraits.h"
+#include "math/math.h"
+#include "core/timer.h"
+#include "RHI/RHICachedStates.h"
 
 namespace RenderCore
 {
@@ -94,11 +98,20 @@ namespace RenderCore
 
 	void D3D11DynamicRHI::Init()
 	{
+		uint32_t Seed1 = core::Cycles();
+		uint32_t Seed2 = core::Cycles();
+
+		math::RandInit(Seed1);
+		math::SRandInit(Seed2);
+
 		InitD3DDevice();
+
+		RHICachedStates::Initialize(this);
 	}
 
 	void D3D11DynamicRHI::Shutdown()
 	{
+		RHICachedStates::DestroyAll();
 		Impl = {};
 	}
 
@@ -183,10 +196,10 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(const math::Vector4& Color)
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(const core::FLinearColor& Color)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
-		uint8_t tmp[] = { (uint8_t)(Color.r * 255),(uint8_t)(Color.g * 255),(uint8_t)(Color.b * 255),(uint8_t)(Color.a * 255) };
+		uint8_t tmp[] = { (uint8_t)(Color.R * 255),(uint8_t)(Color.G * 255),(uint8_t)(Color.B * 255),(uint8_t)(Color.A * 255) };
 		if (Tex2DRHI->CreateWithData(EPixelFormat::PF_B8G8R8A8,ETextureCreateFlags::TexCreate_ShaderResource,1,1,tmp,4))
 		{
 			return Tex2DRHI;
@@ -286,6 +299,19 @@ namespace RenderCore
 		{
 			Impl->ShaderCache.PixelShaderCache.insert({ HashCode,PixelShaderRHI });
 			return PixelShaderRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHISamplerState> D3D11DynamicRHI::RHICreateSampleState(const SamplerStateInitializerRHI& Initializer)
+	{
+		std::shared_ptr<D3D11SamplerState> SampleStateRHI = std::make_shared<D3D11SamplerState>(this);
+		if (SampleStateRHI->CreateSamplerState(Initializer))
+		{
+			return SampleStateRHI;
 		}
 		else
 		{

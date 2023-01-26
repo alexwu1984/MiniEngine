@@ -70,6 +70,11 @@ namespace Engine
 		return Impl->ModelMesh;
 	}
 
+	math::AABB3 GltfModel::GetModelBox() const
+	{
+		return Impl->ModelBox;
+	}
+
 	void GltfModel::LoadNode()
 	{
 		if (!Impl->GltfMode.nodes.empty())

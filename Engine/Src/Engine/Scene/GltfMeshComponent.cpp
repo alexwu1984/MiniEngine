@@ -3,6 +3,8 @@
 #include "Render/PBRMaterialRender.h"
 #include "GltfModel/GltfMesh.h"
 #include "RHI/RHICommandContext.h"
+#include "Scene/Actor.h"
+#include "Scene/CameraComponent.h"
 
 namespace Engine
 {
@@ -45,7 +47,12 @@ namespace Engine
 
 	void GltfMeshComponent::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera)
 	{
-
+		math::AABB3 Box = Impl->Model.GetModelBox().Transform(GetOwner()->GetWorldTransform());
+		bool Render = Camera->GetFrustum().Intersects(Box);
+		if (!Render)
+		{
+			return;
+		}
 	}
 
 }

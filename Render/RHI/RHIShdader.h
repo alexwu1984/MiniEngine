@@ -99,23 +99,29 @@ namespace RenderCore
 		std::string Definition;
 	};
 
-	class RHIVertexShader
+	class RHIGraphicShader
 	{
 	public:
-		RHIVertexShader() = default;
+		RHIGraphicShader(EShaderFrequency Type) :ShaderType(Type) {}
+		virtual ~RHIGraphicShader() = default;
+		EShaderFrequency ShaderType;
+	};
+
+	class RHIVertexShader : public RHIGraphicShader
+	{
+	public:
+		RHIVertexShader(EShaderFrequency Type) :RHIGraphicShader(Type) {}
 		virtual ~RHIVertexShader() = default;
 		virtual bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
-		virtual std::tuple<const void*,size_t> GetShaderCode() = 0;
 
 	};
 
-	class RHIPixelShader
+	class RHIPixelShader : public RHIGraphicShader
 	{
 	public:
-		RHIPixelShader() = default;
+		RHIPixelShader(EShaderFrequency Type) :RHIGraphicShader(Type) {}
 		virtual ~RHIPixelShader() = default;
 		virtual bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
-		virtual std::tuple<const void*, size_t> GetShaderCode() = 0;
 	};
 
 	class RHIShaderCache

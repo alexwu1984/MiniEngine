@@ -28,7 +28,7 @@ namespace math
 
 		void Set(float _x, float _y, float _z)
 		{
-			x = _x; _y = y; _z = z;
+			x = _x; y = _y; z = _z;
 		}
 		float GetLength(void)const                  // ³¤¶È
 		{

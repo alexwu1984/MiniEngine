@@ -1,7 +1,7 @@
 #pragma once
 #include "win/win32.h"
 #include "RHI/RHIDefinitions.h"
-#include "math/vector4.h"
+#include "core/color.h"
 
 namespace RenderCore
 {
@@ -22,6 +22,8 @@ namespace RenderCore
 	class RHIPixelShader;
 	class RHIVertexDeclare;
 	struct RHIShaderMacro;
+	struct SamplerStateInitializerRHI;
+	class RHISamplerState;
 
 	class DynamicRHI
 	{
@@ -47,7 +49,7 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, void* pBuffer = nullptr, int rowBytes = 0) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) = 0;
-		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const math::Vector4& Color) = 0;
+		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const core::FLinearColor& Color) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName) = 0;
 
 		virtual std::shared_ptr< RHITexture1D> RHICreateTexture1D(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int RowBytes) = 0;
@@ -58,6 +60,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIVertexShader> RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines ) = 0;
 		virtual std::shared_ptr< RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) = 0;
 
+		virtual std::shared_ptr< RHISamplerState> RHICreateSampleState(const SamplerStateInitializerRHI& Initializer) = 0;
 	};
 
 	bool IsRHIDeviceAMD();

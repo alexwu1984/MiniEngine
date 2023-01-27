@@ -1,26 +1,32 @@
 #pragma once
 #include "Engine/Thread/EngineThread.h"
 
+namespace RenderCore
+{
+	class DynamicRHI;
+}
+
 namespace Engine
 {
+	
 	struct RenderThreadP;
 	class RenderThread
 	{
 	public:
-		RenderThread();
+		RenderThread(RenderCore::DynamicRHI* DyRHI);
 		~RenderThread();
 
 		void Start();
 		void Stop();
 
-		void AppendCommand(std::function<void()> fun);
+		void AppendCommand(std::function<void(RenderCore::DynamicRHI*)> fun);
 		void WaitForFinish();
 
 	private:
 		void Run();
 
 	private:
-		std::unique_ptr<RenderThreadP> Data;
+		std::unique_ptr<RenderThreadP> Impl;
 	};
 
 	extern RenderThread* GRenderThread;

@@ -51,7 +51,7 @@ namespace Engine
 			return;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl]() {
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* ) {
 			Impl->MainViewPort->Clear(core::FLinearColor::Blue);
 
 		}));
@@ -69,7 +69,7 @@ namespace Engine
 			}
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl]() {
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* ) {
 			Impl->MainViewPort->Present();
 		}));
 

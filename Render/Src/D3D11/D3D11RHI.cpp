@@ -319,6 +319,45 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr< RHIRasterizerState> D3D11DynamicRHI::RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer)
+	{
+		std::shared_ptr<RHIRasterizerState> RasterizerStateRHI = std::make_shared<D3D11RasterizerState>(this);
+		if (RasterizerStateRHI->CreateRasterizerState(Initializer))
+		{
+			return RasterizerStateRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIBlendState> D3D11DynamicRHI::RHICreateBlendState(const BlendStateInitializerRHI& Initializer)
+	{
+		std::shared_ptr<RHIBlendState> BlendStateRHI = std::make_shared<D3D11BlendState>(this);
+		if (BlendStateRHI->CreateBlendState(Initializer))
+		{
+			return BlendStateRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIDepthStencilState> D3D11DynamicRHI::RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer)
+	{
+		std::shared_ptr<RHIDepthStencilState> DepthStencilStateRHI = std::make_shared<D3D11DepthStencilState>(this);
+		if (DepthStencilStateRHI->CreateDepthStencilState(Initializer))
+		{
+			return DepthStencilStateRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const
 	{
 		return Impl->Direct3DDevice.get();

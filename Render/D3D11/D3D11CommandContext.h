@@ -19,7 +19,11 @@ namespace RenderCore
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget,const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) override;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) override;
-
+		virtual void RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI) override;
+		virtual void RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor) override;
+		virtual void RHISetBlendFactor(const core::FLinearColor& BlendFactor) override;
+		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) override;
+		virtual void RHISetStencilRef(uint32_t StencilRef) override;
 	private:
 		std::shared_ptr< D3D11CommandContextP> Impl;
 	};

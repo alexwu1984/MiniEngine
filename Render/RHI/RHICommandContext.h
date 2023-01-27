@@ -8,6 +8,9 @@ namespace RenderCore
 	class RHIRenderTarget;
 	class RHIPixelShader;
 	class RHISamplerState;
+	class RHIRasterizerState;
+	class RHIBlendState;
+	class RHIDepthStencilState;
 
 	class RHICommandContext
 	{
@@ -21,5 +24,10 @@ namespace RenderCore
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) = 0;
+		virtual void RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI) = 0;
+		virtual void RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor) = 0;
+		virtual void RHISetBlendFactor(const core::FLinearColor& BlendFactor)  = 0;
+		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) =0;
+		virtual void RHISetStencilRef(uint32_t StencilRef)  = 0;
 	};
 }

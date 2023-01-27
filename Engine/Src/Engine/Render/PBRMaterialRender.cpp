@@ -35,7 +35,7 @@ namespace Engine
 
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl,Path](){
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl,Path](RenderCore::DynamicRHI* RHI){
 
 			std::wstring ShaderPath = Path + L"PBRMaterial.hlsl";
 
@@ -62,8 +62,8 @@ namespace Engine
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
 			}
 
-			Impl->VertexShader = GEngine->GetRHI()->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
-			Impl->PixelShader = GEngine->GetRHI()->RHICreatePixelShader(ShaderPath, "PBRMainPS", {});
+			Impl->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
+			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PBRMainPS", {});
 		}))
 		
 

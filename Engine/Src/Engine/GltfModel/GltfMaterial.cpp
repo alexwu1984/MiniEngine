@@ -65,7 +65,7 @@ namespace Engine
 			return TexRHI;
 		};
 
-		auto CreateTexCommand = [Data = Data, Material, CreateTexture]() {
+		auto CreateTexCommand = [Data = Data, Material, CreateTexture](DynamicRHI *DyRHI) {
 
 			int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
 			Data->BaseColorTexture = CreateTexture(Index, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));

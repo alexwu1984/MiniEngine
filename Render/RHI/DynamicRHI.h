@@ -24,6 +24,12 @@ namespace RenderCore
 	struct RHIShaderMacro;
 	struct SamplerStateInitializerRHI;
 	class RHISamplerState;
+	struct RasterizerStateInitializerRHI;
+	class RHIRasterizerState;
+	class BlendStateInitializerRHI;
+	class RHIBlendState;
+	struct DepthStencilStateInitializerRHI;
+	class RHIDepthStencilState;
 
 	class DynamicRHI
 	{
@@ -61,6 +67,9 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) = 0;
 
 		virtual std::shared_ptr< RHISamplerState> RHICreateSampleState(const SamplerStateInitializerRHI& Initializer) = 0;
+		virtual std::shared_ptr< RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) = 0;
+		virtual std::shared_ptr< RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) = 0;
+		virtual std::shared_ptr< RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) = 0;
 	};
 
 	bool IsRHIDeviceAMD();

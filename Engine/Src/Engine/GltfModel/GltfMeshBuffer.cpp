@@ -27,8 +27,8 @@ namespace Engine
 
 	void GltfMeshBuffer::InitMesh(std::shared_ptr< GltfMeshInfo> MeshInfo)
 	{
-		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, Impl = Impl]() {
-			auto RHI = GEngine->GetRHI();
+		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, Impl = Impl](RenderCore::DynamicRHI* DyRHI) {
+			auto RHI = DyRHI;
 			Impl->VerticesBuffer[VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
 			Impl->VerticesBuffer[VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
 			if (MeshInfo->TextureCoords)
@@ -81,13 +81,13 @@ namespace Engine
 
 	void GltfMeshBuffer::UpdateVert(math::Vector3* pVert, int nVert)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([pVert, nVert, Impl = Impl](){
-			auto RHI = GEngine->GetRHI();
+		auto UpdateVertFun = [pVert, nVert, Impl = Impl](RenderCore::DynamicRHI * DyRHI) {
 			if (Impl->VerticesBuffer[VT_Position])
 			{
-				RHI->RHIUpdateVertexBuffer(Impl->VerticesBuffer[VT_Position], pVert, nVert, sizeof(math::Vector3));
+				DyRHI->RHIUpdateVertexBuffer(Impl->VerticesBuffer[VT_Position], pVert, nVert, sizeof(math::Vector3));
 			}
-		}));
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateVertFun);
 	}
 
 	std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, Engine::GltfMeshBuffer::VT_Max>& GltfMeshBuffer::GetVerticesBuffer()

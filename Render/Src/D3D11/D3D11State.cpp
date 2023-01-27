@@ -187,4 +187,165 @@ namespace RenderCore
 		return Impl->SamplerStateHandle.get();
 	}
 
+	struct D3D11RasterizerStateP
+	{
+		D3D11DynamicRHI* D3D11RHI = nullptr;
+		win32::com_ptr<ID3D11RasterizerState> RasterizerState;
+	};
+
+	D3D11RasterizerState::D3D11RasterizerState(D3D11DynamicRHI* D3D11RHI)
+		:Impl(std::make_shared<D3D11RasterizerStateP>())
+	{
+		Impl->D3D11RHI = D3D11RHI;
+	}
+
+	D3D11RasterizerState::~D3D11RasterizerState()
+	{
+
+	}
+
+	bool D3D11RasterizerState::CreateRasterizerState(const RasterizerStateInitializerRHI& Initializer)
+	{
+		D3D11_RASTERIZER_DESC RasterizerDesc;
+		ZeroMemory(&RasterizerDesc, sizeof(D3D11_RASTERIZER_DESC));
+
+		RasterizerDesc.CullMode = TranslateCullMode(Initializer.CullMode);
+		RasterizerDesc.FillMode = TranslateFillMode(Initializer.FillMode);
+		RasterizerDesc.SlopeScaledDepthBias = Initializer.SlopeScaleDepthBias;
+		RasterizerDesc.FrontCounterClockwise = true;
+		RasterizerDesc.DepthBias = math::FloorToInt(Initializer.DepthBias * (float)(1 << 24));
+		RasterizerDesc.DepthClipEnable = true;
+		RasterizerDesc.MultisampleEnable = Initializer.bAllowMSAA;
+		RasterizerDesc.ScissorEnable = true;
+
+		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateRasterizerState(&RasterizerDesc, Impl->RasterizerState.get_init_ref()));
+		return Impl->RasterizerState.is_valid();
+	}
+
+	ID3D11RasterizerState* D3D11RasterizerState::GetNativeRasterizerState() const
+	{
+		return Impl->RasterizerState.get();
+	}
+
+	struct D3D11BlendStateP
+	{
+		D3D11DynamicRHI* D3D11RHI = nullptr;
+		win32::com_ptr<ID3D11BlendState> BlendState;
+	};
+
+	D3D11BlendState::D3D11BlendState(D3D11DynamicRHI* D3D11RHI)
+		:Impl(std::make_shared<D3D11BlendStateP>())
+	{
+		Impl->D3D11RHI = D3D11RHI;
+	}
+
+	D3D11BlendState::~D3D11BlendState()
+	{
+
+	}
+
+	bool D3D11BlendState::CreateBlendState(const BlendStateInitializerRHI& Initializer)
+	{
+		D3D11_BLEND_DESC BlendDesc;
+		ZeroMemory(&BlendDesc, sizeof(D3D11_BLEND_DESC));
+
+		BlendDesc.AlphaToCoverageEnable = Initializer.bUseAlphaToCoverage;
+		BlendDesc.IndependentBlendEnable = Initializer.bUseIndependentRenderTargetBlendStates;
+
+		static_assert(MaxSimultaneousRenderTargets <= D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, "Too many MRTs.");
+		for (uint32_t RenderTargetIndex = 0; RenderTargetIndex < MaxSimultaneousRenderTargets; ++RenderTargetIndex)
+		{
+			const BlendStateInitializerRHI::FRenderTarget& RenderTargetInitializer = Initializer.RenderTargets[RenderTargetIndex];
+			D3D11_RENDER_TARGET_BLEND_DESC& RenderTarget = BlendDesc.RenderTarget[RenderTargetIndex];
+			RenderTarget.BlendEnable =
+				RenderTargetInitializer.ColorBlendOp != BO_Add || RenderTargetInitializer.ColorDestBlend != BF_Zero || RenderTargetInitializer.ColorSrcBlend != BF_One ||
+				RenderTargetInitializer.AlphaBlendOp != BO_Add || RenderTargetInitializer.AlphaDestBlend != BF_Zero || RenderTargetInitializer.AlphaSrcBlend != BF_One;
+			RenderTarget.BlendOp = TranslateBlendOp(RenderTargetInitializer.ColorBlendOp);
+			RenderTarget.SrcBlend = TranslateBlendFactor(RenderTargetInitializer.ColorSrcBlend);
+			RenderTarget.DestBlend = TranslateBlendFactor(RenderTargetInitializer.ColorDestBlend);
+			RenderTarget.BlendOpAlpha = TranslateBlendOp(RenderTargetInitializer.AlphaBlendOp);
+			RenderTarget.SrcBlendAlpha = TranslateBlendFactor(RenderTargetInitializer.AlphaSrcBlend);
+			RenderTarget.DestBlendAlpha = TranslateBlendFactor(RenderTargetInitializer.AlphaDestBlend);
+			RenderTarget.RenderTargetWriteMask =
+				((RenderTargetInitializer.ColorWriteMask & CW_RED) ? D3D11_COLOR_WRITE_ENABLE_RED : 0)
+				| ((RenderTargetInitializer.ColorWriteMask & CW_GREEN) ? D3D11_COLOR_WRITE_ENABLE_GREEN : 0)
+				| ((RenderTargetInitializer.ColorWriteMask & CW_BLUE) ? D3D11_COLOR_WRITE_ENABLE_BLUE : 0)
+				| ((RenderTargetInitializer.ColorWriteMask & CW_ALPHA) ? D3D11_COLOR_WRITE_ENABLE_ALPHA : 0);
+		}
+
+		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateBlendState(&BlendDesc, Impl->BlendState.get_init_ref()));
+		return Impl->BlendState.is_valid();
+	}
+
+	ID3D11BlendState* D3D11BlendState::GetNativeBlendState() const
+	{
+		return Impl->BlendState.get();
+	}
+
+	struct D3D11DepthStencilStateP
+	{
+		D3D11DynamicRHI* D3D11RHI = nullptr;
+		win32::com_ptr <ID3D11DepthStencilState> DepthStencilState;
+	};
+
+	D3D11DepthStencilState::D3D11DepthStencilState(D3D11DynamicRHI* D3D11RHI)
+		:Impl(std::make_shared<D3D11DepthStencilStateP>())
+	{
+		Impl->D3D11RHI = D3D11RHI;
+	}
+
+	D3D11DepthStencilState::~D3D11DepthStencilState()
+	{
+
+	}
+
+	bool D3D11DepthStencilState::CreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer)
+	{
+		D3D11_DEPTH_STENCIL_DESC DepthStencilDesc;
+		ZeroMemory(&DepthStencilDesc, sizeof(D3D11_DEPTH_STENCIL_DESC));
+
+		// depth part
+		DepthStencilDesc.DepthEnable = Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite;
+		DepthStencilDesc.DepthWriteMask = Initializer.bEnableDepthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+		DepthStencilDesc.DepthFunc = TranslateCompareFunction(Initializer.DepthTest);
+
+		// stencil part
+		DepthStencilDesc.StencilEnable = Initializer.bEnableFrontFaceStencil || Initializer.bEnableBackFaceStencil;
+		DepthStencilDesc.StencilReadMask = Initializer.StencilReadMask;
+		DepthStencilDesc.StencilWriteMask = Initializer.StencilWriteMask;
+		DepthStencilDesc.FrontFace.StencilFunc = TranslateCompareFunction(Initializer.FrontFaceStencilTest);
+		DepthStencilDesc.FrontFace.StencilFailOp = TranslateStencilOp(Initializer.FrontFaceStencilFailStencilOp);
+		DepthStencilDesc.FrontFace.StencilDepthFailOp = TranslateStencilOp(Initializer.FrontFaceDepthFailStencilOp);
+		DepthStencilDesc.FrontFace.StencilPassOp = TranslateStencilOp(Initializer.FrontFacePassStencilOp);
+		if (Initializer.bEnableBackFaceStencil)
+		{
+			DepthStencilDesc.BackFace.StencilFunc = TranslateCompareFunction(Initializer.BackFaceStencilTest);
+			DepthStencilDesc.BackFace.StencilFailOp = TranslateStencilOp(Initializer.BackFaceStencilFailStencilOp);
+			DepthStencilDesc.BackFace.StencilDepthFailOp = TranslateStencilOp(Initializer.BackFaceDepthFailStencilOp);
+			DepthStencilDesc.BackFace.StencilPassOp = TranslateStencilOp(Initializer.BackFacePassStencilOp);
+		}
+		else
+		{
+			DepthStencilDesc.BackFace = DepthStencilDesc.FrontFace;
+		}
+
+		const bool bStencilOpIsKeep =
+			Initializer.FrontFaceStencilFailStencilOp == SO_Keep
+			&& Initializer.FrontFaceDepthFailStencilOp == SO_Keep
+			&& Initializer.FrontFacePassStencilOp == SO_Keep
+			&& Initializer.BackFaceStencilFailStencilOp == SO_Keep
+			&& Initializer.BackFaceDepthFailStencilOp == SO_Keep
+			&& Initializer.BackFacePassStencilOp == SO_Keep;
+
+		const bool bMayWriteStencil = Initializer.StencilWriteMask != 0 && !bStencilOpIsKeep;
+
+		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateDepthStencilState(&DepthStencilDesc, Impl->DepthStencilState.get_init_ref()));
+		return Impl->DepthStencilState.is_valid();
+	}
+
+	ID3D11DepthStencilState* D3D11DepthStencilState::GetNativeDepthStencilState() const
+	{
+		return Impl->DepthStencilState.get();
+	}
+
 }

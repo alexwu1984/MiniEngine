@@ -47,7 +47,7 @@ namespace Engine
 			AppWin->idle.bind(std::bind(&MainEngine::Tick, this), this);
 			Impl->DynamicRHI->Init();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
-			Impl->RThread = std::make_unique<RenderThread>();
+			Impl->RThread = std::make_unique<RenderThread>(Impl->DynamicRHI.get());
 			Impl->RThread->Start();
 			Impl->Scene->Init();
 			Impl->SeRender->InitResource(ViewPort);

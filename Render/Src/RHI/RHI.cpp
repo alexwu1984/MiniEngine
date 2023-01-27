@@ -141,4 +141,113 @@ namespace RenderCore
 			A.SamplerComparisonFunction == B.SamplerComparisonFunction;
 		return bSame;
 	}
+
+	uint32_t GetTypeHash(const RasterizerStateInitializerRHI& Initializer)
+	{
+		uint32_t Hash = GetTypeHash(Initializer.FillMode);
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.CullMode));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.DepthBias));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.SlopeScaleDepthBias));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.bAllowMSAA));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.bEnableLineAA));
+		return Hash;
+	}
+
+	bool operator== (const RasterizerStateInitializerRHI& A, const RasterizerStateInitializerRHI& B)
+	{
+		bool bSame =
+			A.FillMode == B.FillMode &&
+			A.CullMode == B.CullMode &&
+			A.DepthBias == B.DepthBias &&
+			A.SlopeScaleDepthBias == B.SlopeScaleDepthBias &&
+			A.bAllowMSAA == B.bAllowMSAA &&
+			A.bEnableLineAA == B.bEnableLineAA;
+		return bSame;
+	}
+
+	uint32_t GetTypeHash(const DepthStencilStateInitializerRHI& Initializer)
+	{
+		uint32_t Hash = GetTypeHash(Initializer.bEnableDepthWrite);
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.DepthTest));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.bEnableFrontFaceStencil));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFaceStencilTest));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFaceStencilFailStencilOp));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFaceDepthFailStencilOp));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFacePassStencilOp));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.bEnableBackFaceStencil));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFaceStencilTest));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFaceStencilFailStencilOp));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFaceDepthFailStencilOp));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFacePassStencilOp));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.StencilReadMask));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.StencilWriteMask));
+		return Hash;
+	}
+
+	bool operator== (const DepthStencilStateInitializerRHI& A, const DepthStencilStateInitializerRHI& B)
+	{
+		bool bSame =
+			A.bEnableDepthWrite == B.bEnableDepthWrite &&
+			A.DepthTest == B.DepthTest &&
+			A.bEnableFrontFaceStencil == B.bEnableFrontFaceStencil &&
+			A.FrontFaceStencilTest == B.FrontFaceStencilTest &&
+			A.FrontFaceStencilFailStencilOp == B.FrontFaceStencilFailStencilOp &&
+			A.FrontFaceDepthFailStencilOp == B.FrontFaceDepthFailStencilOp &&
+			A.FrontFacePassStencilOp == B.FrontFacePassStencilOp &&
+			A.bEnableBackFaceStencil == B.bEnableBackFaceStencil &&
+			A.BackFaceStencilTest == B.BackFaceStencilTest &&
+			A.BackFaceStencilFailStencilOp == B.BackFaceStencilFailStencilOp &&
+			A.BackFaceDepthFailStencilOp == B.BackFaceDepthFailStencilOp &&
+			A.BackFacePassStencilOp == B.BackFacePassStencilOp &&
+			A.StencilReadMask == B.StencilReadMask &&
+			A.StencilWriteMask == B.StencilWriteMask;
+		return bSame;
+	}
+
+	uint32_t GetTypeHash(const BlendStateInitializerRHI::FRenderTarget& Initializer)
+	{
+		uint32_t Hash = GetTypeHash(Initializer.ColorBlendOp);
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.ColorDestBlend));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.ColorSrcBlend));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.AlphaBlendOp));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.AlphaDestBlend));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.AlphaSrcBlend));
+		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.ColorWriteMask));
+		return Hash;
+	}
+
+	bool operator==(const BlendStateInitializerRHI::FRenderTarget& A, const BlendStateInitializerRHI::FRenderTarget& B)
+	{
+		bool bSame =
+			A.ColorBlendOp == B.ColorBlendOp &&
+			A.ColorDestBlend == B.ColorDestBlend &&
+			A.ColorSrcBlend == B.ColorSrcBlend &&
+			A.AlphaBlendOp == B.AlphaBlendOp &&
+			A.AlphaDestBlend == B.AlphaDestBlend &&
+			A.AlphaSrcBlend == B.AlphaSrcBlend &&
+			A.ColorWriteMask == B.ColorWriteMask;
+		return bSame;
+	}
+
+	uint32_t GetTypeHash(const BlendStateInitializerRHI& Initializer)
+	{
+		uint32_t Hash = GetTypeHash(Initializer.bUseIndependentRenderTargetBlendStates);
+		for (int32_t i = 0; i < MaxSimultaneousRenderTargets; ++i)
+		{
+			Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.RenderTargets[i]));
+		}
+
+		return Hash;
+	}
+
+	bool operator== (const BlendStateInitializerRHI& A, const BlendStateInitializerRHI& B)
+	{
+		bool bSame = A.bUseIndependentRenderTargetBlendStates == B.bUseIndependentRenderTargetBlendStates;
+		for (int32_t i = 0; i < MaxSimultaneousRenderTargets && bSame; ++i)
+		{
+			bSame = bSame && A.RenderTargets[i] == B.RenderTargets[i];
+		}
+		return bSame;
+	}
+
 }

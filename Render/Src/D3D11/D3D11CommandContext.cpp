@@ -87,33 +87,66 @@ namespace RenderCore
 	void D3D11CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState)
 	{
 		D3D11SamplerState* SamplerStateRHI = RHIResourceCast(NewState.get());
-		D3D11StateCacheBase& CachedState = Impl->D3D11RHI->GetStateCache();
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 
 		switch (ShaderType)
 		{
 		case SF_Vertex:
-			CachedState.SetSamplerState<SF_Vertex>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
+			StateCache.SetSamplerState<SF_Vertex>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
 			break;
 		case SF_Hull:
-			CachedState.SetSamplerState<SF_Hull>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
+			StateCache.SetSamplerState<SF_Hull>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
 			break;
 		case SF_Domain:
-			CachedState.SetSamplerState<SF_Domain>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
+			StateCache.SetSamplerState<SF_Domain>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
 			break;
 		case SF_Pixel:
-			CachedState.SetSamplerState<SF_Pixel>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
+			StateCache.SetSamplerState<SF_Pixel>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
 			break;
 		case SF_Geometry:
-			CachedState.SetSamplerState<SF_Geometry>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
+			StateCache.SetSamplerState<SF_Geometry>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
 			break;
 		case SF_Compute:
-			CachedState.SetSamplerState<SF_Compute>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
+			StateCache.SetSamplerState<SF_Compute>(SamplerStateRHI->GetNativeSampleState(), SamplerIndex);
 			break;
 		default:
 			Assert(false);
 			break;
 		}
 		
+	}
+
+	void D3D11CommandContext::RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI)
+	{
+		D3D11RasterizerState* RasterizerStateRHI = RHIResourceCast(NewStateRHI.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.SetRasterizerState(RasterizerStateRHI->GetNativeRasterizerState());
+	}
+
+	void D3D11CommandContext::RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor)
+	{
+		D3D11BlendState* BlendStateRHI = RHIResourceCast(NewState.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.SetBlendState(BlendStateRHI->GetNativeBlendState(), (const float*)&BlendFactor, 0xffffffff);
+	}
+
+	void D3D11CommandContext::RHISetBlendFactor(const core::FLinearColor& BlendFactor)
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.SetBlendFactor((const float*)&BlendFactor, 0xffffffff);
+	}
+
+	void D3D11CommandContext::RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef)
+	{
+		D3D11DepthStencilState* DepthStencilStateRHI = RHIResourceCast(NewState.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.SetDepthStencilState(DepthStencilStateRHI->GetNativeDepthStencilState(), StencilRef);
+	}
+
+	void D3D11CommandContext::RHISetStencilRef(uint32_t StencilRef)
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.SetStencilRef(StencilRef);
 	}
 
 }

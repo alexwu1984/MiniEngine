@@ -140,5 +140,116 @@ namespace RenderCore
 			InternalSetSamplerState<ShaderFrequency>(SamplerIndex, SamplerState);
 #endif
 		}
+
+		void SetRasterizerState(ID3D11RasterizerState* State)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			if ((CurrentRasterizerState != State) )
+			{
+				CurrentRasterizerState = State;
+				Direct3DDeviceIMContext->RSSetState(State);
+			}
+#else
+			Direct3DDeviceIMContext->RSSetState(State);
+#endif
+		}
+
+		void GetRasterizerState(ID3D11RasterizerState** RasterizerState)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			* RasterizerState = CurrentRasterizerState;
+			if (CurrentRasterizerState)
+			{
+				CurrentRasterizerState->AddRef();
+			}
+#else
+			Direct3DDeviceIMContext->RSGetState(RasterizerState);
+#endif
+		}
+
+		void SetBlendState(ID3D11BlendState* State, const float BlendFactor[4], uint32_t SampleMask)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			if ((CurrentBlendState != State || CurrentBlendSampleMask != SampleMask || memcmp(CurrentBlendFactor, BlendFactor, sizeof(CurrentBlendFactor))) )
+			{
+				CurrentBlendState = State;
+				CurrentBlendSampleMask = SampleMask;
+				memcpy(CurrentBlendFactor, BlendFactor, sizeof(CurrentBlendFactor));
+				Direct3DDeviceIMContext->OMSetBlendState(State, BlendFactor, SampleMask);
+			}
+#else
+			Direct3DDeviceIMContext->OMSetBlendState(State, BlendFactor, SampleMask);
+#endif
+		}
+
+		void SetBlendFactor(const float BlendFactor[4], uint32_t SampleMask)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			if ((CurrentBlendSampleMask != SampleMask || memcmp(CurrentBlendFactor, BlendFactor, sizeof(CurrentBlendFactor))))
+			{
+				CurrentBlendSampleMask = SampleMask;
+				memcpy(CurrentBlendFactor, BlendFactor, sizeof(CurrentBlendFactor));
+				Direct3DDeviceIMContext->OMSetBlendState(CurrentBlendState, BlendFactor, SampleMask);
+			}
+#else
+			Direct3DDeviceIMContext->OMSetBlendState(CurrentBlendState, BlendFactor, SampleMask);
+#endif
+		}
+
+		void GetBlendState(ID3D11BlendState** BlendState, float BlendFactor[4], uint32_t* SampleMask)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			* BlendState = CurrentBlendState;
+			if (CurrentBlendState)
+			{
+				CurrentBlendState->AddRef();
+			}
+			*SampleMask = CurrentBlendSampleMask;
+			memcpy(BlendFactor, CurrentBlendFactor, sizeof(CurrentBlendFactor));
+#else
+			Direct3DDeviceIMContext->OMGetBlendState(BlendState, BlendFactor, SampleMask);
+#endif
+		}
+
+		void SetDepthStencilState(ID3D11DepthStencilState* State, uint32_t RefStencil)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			if ((CurrentDepthStencilState != State || CurrentReferenceStencil != RefStencil) )
+			{
+				CurrentDepthStencilState = State;
+				CurrentReferenceStencil = RefStencil;
+				Direct3DDeviceIMContext->OMSetDepthStencilState(State, RefStencil);
+			}
+#else
+			Direct3DDeviceIMContext->OMSetDepthStencilState(State, RefStencil);
+#endif
+		}
+
+		void SetStencilRef(uint32_t RefStencil)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			if (CurrentReferenceStencil != RefStencil )
+			{
+				CurrentReferenceStencil = RefStencil;
+				Direct3DDeviceIMContext->OMSetDepthStencilState(CurrentDepthStencilState, RefStencil);
+			}
+#else
+			Direct3DDeviceIMContext->OMSetDepthStencilState(CurrentDepthStencilState, RefStencil);
+#endif
+		}
+
+		void GetDepthStencilState(ID3D11DepthStencilState** DepthStencilState, uint32_t* StencilRef)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			* DepthStencilState = CurrentDepthStencilState;
+			*StencilRef = CurrentReferenceStencil;
+			if (CurrentDepthStencilState)
+			{
+				CurrentDepthStencilState->AddRef();
+			}
+#else
+			Direct3DDeviceIMContext->OMGetDepthStencilState(DepthStencilState, StencilRef);
+#endif
+		}
 	};
 }

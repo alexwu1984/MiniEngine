@@ -62,6 +62,24 @@ namespace RenderCore
 		typedef D3D11SamplerState TConcreteType;
 	};
 
+	template<>
+	struct TD3D11ResourceTraits<RHIRasterizerState>
+	{
+		typedef D3D11RasterizerState TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHIBlendState>
+	{
+		typedef D3D11BlendState TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHIDepthStencilState>
+	{
+		typedef D3D11DepthStencilState TConcreteType;
+	};
+
 	template<typename TRHIType>
 	static FORCEINLINE typename TD3D11ResourceTraits<TRHIType>::TConcreteType* RHIResourceCast(TRHIType* Resource)
 	{

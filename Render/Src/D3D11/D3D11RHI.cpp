@@ -306,7 +306,7 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHISamplerState> D3D11DynamicRHI::RHICreateSampleState(const SamplerStateInitializerRHI& Initializer)
+	std::shared_ptr< RHISamplerState> D3D11DynamicRHI::RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer)
 	{
 		std::shared_ptr<D3D11SamplerState> SampleStateRHI = std::make_shared<D3D11SamplerState>(this);
 		if (SampleStateRHI->CreateSamplerState(Initializer))

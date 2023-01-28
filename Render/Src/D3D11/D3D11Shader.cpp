@@ -54,6 +54,11 @@ namespace RenderCore
 		return Impl->VertexShader.get();
 	}
 
+	ID3D11InputLayout* D3D11VertexShader::GetNativeInputLayout() const
+	{
+		return Impl->InputLayout.get();
+	}
+
 	bool D3D11VertexShader::CreateLayout(const std::vector< VertexElementDesc>& ElementDescs)
 	{
 		if (ElementDescs.empty() )

@@ -1,5 +1,5 @@
 #include "RHI/RHICachedStates.h"
-#include "RHI/DynamicRHI.h"
+#include "RHI/RHIStaticState.h"
 
 namespace RenderCore
 {
@@ -13,47 +13,25 @@ namespace RenderCore
 	std::shared_ptr<RHIRasterizerState> RHICachedStates::RasterizerStateCullFront;
 
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendDisable;
-	std::shared_ptr<RHIBlendState> RHICachedStates::BlendAlphaOff;
-	std::shared_ptr<RHIBlendState> RHICachedStates::BlendAlphaOn;
+	std::shared_ptr<RHIBlendState> RHICachedStates::BlendTraditional;
+	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOff;
+	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOn;
 
 	void RHICachedStates::Initialize(DynamicRHI* RHI)
 	{
-		SamplerStateInitializerRHI ClampParam(ESamplerFilter::SF_Bilinear, ESamplerAddressMode::AM_Clamp, ESamplerAddressMode::AM_Clamp, ESamplerAddressMode::AM_Clamp);
-		ClampLinerSampler = RHI->RHICreateSampleState(ClampParam);
+		ClampLinerSampler = TStaticSamplerState<SF_Bilinear>::CreateRHI(RHI);
+		ShadowSampler = TStaticSamplerState<SF_Point, AM_Border, AM_Border, AM_Border>::CreateRHI(RHI);
+		WarpLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::CreateRHI(RHI);
+		MirrorLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Mirror, AM_Mirror, AM_Mirror>::CreateRHI(RHI);
 
-		SamplerStateInitializerRHI ShadowParam(ESamplerFilter::SF_Point, ESamplerAddressMode::AM_Border, ESamplerAddressMode::AM_Border, ESamplerAddressMode::AM_Border);
-		ShadowSampler = RHI->RHICreateSampleState(ShadowParam);
+		RasterizerStateCullNone = TStaticRasterizerState<>::CreateRHI(RHI);
+		RasterizerStateCullBack = TStaticRasterizerState<FM_Solid, CM_CW>::CreateRHI(RHI);
+		RasterizerStateCullFront = TStaticRasterizerState<FM_Solid, CM_CCW>::CreateRHI(RHI);
 
-		SamplerStateInitializerRHI WrapParam(ESamplerFilter::SF_Bilinear);
-		WarpLinerSampler = RHI->RHICreateSampleState(WrapParam);
-
-		SamplerStateInitializerRHI MirrorParam(ESamplerFilter::SF_Bilinear, ESamplerAddressMode::AM_Mirror, ESamplerAddressMode::AM_Mirror, ESamplerAddressMode::AM_Mirror);
-		MirrorLinerSampler = RHI->RHICreateSampleState(MirrorParam);
-
-		RasterizerStateInitializerRHI CullNoneParam;
-		CullNoneParam.CullMode = ERasterizerCullMode::CM_None;
-		RasterizerStateCullNone = RHI->RHICreateRasterizerState(CullNoneParam);
-
-		RasterizerStateInitializerRHI CullBackParam;
-		RasterizerStateCullBack = RHI->RHICreateRasterizerState(CullBackParam);
-		
-		RasterizerStateInitializerRHI CullFrontParam;
-		RasterizerStateCullFront = RHI->RHICreateRasterizerState(CullFrontParam);
-
-		BlendStateInitializerRHI BlendDisableParam;
-		BlendDisable = RHI->RHICreateBlendState(BlendDisableParam);
-
-		BlendStateInitializerRHI BlendAlphaOffParam;
-		BlendAlphaOffParam.RenderTargets[0].AlphaSrcBlend = EBlendFactor::BF_One;
-		BlendAlphaOffParam.RenderTargets[0].AlphaDestBlend = EBlendFactor::BF_One;
-		BlendAlphaOffParam.RenderTargets[0].ColorSrcBlend = EBlendFactor::BF_SourceAlpha;
-		BlendAlphaOffParam.RenderTargets[0].ColorDestBlend = EBlendFactor::BF_InverseSourceAlpha;
-		BlendAlphaOff = RHI->RHICreateBlendState(BlendAlphaOffParam);
-
-		BlendStateInitializerRHI BlendAlphaOnParam = BlendAlphaOffParam;
-		BlendAlphaOnParam.RenderTargets[0].AlphaSrcBlend = EBlendFactor::BF_SourceAlpha;
-		BlendAlphaOnParam.RenderTargets[0].AlphaDestBlend = EBlendFactor::BF_InverseSourceAlpha;
-		BlendAlphaOn = RHI->RHICreateBlendState(BlendAlphaOnParam);
+		BlendDisable = TStaticBlendState<>::CreateRHI(RHI);
+		BlendTraditional = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::CreateRHI(RHI);
+		BlendOnAlphaOff = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::CreateRHI(RHI);
+		BlendOnAlphaOn = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::CreateRHI(RHI);
 	}
 
 	void RHICachedStates::DestroyAll()
@@ -68,8 +46,8 @@ namespace RenderCore
 		RasterizerStateCullFront = {};
 
 		BlendDisable = {};
-		BlendAlphaOff = {};
-		BlendAlphaOn = {};
+		BlendOnAlphaOff = {};
+		BlendOnAlphaOn = {};
 	}
 
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "RHI/RHIDefinitions.h"
 #include "core/color.h"
+#include "RHI/RHIPipleLineState.h"
 
 namespace RenderCore
 {
@@ -29,5 +30,6 @@ namespace RenderCore
 		virtual void RHISetBlendFactor(const core::FLinearColor& BlendFactor)  = 0;
 		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) =0;
 		virtual void RHISetStencilRef(uint32_t StencilRef)  = 0;
+		virtual void RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer) = 0;
 	};
 }

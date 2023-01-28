@@ -24,6 +24,7 @@ namespace RenderCore
 		virtual void RHISetBlendFactor(const core::FLinearColor& BlendFactor) override;
 		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) override;
 		virtual void RHISetStencilRef(uint32_t StencilRef) override;
+		virtual void RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer) override;
 	private:
 		std::shared_ptr< D3D11CommandContextP> Impl;
 	};

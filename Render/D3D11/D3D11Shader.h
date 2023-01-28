@@ -15,8 +15,8 @@ namespace RenderCore
 		virtual ~D3D11VertexShader();
 
 		bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines) override;
-		ID3D11VertexShader* GetNativeVertexShader() const ;
-
+		ID3D11VertexShader* GetNativeVertexShader() const;
+		ID3D11InputLayout* GetNativeInputLayout() const;
 	private:
 		bool CreateLayout(const std::vector< VertexElementDesc>& ElementDescs);
 		

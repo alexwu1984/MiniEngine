@@ -17,6 +17,7 @@ namespace RenderCore
 		virtual void SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth) override;
 		virtual void SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget) override;
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget,const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) override;
+		virtual void RHIEndDrawing() override;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) override;
 		virtual void RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI) override;
@@ -25,6 +26,13 @@ namespace RenderCore
 		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) override;
 		virtual void RHISetStencilRef(uint32_t StencilRef) override;
 		virtual void RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer) override;
+		virtual void RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents) override;
+		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI) override;
+		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) override;
+
+	private:
+		void ClearAllShaderResources();
+		void ClearState();
 	private:
 		std::shared_ptr< D3D11CommandContextP> Impl;
 	};

@@ -15,6 +15,7 @@ namespace RenderCore
 	class RHIViewPort;
 	class RHIVertexBuffer;
 	class RHIIndexBuffer;
+	class RHIUniformBuffer;
 	class RHITexture2D;
 	class RHITexture1D;
 	class RHIRenderTarget;
@@ -52,6 +53,9 @@ namespace RenderCore
 		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex) = 0;
 		virtual std::shared_ptr< RHIIndexBuffer> RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) = 0;
 		virtual std::shared_ptr< RHIIndexBuffer> RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) = 0;
+
+		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(uint32_t ConstantBufferSize) = 0;
+		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize) = 0;
 
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, void* pBuffer = nullptr, int rowBytes = 0) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) = 0;

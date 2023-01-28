@@ -119,6 +119,8 @@ namespace RenderCore
 
 	void D3D11ViewPort::Present()
 	{
+
+		Impl->D3D11RHI->GetDefaultCommandContext()->RHIEndDrawing();
 		if (Impl->SwapChain)
 		{
 			Impl->SwapChain->Present(1, 0);

@@ -12,6 +12,14 @@ namespace win32
 	{
 		return (T)((size_t)Ptr + Alignment - (Ptr & (Alignment - 1)));
 	}
+
+	template< class T >
+	static inline void Memzero(T& Src)
+	{
+		static_assert(!std::is_pointer<T>::value, "For pointers use the two parameters function");
+		memset(&Src,0, sizeof(T));
+	}
+
 	class memory_manager;
 
 	class  memory_object

@@ -1,3 +1,4 @@
+#pragma pack_matrix(row_major)
 #ifdef ID_SKINNING_MATRICES
 
 struct Matrix2

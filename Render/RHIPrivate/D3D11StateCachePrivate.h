@@ -159,6 +159,21 @@ namespace RenderCore
 			}
 		}
 
+		template <EShaderFrequency ShaderFrequency>
+		void InternalSetShaderResourceView(uint32_t ResourceIndex, ID3D11ShaderResourceView*& SRV)
+		{
+			// Set the SRV we have been given (or null).
+			switch (ShaderFrequency)
+			{
+			case SF_Vertex:		Direct3DDeviceIMContext->VSSetShaderResources(ResourceIndex, 1, &SRV); break;
+			case SF_Hull:		Direct3DDeviceIMContext->HSSetShaderResources(ResourceIndex, 1, &SRV); break;
+			case SF_Domain:		Direct3DDeviceIMContext->DSSetShaderResources(ResourceIndex, 1, &SRV); break;
+			case SF_Geometry:	Direct3DDeviceIMContext->GSSetShaderResources(ResourceIndex, 1, &SRV); break;
+			case SF_Pixel:		Direct3DDeviceIMContext->PSSetShaderResources(ResourceIndex, 1, &SRV); break;
+			case SF_Compute:	Direct3DDeviceIMContext->CSSetShaderResources(ResourceIndex, 1, &SRV); break;
+			}
+		}
+
 		void InternalSetIndexBuffer(ID3D11Buffer* IndexBuffer, DXGI_FORMAT Format, uint32_t Offset)
 		{
 #if D3D11_ALLOW_STATE_CACHE
@@ -172,6 +187,29 @@ namespace RenderCore
 			}
 #else
 			Direct3DDeviceIMContext->IASetIndexBuffer(IndexBuffer, Format, Offset);
+#endif
+		}
+
+		template <EShaderFrequency ShaderFrequency>
+		void InternalSetShaderResourceView(ID3D11ShaderResourceView*& SRV, uint32_t ResourceIndex, ESRV_Type SrvType)
+		{
+#if D3D11_ALLOW_STATE_CACHE
+			Assert(ResourceIndex < ARRAYSIZE(CurrentShaderResourceViews[ShaderFrequency]));
+			if ((CurrentShaderResourceViews[ShaderFrequency][ResourceIndex] != SRV) )
+			{
+				if (SRV)
+				{
+					SRV->AddRef();
+				}
+				if (CurrentShaderResourceViews[ShaderFrequency][ResourceIndex])
+				{
+					CurrentShaderResourceViews[ShaderFrequency][ResourceIndex]->Release();
+				}
+				CurrentShaderResourceViews[ShaderFrequency][ResourceIndex] = SRV;
+				InternalSetShaderResourceView<ShaderFrequency>(ResourceIndex, SRV);
+			}
+#else	// !D3D11_ALLOW_STATE_CACHE
+			InternalSetShaderResourceView<ShaderFrequency>(ResourceIndex, SRV);
 #endif
 		}
 
@@ -540,6 +578,23 @@ public:
 #endif
 	}
 
+	template <EShaderFrequency ShaderFrequency>
+	void SetConstantBuffer(ID3D11Buffer* ConstantBuffer, uint32_t SlotIndex)
+	{
+#if D3D11_ALLOW_STATE_CACHE
+		FD3D11ConstantBufferState& Current = CurrentConstantBuffers[ShaderFrequency][SlotIndex];
+		if ((Current.Buffer != ConstantBuffer || Current.FirstConstant != 0 || Current.NumConstants != D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT))
+		{
+			Current.Buffer = ConstantBuffer;
+			Current.FirstConstant = 0;
+			Current.NumConstants = D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT;
+			InternalSetSetConstantBuffer<ShaderFrequency>(SlotIndex, ConstantBuffer);
+		}
+#else
+		InternalSetSetConstantBuffer<ShaderFrequency>(SlotIndex, ConstantBuffer);
+#endif
+	}
+
 	void SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology)
 	{
 #if D3D11_ALLOW_STATE_CACHE
@@ -561,5 +616,30 @@ public:
 		Direct3DDeviceIMContext->IAGetPrimitiveTopology(PrimitiveTopology);
 #endif
 	}
+
+	template <EShaderFrequency ShaderFrequency>
+	void ClearConstantBuffers()
+	{
+#if D3D11_ALLOW_STATE_CACHE
+		win32::Memzero(CurrentConstantBuffers[ShaderFrequency]);
+#endif
+		ID3D11Buffer* Empty[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { 0 };
+		switch (ShaderFrequency)
+		{
+		case SF_Vertex:		Direct3DDeviceIMContext->VSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Hull:		Direct3DDeviceIMContext->HSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Domain:		Direct3DDeviceIMContext->DSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Geometry:	Direct3DDeviceIMContext->GSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Pixel:		Direct3DDeviceIMContext->PSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Compute:	Direct3DDeviceIMContext->CSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		}
+	}
+
+	template <EShaderFrequency ShaderFrequency>
+	 void SetShaderResourceView(ID3D11ShaderResourceView* SRV, uint32_t ResourceIndex, ESRV_Type SrvType = SRV_Unknown)
+	{
+		InternalSetShaderResourceView<ShaderFrequency>(SRV, ResourceIndex, SrvType);
+	}
+
 	};
 }

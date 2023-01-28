@@ -161,6 +161,12 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::RHIEndDrawing()
+	{
+		ClearAllShaderResources();
+		ClearState();
+	}
+
 	void D3D11CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState)
 	{
 		D3D11SamplerState* SamplerStateRHI = RHIResourceCast(NewState.get());
@@ -259,6 +265,86 @@ namespace RenderCore
 		{
 			StateCache.SetPixelShader(nullptr);
 		}
+	}
+
+	void D3D11CommandContext::RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents)
+	{
+		// Update the contents of the uniform buffer.
+		uint32_t ConstantBufferSize = UniformBufferRHI->GetConstantBufferSize();
+
+		if (ConstantBufferSize > 0)
+		{
+			auto DeviceContex = Impl->D3D11RHI->GetDeviceContext();
+			D3D11UniformBuffer* UniformBuffer = RHIResourceCast(UniformBufferRHI.get());
+			// Constant buffers must also be 16-byte aligned.
+			Assert(win32::Align(Contents, 16) == Contents);
+
+			D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+			// Discard previous results since we always do a full update
+			VERIFYD3D11RESULT(DeviceContex->Map(UniformBuffer->GetNativeUniformBuffer(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource));
+			Assert(MappedSubresource.RowPitch >= ConstantBufferSize);
+			memcpy(MappedSubresource.pData, Contents, ConstantBufferSize);
+			DeviceContex->Unmap(UniformBuffer->GetNativeUniformBuffer(), 0);
+		}
+	}
+
+	void D3D11CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI)
+	{
+		D3D11Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		switch (ShaderType)
+		{
+		case SF_Vertex:
+			StateCache.SetShaderResourceView<SF_Vertex>(Texture2D->GetSRV(), TextureIndex);
+			break;
+		case SF_Compute:
+			StateCache.SetShaderResourceView<SF_Compute>(Texture2D->GetSRV(), TextureIndex);
+			break;
+		case SF_Pixel:
+			StateCache.SetShaderResourceView<SF_Pixel>(Texture2D->GetSRV(), TextureIndex);
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	void D3D11CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
+	{
+		D3D11UniformBuffer* UnifromBuffer = RHIResourceCast(UniformBufferRHI.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		switch (ShaderType)
+		{
+		case SF_Vertex:
+			StateCache.SetConstantBuffer<SF_Vertex>(UnifromBuffer->GetNativeUniformBuffer(), BufferIndex);
+			break;
+		case SF_Compute:
+			StateCache.SetConstantBuffer<SF_Compute>(UnifromBuffer->GetNativeUniformBuffer(), BufferIndex);
+			break;
+		case SF_Pixel:
+			StateCache.SetConstantBuffer<SF_Pixel>(UnifromBuffer->GetNativeUniformBuffer(), BufferIndex);
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	void D3D11CommandContext::ClearAllShaderResources()
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.ClearConstantBuffers<SF_Vertex>();
+		StateCache.ClearConstantBuffers<SF_Hull>();
+		StateCache.ClearConstantBuffers<SF_Domain>();
+		StateCache.ClearConstantBuffers<SF_Geometry>();
+		StateCache.ClearConstantBuffers<SF_Pixel>();
+		StateCache.ClearConstantBuffers<SF_Compute>();
+	}
+
+	void D3D11CommandContext::ClearState()
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.ClearState();
 	}
 
 }

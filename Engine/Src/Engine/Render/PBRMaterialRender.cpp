@@ -1,20 +1,31 @@
 #include "Engine/Render/PBRMaterialRender.h"
 #include "RHI/RHIShdader.h"
-#include "RHI/DynamicRHI.h"
+#include "RHI/RHIShaderDefine.h"
 #include "Engine.h"
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "Thread/RenderThread.h"
+#include "math/matrix4x4.h"
 
 namespace Engine
 {
 	using namespace RenderCore;
+
+
+	BEGIN_SHADER_STRUCT(PBRSkinMat, 1)
+		DECLARE_ARRAY_PARAM(math::Matrix4x4, MAX_MATRICES, BoneMat)
+		BEGIN_STRUCT_CONSTRUCT(PBRSkinMat)
+		END_STRUCT_CONSTRUCT
+	END_SHADER_STRUCT
+
 	struct PBRMaterialRenderP
 	{
+		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(PBRSkinMat)(GEngine->GetRHI().get()) {}
 		std::shared_ptr<GltfMesh> Mesh;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
+		DECLARE_SHADER_STRUCT_MEMBER(PBRSkinMat)
 	};
 
 	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMesh> Mesh)
@@ -46,15 +57,21 @@ namespace Engine
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
 
 			std::vector< RHIShaderMacro> ShaderMacros;
+			if (Impl->Mesh->HasSkin())
+			{
+				ShaderMacros.push_back({"ID_SKINNING_MATRICES","2"});
+			}
 			int32_t Index = 2;
 			if (VerticesBuffer[GltfMeshBuffer::VT_Tangent])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
+				ShaderMacros.push_back({ "HAS_TANGENT","1" });
 			}
 			
 			if (VerticesBuffer[GltfMeshBuffer::VT_JointsWeights0])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
+				ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
 			}
 
 			if (VerticesBuffer[GltfMeshBuffer::VT_JointsIndices0])

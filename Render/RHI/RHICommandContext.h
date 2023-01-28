@@ -12,6 +12,7 @@ namespace RenderCore
 	class RHIRasterizerState;
 	class RHIBlendState;
 	class RHIDepthStencilState;
+	class RHIUniformBuffer;
 
 	class RHICommandContext
 	{
@@ -23,6 +24,7 @@ namespace RenderCore
 		virtual void SetRenderTarget(std::shared_ptr< RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth) = 0;
 		virtual void SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget) = 0;
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
+		virtual void RHIEndDrawing() = 0;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) = 0;
 		virtual void RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI) = 0;
@@ -31,5 +33,8 @@ namespace RenderCore
 		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) =0;
 		virtual void RHISetStencilRef(uint32_t StencilRef)  = 0;
 		virtual void RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer) = 0;
+		virtual void RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents) = 0;
+		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI) = 0;
+		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) = 0;
 	};
 }

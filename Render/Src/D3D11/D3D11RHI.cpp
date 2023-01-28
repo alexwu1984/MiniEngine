@@ -170,6 +170,24 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr< RHIUniformBuffer> D3D11DynamicRHI::RHICreateUniformBuffer(uint32_t ConstantBufferSize)
+	{
+		return RHICreateUniformBuffer(nullptr, ConstantBufferSize);
+	}
+
+	std::shared_ptr< RHIUniformBuffer> D3D11DynamicRHI::RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize)
+	{
+		std::shared_ptr<D3D11UniformBuffer> UniformBufferRHI = std::make_shared<D3D11UniformBuffer>(this);
+		if (UniformBufferRHI->CreateUniformBuffer(Contents, ConstantBufferSize))
+		{
+			return UniformBufferRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
 	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);

@@ -2,9 +2,9 @@
 
 
 //--------------------------------------------------------------------------------------
-// mainVS
+// MainVS
 //--------------------------------------------------------------------------------------
-VS_OUTPUT_SCENE mainVS(VS_INPUT_SCENE input)
+VS_OUTPUT_SCENE MainVS(VS_INPUT_SCENE input)
 {
     VS_OUTPUT_SCENE Output = gltfVertexFactory(input);
 

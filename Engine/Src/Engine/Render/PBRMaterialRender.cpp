@@ -7,6 +7,9 @@
 #include "GltfModel/GltfMeshBuffer.h"
 #include "Thread/RenderThread.h"
 #include "math/matrix4x4.h"
+#include "RHI/RHIPipleLineState.h"
+#include "RHI/RHICachedStates.h"
+#include "core/system.h"
 
 namespace Engine
 {
@@ -36,17 +39,18 @@ namespace Engine
 
 	PBRMaterialRender::~PBRMaterialRender()
 	{
-
+		
 	}
 
 	void PBRMaterialRender::InitRenderResource(nlohmann::json& jsonObj)
 	{
-	
+		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
+		InitShader(ShaderPath);
 	}
 
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl,Path](RenderCore::DynamicRHI* RHI){
+		auto InitShaderFun = [Impl = Impl, Path](RenderCore::DynamicRHI* RHI) {
 
 			std::wstring ShaderPath = Path + L"PBRMaterial.hlsl";
 
@@ -59,7 +63,7 @@ namespace Engine
 			std::vector< RHIShaderMacro> ShaderMacros;
 			if (Impl->Mesh->HasSkin())
 			{
-				ShaderMacros.push_back({"ID_SKINNING_MATRICES","2"});
+				ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
 			}
 			int32_t Index = 2;
 			if (VerticesBuffer[GltfMeshBuffer::VT_Tangent])
@@ -67,7 +71,7 @@ namespace Engine
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
 				ShaderMacros.push_back({ "HAS_TANGENT","1" });
 			}
-			
+
 			if (VerticesBuffer[GltfMeshBuffer::VT_JointsWeights0])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
@@ -81,9 +85,19 @@ namespace Engine
 
 			Impl->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PBRMainPS", {});
-		}))
-		
+		};
 
+		ENQUEUE_UNIQUE_RENDER_COMMAND(InitShaderFun)
+		
+	}
+
+	void PBRMaterialRender::Draw(RHICommandContext& RHIContext)
+	{
+		GraphicsPipelineStateInitializer Init;
+		Init.PixelShader = Impl->PixelShader;
+		Init.VertexShader = Impl->VertexShader;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
+		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 	}
 
 }

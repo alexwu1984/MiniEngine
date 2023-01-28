@@ -13,8 +13,9 @@ namespace Engine
 		virtual ~PBRMaterialRender();
 
 		virtual void InitRenderResource(nlohmann::json& jsonObj);
-		virtual void InitShader(const std::wstring& Path);
-		virtual void Draw(RHICommandContext& RHIContext) {};
+		virtual void Draw(RHICommandContext& RHIContext);
+	private:
+		void InitShader(const std::wstring& Path);
 	private:
 		std::shared_ptr< PBRMaterialRenderP> Impl;
 	};

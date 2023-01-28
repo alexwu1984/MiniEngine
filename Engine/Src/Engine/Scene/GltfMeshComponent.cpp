@@ -39,6 +39,8 @@ namespace Engine
 		{
 			//default Material
 			std::shared_ptr<PBRMaterialRender> PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh);
+			nlohmann::json jsonObj;
+			PBRMaterial->InitRenderResource(jsonObj);
 			Impl->Renders.emplace_back(PBRMaterial);
 		}
 

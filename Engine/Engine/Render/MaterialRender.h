@@ -13,7 +13,6 @@ namespace Engine
 		virtual ~MaterialRender();
 		
 		virtual void InitRenderResource(nlohmann::json& jsonObj) = 0;
-		virtual void InitShader(const std::wstring& Path) = 0;
 		virtual void Draw(RHICommandContext& RHIContext) = 0;
 	};
 }

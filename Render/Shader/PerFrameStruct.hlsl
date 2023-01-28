@@ -74,7 +74,7 @@ matrix GetWorldMatrix()
 
 matrix GetCameraViewProj()
 {
-    return myPerFrame.u_mCameraCurrViewProj;
+    return myPerFrame.CameraCurrViewProj;
 }
 
 matrix GetPrevWorldMatrix()
@@ -84,5 +84,5 @@ matrix GetPrevWorldMatrix()
 
 matrix GetPrevCameraViewProj()
 {
-    return myPerFrame.u_mCameraPrevViewProj;
+    return myPerFrame.CameraPrevViewProj;
 }

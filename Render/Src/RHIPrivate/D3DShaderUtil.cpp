@@ -18,7 +18,8 @@ namespace RenderCore
 #endif
 
 		win32::com_ptr<ID3DBlob> ShaderBlob;
-		if (!SUCCEEDED(D3DCompileFromFile(ShaderFile.c_str(), pDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), TargetModel.c_str(), compileFlags, 0, ShaderBlob.get_init_ref(), &errors)))
+		HRESULT HR = D3DCompileFromFile(ShaderFile.c_str(), pDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), TargetModel.c_str(), compileFlags, 0, ShaderBlob.get_init_ref(), &errors);
+		if (!SUCCEEDED(HR))
 		{
 			const char* errStr = (const char*)errors->GetBufferPointer();
 			core::err() << "Compile Shader Error:" << errStr;

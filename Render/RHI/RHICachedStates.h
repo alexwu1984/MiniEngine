@@ -27,5 +27,8 @@ namespace RenderCore
 		static std::shared_ptr<RHIBlendState> BlendTraditional;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOff;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOn;
+
+		static std::shared_ptr<RHIDepthStencilState> DepthStateEnable;
+		static std::shared_ptr<RHIDepthStencilState> DepthStateDisable;
 	};
 }

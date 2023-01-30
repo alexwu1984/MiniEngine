@@ -17,6 +17,9 @@ namespace RenderCore
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOff;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOn;
 
+	std::shared_ptr<RHIDepthStencilState> RHICachedStates::DepthStateEnable;
+	std::shared_ptr<RHIDepthStencilState> RHICachedStates::DepthStateDisable;
+
 	void RHICachedStates::Initialize(DynamicRHI* RHI)
 	{
 		ClampLinerSampler = TStaticSamplerState<SF_Bilinear>::CreateRHI(RHI);
@@ -32,6 +35,10 @@ namespace RenderCore
 		BlendTraditional = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::CreateRHI(RHI);
 		BlendOnAlphaOff = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::CreateRHI(RHI);
 		BlendOnAlphaOn = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::CreateRHI(RHI);
+
+		DepthStateDisable = TStaticDepthStencilState<false, CF_Always>::CreateRHI(RHI);
+		DepthStateEnable = TStaticDepthStencilState<true, CF_Less>::CreateRHI(RHI);
+
 	}
 
 	void RHICachedStates::DestroyAll()

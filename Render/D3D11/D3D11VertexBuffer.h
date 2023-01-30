@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/RHIVertexBuffer.h"
+#include "RHIPrivate/D3D11RHIDeclare.h"
 
 namespace RenderCore
 {
@@ -16,6 +17,8 @@ namespace RenderCore
 		virtual void UpdateVertexBUffer(const void* InData, int32_t nVertex, int32_t sizePerVertex) override;
 		virtual int32_t GetStride() const override;
 		virtual int32_t GetCount() const override;
+
+		ID3D11Buffer* GetNativeBuffer() const;
 
 	private:
 		std::shared_ptr< D3D11VertexBufferP> Impl;

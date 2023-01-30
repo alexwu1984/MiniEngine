@@ -523,4 +523,16 @@ namespace RenderCore
 	};
 	static_assert(PT_Num <= (1 << 8), "EPrimitiveType doesn't fit in a byte");
 	static_assert(PT_Num <= (1 << PT_NumBits), "PT_NumBits is too small");
+
+
+	enum EVertexType : uint8_t
+	{
+		VT_Position = 0,
+		VT_Normal = 1,
+		VT_UV0 = 2,
+		VT_Tangent = 3,
+		VT_JointsWeights0 = 4,
+		VT_JointsIndices0 = 5,
+		VT_Max
+	};
 }

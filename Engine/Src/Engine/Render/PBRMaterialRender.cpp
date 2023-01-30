@@ -2,7 +2,6 @@
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "Engine.h"
-#include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "Thread/RenderThread.h"
@@ -16,7 +15,7 @@ namespace Engine
 	using namespace RenderCore;
 
 
-	BEGIN_SHADER_STRUCT(PBRSkinMat, 1)
+	BEGIN_SHADER_STRUCT(PBRSkinMat, 2)
 		DECLARE_ARRAY_PARAM(math::Matrix4x4, MAX_MATRICES, BoneMat)
 		BEGIN_STRUCT_CONSTRUCT(PBRSkinMat)
 		END_STRUCT_CONSTRUCT
@@ -25,16 +24,18 @@ namespace Engine
 	struct PBRMaterialRenderP
 	{
 		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(PBRSkinMat)(GEngine->GetRHI().get()) {}
-		std::shared_ptr<GltfMesh> Mesh;
+		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
+		std::shared_ptr<GltfMaterial> MeshMaterial;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		DECLARE_SHADER_STRUCT_MEMBER(PBRSkinMat)
 	};
 
-	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMesh> Mesh)
+	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial)
 		:Impl(std::make_shared<PBRMaterialRenderP>())
 	{
-		Impl->Mesh = Mesh;
+		Impl->MeshBuffer = MeshBuffer;
+		Impl->MeshMaterial = MeshMaterial;
 	}
 
 	PBRMaterialRender::~PBRMaterialRender()
@@ -54,31 +55,31 @@ namespace Engine
 
 			std::wstring ShaderPath = Path + L"PBRMaterial.hlsl";
 
-			const auto& VerticesBuffer = Impl->Mesh->GetMeshBuffer()->GetVerticesBuffer();
+			const auto& VerticesBuffer = Impl->MeshBuffer->GetVerticesBuffer();
 			RHIVertexDeclare VertexDeclareRHI;
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
 
 			std::vector< RHIShaderMacro> ShaderMacros;
-			if (Impl->Mesh->HasSkin())
+			if (VerticesBuffer[RenderCore::VT_JointsWeights0])
 			{
 				ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
 			}
 			int32_t Index = 2;
-			if (VerticesBuffer[GltfMeshBuffer::VT_Tangent])
+			if (VerticesBuffer[RenderCore::VT_Tangent])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
 				ShaderMacros.push_back({ "HAS_TANGENT","1" });
 			}
 
-			if (VerticesBuffer[GltfMeshBuffer::VT_JointsWeights0])
+			if (VerticesBuffer[RenderCore::VT_JointsWeights0])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
 				ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
 			}
 
-			if (VerticesBuffer[GltfMeshBuffer::VT_JointsIndices0])
+			if (VerticesBuffer[RenderCore::VT_JointsIndices0])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
 			}
@@ -91,13 +92,27 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::Draw(RHICommandContext& RHIContext)
+	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
 		GraphicsPipelineStateInitializer Init;
 		Init.PixelShader = Impl->PixelShader;
 		Init.VertexShader = Impl->VertexShader;
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
-		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		if (Impl->MeshMaterial->IsTransparent())
+		{
+			Init.BlendState = RHICachedStates::BlendTraditional;
+		}
+		else
+		{
+			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		}
+		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		
+		//to do,set uniform buffer
+
+		//render
+		RHIContext.DrawPrimitive(Impl->MeshBuffer->GetVerticesBuffer(), Impl->MeshBuffer->GetIndexBuffer());
 	}
 
 }

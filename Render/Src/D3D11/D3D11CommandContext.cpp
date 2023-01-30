@@ -330,6 +330,46 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
+	{
+		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
+		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
+		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount() * 3, 0, 0);
+
+	}
+
+	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
+	{
+		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+
+		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
+		StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+		Impl->D3D11RHI->GetDeviceContext()->Draw(VertexBuffer->GetCount(), 0);
+
+	}
+
+	void D3D11CommandContext::DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		int32_t StreamIndex = 0;
+		for (const auto& BufferRHI: VertexBufferArrayRHI)
+		{
+			if (BufferRHI)
+			{
+				D3D11VertexBuffer* Buffer = RHIResourceCast(BufferRHI.get());
+				StateCache.SetStreamSource(Buffer->GetNativeBuffer(), StreamIndex++, Buffer->GetStride(), 0);
+			}
+		}
+		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
+		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount() * 3, 0, 0);
+	}
+
 	void D3D11CommandContext::ClearAllShaderResources()
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();

@@ -42,6 +42,21 @@ namespace RenderCore
 		return CreateBuffer(InData, InUsage);
 	}
 
+	ID3D11Buffer* D3D11IndexBuffer::GetNativeBuffer() const
+	{
+		return Impl->Buffer.get();
+	}
+
+	int32_t D3D11IndexBuffer::GetIndexFormat() const
+	{
+		return Impl->IndexFormat;
+	}
+
+	int32_t D3D11IndexBuffer::GetIndexCount() const
+	{
+		return Impl->IndexCount;
+	}
+
 	bool D3D11IndexBuffer::CreateBuffer(const void* InData, int32_t InUsage)
 	{
 		// Describe the index buffer.

@@ -53,7 +53,7 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* ) {
 			Impl->MainViewPort->Clear(core::FLinearColor::Blue);
-
+			Impl->MainViewPort->SetRenderTarget();
 		}));
 
 		const auto& Actors = GetOwner()->GetAllActors();

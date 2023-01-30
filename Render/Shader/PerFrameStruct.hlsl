@@ -51,9 +51,6 @@ struct PerFrame
 
     float         LodBias;
     int2          Padding;
-
-    int           LightCount;
-    Light         Lights[MAX_LIGHT_INSTANCES];
 };
 
 cbuffer cbPerFrame : register(b0)
@@ -65,6 +62,12 @@ cbuffer cbPerObject : register(b1)
 {
     matrix myPerObject_u_mCurrWorld;
     matrix myPerObject_u_mPrevWorld;
+}
+
+cbuffer cbPerFrameLight : register(b2)
+{
+    int           LightCount;
+    Light         Lights[MAX_LIGHT_INSTANCES];
 }
 
 matrix GetWorldMatrix()

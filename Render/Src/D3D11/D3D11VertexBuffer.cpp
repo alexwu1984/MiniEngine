@@ -101,4 +101,9 @@ namespace RenderCore
 		return Impl->Count;
 	}
 
+	ID3D11Buffer* D3D11VertexBuffer::GetNativeBuffer() const
+	{
+		return Impl->Buffer.get();
+	}
+
 }

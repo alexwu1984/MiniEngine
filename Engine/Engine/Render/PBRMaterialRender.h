@@ -4,16 +4,17 @@
 namespace Engine
 {
 	struct PBRMaterialRenderP;
-	class GltfMesh;
+	class GltfMeshBuffer;
+	class GltfMaterial;
 
 	class PBRMaterialRender : public MaterialRender
 	{
 	public:
-		PBRMaterialRender(std::shared_ptr<GltfMesh> Mesh);
+		PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer,std::shared_ptr< GltfMaterial> MeshMaterial);
 		virtual ~PBRMaterialRender();
 
 		virtual void InitRenderResource(nlohmann::json& jsonObj);
-		virtual void Draw(RHICommandContext& RHIContext);
+		virtual void Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 	private:
 		void InitShader(const std::wstring& Path);
 	private:

@@ -8,7 +8,7 @@ namespace Engine
 {
 	struct GltfMeshBufferP
 	{
-		std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, GltfMeshBuffer::VT_Max> VerticesBuffer;
+		std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, RenderCore::EVertexType::VT_Max> VerticesBuffer;
 		std::shared_ptr<RenderCore::RHIIndexBuffer> IndexBuffer;
 
 		int AtrributeCount = 3;
@@ -29,28 +29,28 @@ namespace Engine
 	{
 		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, Impl = Impl](RenderCore::DynamicRHI* DyRHI) {
 			auto RHI = DyRHI;
-			Impl->VerticesBuffer[VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
-			Impl->VerticesBuffer[VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
+			Impl->VerticesBuffer[RenderCore::EVertexType::VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
+			Impl->VerticesBuffer[RenderCore::EVertexType::VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
 			if (MeshInfo->TextureCoords)
 			{
-				Impl->VerticesBuffer[VT_UV0] = RHI->RHICreateVertexBuffer(MeshInfo->TextureCoords, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
+				Impl->VerticesBuffer[RenderCore::EVertexType::VT_UV0] = RHI->RHICreateVertexBuffer(MeshInfo->TextureCoords, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
 
 			}
 			else
 			{
 				//If TextureCoords is null,use normal instead of TextureCoords
-				Impl->VerticesBuffer[VT_UV0] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
+				Impl->VerticesBuffer[RenderCore::EVertexType::VT_UV0] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
 			}
 			if (MeshInfo->Tangents)
 			{
-				Impl->VerticesBuffer[VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->Tangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				Impl->VerticesBuffer[RenderCore::EVertexType::VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->Tangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 				Impl->AtrributeCount += 1;
 			}
 
 			// If BoneID not exist,It's no necessary to create JointsWeights0
 			if (MeshInfo->BoneIDs)
 			{
-				Impl->VerticesBuffer[VT_JointsWeights0] = RHI->RHICreateVertexBuffer(MeshInfo->BoneWeights->BoneWeights, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				Impl->VerticesBuffer[RenderCore::EVertexType::VT_JointsWeights0] = RHI->RHICreateVertexBuffer(MeshInfo->BoneWeights->BoneWeights, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 				int nSize = MeshInfo->nNumVertices * 4;
 				std::vector<float> BondId;
 				BondId.resize(nSize);
@@ -60,7 +60,7 @@ namespace Engine
 					BondId[i] = (float)pSrcID[i];
 				}
 
-				Impl->VerticesBuffer[VT_JointsIndices0] = RHI->RHICreateVertexBuffer(BondId.data(), RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				Impl->VerticesBuffer[RenderCore::EVertexType::VT_JointsIndices0] = RHI->RHICreateVertexBuffer(BondId.data(), RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
 
 				Impl->AtrributeCount += 2;
 			}
@@ -82,17 +82,22 @@ namespace Engine
 	void GltfMeshBuffer::UpdateVert(math::Vector3* pVert, int nVert)
 	{
 		auto UpdateVertFun = [pVert, nVert, Impl = Impl](RenderCore::DynamicRHI * DyRHI) {
-			if (Impl->VerticesBuffer[VT_Position])
+			if (Impl->VerticesBuffer[RenderCore::EVertexType::VT_Position])
 			{
-				DyRHI->RHIUpdateVertexBuffer(Impl->VerticesBuffer[VT_Position], pVert, nVert, sizeof(math::Vector3));
+				DyRHI->RHIUpdateVertexBuffer(Impl->VerticesBuffer[RenderCore::EVertexType::VT_Position], pVert, nVert, sizeof(math::Vector3));
 			}
 		};
 		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateVertFun);
 	}
 
-	std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, Engine::GltfMeshBuffer::VT_Max>& GltfMeshBuffer::GetVerticesBuffer()
+	std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, RenderCore::EVertexType::VT_Max>& GltfMeshBuffer::GetVerticesBuffer()
 	{
 		return Impl->VerticesBuffer;
+	}
+
+	std::shared_ptr<RenderCore::RHIIndexBuffer> GltfMeshBuffer::GetIndexBuffer() const
+	{
+		return Impl->IndexBuffer;
 	}
 
 }

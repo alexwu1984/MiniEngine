@@ -50,7 +50,7 @@ struct PerFrame
     float4        WireframeOptions;
 
     float         LodBias;
-    int2          Padding;
+    float3        Padding;
 };
 
 cbuffer cbPerFrame : register(b0)
@@ -67,6 +67,7 @@ cbuffer cbPerObject : register(b1)
 cbuffer cbPerFrameLight : register(b2)
 {
     int           LightCount;
+    int3          Padding1;
     Light         Lights[MAX_LIGHT_INSTANCES];
 }
 

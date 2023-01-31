@@ -14,16 +14,17 @@ namespace Engine
 		// Up vector of camera
 		Vector3 Up;
 		// Rotation/sec speed of pitch
-		float PitchSpeed;
+		float PitchSpeed = 0.f;
 		// Rotation/sec speed of yaw
-		float YawSpeed;
+		float YawSpeed = 0.f;
 	};
 
 	OrbitCamera::OrbitCamera(std::weak_ptr<Actor> Owner)
 		:CameraComponent(Owner)
 		, Impl(std::make_shared<OrbitCameraP>())
 	{
-
+		Impl->Up = Vector3::UnitZ;
+		Impl->Offset = GetCameraPos();
 	}
 
 	OrbitCamera::~OrbitCamera()
@@ -36,7 +37,7 @@ namespace Engine
 		CameraComponent::Tick(DeltaTime);
 		// Transform offset and up by yaw
 		Quaternion Yaw(Vector3::UnitZ, Impl->YawSpeed * DeltaTime);
-
+		
 		Impl->Offset = Vector3::Transform(Impl->Offset, Yaw);
 		Impl->Up = Vector3::Transform(Impl->Up, Yaw);
 

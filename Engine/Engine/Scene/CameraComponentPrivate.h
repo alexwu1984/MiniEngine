@@ -6,7 +6,7 @@ namespace Engine
 	struct CameraComponentP
 	{
 		math::Matrix4x4 View;
-		math::Vector3  CameraPos{-4.f,0.f,0.f};
+		math::Vector3  CameraPos{0.f,-30.f,-20.f};
 		math::Matrix4x4 ProjMatrix;
 		float FovVertical = math::MATH_PI / 4.f;
 		float Near = 0.01f;

@@ -276,8 +276,6 @@ namespace RenderCore
 		{
 			auto DeviceContex = Impl->D3D11RHI->GetDeviceContext();
 			D3D11UniformBuffer* UniformBuffer = RHIResourceCast(UniformBufferRHI.get());
-			// Constant buffers must also be 16-byte aligned.
-			Assert(win32::Align(Contents, 16) == Contents);
 
 			D3D11_MAPPED_SUBRESOURCE MappedSubresource;
 			// Discard previous results since we always do a full update

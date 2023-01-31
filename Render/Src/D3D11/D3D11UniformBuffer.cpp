@@ -19,6 +19,8 @@ namespace RenderCore
 
 	bool D3D11UniformBuffer::CreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize)
 	{
+		Assert(win32::Align(ConstantBufferSize, 16) == ConstantBufferSize);
+
 		D3D11_BUFFER_DESC Desc{};
 		Desc.ByteWidth = ConstantBufferSize;
 		Desc.Usage = D3D11_USAGE_DYNAMIC;

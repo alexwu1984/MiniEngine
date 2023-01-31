@@ -7,6 +7,7 @@
 #include "Thread/RenderThread.h"
 #include "Engine.h"
 #include "RHI/DynamicRHI.h"
+#include "App/AppWindow.h"
 
 using namespace RenderCore;
 
@@ -51,9 +52,12 @@ namespace Engine
 			return;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* ) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* RHI ) {
 			Impl->MainViewPort->Clear(core::FLinearColor::Blue);
 			Impl->MainViewPort->SetRenderTarget();
+			int32_t width = GEngine->GetAppWindow()->GetWidth();
+			int32_t height = GEngine->GetAppWindow()->GetHeight();
+			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
 		}));
 
 		const auto& Actors = GetOwner()->GetAllActors();

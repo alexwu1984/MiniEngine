@@ -1,23 +1,21 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIUniformBuffer.h"
 
-namespace RenderCore
-{
-
-	#define BEGIN_SHADER_STRUCT(Name,CBIndex)\
+#define BEGIN_SHADER_STRUCT(Name,CBIndex)\
 	struct Name##Wrap\
 	{\
-		std::shared_ptr<RHIUniformBuffer> CB_;\
+		std::shared_ptr<RenderCore::RHIUniformBuffer> CB_;\
 		std::unordered_map<std::string, int32_t> TextureIndexMap_;\
 		int CBIndex_ = CBIndex;\
-		DynamicRHI* _RHI = nullptr;\
+		RenderCore::DynamicRHI* _RHI = nullptr;\
 		struct Name {
 
-	#define BEGIN_STRUCT_CONSTRUCT(Name)\
+#define BEGIN_STRUCT_CONSTRUCT(Name)\
 	};\
 	Name Data;\
-	void SetShaderTexture(EShaderFrequency ShaderType, const std::string& name, std::shared_ptr<RHITexture2D> Texture2DRHI)\
+	void SetShaderTexture(RenderCore::EShaderFrequency ShaderType, const std::string& name, std::shared_ptr<RenderCore::RHITexture2D> Texture2DRHI)\
 	{\
 		auto itr = TextureIndexMap_.find(name);\
 		if (itr != TextureIndexMap_.end())\
@@ -30,11 +28,11 @@ namespace RenderCore
 	{\
 		_RHI->GetDefaultCommandContext()->RHIUpdateUniformBuffer(CB_, &Data);\
 	}\
-	void SetShaderUniformBuffer(EShaderFrequency ShaderType)\
+	void SetShaderUniformBuffer(RenderCore::EShaderFrequency ShaderType)\
 	{\
 		_RHI->GetDefaultCommandContext()->RHISetShaderUniformBuffer(ShaderType,CBIndex_,CB_);\
 	}\
-	Name##Wrap(DynamicRHI* RHI){\
+	Name##Wrap(RenderCore::DynamicRHI* RHI){\
 	_RHI = RHI;\
 	ENQUEUE_UNIQUE_RENDER_COMMAND(([this](RenderCore::DynamicRHI* RHI){\
 		CB_ = RHI->RHICreateUniformBuffer(&Data,sizeof(Data));\
@@ -55,4 +53,3 @@ namespace RenderCore
 #define GET_SHADER_STRUCT_MEMBER(Name) m_##Name##UniformBuffer
 #define GET_UNIFORMDATA(Name) m_##Name##UniformBuffer.Data
 #define GET_P_UNIFORMDATA(P,Name) P->GET_UNIFORMDATA(Name)
-}

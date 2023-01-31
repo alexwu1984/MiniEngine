@@ -26,6 +26,7 @@ namespace Engine
 	void CameraComponent::SetViewMatrix(const math::Matrix4x4& view)
 	{
 		const auto& AppWin = GEngine->GetAppWindow();
+		ImplCameraP->View = view;
 		ImplCameraP->Aspect = (float)AppWin->GetWidth() / (float)AppWin->GetHeight();
 		ImplCameraP->ProjMatrix = Matrix4x4::MatrixPerspectiveFovLH(ImplCameraP->FovVertical, ImplCameraP->Aspect, ImplCameraP->Near, ImplCameraP->Far);
 	}

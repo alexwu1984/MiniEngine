@@ -10,7 +10,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 {
 	int argc = 0;
 	LPWSTR* argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
-
 	
 	GltfViewApp App;
 	if (App.Main(hInstance, argc, argv))

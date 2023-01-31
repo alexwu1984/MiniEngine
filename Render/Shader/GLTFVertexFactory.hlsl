@@ -50,13 +50,13 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
         { 0, 0, 0, 1 }
     };
 #endif
-    matrix transMatrix = mul(GetWorldMatrix(), skinningMatrix);
-    Output.WorldPos = mul(transMatrix, float4(input.Position, 1)).xyz;
-    Output.svPosition = mul(GetCameraViewProj(), float4(Output.WorldPos, 1));
+    matrix transMatrix = mul(skinningMatrix,GetWorldMatrix());
+    Output.WorldPos = mul(float4(input.Position, 1),transMatrix).xyz;
+    Output.svPosition = mul(float4(Output.WorldPos, 1),GetCameraViewProj());
 
-    Output.Normal  = normalize(mul(transMatrix, float4(input.Normal, 0)).xyz);
+    Output.Normal  = normalize(mul(float4(input.Normal, 0),transMatrix).xyz);
 #ifdef HAS_TANGENT
-    Output.Tangent = normalize(mul(transMatrix, float4(input.Tangent.xyz, 0)).xyz);
+    Output.Tangent = normalize(mul(float4(input.Tangent.xyz, 0),transMatrix).xyz);
     Output.Binormal = cross(Output.Normal, Output.Tangent) *input.Tangent.w;
 #endif
     Output.UV0 = input.UV0;

@@ -527,7 +527,8 @@ namespace RenderCore
 
 		void SetStreamSource(ID3D11Buffer* VertexBuffer, uint32_t StreamIndex, uint32_t Stride, uint32_t Offset)
 		{
-			Assert(Stride == StreamStrides[StreamIndex]);
+			StreamStrides[StreamIndex] = Stride;
+			//Assert(Stride == StreamStrides[StreamIndex]);
 			InternalSetStreamSource(VertexBuffer, StreamIndex, Stride, Offset);
 		}
 

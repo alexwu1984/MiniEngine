@@ -1,34 +1,38 @@
 #include "Engine/Render/PBRMaterialRender.h"
 #include "RHI/RHIShdader.h"
-#include "RHI/RHIShaderDefine.h"
 #include "Engine.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "Thread/RenderThread.h"
-#include "math/matrix4x4.h"
 #include "RHI/RHIPipleLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "core/system.h"
+#include "Render/MaterialPreFrame.h"
 
 namespace Engine
 {
 	using namespace RenderCore;
 
-
-	BEGIN_SHADER_STRUCT(PBRSkinMat, 2)
+	BEGIN_SHADER_STRUCT(SkinMat, 3)
 		DECLARE_ARRAY_PARAM(math::Matrix4x4, MAX_MATRICES, BoneMat)
-		BEGIN_STRUCT_CONSTRUCT(PBRSkinMat)
+		BEGIN_STRUCT_CONSTRUCT(SkinMat)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
 
 	struct PBRMaterialRenderP
 	{
-		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(PBRSkinMat)(GEngine->GetRHI().get()) {}
+		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(SkinMat)(GEngine->GetRHI().get()),
+			GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
+			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get())
+		{
+		}
 		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
 		std::shared_ptr<GltfMaterial> MeshMaterial;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
-		DECLARE_SHADER_STRUCT_MEMBER(PBRSkinMat)
+		DECLARE_SHADER_STRUCT_MEMBER(SkinMat)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
 	};
 
 	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial)
@@ -85,7 +89,7 @@ namespace Engine
 			}
 
 			Impl->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
-			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PBRMainPS", {});
+			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PBRMainPS", ShaderMacros);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(InitShaderFun)
@@ -108,8 +112,23 @@ namespace Engine
 		}
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		
+		const auto& VerticesBuffer = Impl->MeshBuffer->GetVerticesBuffer();
 		//to do,set uniform buffer
+		Impl->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = RenderParam.CurrModelMatrix;
+		Impl->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
+		Impl->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		Impl->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+		Impl->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = RenderParam.CurrViewProjMatrix;
+		Impl->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = RenderParam.CurrViewProjInverseMatrix;
+		Impl->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = RenderParam.CameraPos;
+		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
+		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Impl->MeshMaterial->GetBaseColorTexture());
 
 		//render
 		RHIContext.DrawPrimitive(Impl->MeshBuffer->GetVerticesBuffer(), Impl->MeshBuffer->GetIndexBuffer());

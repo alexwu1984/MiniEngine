@@ -216,9 +216,8 @@ namespace math
 		Vector3 Up = UpDirection;
 		Up.Normalize();
 
-		Vector3 Right;
-		Right.Cross(Up, Forward);
-		Up.Cross(Forward, Right);
+		Vector3 Right = Vector3::Cross(Up, Forward);
+		Up = Vector3::Cross(Forward, Right);
 
 		float D0 = -EyePosition.Dot(Right);
 		float D1 = -EyePosition.Dot(Up);

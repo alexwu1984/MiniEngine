@@ -26,19 +26,19 @@ namespace RenderCore
 
 	}
 
-	bool D3D11IndexBuffer::CreateIndexBuffer(const uint16_t* InData, int32_t InUsage, int32_t IndexCount)
+	bool D3D11IndexBuffer::CreateIndexBuffer(const uint16_t* InData, int32_t InUsage, int32_t TriangleNumber)
 	{
 		Impl->IndexFormat = DXGI_FORMAT_R16_UINT;
-		Impl->IndexCount = IndexCount;
-		Impl->Size = sizeof(uint16_t) * IndexCount;
+		Impl->IndexCount = TriangleNumber * 3;
+		Impl->Size = sizeof(uint16_t) * Impl->IndexCount;
 		return CreateBuffer(InData,InUsage);
 	}
 
-	bool D3D11IndexBuffer::CreateIndexBuffer(const uint32_t* InData, int32_t InUsage, int32_t IndexCount)
+	bool D3D11IndexBuffer::CreateIndexBuffer(const uint32_t* InData, int32_t InUsage, int32_t TriangleNumber)
 	{
 		Impl->IndexFormat = DXGI_FORMAT_R32_UINT;
-		Impl->IndexCount = IndexCount;
-		Impl->Size = sizeof(uint32_t) * IndexCount;
+		Impl->IndexCount = TriangleNumber * 3;
+		Impl->Size = sizeof(uint32_t) * Impl->IndexCount;
 		return CreateBuffer(InData, InUsage);
 	}
 

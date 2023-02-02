@@ -213,10 +213,11 @@ namespace RenderCore
 		RasterizerDesc.FillMode = TranslateFillMode(Initializer.FillMode);
 		RasterizerDesc.SlopeScaledDepthBias = Initializer.SlopeScaleDepthBias;
 		RasterizerDesc.FrontCounterClockwise = true;
+		//RasterizerDesc.FrontCounterClockwise = false;
 		RasterizerDesc.DepthBias = math::FloorToInt(Initializer.DepthBias * (float)(1 << 24));
 		RasterizerDesc.DepthClipEnable = true;
 		RasterizerDesc.MultisampleEnable = Initializer.bAllowMSAA;
-		RasterizerDesc.ScissorEnable = true;
+		RasterizerDesc.ScissorEnable = false;
 
 		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateRasterizerState(&RasterizerDesc, Impl->RasterizerState.get_init_ref()));
 		return Impl->RasterizerState.is_valid();

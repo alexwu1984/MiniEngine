@@ -99,6 +99,10 @@ namespace core
     {
         if (length < 0)
             length = (int32_t)std::wcslen(text);
+        if (length == 0)
+        {
+            return "";
+        }
 #ifdef USE_UTF8
         int32_t nchars = WideCharToMultiByte(CP_UTF8, 0, text, length, NULL, 0, NULL, NULL);
 #else
@@ -120,7 +124,10 @@ namespace core
     {
         if (length < 0)
             length = (int32_t)std::wcslen(text);
-
+		if (length == 0)
+		{
+			return "";
+		}
         int32_t nchars = WideCharToMultiByte(CP_ACP, 0, text, length, NULL, 0, NULL, NULL);
         char * u8 = new char[nchars];
         int32_t nchars2 = WideCharToMultiByte(CP_ACP, 0, text, length, u8, nchars, NULL, NULL);
@@ -134,6 +141,10 @@ namespace core
     {
         if (length < 0)
             length = (int32_t)std::strlen(text);
+		if (length == 0)
+		{
+			return L"";
+		}
 #ifdef USE_UTF8
         int32_t nchars = MultiByteToWideChar(CP_UTF8, 0, text, length, NULL, 0);
 #else
@@ -151,6 +162,10 @@ namespace core
     {
         if (length < 0)
             length = std::strlen(text);
+		if (length == 0)
+		{
+			return L"";
+		}
         int32_t nchars = MultiByteToWideChar(CP_ACP, 0, text, length, NULL, 0);
         wchar_t * u16 = new wchar_t[nchars];
         int32_t nchars2 = MultiByteToWideChar(CP_ACP, 0, text, length, u16, nchars);

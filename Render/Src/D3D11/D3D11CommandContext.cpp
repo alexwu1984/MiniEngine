@@ -242,8 +242,13 @@ namespace RenderCore
 		{
 			RHISetDepthStencilState(Initializer.DepthStencilState, 0);
 		}
+
+		if (Initializer.RasterizerState)
+		{
+			RHISetRasterizerState(Initializer.RasterizerState);
+		}
+
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
-		StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(Initializer.PrimitiveType, false));
 
 		if (Initializer.VertexShader)
 		{
@@ -265,6 +270,9 @@ namespace RenderCore
 		{
 			StateCache.SetPixelShader(nullptr);
 		}
+
+		
+		StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(Initializer.PrimitiveType, false));
 	}
 
 	void D3D11CommandContext::RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents)
@@ -336,7 +344,7 @@ namespace RenderCore
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
-		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount() * 3, 0, 0);
+		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
 
 	}
 
@@ -365,7 +373,7 @@ namespace RenderCore
 		}
 		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
-		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount() * 3, 0, 0);
+		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
 	}
 
 	void D3D11CommandContext::ClearAllShaderResources()

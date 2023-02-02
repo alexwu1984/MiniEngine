@@ -73,19 +73,19 @@ namespace Engine
 			int32_t Index = 2;
 			if (VerticesBuffer[RenderCore::VT_Tangent])
 			{
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
+				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 				ShaderMacros.push_back({ "HAS_TANGENT","1" });
 			}
 
 			if (VerticesBuffer[RenderCore::VT_JointsWeights0])
 			{
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
+				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 				ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
 			}
 
 			if (VerticesBuffer[RenderCore::VT_JointsIndices0])
 			{
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float3, false));
+				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 			}
 
 			Impl->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
@@ -101,7 +101,7 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.PixelShader = Impl->PixelShader;
 		Init.VertexShader = Impl->VertexShader;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 		if (Impl->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;

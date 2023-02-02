@@ -13,13 +13,12 @@ namespace RenderCore
 		D3D11IndexBuffer(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11IndexBuffer();
 
-
-		virtual bool CreateIndexBuffer(const uint16_t* InData, int32_t InUsage, int32_t IndexCount) override;
-		virtual bool CreateIndexBuffer(const uint32_t* InData, int32_t InUsage, int32_t IndexCount) override;
+		virtual bool CreateIndexBuffer(const uint16_t* InData, int32_t InUsage, int32_t TriangleNumber) override;
+		virtual bool CreateIndexBuffer(const uint32_t* InData, int32_t InUsage, int32_t TriangleNumber) override;
+		virtual int32_t GetIndexFormat() const override;
+		virtual int32_t GetIndexCount() const override;
+	public:
 		ID3D11Buffer* GetNativeBuffer() const;
-		int32_t GetIndexFormat() const;
-		int32_t GetIndexCount() const;
-
 	private:
 		bool CreateBuffer(const void* InData, int32_t InUsage);
 

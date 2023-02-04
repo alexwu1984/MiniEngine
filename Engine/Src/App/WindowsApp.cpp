@@ -63,5 +63,4 @@ namespace Engine
 
 		return Data->AppWin->CreateAppWindow(DefWidth,DefHeight);
 	}
-
 }

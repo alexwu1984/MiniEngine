@@ -20,10 +20,12 @@ namespace RenderCore
 		virtual void SetRenderTarget() override;
 		virtual void Clear(const core::FLinearColor& Color) override;
 		virtual void Present() override;
+		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
 
 	private:
 		DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 		void GetSwapChainSurface();
+		uint32_t GetSwapChainFlags();
 
 	private:
 		std::shared_ptr< D3D11ViewPortP> Impl;

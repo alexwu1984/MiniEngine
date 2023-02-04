@@ -17,7 +17,7 @@ namespace Engine
 		virtual void ShutDown() {};
 	private:
 		bool CreateAppWindow();
-
+		
 	private:
 		std::shared_ptr<WindowApplicationP> Data;
 	};

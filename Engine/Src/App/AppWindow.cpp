@@ -84,6 +84,13 @@ namespace Engine
 		case WM_DESTROY:
 			::PostQuitMessage(0);
 			break;
+		case WM_SIZE:
+		{
+			int32_t NewWidth = LOWORD(lParam);
+			int32_t NewHeight = HIWORD(lParam);
+			SizeChanged(core::vec2i(NewWidth,NewHeight));
+		}
+			break;
 		}
 
 		if (Impl->_proc_old)
@@ -108,7 +115,7 @@ namespace Engine
 				::TranslateMessage(&msg);
 				::DispatchMessageW(&msg);
 			}
-			idle();
+			Idle();
 			std::this_thread::sleep_for(1ms);
 
 		}

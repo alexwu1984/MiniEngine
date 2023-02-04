@@ -89,7 +89,7 @@ namespace RenderCore
 		}
 
 		Impl->DepthSRV = std::make_shared<D3D11Texture2D>(Impl->D3D11RHI);
-		Impl->DepthSRV->CreateWithData(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, InSizeX, InSizeY);
+		Impl->DepthSRV->CreateWithData(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable , InSizeX, InSizeY);
 	}
 
 	D3D11ViewPort::~D3D11ViewPort()
@@ -133,6 +133,43 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
+	{
+		Impl->D3D11RHI->ClearState();
+		Impl->D3D11RHI->GetDeviceContext()->Flush();
+		Impl->BackBufferResource = {};
+		Impl->BackBufferRenderTargetView = {};
+
+		if (Impl->SizeX != InSizeX || Impl->SizeY != InSizeY )
+		{
+			Impl->SizeX = InSizeX;
+			Impl->SizeY = InSizeY;
+
+			// Resize the swap chain.
+
+			const UINT SwapChainFlags = GetSwapChainFlags();
+			const DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(Impl->PixelFormat);
+			
+			// Resize all existing buffers, don't change count
+			VERIFYD3D11RESULT(Impl->SwapChain->ResizeBuffers(0, Impl->SizeX, Impl->SizeY, RenderTargetFormat, SwapChainFlags));
+
+			if (bInIsFullscreen)
+			{
+				DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
+
+				if (FAILED(Impl->SwapChain->ResizeTarget(&BufferDesc)))
+				{
+					//ResetSwapChainInternal(true);
+					VERIFYD3D11RESULT(Impl->SwapChain->ResizeBuffers(0, Impl->SizeX, Impl->SizeY, RenderTargetFormat, SwapChainFlags));
+
+				}
+			}
+			GetSwapChainSurface();
+			Impl->DepthSRV = std::make_shared<D3D11Texture2D>(Impl->D3D11RHI);
+			Impl->DepthSRV->CreateWithData(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, InSizeX, InSizeY);
+		}
+	}
+
 	DXGI_MODE_DESC D3D11ViewPort::SetupDXGI_MODE_DESC() const
 	{
 		DXGI_MODE_DESC Ret;
@@ -158,5 +195,19 @@ namespace RenderCore
 		RTVDesc.Texture2D.MipSlice = 0;
 		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateRenderTargetView(Impl->BackBufferResource.get(), &RTVDesc, Impl->BackBufferRenderTargetView.get_init_ref()));
 	}
+
+	uint32_t D3D11ViewPort::GetSwapChainFlags()
+	{
+		uint32_t SwapChainFlags = GSwapChainFlags;
+
+		// Ensure AllowTearing consistency or ResizeBuffers will fail with E_INVALIDARG
+		//if (bAllowTearing != !!(SwapChainFlags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING))
+		//{
+		//	SwapChainFlags ^= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+		//}
+
+		return SwapChainFlags;
+	}
+
 
 }

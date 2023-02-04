@@ -23,7 +23,8 @@ namespace Engine
 		int32_t GetHeight() const;
 
 	public:
-		core::event<void()> idle;
+		core::event<void()> Idle;
+		core::event<void(core::vec2i)> SizeChanged;
 	private:
 		std::shared_ptr< AppWindowP> Impl;
 	};

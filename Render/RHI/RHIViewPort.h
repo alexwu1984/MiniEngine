@@ -44,5 +44,6 @@ namespace RenderCore
 		virtual void SetRenderTarget() {};
 		virtual void Clear(const core::FLinearColor& Color) {};
 		virtual void Present() {};
+		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) = 0;
 	};
 }

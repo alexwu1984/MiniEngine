@@ -32,7 +32,7 @@ namespace Engine
 
 	private:
 		void Tick();
-
+		void OnSizeChanged(core::vec2i NewSize);
 	private:
 		std::shared_ptr<MainEngineP> Impl;
 	};

@@ -44,6 +44,14 @@ namespace Engine
 		Impl->MainViewPort = ViewPort;
 	}
 
+	void SceneRender::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
+	{
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl, InSizeX,InSizeY,bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
+			Impl->MainViewPort->Resize(InSizeX,InSizeY,bInIsFullscreen);
+		}));
+	}
+
 	void SceneRender::Render()
 	{
 		std::shared_ptr<RHICommandContext> CommandContext =  GEngine->GetRHI()->GetDefaultCommandContext();

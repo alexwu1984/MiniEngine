@@ -55,6 +55,7 @@ namespace RenderCore
 		IDXGIFactory1* GetFactory() const;
 
 		D3D11StateCacheBase& GetStateCache();
+		void ClearState();
 
 	private:
 		bool InitD3DDevice();

@@ -213,7 +213,7 @@ namespace RenderCore
 			SubRes.SysMemPitch = RowBytes;
 			SubRes.SysMemSlicePitch = SizeY * RowBytes;
 
-			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, &SubRes, Impl->Tex2D.get_init_ref()))
+			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, InBuffer ? &SubRes : nullptr, Impl->Tex2D.get_init_ref()))
 			{
 				return false;
 			}

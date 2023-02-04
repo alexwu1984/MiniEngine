@@ -37,7 +37,7 @@ namespace RenderCore
 		BlendOnAlphaOn = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::CreateRHI(RHI);
 
 		DepthStateDisable = TStaticDepthStencilState<false, CF_Always>::CreateRHI(RHI);
-		DepthStateEnable = TStaticDepthStencilState<true, CF_Less>::CreateRHI(RHI);
+		DepthStateEnable = TStaticDepthStencilState<true, CF_LessEqual>::CreateRHI(RHI);
 
 	}
 

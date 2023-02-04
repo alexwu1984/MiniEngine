@@ -29,7 +29,7 @@ namespace RenderCore
 		GPixelFormats[PF_DXT5].PlatformFormat = DXGI_FORMAT_BC3_TYPELESS;
 		GPixelFormats[PF_BC4].PlatformFormat = DXGI_FORMAT_BC4_UNORM;
 		GPixelFormats[PF_UYVY].PlatformFormat = DXGI_FORMAT_UNKNOWN;		// TODO: Not supported in D3D11
-		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		GPixelFormats[PF_DepthStencil].BlockBytes = 4;
 		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
 		GPixelFormats[PF_X24_G8].BlockBytes = 4;

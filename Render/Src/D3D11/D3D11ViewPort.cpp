@@ -2,6 +2,7 @@
 #include "win/com_ptr.h"
 #include "D3D11/D3D11RHI.h"
 #include "core/logger.h"
+#include "D3D11/D3D11Texture2D.h"
 
 namespace RenderCore
 {
@@ -38,6 +39,7 @@ namespace RenderCore
 		win32::com_ptr<IDXGISwapChain> SwapChain;
 		win32::com_ptr<ID3D11RenderTargetView> BackBufferRenderTargetView;
 		win32::com_ptr<ID3D11Texture2D> BackBufferResource;
+		std::shared_ptr<D3D11Texture2D> DepthSRV;
 	};
 	D3D11ViewPort::D3D11ViewPort(D3D11DynamicRHI* D3D11RHI, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
 		:Impl(new D3D11ViewPortP)
@@ -85,6 +87,9 @@ namespace RenderCore
 			VERIFYD3D11RESULT(CreateSwapChainResult);
 			GetSwapChainSurface();
 		}
+
+		Impl->DepthSRV = std::make_shared<D3D11Texture2D>(Impl->D3D11RHI);
+		Impl->DepthSRV->CreateWithData(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, InSizeX, InSizeY);
 	}
 
 	D3D11ViewPort::~D3D11ViewPort()
@@ -109,12 +114,13 @@ namespace RenderCore
 
 	void D3D11ViewPort::SetRenderTarget()
 	{
-		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Impl->BackBufferRenderTargetView, nullptr);
+		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &Impl->BackBufferRenderTargetView, Impl->DepthSRV->GetDSV());
 	}
 
 	void D3D11ViewPort::Clear(const core::FLinearColor& Color)
 	{
 		Impl->D3D11RHI->GetDeviceContext()->ClearRenderTargetView(Impl->BackBufferRenderTargetView.get(), &Color.R);
+		Impl->D3D11RHI->GetDeviceContext()->ClearDepthStencilView(Impl->DepthSRV->GetDSV(), D3D11_CLEAR_DEPTH, 1.0f, 0.f);
 	}
 
 	void D3D11ViewPort::Present()

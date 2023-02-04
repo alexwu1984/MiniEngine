@@ -101,7 +101,7 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.PixelShader = Impl->PixelShader;
 		Init.VertexShader = Impl->VertexShader;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
 		if (Impl->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;

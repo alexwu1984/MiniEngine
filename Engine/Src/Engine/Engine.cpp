@@ -45,7 +45,7 @@ namespace Engine
 		if (Impl->DynamicRHI)
 		{
 			AppWin->Idle.bind(std::bind(&MainEngine::Tick, this), this);
-			AppWin->SizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
+			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
 			Impl->DynamicRHI->Init();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
 			Impl->RThread = std::make_unique<RenderThread>(Impl->DynamicRHI.get());

@@ -1,6 +1,7 @@
 #pragma once
 #include "win/win32.h"
 #include "core/event.h"
+#include "Scene/DeviceInputState.h"
 
 namespace Engine
 {
@@ -24,7 +25,9 @@ namespace Engine
 
 	public:
 		core::event<void()> Idle;
-		core::event<void(core::vec2i)> SizeChanged;
+		core::event<void(core::vec2i)> EvtSizeChanged;
+		core::event<void(MouseButton Button, core::vec2f)> EvtMouseButtonDown;
+		core::event<void(MouseButton Button, core::vec2f)> EvtMouseMove;
 	private:
 		std::shared_ptr< AppWindowP> Impl;
 	};

@@ -1,5 +1,5 @@
 #include "GltfViewerApp.h"
-#include "Engine/Scene/GltfOrbitActor.h"
+#include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/SceneView.h"
 #include "core/system.h"
@@ -19,13 +19,13 @@ bool GltfViewApp::Init()
 	core::filesystem::path Path = core::process_directory();
 	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/huojian.glb";
 	auto Scene = Engine::GEngine->GetScene();
-	GltfActor = std::make_shared<Engine::GltfOrbitActor>(Scene, ModelFile);
-	GltfActor->InitResouce();
-	Scene->AddActor(GltfActor);
+	AGltfModel = std::make_shared<Engine::GltfActor>(Scene, ModelFile);
+	AGltfModel->InitResouce();
+	Scene->AddActor(AGltfModel);
 	return true;
 }
 
 void GltfViewApp::ShutDown()
 {
-	GltfActor = {};
+	AGltfModel = {};
 }

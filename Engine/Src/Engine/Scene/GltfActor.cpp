@@ -1,32 +1,32 @@
-#include "Scene/GltfOrbitActor.h"
+#include "Scene/GltfActor.h"
 #include "Scene/OrbitCamera.h"
 #include "Scene/GltfMeshComponent.h"
 
 namespace Engine
 {
-	IMP_ACTOR_CLASS_NAME(GltfOrbitActor)
-	IMP_ACTOR_TRAITS_CLASS_NAME(GltfOrbitActor)
+	IMP_ACTOR_CLASS_NAME(GltfActor)
+	IMP_ACTOR_TRAITS_CLASS_NAME(GltfActor)
 
-	struct GltfOrbitActorP
+	struct GltfActorP
 	{
 		std::wstring ModelFileName;
 		std::shared_ptr<OrbitCamera> CameraComp;
 		std::shared_ptr<GltfMeshComponent> MeshComp;
 	};
 
-	GltfOrbitActor::GltfOrbitActor(std::weak_ptr<SceneView> Scene, const std::wstring& FileName)
+	GltfActor::GltfActor(std::weak_ptr<SceneView> Scene, const std::wstring& FileName)
 		:Actor(Scene)
-		, Impl(std::make_shared<GltfOrbitActorP>())
+		, Impl(std::make_shared<GltfActorP>())
 	{
 		Impl->ModelFileName = FileName;
 	}
 
-	GltfOrbitActor::~GltfOrbitActor()
+	GltfActor::~GltfActor()
 	{
 
 	}
 
-	void GltfOrbitActor::InitResouce()
+	void GltfActor::InitResouce()
 	{
 		Actor::InitResouce();
 

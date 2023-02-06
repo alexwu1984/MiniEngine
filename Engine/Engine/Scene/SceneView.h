@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inc.h"
+#include "Scene/DeviceInputState.h"
 
 namespace Engine 
 {
@@ -36,6 +37,9 @@ namespace Engine
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
 		std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
 		
+	private:
+		void OnMouseButton(MouseButton Button, core::vec2f Pos);
+		void OnMouseMove(MouseButton Button, core::vec2f Pos);
 	private:
 		std::unique_ptr< SceneViewP> Impl;
 	};

@@ -2,7 +2,7 @@
 
 namespace Engine
 {
-	class GltfOrbitActor;
+	class GltfActor;
 }
 
 class GltfViewApp : public Engine::WindowApplication
@@ -14,5 +14,5 @@ public:
 	virtual bool Init() override;
 	virtual void ShutDown() override;
 private:
-	std::shared_ptr<Engine::GltfOrbitActor> GltfActor;
+	std::shared_ptr<Engine::GltfActor> AGltfModel;
 };

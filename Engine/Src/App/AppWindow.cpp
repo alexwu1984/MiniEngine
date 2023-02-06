@@ -88,15 +88,53 @@ namespace Engine
 		{
 			int32_t NewWidth = LOWORD(lParam);
 			int32_t NewHeight = HIWORD(lParam);
-			SizeChanged(core::vec2i(NewWidth,NewHeight));
+			EvtSizeChanged(core::vec2i(NewWidth,NewHeight));
+		}
+			break;
+		case WM_LBUTTONDOWN:
+		{
+			core::vec2f Point;
+			Point.x = LOWORD(lParam);
+			Point.y = HIWORD(lParam);
+			EvtMouseButtonDown(MouseButton::LeftButton, Point);
+		}
+			break;
+		case WM_RBUTTONDOWN:
+		{
+			core::vec2f Point;
+			Point.x = LOWORD(lParam);
+			Point.y = HIWORD(lParam);
+			EvtMouseButtonDown(MouseButton::RightButton, Point);
+		}
+			break;
+		case WM_MOUSEMOVE:
+		{
+			core::vec2f Point;
+			Point.x = LOWORD(lParam);
+			Point.y = HIWORD(lParam);
+
+			MouseButton Button = NoButton;
+			if (wParam & MK_LBUTTON)
+			{
+				Button = LeftButton;
+			}
+			else if (wParam & MK_RBUTTON)
+			{
+				Button = RightButton;
+			}
+			EvtMouseMove(Button, Point);
 		}
 			break;
 		}
 
 		if (Impl->_proc_old)
+		{
 			return CallWindowProcW((WNDPROC)Impl->_proc_old, (HWND)pWnd, message, wParam, lParam);
+		}
 		else
+		{
 			return CallWindowProcW(DefWindowProcW, (HWND)pWnd, message, wParam, lParam);
+		}
 	}
 
 	int32_t AppWindow::RunLoop()

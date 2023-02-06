@@ -2,6 +2,8 @@
 #include "Scene/SceneView.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
+#include "Engine.h"
+#include "App/AppWindow.h"
 
 namespace Engine 
 {
@@ -27,6 +29,9 @@ namespace Engine
 
 	void SceneView::Init()
 	{
+		auto AppWindow = GEngine->GetAppWindow();
+		AppWindow->EvtMouseButtonDown.bind(std::bind(&SceneView::OnMouseButton,this,std::placeholders::_1,std::placeholders::_2), this);
+		AppWindow->EvtMouseMove.bind(std::bind(&SceneView::OnMouseMove, this, std::placeholders::_1, std::placeholders::_2), this);
 	}
 
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)
@@ -108,6 +113,16 @@ namespace Engine
 	std::vector<std::shared_ptr<Actor>>& SceneView::GetAllActors() const
 	{
 		return Impl->Actors;
+	}
+
+	void SceneView::OnMouseButton(MouseButton Button, core::vec2f Pos)
+	{
+
+	}
+
+	void SceneView::OnMouseMove(MouseButton Button, core::vec2f Pos)
+	{
+
 	}
 
 }

@@ -14,6 +14,7 @@ namespace Engine
 		std::shared_ptr<CameraComponent> MainCamera;
 
 		bool UpdatingActors = false;
+		InputDeviceState InputState;
 	};
 
 	SceneView::SceneView()
@@ -73,7 +74,7 @@ namespace Engine
 		for (auto Item : Impl->Actors)
 		{
 			Item->Tick(DeltaTime);
-			//Item->ProcessInput(m_InputSystem.GetState());
+			Item->ProcessInput(Impl->InputState);
 		}
 
 		Impl->UpdatingActors = false;
@@ -82,9 +83,11 @@ namespace Engine
 		for (auto pending : Impl->PendingActors)
 		{
 			pending->Tick(DeltaTime);
-			//pending->ProcessInput(m_InputSystem.GetState());
+			pending->ProcessInput(Impl->InputState);
 			Impl->Actors.emplace_back(pending);
 		}
+
+		Impl->InputState = {};
 		Impl->PendingActors.clear();
 
 		for (auto ItActor = Impl->Actors.begin(); ItActor != Impl->Actors.end();)
@@ -117,12 +120,19 @@ namespace Engine
 
 	void SceneView::OnMouseButton(MouseButton Button, core::vec2f Pos)
 	{
-
+		Impl->InputState.Device = Mouse;
+		Impl->InputState.MouseInputState.EventType = MET_ButtonDown;
+		Impl->InputState.MouseInputState.Button = Button;
+		Impl->InputState.MouseInputState.Pos = Pos;
 	}
 
 	void SceneView::OnMouseMove(MouseButton Button, core::vec2f Pos)
 	{
 
+		Impl->InputState.Device = Mouse;
+		Impl->InputState.MouseInputState.EventType = MET_Move;
+		Impl->InputState.MouseInputState.Button = Button;
+		Impl->InputState.MouseInputState.Pos = Pos;
 	}
 
 }

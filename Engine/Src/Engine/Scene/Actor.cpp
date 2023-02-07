@@ -31,8 +31,6 @@ namespace Engine
 
 			TickComponents(deltaTime);
 			TickActor(deltaTime);
-
-			ComputeWorldTransform();
 		}
 	}
 
@@ -57,6 +55,7 @@ namespace Engine
 	void Actor::SetPosition(const Vector3& pos)
 	{
 		ImplActorP->Position = pos;
+		ImplActorP->RecomputeWorldTransform = true;
 	}
 
 	float Actor::GetScale() const
@@ -67,6 +66,7 @@ namespace Engine
 	void Actor::SetScale(float scale)
 	{
 		ImplActorP->Scale = scale;
+		ImplActorP->RecomputeWorldTransform = true;
 	}
 
 	math::Quaternion Actor::GetRotation() const
@@ -77,6 +77,7 @@ namespace Engine
 	void Actor::SetRotation(const Quaternion& rotation)
 	{
 		ImplActorP->Rotation = rotation;
+		ImplActorP->RecomputeWorldTransform = true;
 	}
 
 	void Actor::ComputeWorldTransform()
@@ -174,6 +175,14 @@ namespace Engine
 	std::vector<std::shared_ptr<Engine::Component>>& Actor::GetComponents() const
 	{
 		return ImplActorP->Components;
+	}
+
+	void Actor::ProcessInput(const InputDeviceState& State)
+	{
+		for (auto comp : ImplActorP->Components)
+		{
+			comp->ProcessInput(State);
+		}
 	}
 
 }

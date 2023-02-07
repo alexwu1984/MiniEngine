@@ -26,6 +26,26 @@ namespace math
 			Set(inX, inY, inZ, inW);
 		}
 
+		//∞¥’’UE4 X =RIGHT Y=FORWARD Z UP
+		explicit Quaternion(const Vector3& EulerAngle)
+		{
+			float Yaw = EulerAngle.z;
+			float Pitch = EulerAngle.x;
+			float Roll = EulerAngle.y;
+
+			float cy = math::Cos(Yaw * 0.5f);
+			float sy = math::Sin(Yaw * 0.5f);
+			float cp = math::Cos(Pitch * 0.5f);
+			float sp = math::Sin(Pitch * 0.5f);
+			float cr = math::Cos(Roll * 0.5f);
+			float sr = math::Sin(Roll * 0.5f);
+
+			w = cy * cp * cr + sy * sp * sr;
+			x = cy * cp * sr - sy * sp * cr;
+			y = sy * cp * sr + cy * sp * cr;
+			z = sy * cp * cr - cy * sp * sr;
+		}
+
 		explicit Quaternion(const Vector3& axis, float angle)
 		{
 			float scalar = std::sin(angle / 2.0f);

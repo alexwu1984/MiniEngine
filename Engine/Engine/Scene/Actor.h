@@ -2,6 +2,7 @@
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"
 #include "ActorTraits.h"
+#include "Scene/DeviceInputState.h"
 
 namespace Engine
 {
@@ -69,6 +70,9 @@ namespace Engine
 		void RemoveComponent(std::shared_ptr<Component> component);
 
 		std::vector<std::shared_ptr<Component>>& GetComponents() const;
+
+	public:
+		virtual void ProcessInput(const InputDeviceState& State);
 
 	protected:
 		std::shared_ptr<ActorP> GetActorP() const {return ImplActorP;}

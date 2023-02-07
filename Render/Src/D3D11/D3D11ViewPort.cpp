@@ -129,7 +129,7 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDefaultCommandContext()->RHIEndDrawing();
 		if (Impl->SwapChain)
 		{
-			Impl->SwapChain->Present(1, 0);
+			Impl->SwapChain->Present(0, 0);
 		}
 	}
 

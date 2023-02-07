@@ -1,6 +1,7 @@
 #include "Scene/GltfActor.h"
 #include "Scene/OrbitCamera.h"
 #include "Scene/GltfMeshComponent.h"
+#include "Scene/GltfInputComponent.h"
 
 namespace Engine
 {
@@ -12,6 +13,7 @@ namespace Engine
 		std::wstring ModelFileName;
 		std::shared_ptr<OrbitCamera> CameraComp;
 		std::shared_ptr<GltfMeshComponent> MeshComp;
+		std::shared_ptr<GltfDeviceInputComponent> InputComp;
 	};
 
 	GltfActor::GltfActor(std::weak_ptr<SceneView> Scene, const std::wstring& FileName)
@@ -36,6 +38,10 @@ namespace Engine
 		Impl->CameraComp = std::make_shared<OrbitCamera>(this->shared_from_this());
 		Impl->CameraComp->InitResource();
 		AddComponent(Impl->CameraComp);
+
+		Impl->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
+		Impl->InputComp->InitResource();
+		AddComponent(Impl->InputComp);
 	}
 
 }

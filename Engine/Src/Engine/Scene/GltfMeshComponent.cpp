@@ -83,7 +83,7 @@ namespace Engine
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			if (!Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, Impl->Renders[MeshIndex], Camera);
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshIndex], Camera);
 			}
 		}
 
@@ -97,7 +97,7 @@ namespace Engine
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshID];
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, Impl->Renders[MeshID], Camera);
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera);
 			}
 		}
 
@@ -152,7 +152,7 @@ namespace Engine
 		std::sort(Impl->SortMesh.begin(), Impl->SortMesh.end(), MeshDistanceInfo());
 	}
 
-	void GltfMeshComponent::DrawMesh(std::shared_ptr<GltfMesh> Mesh, std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera)
+	void GltfMeshComponent::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera)
 	{
 		if (!Render)
 		{
@@ -160,7 +160,7 @@ namespace Engine
 		}
 		MaterialRenderParam RenderParam;
 		RenderParam.CameraPos = Camera->GetCameraPos();
-		RenderParam.CurrModelMatrix = Mesh->GetMeshMat();
+		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
 

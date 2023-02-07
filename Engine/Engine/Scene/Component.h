@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inc.h"
+#include "Scene/DeviceInputState.h"
 
 namespace RenderCore
 {
@@ -27,7 +28,7 @@ namespace Engine
 		virtual void Tick(float deltaTime) {};
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera) {}
 		// Process input for this component
-		//virtual void ProcessInput(const InputState& State) { (State); }
+		virtual void ProcessInput(const InputDeviceState& State) { (State); }
 		// Called when world transform changes
 		virtual void OnUpdateWorldTransform() { }
 

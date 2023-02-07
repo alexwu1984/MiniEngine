@@ -21,7 +21,7 @@ namespace Engine
 	private:
 		//对Mesh进行排序，按顺序渲染
 		void SortMesh(const math::Vector3& CameraPos);
-		void DrawMesh(std::shared_ptr<GltfMesh> Mesh, std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera);
+		void DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera);
 	private:
 		std::shared_ptr< GltfMeshComponentP> Impl;
 	};

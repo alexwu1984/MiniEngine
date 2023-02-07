@@ -10,9 +10,29 @@ namespace Engine
 		RightButton = 2,
 	};
 
+	enum MouseEventType : uint8_t
+	{
+		MET_NoEvent = 0,
+		MET_ButtonDown,
+		MET_Move,
+	};
+
 	struct MouseInput
 	{
+		MouseEventType EventType = MET_NoEvent;
 		MouseButton Button = NoButton;
 		core::vec2f Pos;
+	};
+
+	enum DeviceType
+	{
+		NoDevice = 0,
+		Mouse,
+	};
+
+	struct InputDeviceState
+	{
+		DeviceType Device = NoDevice;
+		MouseInput MouseInputState;
 	};
 }

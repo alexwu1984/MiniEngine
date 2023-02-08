@@ -63,6 +63,7 @@ namespace RenderCore
 
 			if (GD3D11UseAllowTearing)
 			{
+				//https://devblogs.microsoft.com/directx/dxgi-flip-model/#:~:text=DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING%20can%20enable%20even%20lower%20latency%20than%20the,using%20the%20DXGI_SCALING%20property%20set%20during%20swapchain%20creation.
 				if (S_OK == Factory1->QueryInterface(IID_PPV_ARGS(Factory5.get_init_ref())))
 				{
 					UINT AllowTearing = 0;

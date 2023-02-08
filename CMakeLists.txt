@@ -44,7 +44,7 @@ set_target_properties(
 )
 
 set(GLTFModel_GLB
-    ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/huojian.glb
+    ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model2.glb
 )
 
 copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)

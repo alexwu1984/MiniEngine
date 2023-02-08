@@ -26,26 +26,6 @@ namespace math
 			Set(inX, inY, inZ, inW);
 		}
 
-		//∞¥’’UE4 X =RIGHT Y=FORWARD Z UP
-		explicit Quaternion(const Vector3& EulerAngle)
-		{
-			float Yaw = EulerAngle.z;
-			float Pitch = EulerAngle.x;
-			float Roll = EulerAngle.y;
-
-			float cy = math::Cos(Yaw * 0.5f);
-			float sy = math::Sin(Yaw * 0.5f);
-			float cp = math::Cos(Pitch * 0.5f);
-			float sp = math::Sin(Pitch * 0.5f);
-			float cr = math::Cos(Roll * 0.5f);
-			float sr = math::Sin(Roll * 0.5f);
-
-			w = cy * cp * cr + sy * sp * sr;
-			x = cy * cp * sr - sy * sp * cr;
-			y = sy * cp * sr + cy * sp * cr;
-			z = sy * cp * cr - cy * sp * sr;
-		}
-
 		explicit Quaternion(const Vector3& axis, float angle)
 		{
 			float scalar = std::sin(angle / 2.0f);
@@ -95,6 +75,44 @@ namespace math
 			Quaternion retVal = q;
 			retVal.Normalize();
 			return retVal;
+		}
+
+		//FROM UE4
+		///** Rotation around the right axis (around Y axis), Looking up and down (0=Straight Ahead, +Up, -Down) */
+		//Pitch;
+
+		///** Rotation around the up axis (around Z axis), Running in circles 0=East, +North, -South. */
+		//Yaw;
+
+		///** Rotation around the forward axis (around X axis), Tilting your head, 0=Straight, +Clockwise, -CCW. */
+		//Roll;
+
+		static Quaternion MakeFromEuler(const Vector3& EulerAngle)
+		{
+			float Yaw = EulerAngle.z;
+			float Pitch = EulerAngle.y;
+			float Roll = EulerAngle.x;
+
+			const float DEG_TO_RAD = math::MATH_PI / (180.f);
+			const float RADS_DIVIDED_BY_2 = DEG_TO_RAD / 2.f;
+			float SP, SY, SR;
+			float CP, CY, CR;
+
+			const float PitchNoWinding = math::Fmod(Pitch, 360.0f);
+			const float YawNoWinding = math::Fmod(Yaw, 360.0f);
+			const float RollNoWinding = math::Fmod(Roll, 360.0f);
+
+			math::SinCos(&SP, &CP, PitchNoWinding * RADS_DIVIDED_BY_2);
+			math::SinCos(&SY, &CY, YawNoWinding * RADS_DIVIDED_BY_2);
+			math::SinCos(&SR, &CR, RollNoWinding * RADS_DIVIDED_BY_2);
+			
+			Quaternion RotationQuat;
+			RotationQuat.x = CR * SP * SY - SR * CP * CY;
+			RotationQuat.y = -CR * SP * CY - SR * CP * SY;
+			RotationQuat.z = CR * CP * SY - SR * SP * CY;
+			RotationQuat.w = CR * CP * CY + SR * SP * SY;
+
+			return RotationQuat;
 		}
 
 		// Linear interpolation

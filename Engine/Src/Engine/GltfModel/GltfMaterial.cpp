@@ -55,7 +55,7 @@ namespace Engine
 				int32_t Source = gltfTexture[Index].source;
 				auto& ModelImage = Data->Model->images[Source];
 				uint8_t* pData = (uint8_t*)ModelImage.image.data();
-				TexRHI = GEngine->GetRHI()->RHICreateTexture2D(EPixelFormat::PF_B8G8R8A8, RenderCore::TexCreate_ShaderResource, ModelImage.width, ModelImage.height, pData, ModelImage.width * 4);
+				TexRHI = GEngine->GetRHI()->RHICreateTexture2D(EPixelFormat::PF_R8G8B8A8, RenderCore::TexCreate_ShaderResource, ModelImage.width, ModelImage.height, pData, ModelImage.width * 4);
 			}
 			else
 			{

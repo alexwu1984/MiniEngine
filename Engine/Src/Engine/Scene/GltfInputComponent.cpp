@@ -69,10 +69,9 @@ namespace Engine
 			break;
 			}
 
-			float xAngle = (int)Impl->Rotate.x ;
-			float yAngle = (int)Impl->Rotate.y ;
-			math::Quaternion Quat = math::Quaternion::MakeFromEuler(math::Vector3(0.f, yAngle * math::MATH_PI / 180.f, xAngle * math::MATH_PI / 180.f));
-
+			float xAngle = math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
+			float yAngle = math::Fmod(Impl->Rotate.y, 360.0f) * math::MATH_PI / 180.f;
+			math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle,0.f);
 			GetOwner()->SetRotation(Quat);
 		}
 		

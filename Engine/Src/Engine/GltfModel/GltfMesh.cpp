@@ -156,6 +156,21 @@ namespace Engine
 		return Impl->MeshName;
 	}
 
+	int32_t GltfMesh::GetNodeId() const
+	{
+		return Impl->NodeID;
+	}
+
+	int32_t GltfMesh::GetSkinId() const
+	{
+		return Impl->SkinID;
+	}
+
+	void GltfMesh::SetMeshMat(const math::Matrix4x4& Mat)
+	{
+		Impl->MeshMat = Mat;
+	}
+
 	void* GltfMesh::Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType)
 	{
 		const auto& indicesAccessor = Impl->Model->accessors[attributeIndex];

@@ -54,6 +54,7 @@ namespace Engine
 		{
 			return _Node;
 		}
+		std::shared_ptr<GltfNodeInfo> GetNodeInfo(int32_t NodeId);
 	private:
 		void InitNode();
 		void CreateModelNodeTree(std::shared_ptr<GltfNodeInfo> NodeInfo);

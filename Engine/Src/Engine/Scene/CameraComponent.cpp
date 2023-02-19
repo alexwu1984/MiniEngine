@@ -2,6 +2,8 @@
 #include "Scene/CameraComponentPrivate.h"
 #include "Engine/Engine.h"
 #include "App/AppWindow.h"
+#include "Scene/Actor.h"
+#include "Scene/SceneView.h"
 
 namespace Engine
 {
@@ -21,6 +23,19 @@ namespace Engine
 	void CameraComponent::InitResource()
 	{
 		Component::InitResource();
+		GetOwner()->GetScene()->SetMainCamera(std::static_pointer_cast<CameraComponent>(shared_from_this()));
+	}
+
+	void CameraComponent::Tick(float DeltaTime)
+	{
+		// Compute new camera from this actor
+		math::Vector3 CameraPos = GetCameraPos();
+		math::Vector3 Target = GetOwner()->GetPosition() + GetOwner()->GetForward();
+		math::Vector3 Up = math::Vector3::UnitY;
+
+		math::Matrix4x4 ViewMatrix = math::Matrix4x4::MatrixLookAtLH(CameraPos, Target, Up);
+		SetViewMatrix(ViewMatrix);
+		UpdateFrustum(CameraPos, GetOwner()->GetForward().Normalize(), Up);
 	}
 
 	void CameraComponent::SetViewMatrix(const math::Matrix4x4& view)
@@ -39,6 +54,11 @@ namespace Engine
 	Vector3 CameraComponent::GetCameraPos() const
 	{
 		return ImplCameraP->CameraPos;
+	}
+
+	void CameraComponent::SetCameraPos(const math::Vector3& Pos)
+	{
+		ImplCameraP->CameraPos = Pos;
 	}
 
 	Matrix4x4 CameraComponent::GetProjMatrix() const

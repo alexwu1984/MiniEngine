@@ -66,6 +66,15 @@ namespace Engine
 	}
 
 
+	std::shared_ptr<Engine::GltfNodeInfo> GltfNode::GetNodeInfo(int32_t NodeId)
+	{
+		if (NodeId < _Node.size())
+		{
+			return _Node[NodeId];
+		}
+		return nullptr;
+	}
+
 	void GltfNode::InitNode()
 	{
 		const auto& Nodes = _Model->nodes;

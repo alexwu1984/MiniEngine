@@ -61,7 +61,7 @@ namespace Engine
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* RHI ) {
-			Impl->MainViewPort->Clear(core::FLinearColor::Blue);
+			Impl->MainViewPort->Clear(core::FLinearColor::Gray);
 			Impl->MainViewPort->SetRenderTarget();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();

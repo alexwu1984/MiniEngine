@@ -23,6 +23,9 @@ namespace Engine
 		std::shared_ptr<GltfMeshBuffer> GetMeshBuffer();
 		std::shared_ptr<GltfMaterial> GetMaterial();
 		std::string GetMeshName() const;
+		int32_t GetNodeId() const;
+		int32_t GetSkinId() const;
+		void SetMeshMat(const math::Matrix4x4& Mat);
 
 	private:
 		void* Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType);

@@ -16,6 +16,7 @@ namespace Engine
 		~GltfMeshComponent();
 
 		bool Load(const std::wstring& FileName);
+		math::AABB3 GetModelBox() const;
 
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera);
 	private:

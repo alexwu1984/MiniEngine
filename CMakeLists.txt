@@ -43,12 +43,13 @@ set_target_properties(
 	FOLDER Projects
 )
 
-set(GLTFModel_GLB
+set(GLTFModel_GLBS
     ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model2.glb
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model3.glb
 )
 
-copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)
-copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}/GLTFModel copied_glb_release)
-copyTargetCommand("${GLTFModel_GLB}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/GLTFModel copied_glb_debinfo)
+copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)
+copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}/GLTFModel copied_glb_release)
+copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/GLTFModel copied_glb_debinfo)
 
 add_dependencies(GLFFViewer copied_glb_debug copied_glb_release copied_glb_debinfo)

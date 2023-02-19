@@ -67,6 +67,11 @@ namespace Engine
 		return true;
 	}
 
+	math::AABB3 GltfMeshComponent::GetModelBox() const
+	{
+		return Impl->Model.GetModelBox();
+	}
+
 	void GltfMeshComponent::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera)
 	{
 		math::AABB3 Box = Impl->Model.GetModelBox().Transform(GetOwner()->GetWorldTransform());
@@ -91,6 +96,7 @@ namespace Engine
 
 		MeshSize = Impl->SortMesh.size();
 
+		//draw transparent
 		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
 			int MeshID = Impl->SortMesh[MeshIndex].MeshID;

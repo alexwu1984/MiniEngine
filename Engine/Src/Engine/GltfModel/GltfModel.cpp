@@ -65,6 +65,23 @@ namespace Engine
 		}
 	}
 
+	void GltfModel::UpdateNode()
+	{
+		if (!Impl->RootNode)
+		{
+			return;
+		}
+		for (int i = 0; i < Impl->ModelMesh.size(); i++)
+		{
+			auto NodeInfo = Impl->RootNode->GetNodeInfo(Impl->ModelMesh[i]->GetNodeId());
+			if (NodeInfo)
+			{
+				Impl->RootNode->UpdateNodeParent(NodeInfo);
+				Impl->ModelMesh[i]->SetMeshMat(NodeInfo->FinalMeshMat);
+			}
+		}
+	}
+
 	std::vector<std::shared_ptr<GltfMesh>>& GltfModel::GetModelMesh()
 	{
 		return Impl->ModelMesh;

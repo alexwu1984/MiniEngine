@@ -86,7 +86,7 @@ namespace Engine
 		{
 			ImplActorP->RecomputeWorldTransform = false;
 			// Scale, then rotate, then translate
-			ImplActorP->WorldTransform = Matrix4x4::ScaleMatrix(ImplActorP->Scale);
+			ImplActorP->WorldTransform = Matrix4x4::ScaleMatrix(ImplActorP->Scale);  
 			ImplActorP->WorldTransform *= Matrix4x4::CreateFromQuaternion(ImplActorP->Rotation);
 			ImplActorP->WorldTransform *= Matrix4x4::CreateFromTranslate(ImplActorP->Position);
 
@@ -120,30 +120,30 @@ namespace Engine
 
 	Vector3 Actor::GetForward() const
 	{
-		return Vector3::Transform(Vector3::UnitX, ImplActorP->Rotation);
+		return Vector3::Transform(Vector3::UnitZ, ImplActorP->Rotation);
 	}
 
 	Vector3 Actor::GetRight() const
 	{
-		return Vector3::Transform(Vector3::UnitY, ImplActorP->Rotation);
+		return Vector3::Transform(Vector3::UnitX, ImplActorP->Rotation);
 	}
 
 	Vector3 Actor::GetUp() const
 	{
-		return Vector3::Transform(Vector3::UnitZ, ImplActorP->Rotation);
+		return Vector3::Transform(Vector3::UnitY, ImplActorP->Rotation);
 	}
 
 	void Actor::RotateToNewForward(const math::Vector3& Forward)
 	{
-		// Figure out difference between original (unit x) and new
-		float dot = Vector3::Dot(Vector3::UnitX, Forward);
+		// Figure out difference between original (unit z) and new
+		float dot = Vector3::Dot(Vector3::UnitZ, Forward);
 		float angle = std::acosf(dot);
-		// Facing down X
+		// Facing down Z
 		if (dot > 0.9999f)
 		{
 			SetRotation(Quaternion::Identity);
 		}
-		// Facing down -X
+		// Facing down -Z
 		else if (dot < -0.9999f)
 		{
 			SetRotation(Quaternion(Vector3::UnitZ, MATH_PI));
@@ -151,7 +151,7 @@ namespace Engine
 		else
 		{
 			// Rotate about axis from cross product
-			Vector3 axis = Vector3::Cross(Vector3::UnitX, Forward);
+			Vector3 axis = Vector3::Cross(Vector3::UnitZ, Forward);
 			axis.Normalize();
 			SetRotation(Quaternion(axis, angle));
 		}

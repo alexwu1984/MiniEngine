@@ -105,12 +105,14 @@ namespace Engine
 		if (Impl->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
+			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
 		}
 		else
 		{
 			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		}
-		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		

@@ -15,6 +15,7 @@ namespace Engine
 		~GltfModel();
 
 		bool Load(const std::wstring& FileName);
+		void UpdateNode();
 		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
 		math::AABB3 GetModelBox() const;
 	private:

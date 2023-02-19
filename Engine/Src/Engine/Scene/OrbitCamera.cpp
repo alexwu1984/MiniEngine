@@ -24,7 +24,7 @@ namespace Engine
 		, Impl(std::make_shared<OrbitCameraP>())
 	{
 		Impl->Up = Vector3::UnitZ;
-		Impl->Offset = GetCameraPos();
+		
 	}
 
 	OrbitCamera::~OrbitCamera()
@@ -35,13 +35,16 @@ namespace Engine
 	void OrbitCamera::Tick(float DeltaTime)
 	{
 		CameraComponent::Tick(DeltaTime);
+
+		Impl->Offset = GetCameraPos();
 		// Transform offset and up by yaw
-		Quaternion Yaw(Vector3::UnitZ, Impl->YawSpeed * DeltaTime);
+		Quaternion Yaw(Vector3::UnitY, Impl->YawSpeed * DeltaTime);
 		
 		Impl->Offset = Vector3::Transform(Impl->Offset, Yaw);
 		Impl->Up = Vector3::Transform(Impl->Up, Yaw);
 
-		Vector3 forward = -1.0f * Impl->Offset;
+		Vector3 forward = Impl->Offset;
+		forward.z *= -1;
 		forward = forward.Normalize();
 		Vector3 right = Vector3::Cross(Impl->Up, forward);
 		right = right.Normalize();
@@ -56,13 +59,13 @@ namespace Engine
 		Matrix4x4 View = Matrix4x4::MatrixLookAtLH(CameraPos, Target, Impl->Up);
 		SetViewMatrix(View);
 
-		UpdateFrustum(CameraPos, (Target - CameraPos).Normalize(), Impl->Up);
+		UpdateFrustum(CameraPos, forward.Normalize(), Impl->Up);
 	}
 
 	void OrbitCamera::InitResource()
 	{
 		CameraComponent::InitResource();
-		GetOwner()->GetScene()->SetMainCamera(std::static_pointer_cast<CameraComponent>(shared_from_this()));
+		
 	}
 
 	float OrbitCamera::GetPitchSpeed() const
@@ -84,6 +87,7 @@ namespace Engine
 	{
 		Impl->YawSpeed = Speed;
 	}
+
 
 }
 

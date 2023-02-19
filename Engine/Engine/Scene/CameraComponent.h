@@ -12,11 +12,16 @@ namespace Engine
 	public:
 		CameraComponent(std::weak_ptr<Actor> Owner);
 		virtual ~CameraComponent();
-		void InitResource() override;
+
+		virtual void InitResource() override;
+		virtual void Tick(float DeltaTime) override;
+
 		void SetViewMatrix(const math::Matrix4x4& view);
+		void SetCameraPos(const math::Vector3& Pos);
 
 		math::Matrix4x4 GetViewMatrix()const;
 		math::Vector3 GetCameraPos() const;
+	 
 		math::Matrix4x4 GetProjMatrix() const;
 
 		void UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up);

@@ -223,25 +223,8 @@ namespace math
 		float D1 = -EyePosition.Dot(Up);
 		float D2 = -EyePosition.Dot(Forward);
 
-		Matrix4x4 Temp;
-		Temp._00 = Right.x;
-		Temp._10 = Right.y;
-		Temp._20 = Right.z;
-		Temp._30 = D0;
-
-		Temp._01 = Up.x;
-		Temp._11 = Up.y;
-		Temp._21 = Up.z;
-		Temp._31 = D1;
-
-		Temp._02 = Forward.x;
-		Temp._12 = Forward.y;
-		Temp._22 = Forward.z;
-		Temp._33 = D2;
-
-		Temp._03 = 0.0f; Temp._13 = 0.0f; Temp._23 = 0.0f; Temp._33 = 1.0f;
-
-		return Temp;
+		Matrix4x4 Result(Vector4(Right, D0), Vector4(Up, D1), Vector4(Forward, D2), Vector4(0.f, 0.f, 0.f, 1.f));
+		return Result.Transpose();
 	}
 
 	Matrix4x4 Matrix4x4::CreateFromQuaternion(const Quaternion& q)

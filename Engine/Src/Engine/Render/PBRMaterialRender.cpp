@@ -4,7 +4,7 @@
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "Thread/RenderThread.h"
-#include "RHI/RHIPipleLineState.h"
+#include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "core/system.h"
 #include "Render/MaterialPreFrame.h"
@@ -101,16 +101,27 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.PixelShader = Impl->PixelShader;
 		Init.VertexShader = Impl->VertexShader;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
+		
 		if (Impl->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
 			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+			if (RenderParam.PosType == 0)
+			{
+				Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
+				
+			}
+			else
+			{
+				Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+			}
+			
 		}
 		else
 		{
 			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+			Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
 		}
 		
 		RHIContext.RHISetGraphicsPipelineState(Init);

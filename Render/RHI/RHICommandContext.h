@@ -1,7 +1,7 @@
 #pragma once
 #include "RHI/RHIDefinitions.h"
 #include "core/color.h"
-#include "RHI/RHIPipleLineState.h"
+#include "RHI/RHIPipeLineState.h"
 
 namespace RenderCore
 {

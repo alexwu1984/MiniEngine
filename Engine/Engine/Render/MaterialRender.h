@@ -19,6 +19,7 @@ namespace Engine
 		math::Matrix4x4 CurrViewProjInverseMatrix;
 		math::Matrix4x4 PrevViewProjMatrix;
 		math::Vector4 CameraPos;
+		int32_t PosType;
 	};
 
 	class MaterialRender

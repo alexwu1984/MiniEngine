@@ -176,8 +176,7 @@ namespace Engine
 		const auto& indicesAccessor = Impl->Model->accessors[attributeIndex];
 		const auto& bufferView = Impl->Model->bufferViews[indicesAccessor.bufferView];
 		const auto& buffer = Impl->Model->buffers[bufferView.buffer];
-		const auto dataAddress = buffer.data.data() + bufferView.byteOffset +
-			indicesAccessor.byteOffset;
+		const auto dataAddress = buffer.data.data() + bufferView.byteOffset + indicesAccessor.byteOffset;
 		const auto byteStride = indicesAccessor.ByteStride(bufferView);
 		nCount = uint32_t(indicesAccessor.count);
 		CommpontType = indicesAccessor.componentType;

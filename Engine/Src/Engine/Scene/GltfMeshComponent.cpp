@@ -15,6 +15,9 @@ namespace Engine
 	{
 		float Distance;
 		int MeshID;
+		int ModelID;
+		//区分mesh包围框的最近最远点
+		int PosType;
 
 		bool operator()(const MeshDistanceInfo& Near, const MeshDistanceInfo& Far)
 		{
@@ -88,7 +91,7 @@ namespace Engine
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			if (!Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshIndex], Camera);
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshIndex], Camera,0);
 			}
 		}
 
@@ -100,10 +103,12 @@ namespace Engine
 		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
 			int MeshID = Impl->SortMesh[MeshIndex].MeshID;
+			int ModelID = Impl->SortMesh[MeshIndex].ModelID;
+			int ModelPosType = Impl->SortMesh[MeshIndex].PosType;
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshID];
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera);
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera, ModelPosType);
 			}
 		}
 
@@ -134,6 +139,7 @@ namespace Engine
 			math::Vector3 BoxPoint[8]{};
 			Mesh->GetBoundingBox().GetPoint(BoxPoint);
 
+			float distanceMin = 100000.f;
 			float distanceMax = 0.f;
 
 			for (int32_t PointIndex = 0; PointIndex < 8; PointIndex++)
@@ -144,12 +150,32 @@ namespace Engine
 				math::Vector4 TargetPoint = Point4 * Mesh->GetMeshMat() * ModelMatrix;
 				TargetPoint = TargetPoint / TargetPoint.w;
 
+				////计算两个向量Z的距离
+				//float Distance = math::Abs(TargetPoint.z - CameraPos.z);
+				//DisInfo.Distance = Distance;
+				//if (distanceMax < Distance)
+				//{
+				//	distanceMax = Distance;
+				//	SortMesh[MeshIndex] = DisInfo;
+				//}
+
 				//计算两个向量Z的距离
 				float Distance = math::Abs(TargetPoint.z - CameraPos.z);
-				DisInfo.Distance = Distance;
-				if (distanceMax < Distance)
+
+				if (Distance < distanceMin)
+				{
+					distanceMin = Distance;
+
+					DisInfo.PosType = 1;
+					DisInfo.Distance = distanceMin;
+					SortMesh[MeshIndex] = DisInfo;
+				}
+				if (Distance > distanceMax)
 				{
 					distanceMax = Distance;
+
+					DisInfo.PosType = 0;
+					DisInfo.Distance = distanceMax;
 					SortMesh[MeshIndex] = DisInfo;
 				}
 
@@ -158,7 +184,8 @@ namespace Engine
 		std::sort(Impl->SortMesh.begin(), Impl->SortMesh.end(), MeshDistanceInfo());
 	}
 
-	void GltfMeshComponent::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera)
+	void GltfMeshComponent::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, 
+		std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera, int32_t PosType)
 	{
 		if (!Render)
 		{
@@ -169,6 +196,7 @@ namespace Engine
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
+		RenderParam.PosType = PosType;
 
 		auto RenderMesh = [Render = Render, RenderParam, Mesh = Mesh](RenderCore::DynamicRHI* DyRHI)
 		{

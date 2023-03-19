@@ -17,7 +17,7 @@ GltfViewApp::~GltfViewApp()
 bool GltfViewApp::Init()
 {
 	core::filesystem::path Path = core::process_directory();
-	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.glb";
+	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.glb";
 	auto Scene = Engine::GEngine->GetScene();
 	AGltfModel = std::make_shared<Engine::GltfActor>(Scene, ModelFile);
 	AGltfModel->InitResouce();

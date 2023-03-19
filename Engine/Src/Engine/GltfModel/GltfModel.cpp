@@ -3,6 +3,7 @@
 #include "GltfModel/GltfNode.h"
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
+#include "GltfModel/GltfAnimationManager.h"
 
 namespace Engine
 {
@@ -16,6 +17,7 @@ namespace Engine
 		std::vector<std::shared_ptr<GltfMesh>> ModelMesh;
 		bool HasSkin = false;
 		AABB3  ModelBox;
+		std::shared_ptr<GltfAnimationManager> AnimationMgr;
 	};
 
 	GltfModel::GltfModel()
@@ -41,6 +43,7 @@ namespace Engine
 			{
 				LoadNode();
 				LoadMesh();
+				LoadAnimate();
 
 				return true;
 			}
@@ -55,6 +58,7 @@ namespace Engine
 			{
 				LoadNode();
 				LoadMesh();
+				LoadAnimate();
 
 				return true;
 			}
@@ -141,6 +145,15 @@ namespace Engine
 			Impl->ModelBox.UpdateMinMax(TmpMeshBox.GetMinPoint());
 			Impl->ModelBox.UpdateMinMax(TmpMeshBox.GetMaxPoint());
 		}
+	}
+
+	void GltfModel::LoadAnimate()
+	{
+		if (!Impl->AnimationMgr)
+		{
+			Impl->AnimationMgr = std::make_shared<GltfAnimationManager>(&Impl->GltfMode);
+		}
+		Impl->AnimationMgr->InitAnimation();
 	}
 
 	std::vector <std::shared_ptr<GltfMaterial>> GltfModel::LoadMaterial()

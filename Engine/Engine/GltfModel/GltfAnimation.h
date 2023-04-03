@@ -13,7 +13,8 @@ namespace Engine
 
 		void InitAnimate(uint32_t AnimateIndex);
 		float GetAnimationTime() const;
-
+	private:
+		void* Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType);
 	private:
 		tinygltf::Model* _Model;
 		std::string _AnimateName;
@@ -22,6 +23,7 @@ namespace Engine
 		float	_StartTime = 0.0f;
 		float	_EndTime = 0.0f;
 		std::vector< std::shared_ptr< AnimationChannelInfo>> _ChannelInfo;
+		std::vector<std::any> DataBuffer;
 	};
 
 }

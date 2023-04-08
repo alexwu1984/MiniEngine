@@ -61,7 +61,7 @@ copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/
 copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}/ShaderLibDX copied_dx_shaders_gltf_release)
 copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/ShaderLibDX copied_dx_shaders_gltf_release_debinfo)
 
-add_dependencies(Render copied_dx_shaders_gltf_debug copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release_debinfo)
+add_dependencies(Render copied_dx_shaders_gltf_debug copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release_debinfo)
 
 
 set_source_files_properties(${Shaders_GLTF_src} PROPERTIES VS_TOOL_OVERRIDE "Text")

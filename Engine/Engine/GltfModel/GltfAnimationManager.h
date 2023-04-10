@@ -10,16 +10,18 @@ namespace Engine
 	class GltfAnimationManager
 	{
 	public:
-		GltfAnimationManager(tinygltf::Model* Model);
+		GltfAnimationManager(tinygltf::Model* gltfModel, GltfModel* Model);
 		~GltfAnimationManager();
 
 		void InitAnimation();
 		void Play(float Second);
 
 	private:
-		tinygltf::Model* _Model = nullptr;
+		tinygltf::Model* _gltfModel = nullptr;
+		GltfModel* _Model = nullptr;
 		std::vector<std::shared_ptr<GltfAnimation>> _Animations;
 		float _AnimationAllTime = 0;
-
+		long _FrameCount = 0;
+		bool _hasModelAnimate = false;
 	};
 }

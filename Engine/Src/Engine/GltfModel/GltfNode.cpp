@@ -113,7 +113,7 @@ namespace Engine
 
 			if (Node.rotation.size() == 4)
 			{
-				NodeInfo->Rotation = Vector4(float(Node.rotation[0]), float(Node.rotation[1]), float(Node.rotation[2]), float(Node.rotation[3]));
+				NodeInfo->Rotation = Quaternion(float(Node.rotation[0]), float(Node.rotation[1]), float(Node.rotation[2]), float(Node.rotation[3]));
 				NodeMat *= Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
 				
 			}

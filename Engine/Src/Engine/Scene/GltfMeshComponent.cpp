@@ -14,10 +14,11 @@ namespace Engine
 	struct MeshDistanceInfo
 	{
 		float Distance;
-		int MeshID;
-		int ModelID;
+		int32_t MeshID;
+		int32_t ModelID;
 		//区分mesh包围框的最近最远点
-		int PosType;
+		int32_t PosType;
+		
 
 		bool operator()(const MeshDistanceInfo& Near, const MeshDistanceInfo& Far)
 		{
@@ -30,6 +31,7 @@ namespace Engine
 		GltfModel Model;
 		std::map<int32_t, std::shared_ptr<MaterialRender>> Renders;
 		std::vector<MeshDistanceInfo> SortMesh;
+		float TotalDeltaTime = 0.f;
 	};
 
 	GltfMeshComponent::GltfMeshComponent(std::weak_ptr<Actor> Owner)
@@ -112,6 +114,17 @@ namespace Engine
 			}
 		}
 
+	}
+
+	void GltfMeshComponent::Tick(float deltaTime)
+	{
+		Impl->TotalDeltaTime += deltaTime / 1000.f;
+		auto RenderMesh = [Impl = Impl](RenderCore::DynamicRHI* DyRHI)
+		{
+			Impl->Model.Play(Impl->TotalDeltaTime);
+		};
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);
 	}
 
 	void GltfMeshComponent::SortMesh(const math::Vector3& CameraPos)

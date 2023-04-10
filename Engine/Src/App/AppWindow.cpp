@@ -142,7 +142,7 @@ namespace Engine
 		MSG msg = {};
 		while (msg.message != WM_QUIT)
 		{
-			DWORD dwWait = MsgWaitForMultipleObjectsEx(0, nullptr, INFINITE, QS_ALLINPUT, MWMO_ALERTABLE);
+			DWORD dwWait = MsgWaitForMultipleObjectsEx(0, nullptr, 0, QS_ALLINPUT, MWMO_ALERTABLE);
 
 			if (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
@@ -154,7 +154,7 @@ namespace Engine
 				::DispatchMessageW(&msg);
 			}
 			Idle();
-			std::this_thread::sleep_for(1ms);
+			
 
 		}
 		return static_cast<int32_t>(msg.wParam);

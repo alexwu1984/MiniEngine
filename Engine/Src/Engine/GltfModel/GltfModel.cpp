@@ -96,6 +96,21 @@ namespace Engine
 		return Impl->ModelBox;
 	}
 
+	std::shared_ptr<Engine::GltfNode> GltfModel::RootNode()
+	{
+		return Impl->RootNode;
+	}
+
+	void GltfModel::Play(float Delta)
+	{
+		if (Impl->AnimationMgr)
+		{
+			Impl->AnimationMgr->Play(Delta);
+		}
+
+		UpdateNode();
+	}
+
 	void GltfModel::LoadNode()
 	{
 		if (!Impl->GltfMode.nodes.empty())
@@ -151,7 +166,7 @@ namespace Engine
 	{
 		if (!Impl->AnimationMgr)
 		{
-			Impl->AnimationMgr = std::make_shared<GltfAnimationManager>(&Impl->GltfMode);
+			Impl->AnimationMgr = std::make_shared<GltfAnimationManager>(&Impl->GltfMode,this);
 		}
 		Impl->AnimationMgr->InitAnimation();
 	}

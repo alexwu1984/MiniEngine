@@ -95,11 +95,13 @@ namespace Engine
 		float DeltaTime = std::chrono::duration<float, std::milli>(Impl->TEnd - Impl->TStart).count();
 		if (DeltaTime < (1000.0f / 60.f))
 		{
+			std::this_thread::sleep_for(0ms);
 			return ;
 		}
 
 		Impl->Scene->Tick(DeltaTime);
 		Impl->SeRender->Render();
+		Impl->TStart = Impl->TEnd;
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)

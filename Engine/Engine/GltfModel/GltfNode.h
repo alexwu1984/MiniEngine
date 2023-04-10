@@ -1,6 +1,7 @@
 #pragma once
 #include "math/matrix4x4.h"
 #include "tinygltf/tiny_gltf.h"
+#include "math/quaternion.h"
 
 namespace Engine
 {
@@ -13,7 +14,7 @@ namespace Engine
 	{
 		GltfNodeInfo()
 		{
-			Rotation = math::Vector4(0, 0, 0, 1);
+			Rotation = math::Quaternion(0, 0, 0, 1);
 			Scale = math::Vector3(1, 1, 1);
 			Translate = math::Vector3(0, 0, 0);
 
@@ -27,7 +28,7 @@ namespace Engine
 			ChildrenNode.clear();
 		}
 
-		math::Vector4 Rotation;
+		math::Quaternion Rotation;
 		math::Vector3 Scale;
 		math::Vector3 Translate;
 

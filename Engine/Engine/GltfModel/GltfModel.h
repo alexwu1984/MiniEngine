@@ -18,6 +18,8 @@ namespace Engine
 		void UpdateNode();
 		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
 		math::AABB3 GetModelBox() const;
+		std::shared_ptr<GltfNode> RootNode();
+		void Play(float Delta);
 	private:
 		void LoadNode();
 		void LoadMesh();

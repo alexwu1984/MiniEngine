@@ -1,10 +1,17 @@
 #include "GLTFModel/GltfAnimation.h"
+#include "GltfModel/GltfModel.h"
+#include "GltfModel/GltfNode.h"
+#include "math/vector4.h"
+#include "math/quaternion.h"
+
+using namespace math;
 
 namespace Engine
 {
 
-	GltfAnimation::GltfAnimation(tinygltf::Model* Model)
-		:_Model(Model)
+	GltfAnimation::GltfAnimation(tinygltf::Model* gltfModel, GltfModel* Model)
+		:_gltfModel(gltfModel)
+		,_Model(Model)
 	{
 
 	}
@@ -16,11 +23,11 @@ namespace Engine
 
 	void GltfAnimation::InitAnimate(uint32_t AnimateIndex)
 	{
-		if (AnimateIndex >= _Model->animations.size())
+		if (AnimateIndex >= _gltfModel->animations.size())
 		{
 			return;
 		}
-		auto& Animate = _Model->animations[AnimateIndex];
+		auto& Animate = _gltfModel->animations[AnimateIndex];
 
 		_AnimateName = Animate.name;
 
@@ -54,7 +61,7 @@ namespace Engine
 			int type = 0;
 			pInfo->pInputTime = (float*)Getdata(input, pInfo->nKeyFrame, type);
 			pInfo->pOutputAnimateValue = (float*)Getdata(output, pInfo->nOutCount, type);
-			auto maxVaue = _Model->accessors[input].maxValues;
+			auto maxVaue = _gltfModel->accessors[input].maxValues;
 			_ChannelInfo.push_back(pInfo);
 			if (maxVaue.size() == 1)
 			{
@@ -73,11 +80,34 @@ namespace Engine
 		return _AnimateAllTime;
 	}
 
+	bool GltfAnimation::HasModelAnimatie() const
+	{
+		return _hasModelAnimate;
+	}
+
+	void GltfAnimation::Play(float fSecond, GltfModel* Model)
+	{
+		int nChannels = _ChannelInfo.size();
+		for (int i = 0; i < nChannels; i++)
+		{
+			auto pInfo = _ChannelInfo[i];
+			if (pInfo->eType == TARGET_WEIGHT)
+			{
+				//playBlendShape(fSecond, pModel, pInfo);
+			}
+			else
+			{
+				PlaySkeleton(fSecond, pInfo);
+			}
+
+		}
+	}
+
 	void* GltfAnimation::Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType)
 	{
-		const auto& indicesAccessor = _Model->accessors[attributeIndex];
-		const auto& bufferView = _Model->bufferViews[indicesAccessor.bufferView];
-		const auto& buffer = _Model->buffers[bufferView.buffer];
+		const auto& indicesAccessor = _gltfModel->accessors[attributeIndex];
+		const auto& bufferView = _gltfModel->bufferViews[indicesAccessor.bufferView];
+		const auto& buffer = _gltfModel->buffers[bufferView.buffer];
 		const auto dataAddress = buffer.data.data() + bufferView.byteOffset + indicesAccessor.byteOffset;
 		const auto byteStride = indicesAccessor.ByteStride(bufferView);
 		nCount = uint32_t(indicesAccessor.count);
@@ -134,6 +164,40 @@ namespace Engine
 
 			return (void*)TmpData.get();
 		}
+	}
+
+	void GltfAnimation::PlaySkeleton(float fSecond, std::shared_ptr< AnimationChannelInfo> ChannelInfo)
+	{
+		int nNodeID = ChannelInfo->nNodeID;
+
+		std::shared_ptr<GltfNodeInfo> pNodeInfo = _Model->RootNode()->GetNodeInfo(nNodeID);
+		int nKeyL = -1, nKeyR = -1;
+		float alpha;
+		ChannelInfo->findKey(fSecond, nKeyL, nKeyR, alpha);
+		if (nKeyL >= 0)
+		{
+			if (ChannelInfo->eType == TARGET_ROTATE)
+			{
+				Vector4* pL = (Vector4*)ChannelInfo->pOutputAnimateValue;
+				Vector4* pR = (Vector4*)ChannelInfo->pOutputAnimateValue;
+				//pBoneInfo->TargetRotation = pL[nKeyL] * (1.0 - alpha) + pR[nKeyR] * alpha;
+				//CC3DUtils::QuaternionInterpolate(pNodeInfo->Rotation, pL[nKeyL], pR[nKeyR], alpha);
+				pNodeInfo->Rotation = Quaternion::Lerp(Quaternion(pL[nKeyL]), Quaternion(pR[nKeyR]), alpha);
+			}
+			else if (ChannelInfo->eType == TARGET_SCALE)
+			{
+				Vector3* pL = (Vector3*)ChannelInfo->pOutputAnimateValue;
+				Vector3* pR = (Vector3*)ChannelInfo->pOutputAnimateValue;
+				pNodeInfo->Scale = pL[nKeyL] * (1.0 - alpha) + pR[nKeyR] * alpha;
+			}
+			else if (ChannelInfo->eType == TARGET_TRANSLATE)
+			{
+				Vector3* pL = (Vector3*)ChannelInfo->pOutputAnimateValue;
+				Vector3* pR = (Vector3*)ChannelInfo->pOutputAnimateValue;
+				pNodeInfo->Translate = pL[nKeyL] * (1.0 - alpha) + pR[nKeyR] * alpha;
+			}
+		}
+		_hasModelAnimate = true;
 	}
 
 }

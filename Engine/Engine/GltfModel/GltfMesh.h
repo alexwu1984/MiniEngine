@@ -1,7 +1,7 @@
 #pragma once
 #include "core/inc.h"
-#include "tinygltf/tiny_gltf.h"
 #include "math/aabb3.h"
+#include "GltfModel/GltfModelBase.h"
 
 namespace Engine
 {
@@ -10,7 +10,7 @@ namespace Engine
 	class GltfMeshBuffer;
 	class GltfNode;
 
-	class GltfMesh
+	class GltfMesh : public GltfModelBase
 	{
 	public:
 		GltfMesh(tinygltf::Model* Model);
@@ -27,8 +27,6 @@ namespace Engine
 		int32_t GetSkinId() const;
 		void SetMeshMat(const math::Matrix4x4& Mat);
 
-	private:
-		void* Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType);
 	private:
 		std::shared_ptr< GltfMeshP> Impl;
 	};

@@ -51,7 +51,7 @@ namespace Engine
 			Dist = Dist * 2.5;
 			//m_Camera.SetDistanceToRO(z);
 			auto Pos = Impl->CameraComp->GetCameraPos();
-			Impl->CameraComp->SetCameraPos(math::Vector3(Pos.x,Pos.y, -Dist));
+			Impl->CameraComp->SetCameraPos(math::Vector3(Pos.x,Pos.y, Dist));
 		}
 
 		

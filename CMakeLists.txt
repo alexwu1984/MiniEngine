@@ -46,6 +46,7 @@ set_target_properties(
 set(GLTFModel_GLBS
     ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model2.glb
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model3.glb
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model4.glb
 )
 
 copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)

@@ -31,7 +31,7 @@ namespace Engine
 		std::shared_ptr<SceneView> GetScene() const;
 
 	private:
-		void Tick();
+		void Tick(float DeltaTime);
 		void OnSizeChanged(core::vec2i NewSize);
 	private:
 		std::shared_ptr<MainEngineP> Impl;

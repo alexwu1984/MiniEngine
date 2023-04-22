@@ -6,6 +6,7 @@
 #include "Thread/RenderThread.h"
 #include "Scene/SceneView.h"
 #include "Render/SceneRender.h"
+#include "win/high_precision_tick.h"
 
 namespace Engine
 {
@@ -24,8 +25,7 @@ namespace Engine
 		std::unique_ptr<RenderThread> RThread;
 		std::shared_ptr<SceneView> Scene;
 		std::shared_ptr<SceneRender> SeRender;
-		std::chrono::high_resolution_clock::time_point TStart;
-		std::chrono::high_resolution_clock::time_point TEnd;
+		win32::HighPrecisionTick GameTick;
 	};
 
 	MainEngine::MainEngine()
@@ -44,21 +44,21 @@ namespace Engine
 		Impl->AppWin = AppWin;
 		if (Impl->DynamicRHI)
 		{
-			AppWin->Idle.bind(std::bind(&MainEngine::Tick, this), this);
+			Impl->GameTick.sigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
 			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
 			Impl->DynamicRHI->Init();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
 			Impl->RThread = std::make_unique<RenderThread>(Impl->DynamicRHI.get());
 			Impl->RThread->Start();
+			Impl->GameTick.Start("GameThread", 120, win32::HighPrecisionTick::ThreadPriority::Highest);
 			Impl->Scene->Init();
 			Impl->SeRender->InitResource(ViewPort);
-			Impl->TStart = std::chrono::high_resolution_clock::now();
 		}
 	}
 
 	void MainEngine::ShutDown()
 	{
-
+		Impl->GameTick.Stop();
 		if (Impl->RThread)
 		{
 			Impl->RThread->Stop();
@@ -71,6 +71,7 @@ namespace Engine
 		Impl->Scene = {};
 		Impl->DynamicRHI = {};
 		Impl->RThread = {};
+		
 	}
 
 	std::shared_ptr<RenderCore::DynamicRHI> MainEngine::GetRHI() const
@@ -88,20 +89,10 @@ namespace Engine
 		return Impl->Scene;
 	}
 
-	void MainEngine::Tick()
+	void MainEngine::Tick(float DeltaTime)
 	{
-
-		Impl->TEnd = std::chrono::high_resolution_clock::now();
-		float DeltaTime = std::chrono::duration<float, std::milli>(Impl->TEnd - Impl->TStart).count();
-		if (DeltaTime < (1000.0f / 60.f))
-		{
-			std::this_thread::sleep_for(0ms);
-			return ;
-		}
-
 		Impl->Scene->Tick(DeltaTime);
 		Impl->SeRender->Render();
-		Impl->TStart = Impl->TEnd;
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)

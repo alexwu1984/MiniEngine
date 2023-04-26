@@ -9,7 +9,7 @@ struct Matrix2
 
 static const int MAX_MATRICES = 200; //the max
 
-cbuffer cbPerSkeleton : register(CB(ID_SKINNING_MATRICES))
+cbuffer cbPerSkeleton : register(b2)
 {
     Matrix2 PerSkeleton_u_ModelMatrix[MAX_MATRICES];
 };

@@ -61,7 +61,22 @@ namespace math
 			return Vector4(this->x / other, this->y / other, this->z / other, this->w / other);
 		}
 
+		Vector4 operator - (const Vector4& v)const
+		{
+			return Vector4(x - v.x, y - v.y, z - v.z,w - v.w);
+		}
+
 		Vector4 operator*(const Matrix4x4& mat) const;
+
+		float GetLength(void)const                  // 长度
+		{
+			return std::sqrt(x * x + y * y + z * z + w*w);
+		}
+
+		float GetSqrLength(void) const         // 长度平方
+		{
+			return (x * x + y * y + z * z + w*w);
+		}
 	};
 
 	Vector4 operator * (const Vector4& lhs, float s);

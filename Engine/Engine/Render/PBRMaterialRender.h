@@ -14,6 +14,7 @@ namespace Engine
 		virtual ~PBRMaterialRender();
 
 		virtual void InitRenderResource(nlohmann::json& jsonObj);
+		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index);
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 	private:
 		void InitShader(const std::wstring& Path);

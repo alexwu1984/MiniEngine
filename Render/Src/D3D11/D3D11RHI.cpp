@@ -294,7 +294,7 @@ namespace RenderCore
 
 		if (VertexShaderRHI->CreateShader(FileName,VSMain,VertexDeclare,MacroDefines))
 		{
-			Impl->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
+			//Impl->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
 			return VertexShaderRHI;
 		}
 		else

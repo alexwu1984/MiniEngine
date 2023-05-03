@@ -20,6 +20,7 @@ namespace Engine
 		math::Matrix4x4 PrevViewProjMatrix;
 		math::Vector4 CameraPos;
 		int32_t PosType;
+		bool HasSkin = false;
 	};
 
 	class MaterialRender
@@ -29,6 +30,7 @@ namespace Engine
 		virtual ~MaterialRender();
 		
 		virtual void InitRenderResource(nlohmann::json& jsonObj) = 0;
+		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index) = 0;
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext,const MaterialRenderParam& RenderParam) = 0;
 	};
 }

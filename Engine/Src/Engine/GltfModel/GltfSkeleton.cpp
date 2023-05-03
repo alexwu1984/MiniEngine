@@ -51,7 +51,7 @@ namespace Engine
 			{
 				continue;;
 			}
-			BoneSkinInfo pSkinInfo;
+			BoneSkinInfo SkinInfo;
 			for (int i = 0; i < nCount; i++)
 			{
 				auto NodeID = joints[i];
@@ -59,9 +59,9 @@ namespace Engine
 				std::shared_ptr<GltfBoneNodeInfo> Node = _BoneNode[_NodeBoneMap[NodeID]];
 				Node->NodeID = NodeID;
 				Node->InverseBindMat = pMat[i];
-				pSkinInfo.Node = Node;
-				pSkinInfo.InverseBindMat = pMat[i];
-				_BoneNodeArray[SkinIndex].push_back(pSkinInfo);
+				SkinInfo.Node = Node;
+				SkinInfo.InverseBindMat = pMat[i];
+				_BoneNodeArray[SkinIndex].push_back(SkinInfo);
 
 			}
 		}
@@ -127,6 +127,11 @@ namespace Engine
 	bool GltfSkeleton::HasDynamicBone() const
 	{
 		return false;
+	}
+
+	std::vector<std::vector<Engine::BoneSkinInfo>>& GltfSkeleton::GetBoneNodeArray()
+	{
+		return _BoneNodeArray;
 	}
 
 	void GltfSkeleton::CreateModelBoneTree(int32_t NodeID)

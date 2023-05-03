@@ -2,6 +2,7 @@
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
+#include "GltfModel/GltfSkeleton.h"
 #include "Render/PBRMaterialRender.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/DynamicRHI.h"
@@ -90,10 +91,20 @@ namespace Engine
 		size_t MeshSize = Impl->Model.GetModelMesh().size();
 		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
+			auto Material = Impl->Renders[MeshIndex];
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			if (!Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshIndex], Camera,0);
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Material, Camera,0);
+			}
+
+			if (Mesh->GetSkinId()>-1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
+			{
+				auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
+				for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+				{
+					Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+				}
 			}
 		}
 
@@ -111,6 +122,16 @@ namespace Engine
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
 				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera, ModelPosType);
+			}
+			auto Material = Impl->Renders[MeshIndex];
+
+			if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
+			{
+				auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
+				for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+				{
+					Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+				}
 			}
 		}
 
@@ -210,6 +231,7 @@ namespace Engine
 		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
 		RenderParam.PosType = PosType;
+		RenderParam.HasSkin = Mesh->HasSkin();
 
 		auto RenderMesh = [Render = Render, RenderParam, Mesh = Mesh](RenderCore::DynamicRHI* DyRHI)
 		{

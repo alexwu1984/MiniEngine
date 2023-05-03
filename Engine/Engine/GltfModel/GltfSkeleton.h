@@ -21,6 +21,7 @@ namespace Engine
 		void DeleteDynamicBone(const std::string& db_name);
 		void UpdateDynamicBoneParameter(const DynamicBoneParameter& param);
 		bool HasDynamicBone() const;
+		std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray();
 
 	private:
 		void CreateModelBoneTree(int32_t NodeID);

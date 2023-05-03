@@ -13,15 +13,9 @@ namespace Engine
 {
 	using namespace RenderCore;
 
-	BEGIN_SHADER_STRUCT(SkinMat, 3)
-		DECLARE_ARRAY_PARAM(math::Matrix4x4, MAX_MATRICES, BoneMat)
-		BEGIN_STRUCT_CONSTRUCT(SkinMat)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
-
 	struct PBRMaterialRenderP
 	{
-		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(SkinMat)(GEngine->GetRHI().get()),
+		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
 			GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
 			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get())
 		{
@@ -30,9 +24,9 @@ namespace Engine
 		std::shared_ptr<GltfMaterial> MeshMaterial;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
-		DECLARE_SHADER_STRUCT_MEMBER(SkinMat)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
 	};
 
 	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial)
@@ -51,6 +45,11 @@ namespace Engine
 	{
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
 		InitShader(ShaderPath);
+	}
+
+	void PBRMaterialRender::SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index)
+	{
+		Impl->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index] = Mat;
 	}
 
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
@@ -140,6 +139,13 @@ namespace Engine
 		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+		if (RenderParam.HasSkin)
+		{
+			Impl->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).UpdateUniformBuffer();
+			Impl->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			Impl->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		}
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Impl->MeshMaterial->GetBaseColorTexture());
 

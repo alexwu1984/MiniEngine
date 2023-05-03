@@ -7,6 +7,7 @@ namespace Engine
 	class GltfMaterial;
 	class GltfNode;
 	class GltfMesh;
+	class GltfSkeleton;
 
 	class GltfModel
 	{
@@ -19,11 +20,13 @@ namespace Engine
 		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
 		math::AABB3 GetModelBox() const;
 		std::shared_ptr<GltfNode> RootNode();
+		std::shared_ptr<GltfSkeleton> GetSkeleton();
 		void Play(float Delta);
 	private:
 		void LoadNode();
 		void LoadMesh();
 		void LoadAnimate();
+		void LoadSkeleton();
 
 		std::vector <std::shared_ptr<GltfMaterial>> LoadMaterial();
 	private:

@@ -4,6 +4,7 @@
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfAnimationManager.h"
+#include "GltfModel/GltfSkeleton.h"
 
 namespace Engine
 {
@@ -15,6 +16,7 @@ namespace Engine
 		tinygltf::Model GltfMode;
 		std::shared_ptr<GltfNode> RootNode;
 		std::vector<std::shared_ptr<GltfMesh>> ModelMesh;
+		std::shared_ptr<GltfSkeleton> Skeleton;
 		bool HasSkin = false;
 		AABB3  ModelBox;
 		std::shared_ptr<GltfAnimationManager> AnimationMgr;
@@ -44,6 +46,7 @@ namespace Engine
 				LoadNode();
 				LoadMesh();
 				LoadAnimate();
+				LoadSkeleton();
 
 				return true;
 			}
@@ -59,6 +62,7 @@ namespace Engine
 				LoadNode();
 				LoadMesh();
 				LoadAnimate();
+				LoadSkeleton();
 
 				return true;
 			}
@@ -99,6 +103,11 @@ namespace Engine
 	std::shared_ptr<Engine::GltfNode> GltfModel::RootNode()
 	{
 		return Impl->RootNode;
+	}
+
+	std::shared_ptr<Engine::GltfSkeleton> GltfModel::GetSkeleton()
+	{
+		return Impl->Skeleton;
 	}
 
 	void GltfModel::Play(float Delta)
@@ -169,6 +178,12 @@ namespace Engine
 			Impl->AnimationMgr = std::make_shared<GltfAnimationManager>(&Impl->GltfMode,this);
 		}
 		Impl->AnimationMgr->InitAnimation();
+	}
+
+	void GltfModel::LoadSkeleton()
+	{
+		Impl->Skeleton = std::make_shared<GltfSkeleton>(&Impl->GltfMode, Impl->RootNode);
+		Impl->Skeleton->InitSkeleton();
 	}
 
 	std::vector <std::shared_ptr<GltfMaterial>> GltfModel::LoadMaterial()

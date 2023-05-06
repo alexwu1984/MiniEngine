@@ -69,7 +69,7 @@ namespace RenderCore
 
 	struct VertexElementDesc
 	{
-		std::string SemanticName;
+		char SemanticName[20]{0};
 		uint32_t SemanticIndex = 0;
 		uint32_t Format = 0;
 		uint32_t InputSlot = 0;
@@ -89,6 +89,7 @@ namespace RenderCore
 		void CreateDeclare(const std::vector< VertexDeclareInput>& Inputs);
 		void AppendDeclareInput(const VertexDeclareInput& DeclareInput);
 		const std::vector< VertexElementDesc>& GetDeclareDesc() const;
+		uint32_t GetHash() const;
 	private:
 		std::shared_ptr< RHIVertexDeclareP> Data;
 	};
@@ -130,7 +131,7 @@ namespace RenderCore
 		RHIShaderCache() = default;
 		~RHIShaderCache() = default;
 	public:
-		std::unordered_map<size_t, std::shared_ptr< RHIVertexShader>> VertexShaderCache;
+		std::unordered_map<uint32_t, std::shared_ptr< RHIVertexShader>> VertexShaderCache;
 		std::unordered_map<size_t, std::shared_ptr< RHIPixelShader>> PixelShaderCache;
 	};
 }

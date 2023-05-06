@@ -285,7 +285,7 @@ namespace RenderCore
 	{
 		std::shared_ptr<D3D11VertexShader> VertexShaderRHI = std::make_shared<D3D11VertexShader>(this);
 
-		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + VSMain);
+		uint32_t HashCode = VertexDeclare.GetHash();
 		auto It = Impl->ShaderCache.VertexShaderCache.find(HashCode);
 		if (It != Impl->ShaderCache.VertexShaderCache.end())
 		{
@@ -294,7 +294,7 @@ namespace RenderCore
 
 		if (VertexShaderRHI->CreateShader(FileName,VSMain,VertexDeclare,MacroDefines))
 		{
-			//Impl->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
+			Impl->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
 			return VertexShaderRHI;
 		}
 		else

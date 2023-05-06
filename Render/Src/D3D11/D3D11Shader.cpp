@@ -82,7 +82,7 @@ namespace RenderCore
 		for (const auto& Item: ElementDescs)
 		{
 			D3D11_INPUT_ELEMENT_DESC& ElementDesc = D3D11ElementDescs[Index++];
-			ElementDesc.SemanticName = Item.SemanticName.c_str();
+			ElementDesc.SemanticName = Item.SemanticName;
 			ElementDesc.SemanticIndex = Item.SemanticIndex;
 			ElementDesc.Format = static_cast<DXGI_FORMAT>(Item.Format);
 			ElementDesc.InputSlot = Item.InputSlot;

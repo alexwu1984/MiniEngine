@@ -1,5 +1,7 @@
 #include "RHI/RHIShdader.h"
 #include <dxgiformat.h>
+#include "win/win32.h"
+#include "common/crc.h"
 
 namespace RenderCore
 {
@@ -51,7 +53,7 @@ namespace RenderCore
 		case VET_UInt:			D3DElement.Format = DXGI_FORMAT_R32_UINT; break;
 		default: break;
 		};
-		D3DElement.SemanticName = "ATTRIBUTE";
+		strcpy_s(D3DElement.SemanticName, "ATTRIBUTE");
 		D3DElement.SemanticIndex = DeclareInput.InAttributeIndex;
 		D3DElement.InputSlot = Data->Decs.size();
 		//DeclareInput.bUseInstanceIndex ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
@@ -66,6 +68,11 @@ namespace RenderCore
 	const std::vector< RenderCore::VertexElementDesc>& RHIVertexDeclare::GetDeclareDesc() const
 	{
 		return Data->Decs;
+	}
+
+	uint32_t RHIVertexDeclare::GetHash() const
+	{
+		return core::Crc::MemCrc32(Data->Decs.data(), Data->Decs.size() * sizeof(VertexElementDesc));
 	}
 
 }

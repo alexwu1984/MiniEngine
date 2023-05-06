@@ -113,6 +113,9 @@ namespace win32 {
 #define WIDE2(x) L##x
 #define WIDE1(x) WIDE2(x)
 #define WFILE WIDE1(__FILE__)
+#define PLATFORM_LITTLE_ENDIAN	1
+#define UE_PTRDIFF_TO_INT32(argument) static_cast<int32_t>(argument)
+#define UE_PTRDIFF_TO_UINT32(argument) static_cast<uint32_t>(argument)
 
 #ifdef _DEBUG
 #define Assert(s) win32::DoAssert(s, WFILE, __LINE__)

@@ -280,7 +280,7 @@ namespace math
 	static FORCEINLINE float Acos(float Value) { return std::acosf((Value < -1.f) ? -1.f : ((Value < 1.f) ? Value : 1.f)); }
 	static FORCEINLINE float Tan(float Value) { return std::tanf(Value); }
 	static FORCEINLINE float Atan(float Value) { return std::atanf(Value); }
-	static  float Atan2(float Y, float X);
+	float Atan2(float Y, float X);
 	static FORCEINLINE float Sqrt(float Value) { return std::sqrtf(Value); }
 	static FORCEINLINE float Pow(float A, float B) { return std::powf(A, B); }
 

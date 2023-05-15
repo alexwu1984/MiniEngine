@@ -30,12 +30,12 @@ namespace Engine
 	{
 		// Compute new camera from this actor
 		math::Vector3 CameraPos = GetCameraPos();
-		math::Vector3 Target = GetOwner()->GetPosition() + GetOwner()->GetForward();
+		math::Vector3 Target = GetOwner()->GetPosition() + Vector3::UnitZ;
 		math::Vector3 Up = math::Vector3::UnitY;
 
 		math::Matrix4x4 ViewMatrix = math::Matrix4x4::MatrixLookAtLH(CameraPos, Target, Up);
 		SetViewMatrix(ViewMatrix);
-		UpdateFrustum(CameraPos, GetOwner()->GetForward().Normalize(), Up);
+		UpdateFrustum(CameraPos, Vector3(Vector3::UnitZ).Normalize(), Up);
 	}
 
 	void CameraComponent::SetViewMatrix(const math::Matrix4x4& view)

@@ -87,6 +87,7 @@ namespace Engine
 			ImplActorP->RecomputeWorldTransform = false;
 			// Scale, then rotate, then translate
 			ImplActorP->WorldTransform = Matrix4x4::ScaleMatrix(ImplActorP->Scale);  
+			
 			ImplActorP->WorldTransform *= Matrix4x4::CreateFromQuaternion(ImplActorP->Rotation);
 			ImplActorP->WorldTransform *= Matrix4x4::CreateFromTranslate(ImplActorP->Position);
 

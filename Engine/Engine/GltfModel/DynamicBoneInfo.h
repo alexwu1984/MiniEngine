@@ -94,6 +94,8 @@ namespace Engine
 		//ÖØÁ¦
 		math::Vector3 _gravity ;
 		math::Vector3 _force ;
+
+		float _radiusScale = 1.0f;
 	};
 
 	struct BoneSkinInfo

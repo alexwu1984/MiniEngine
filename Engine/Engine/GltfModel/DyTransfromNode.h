@@ -1,5 +1,7 @@
 #pragma once
-#include "core/inc.h"
+#include "math/vector3.h"
+#include "math/quaternion.h"
+#include "math/matrix4x4.h"
 
 namespace Engine
 {
@@ -12,6 +14,12 @@ namespace Engine
 		~DyTransformNode();
 
 		void AddChildNode(DyTransformNode* Child);
+
+		void SetLocalPosition(const math::Vector3& Pos);
+		void SetLocalRotation(const math::Quaternion& Rot);
+		void SetLocalToWorld(const math::Matrix4x4& Mat);
+		void SetWorldToLocal(const math::Matrix4x4& Mat);
+
 	private:
 		TransformNodeP* Impl = nullptr;
 	};

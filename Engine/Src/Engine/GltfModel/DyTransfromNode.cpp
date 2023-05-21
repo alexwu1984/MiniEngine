@@ -1,6 +1,5 @@
 #include "GltfModel/DyTransfromNode.h"
-#include "math/vector3.h"
-#include "math/quaternion.h"
+
 
 using namespace math;
 
@@ -11,6 +10,8 @@ namespace Engine
 		std::string Id;
 		Vector3		LocalPosition;
 		Quaternion	LocalRotation;
+		Matrix4x4	LocalToWorld;
+		Matrix4x4	WorldToLocal;
 
 		DyTransformNode* FirstChild;
 		DyTransformNode* NextSibling;
@@ -51,6 +52,26 @@ namespace Engine
 		}
 		Child->Impl->Parent = this;
 		++Impl->ChildCount;
+	}
+
+	void DyTransformNode::SetLocalPosition(const math::Vector3& Pos)
+	{
+		Impl->LocalPosition = Pos;
+	}
+
+	void DyTransformNode::SetLocalRotation(const math::Quaternion& Rot)
+	{
+		Impl->LocalRotation = Rot;
+	}
+
+	void DyTransformNode::SetLocalToWorld(const math::Matrix4x4& Mat)
+	{
+		Impl->LocalToWorld = Mat;
+	}
+
+	void DyTransformNode::SetWorldToLocal(const math::Matrix4x4& Mat)
+	{
+		Impl->WorldToLocal = Mat;
 	}
 
 }

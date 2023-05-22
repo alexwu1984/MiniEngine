@@ -81,21 +81,21 @@ namespace Engine
 
 	};
 
-	struct DynamicBoneParameter
+	struct DynamicBoneInfo
 	{
-		std::string bone_name;
-		float _fDamping = 0.06f;			//阻尼
-		float _fElasticity = 0.01f;		//弹性
-		float _fStiffness = 0.01f;		//刚性
-		float _fInert = 0.14f;			//惯性
-		float _fRadius = 0.0f;			//半径
-		float _fEndLength = 0.0f;		//
-		math::Vector3 _endOffset;
+		std::string BoneName;
+		float Damping{ 0.06f };			//阻尼
+		float Elasticity{ 0.01f };		//弹性
+		float Stiffness{ 0.01f };		//刚性
+		float Inert{ 0.14f };			//惯性
+		float Radius{ 0.0f };			//半径
+		float EndLength{ 0.0f };		//
+		math::Vector3 EndOffset;
 		//重力
-		math::Vector3 _gravity ;
-		math::Vector3 _force ;
+		math::Vector3 Gravity ;
+		math::Vector3 Force ;
 
-		float _radiusScale = 1.0f;
+		float RadiusScale = 1.0f;
 	};
 
 	struct BoneSkinInfo

@@ -104,7 +104,7 @@ namespace Engine
 
 	}
 
-	void GltfSkeleton::AddDynamicBone(const std::vector<DynamicBoneParameter>& db_paramter_array)
+	void GltfSkeleton::AddDynamicBone(const std::vector<DynamicBoneInfo>& db_paramter_array)
 	{
 
 	}
@@ -119,7 +119,7 @@ namespace Engine
 
 	}
 
-	void GltfSkeleton::UpdateDynamicBoneParameter(const DynamicBoneParameter& param)
+	void GltfSkeleton::UpdateDynamicBoneParameter(const DynamicBoneInfo& param)
 	{
 
 	}

@@ -16,10 +16,10 @@ namespace Engine
 		void UpdateBone();
 		void UseInitPos();
 		void UpdateNeckBone(std::vector<float>& headRotation, const char* neckBoneName);
-		void AddDynamicBone(const std::vector<DynamicBoneParameter>& db_paramter_array);
+		void AddDynamicBone(const std::vector<DynamicBoneInfo>& db_paramter_array);
 		void ResetDynamicBone();
 		void DeleteDynamicBone(const std::string& db_name);
-		void UpdateDynamicBoneParameter(const DynamicBoneParameter& param);
+		void UpdateDynamicBoneParameter(const DynamicBoneInfo& param);
 		bool HasDynamicBone() const;
 		std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray();
 

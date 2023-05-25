@@ -16,9 +16,20 @@ namespace Engine
 		void AddChildNode(DyTransformNode* Child);
 
 		void SetLocalPosition(const math::Vector3& Pos);
+		void SetWorldPosition(const math::Vector3& Pos);
 		void SetLocalRotation(const math::Quaternion& Rot);
 		void SetLocalToWorld(const math::Matrix4x4& Mat);
 		void SetWorldToLocal(const math::Matrix4x4& Mat);
+
+		math::Vector3 GetLocalPosition() const;
+		math::Vector3 GetWorldPosition() const;
+		math::Quaternion GetLocalRotation() const;
+		math::Matrix4x4 GetWorldToLocal() const;
+
+		DyTransformNode* GetFirstChild() const;
+		int32_t GetChildCount() const;
+
+		std::string GetID() const;
 
 	private:
 		TransformNodeP* Impl = nullptr;

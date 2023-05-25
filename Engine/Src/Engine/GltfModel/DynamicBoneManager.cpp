@@ -23,7 +23,23 @@ namespace Engine
 
 	DynamicBoneManager::~DynamicBoneManager()
 	{
+
 		delete Impl;
+	}
+
+	void DynamicBoneManager::InitParticle(std::shared_ptr<DyTransformNode> TransNode, int32_t db_index /*= -1*/)
+	{
+		if (TransNode == nullptr || db_index == -1 || db_index >= Impl->DyBoneArray.size())
+		{
+			return;
+		}
+
+		Impl->DyBoneArray[db_index]->InitParticle(TransNode.get());
+	}
+
+	void DynamicBoneManager::InitTransfrom(int32_t db_index /*= -1*/)
+	{
+
 	}
 
 }

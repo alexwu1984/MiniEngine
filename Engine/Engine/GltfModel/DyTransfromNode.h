@@ -25,6 +25,7 @@ namespace Engine
 		math::Vector3 GetWorldPosition() const;
 		math::Quaternion GetLocalRotation() const;
 		math::Matrix4x4 GetWorldToLocal() const;
+		math::Matrix4x4 GetLocalToWorld() const;
 
 		DyTransformNode* GetFirstChild() const;
 		int32_t GetChildCount() const;

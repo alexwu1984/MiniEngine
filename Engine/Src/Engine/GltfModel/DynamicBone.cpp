@@ -113,7 +113,7 @@ namespace Engine
 			return;
 		// 先假设重力是0
 		auto Gravity = math::Vector4(Impl->Info.Gravity, 0.0f) * Impl->RootNode->GetWorldToLocal() ;
-		Impl->LocalGravity = math::Vector3(Impl->LocalGravity.x, Impl->LocalGravity.y, Impl->LocalGravity.z);
+		Impl->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
 
 		for (int Index = 0; Index < Impl->VecDynameicParticle.size(); ++Index)
 		{
@@ -138,7 +138,7 @@ namespace Engine
 		Impl->Info.Gravity = Info.Gravity;
 
 		auto Gravity = math::Vector4(Impl->Info.Gravity, 0.0f) * Impl->RootNode->GetWorldToLocal();
-		Impl->LocalGravity = math::Vector3(Impl->LocalGravity.x, Impl->LocalGravity.y, Impl->LocalGravity.z);
+		Impl->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
 
 		for (int Index = 0; Index < Impl->VecDynameicParticle.size(); ++Index)
 		{
@@ -155,6 +155,45 @@ namespace Engine
 			p->Inert = (std::min)((std::max)(p->Inert, 0.0f), 1.0f);
 			p->Radius = (std::max)(p->Radius, 0.0f);
 		}
+	}
+
+	void DynamicBone::UpdateParticle1(float timevar)
+	{
+		math::Vector3 Force = Impl->Gravity;
+		math::Vector3 Dir = Impl->Gravity.Normalize();
+
+		auto Gravity = math::Vector4(Impl->LocalGravity, 0.0f) * Impl->RootNode->GetLocalToWorld();
+
+		math::Vector3 rf = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
+
+		math::Vector3 pf = Dir * (std::max)(rf.Dot(Dir), 0.0f);
+		Force -= pf;
+		Force = (Force + Impl->Info.Force) * (Impl->ObjectScale * timevar);
+
+		for (int i = 0; i < Impl->VecDynameicParticle.size(); ++i)
+		{
+			auto p = Impl->VecDynameicParticle[i];
+			if (p->ParentIndex >= 0)
+			{
+				// verlet integration
+				math::Vector3 v = p->Position - p->PrevPosition; //自动添加的动态骨骼节点
+				math::Vector3 rmove =  Impl->ObjectMove * p->Inert;
+				p->PrevPosition = p->Position + rmove;
+				float damping = p->Damping;
+
+				p->Position += v * (1 - damping) + Force + rmove;
+			}
+			else
+			{
+				p->PrevPosition = p->Position; //胸部骨骼的节点位置应该进行改变，在每一帧的运动之后需要进行更新
+				p->Position = p->GPTransform->GetWorldPosition(); //这个worldPosition是否需要在外面每一帧动作完成之后进行变化呢
+			}
+		}
+	}
+
+	void DynamicBone::UpdateParticle2(float timevar)
+	{
+
 	}
 
 }

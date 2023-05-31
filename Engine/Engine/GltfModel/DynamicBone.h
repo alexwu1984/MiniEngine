@@ -43,6 +43,8 @@ namespace Engine
 	private:
 		void AppendParticles(DyTransformNode* TransformNode, int ParentIndex, float BoneLength);
 		void UpdateParticleParam();
+		void UpdateParticle1(float timevar);
+		void UpdateParticle2(float timevar);
 
 	private:
 		DynamicBoneP* Impl = nullptr;

@@ -100,6 +100,11 @@ namespace Engine
 		return Impl->WorldToLocal;
 	}
 
+	math::Matrix4x4 DyTransformNode::GetLocalToWorld() const
+	{
+		return Impl->LocalToWorld;
+	}
+
 	DyTransformNode* DyTransformNode::GetFirstChild() const
 	{
 		return Impl->FirstChild;

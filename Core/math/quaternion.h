@@ -80,6 +80,8 @@ namespace math
 		}
 
 		static Quaternion MakeFromEuler(float Pitch, float Yaw, float Roll);
+		// Creates a rotation which rotates from fromDirection to toDirection.
+		static Quaternion FromToRotation(Vector3 FromDirection, Vector3 ToDirection);
 
 		// Linear interpolation
 		static Quaternion Lerp(const Quaternion& a, const Quaternion& b, float f);

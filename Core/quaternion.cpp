@@ -129,6 +129,22 @@ namespace math
 		//return RotationQuat;
 	}
 
+	Quaternion Quaternion::FromToRotation(Vector3 FromDirection, Vector3 ToDirection)
+	{
+		FromDirection.Normalize();
+		ToDirection.Normalize();
+
+		float DotValue = FromDirection.Dot(ToDirection);
+		if (math::Abs(DotValue - 1.0f) < DELTA)
+		{
+			return Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+		}
+
+		Vector3 Axis = Vector3::Cross(FromDirection,ToDirection);
+		float Angle = math::Acos(DotValue);
+		return Quaternion(Axis.Normalize(), Angle);
+	}
+
 	Quaternion Quaternion::Lerp(const Quaternion& a, const Quaternion& b, float f)
 	{
 		Quaternion retVal;

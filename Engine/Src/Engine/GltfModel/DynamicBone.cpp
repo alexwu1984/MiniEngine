@@ -193,7 +193,75 @@ namespace Engine
 
 	void DynamicBone::UpdateParticle2(float timevar)
 	{
+		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
+		{
+			std::shared_ptr<DynamicParticle> p = Impl->VecDynameicParticle[i]; //添加的动态骨骼节点
+			std::shared_ptr<DynamicParticle> p0 = Impl->VecDynameicParticle[p->ParentIndex]; //胸部节点lPectoral，也就是所谓的父节点
 
+			float restLen;
+			if (p->GPTransform != nullptr)
+			{
+				restLen = (p0->GPTransform->GetWorldPosition() - p->GPTransform->GetWorldPosition()).GetLength();
+			}
+			else
+			{
+				restLen = (p0->GPTransform->GetLocalPosition() * p->EndOffset).GetLength();
+			}
+
+			//TODO:keep shape
+			float Stiffness = p->Stiffness;
+
+			if (Stiffness > 0.0f || p->Stiffness > 0.0f)
+			{
+				math::Matrix4x4 TempMat = p0->GPTransform->GetLocalToWorld();
+				TempMat[3][0] = p0->Position.x;
+				TempMat[3][1] = p0->Position.y;
+				TempMat[3][2] = p0->Position.z;
+
+				math::Vector3 RestPos;
+				if (p->GPTransform != nullptr)
+				{
+					auto TmpResult = math::Vector4(p->GPTransform->GetLocalPosition(), 1.0f) * TempMat;
+					RestPos = math::Vector3(TmpResult.x, TmpResult.y, TmpResult.z);
+				}
+				else
+				{
+					//parentMatrix.transformPoint(p->_endOffset, &restPos);
+					auto TmpResult = math::Vector4(p->EndOffset, 1.0f) * TempMat;
+					RestPos = math::Vector3(TmpResult.x, TmpResult.y, TmpResult.z);
+				}
+
+				math::Vector3 d = RestPos - p->Position;
+				p->Position += d * (p->Elasticity * timevar);
+
+				if (Stiffness > 0.0f)
+				{
+					d = RestPos - p->Position;
+					float len = d.GetLength();
+					float maxlen = restLen * (1.0f - Stiffness) * 2.0f;
+					if (len > maxlen)
+						p->Position += d * ((len - maxlen) / len);
+				}
+			}
+
+			//if (!m_vecDynamicCollider.empty())
+			//{
+			//	float particleRadius = p->_fRadius * m_Info._radiusScale;
+			//	for (int j = 0; j < m_vecDynamicCollider.size(); ++j)
+			//	{
+			//		DynamicBoneColliderBase* c = m_vecDynamicCollider[j];
+			//		if (c != nullptr) {
+			//			c->Collide(p->_position, particleRadius);
+			//		}
+			//	}
+			//}
+
+			// keep length
+			math::Vector3 dd = p0->Position - p->Position;
+			float leng = dd.GetLength();
+			if (leng > 0)
+				p->Position += dd * ((leng - restLen) / leng);
+		}
 	}
 
 }

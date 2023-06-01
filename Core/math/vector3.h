@@ -58,6 +58,20 @@ namespace math
 			return *this;
 		}
 
+		Vector3  Normalize(void) const
+		{
+			float f = x * x + y * y + z * z;
+			if (f > EPSILON_E4)
+			{
+				f = (float)1.0f / std::sqrt(f);
+				Vector3(x * f, y * f, z * f);
+			}
+			else
+			{
+				return Zero;
+			}
+		}
+
 		float Dot(const Vector3& v)const
 		{
 			return (v.x * x + v.y * y + v.z * z);

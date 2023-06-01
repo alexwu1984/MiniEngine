@@ -129,18 +129,18 @@ namespace math
 		//return RotationQuat;
 	}
 
-	Quaternion Quaternion::FromToRotation(Vector3 FromDirection, Vector3 ToDirection)
+	Quaternion Quaternion::FromToRotation(const Vector3& FromDirection, const Vector3& ToDirection)
 	{
-		FromDirection.Normalize();
-		ToDirection.Normalize();
+		auto TmpFromDirection = FromDirection.Normalize();
+		auto TmpToDirection = ToDirection.Normalize();
 
-		float DotValue = FromDirection.Dot(ToDirection);
+		float DotValue = TmpFromDirection.Dot(TmpToDirection);
 		if (math::Abs(DotValue - 1.0f) < DELTA)
 		{
 			return Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 
-		Vector3 Axis = Vector3::Cross(FromDirection,ToDirection);
+		Vector3 Axis = Vector3::Cross(TmpFromDirection, TmpToDirection);
 		float Angle = math::Acos(DotValue);
 		return Quaternion(Axis.Normalize(), Angle);
 	}

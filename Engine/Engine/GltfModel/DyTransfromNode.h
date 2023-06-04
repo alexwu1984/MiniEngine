@@ -18,12 +18,14 @@ namespace Engine
 		void SetLocalPosition(const math::Vector3& Pos);
 		void SetWorldPosition(const math::Vector3& Pos);
 		void SetLocalRotation(const math::Quaternion& Rot);
+		void SetWorldRotation(const math::Quaternion& Rot);
 		void SetLocalToWorld(const math::Matrix4x4& Mat);
 		void SetWorldToLocal(const math::Matrix4x4& Mat);
 
 		math::Vector3 GetLocalPosition() const;
 		math::Vector3 GetWorldPosition() const;
 		math::Quaternion GetLocalRotation() const;
+		math::Quaternion GetWorldRotation() const;
 		math::Matrix4x4 GetWorldToLocal() const;
 		math::Matrix4x4 GetLocalToWorld() const;
 

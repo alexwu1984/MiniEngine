@@ -11,6 +11,7 @@ namespace Engine
 		Vector3		LocalPosition;
 		Vector3     WorldPosition;
 		Quaternion	LocalRotation;
+		Quaternion  WorldRotation;
 		Matrix4x4	LocalToWorld;
 		Matrix4x4	WorldToLocal;
 
@@ -70,6 +71,11 @@ namespace Engine
 		Impl->LocalRotation = Rot;
 	}
 
+	void DyTransformNode::SetWorldRotation(const math::Quaternion& Rot)
+	{
+		Impl->WorldRotation = Rot;
+	}
+
 	void DyTransformNode::SetLocalToWorld(const math::Matrix4x4& Mat)
 	{
 		Impl->LocalToWorld = Mat;
@@ -93,6 +99,11 @@ namespace Engine
 	math::Quaternion DyTransformNode::GetLocalRotation() const
 	{
 		return Impl->LocalRotation;
+	}
+
+	math::Quaternion DyTransformNode::GetWorldRotation() const
+	{
+		return Impl->WorldRotation;
 	}
 
 	math::Matrix4x4 DyTransformNode::GetWorldToLocal() const

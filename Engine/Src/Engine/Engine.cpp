@@ -44,7 +44,7 @@ namespace Engine
 		Impl->AppWin = AppWin;
 		if (Impl->DynamicRHI)
 		{
-			Impl->GameTick.sigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
+			Impl->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
 			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
 			Impl->DynamicRHI->Init();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);

@@ -13,7 +13,7 @@ namespace Engine
 		math::Vector3 EndOffset;
 
 		float BoneTotalLength{ 0 };
-		float ObjectScale{ 0.f };
+		float ObjectScale{ 1.f };
 		float Time{ 0.f };
 		float Weight{ 0.f };
 		float EndLength{ 0.f };
@@ -39,7 +39,39 @@ namespace Engine
 
 	void DynamicBone::Update(float delta)
 	{
+		if (Impl->RootNode == nullptr)
+			return;
 
+		int loop = 1;
+		if (Impl->UpdateRate > 0)
+		{
+			float dt = 1.0f / Impl->UpdateRate;
+			Impl->Time += delta;
+			loop = 0;
+
+			while (Impl->Time >= dt)
+			{
+				Impl->Time -= dt;
+				if (++loop >= 3)
+				{
+					Impl->Time = 0;
+					break;
+				}
+			}
+		}
+
+		double UpdateDelta = delta * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den * 60.f;
+
+		if (loop > 0)
+		{
+			for (int i = 0; i < loop; ++i)
+			{
+				UpdateParticle1(UpdateDelta);
+				UpdateParticle2(UpdateDelta);
+			}
+		}
+
+		ApplyParticlesToTransforms();
 	}
 
 	void DynamicBone::Init(DynamicBoneInfo& BoneInfo)
@@ -70,13 +102,25 @@ namespace Engine
 		UpdateParticleParam();
 	}
 
+	void DynamicBone::InitTransform()
+	{
+		for (int i = 0; i < Impl->VecDynameicParticle.size(); ++i)
+		{
+			auto p = Impl->VecDynameicParticle[i];
+			if (p->GPTransform != nullptr)
+			{
+				p->GPTransform->SetLocalPosition(p->LocalPosition);
+				p->GPTransform->SetLocalRotation(p->LocalRotation);
+			}
+		}
+	}
+
 	void DynamicBone::AppendParticles(DyTransformNode* TransformNode, int ParentIndex, float BoneLength)
 	{
 		if (!TransformNode)
 		{
 			return;
 		}
-
 
 		std::shared_ptr<DynamicParticle> particle = std::make_shared<DynamicParticle>();
 		particle->Position = particle->PrevPosition = TransformNode->GetWorldPosition();
@@ -157,7 +201,12 @@ namespace Engine
 		}
 	}
 
-	void DynamicBone::UpdateParticle1(float timevar)
+	std::string DynamicBone::GetID() const
+	{
+		return Impl->DBName;
+	}
+
+	void DynamicBone::UpdateParticle1(float DeltaTime)
 	{
 		math::Vector3 Force = Impl->Gravity;
 		math::Vector3 Dir = Impl->Gravity.Normalize();
@@ -168,7 +217,7 @@ namespace Engine
 
 		math::Vector3 pf = Dir * (std::max)(rf.Dot(Dir), 0.0f);
 		Force -= pf;
-		Force = (Force + Impl->Info.Force) * (Impl->ObjectScale * timevar);
+		Force = (Force + Impl->Info.Force) * (Impl->ObjectScale * DeltaTime);
 
 		for (int i = 0; i < Impl->VecDynameicParticle.size(); ++i)
 		{
@@ -191,7 +240,7 @@ namespace Engine
 		}
 	}
 
-	void DynamicBone::UpdateParticle2(float timevar)
+	void DynamicBone::UpdateParticle2(float DeltaTime)
 	{
 		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
 		{
@@ -232,7 +281,7 @@ namespace Engine
 				}
 
 				math::Vector3 d = RestPos - p->Position;
-				p->Position += d * (p->Elasticity * timevar);
+				p->Position += d * (p->Elasticity * DeltaTime);
 
 				if (Stiffness > 0.0f)
 				{
@@ -261,6 +310,41 @@ namespace Engine
 			float leng = dd.GetLength();
 			if (leng > 0)
 				p->Position += dd * ((leng - restLen) / leng);
+		}
+	}
+
+	void DynamicBone::ApplyParticlesToTransforms()
+	{
+		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
+		{
+			std::shared_ptr<DynamicParticle> p = Impl->VecDynameicParticle[i];
+			std::shared_ptr<DynamicParticle> p0 = Impl->VecDynameicParticle[p->ParentIndex];
+
+			if (p0->GPTransform->GetChildCount() <= 1)
+			{
+				math::Vector3 v;
+				if (p->GPTransform != nullptr)
+				{
+					v = p->GPTransform->GetLocalPosition();
+				}
+				else
+				{
+					v = p->EndOffset;
+				}
+
+				math::Vector3 v2 = p->Position - p0->Position;
+
+				auto  Tmp = math::Vector4(v.x, v.y, v.z, 0.0f) * p0->GPTransform->GetLocalToWorld();
+				math::Vector3 TransPoint{ Tmp.x, Tmp.y, Tmp.z };
+
+				auto Rot = math::Quaternion::FromToRotation(TransPoint, v2);
+				p0->GPTransform->SetWorldRotation( math::Quaternion::Concatenate(Rot , p0->GPTransform->GetWorldRotation()));
+			}
+
+			if (p->GPTransform != nullptr)
+			{
+				p->GPTransform->SetWorldPosition(p->Position);
+			}
 		}
 	}
 

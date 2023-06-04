@@ -66,7 +66,7 @@ namespace Engine
 		Matrix4x4 mat4Rotation = Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->TargetRotation));
 		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(Vector3(NodeInfo->TargetTranslate.x, NodeInfo->TargetTranslate.y, NodeInfo->TargetTranslate.z));
 
-		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation;
+		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
 		NodeInfo->FinalTransformation = NodeTransformation;
 
 		//根据配置骨骼名添加动态骨骼部件
@@ -149,7 +149,7 @@ namespace Engine
 		Matrix4x4 mat4Rotation = Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->TargetRotation));
 		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(Vector3(NodeInfo->TargetTranslate.x, NodeInfo->TargetTranslate.y, NodeInfo->TargetTranslate.z));
 
-		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation;
+		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
 		NodeInfo->FinalTransformation = NodeTransformation;
 
 		auto Iter = Impl->TransfromMap.find(NodeInfo->BoneName);

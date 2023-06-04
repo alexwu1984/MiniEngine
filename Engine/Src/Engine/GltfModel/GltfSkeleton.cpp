@@ -2,6 +2,7 @@
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"
 #include "GltfModel/DynamicBoneManager.h"
+#include "GltfModel/GltfNode.h"
 
 namespace Engine
 {
@@ -103,7 +104,35 @@ namespace Engine
 
 	void GltfSkeleton::UpdateBone()
 	{
+		if (Impl->_RootNode.empty())
+		{
+			return;
+		}
 
+
+		for (int i = 0; i < Impl->_RootNode.size(); i++)
+		{
+			int NodeID = Impl->_RootNode[i]->NodeID;
+			auto ParentNode = Impl->_ModelNode->GetAllNodes()[NodeID]->ParentNode;
+
+			auto Identity = Impl->_RootNode[i]->ParentMat;
+			if (!ParentNode.expired())
+			{
+				Impl->_ModelNode->UpdateNodeParent(ParentNode.lock());
+				Identity *= ParentNode.lock()->FinalMeshMat;
+			}
+			Impl->_DynamicBoneMgr->DynamicBonePreUpdate(Impl->_RootNode[i], Identity);
+			DFSBoneTree(Impl->_RootNode[i], Identity);
+		}
+
+
+		for (int i = 0; i < Impl->_BoneNodeArray.size(); i++)
+		{
+			for (int j = 0; j < Impl->_BoneNodeArray[i].size(); j++)
+			{
+				Impl->_BoneNodeArray[i][j].FinalMat = Impl->_BoneNodeArray[i][j].InverseBindMat* Impl->_BoneNodeArray[i][j].Node->FinalTransformation ;
+			}
+		}
 	}
 
 	void GltfSkeleton::UseInitPos()
@@ -229,7 +258,7 @@ namespace Engine
 			mat4Rotation = BoneNodeInfo->InitMat;
 		}
 
-		math::Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation;
+		math::Matrix4x4 NodeTransformation =  mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
 		//NodeTransformation = ParentMatrix * mat4Translation * mat4Rotation * mat4Scaling;
 
 		//¸üÐÂ¶¯Ì¬¹Ç÷À

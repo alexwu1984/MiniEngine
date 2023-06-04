@@ -44,6 +44,10 @@ namespace math
 			return Vector3(row[3].x, row[3].y, row[3].z);
 		}
 
+		void GetRotation(Quaternion& q);
+
+		void GetScale(Vector3& Scale);
+
 		// Get the X axis of the matrix (forward)
 		Vector3 GetXAxis() const
 		{
@@ -93,7 +97,7 @@ namespace math
 		Vector4 operator [](int index) const;
 		Vector4& operator[](int index);
 
-
+		float Determinant() const;
 		Matrix4x4 Transpose() const;
 		Matrix4x4 Inverse() const;
 

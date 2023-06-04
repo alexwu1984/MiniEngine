@@ -44,6 +44,127 @@ namespace math
 
 	
 
+	void Matrix4x4::GetRotation(Quaternion& q)
+	{
+
+		// Extract the scale.
+		// This is simply the length of each axis (row/column) in the matrix.
+		Vector3 xaxis(m[0], m[1], m[2]);
+		float ScaleX = xaxis.GetLength();
+
+		Vector3 yaxis(m[4], m[5], m[6]);
+		float ScaleY = yaxis.GetLength();
+
+		Vector3 zaxis(m[8], m[9], m[10]);
+		float ScaleZ = zaxis.GetLength();
+
+		// Determine if we have a negative scale (true if determinant is less than zero).
+		// In this case, we simply negate a single axis of the scale.
+		float det = Determinant();
+		if (det < 0)
+			ScaleZ = -ScaleZ;
+
+		// Scale too close to zero, can't decompose rotation.
+		if (ScaleX < math::DELTA || ScaleY < math::DELTA || math::Abs(ScaleZ) < math::DELTA)
+			return ;
+
+		// Factor the scale out of the matrix axes.
+		float rn = 1.0f / ScaleX;
+		xaxis.x *= rn;
+		xaxis.y *= rn;
+		xaxis.z *= rn;
+
+		rn = 1.0f / ScaleY;
+		yaxis.x *= rn;
+		yaxis.y *= rn;
+		yaxis.z *= rn;
+
+		rn = 1.0f / ScaleZ;
+		zaxis.x *= rn;
+		zaxis.y *= rn;
+		zaxis.z *= rn;
+
+		// Now calculate the rotation from the resulting matrix (axes).
+		float trace = xaxis.x + yaxis.y + zaxis.z + 1.0f;
+
+		if (trace > 1.0f)
+		{
+			float s = 0.5f / math::Sqrt(trace);
+			q.w = 0.25f / s;
+			q.x = (yaxis.z - zaxis.y) * s;
+			q.y = (zaxis.x - xaxis.z) * s;
+			q.z = (xaxis.y - yaxis.x) * s;
+		}
+		else
+		{
+			// Note: since xaxis, yaxis, and zaxis are normalized, 
+			// we will never divide by zero in the code below.
+			if (xaxis.x > yaxis.y && xaxis.x > zaxis.z)
+			{
+				float s = 0.5f / math::Sqrt(1.0f + xaxis.x - yaxis.y - zaxis.z);
+				q.w = (yaxis.z - zaxis.y) * s;
+				q.x = 0.25f / s;
+				q.y = (yaxis.x + xaxis.y) * s;
+				q.z = (zaxis.x + xaxis.z) * s;
+			}
+			else if (yaxis.y > zaxis.z)
+			{
+				float s = 0.5f / math::Sqrt(1.0f + yaxis.y - xaxis.x - zaxis.z);
+				q.w = (zaxis.x - xaxis.z) * s;
+				q.x = (yaxis.x + xaxis.y) * s;
+				q.y = 0.25f / s;
+				q.z = (zaxis.y + yaxis.z) * s;
+			}
+			else
+			{
+				float s = 0.5f / math::Sqrt(1.0f + zaxis.z - xaxis.x - yaxis.y);
+				q.w = (xaxis.y - yaxis.x) * s;
+				q.x = (zaxis.x + xaxis.z) * s;
+				q.y = (zaxis.y + yaxis.z) * s;
+				q.z = 0.25f / s;
+			}
+		}
+	}
+
+	void Matrix4x4::GetScale(Vector3& Scale)
+	{
+		Vector3 xaxis(m[0], m[1], m[2]);
+		float ScaleX = xaxis.GetLength();
+
+		Vector3 yaxis(m[4], m[5], m[6]);
+		float ScaleY = yaxis.GetLength();
+
+		Vector3 zaxis(m[8], m[9], m[10]);
+		float ScaleZ = zaxis.GetLength();
+
+		// Determine if we have a negative scale (true if determinant is less than zero).
+		// In this case, we simply negate a single axis of the scale.
+		float det = Determinant();
+		if (det < 0)
+			ScaleZ = -ScaleZ;
+
+		Scale = { ScaleX,ScaleY,ScaleZ };
+	}
+
+	float Matrix4x4::Determinant() const
+	{
+		float a0 = m[0] * m[5] - m[1] * m[4];
+		float a1 = m[0] * m[6] - m[2] * m[4];
+		float a2 = m[0] * m[7] - m[3] * m[4];
+		float a3 = m[1] * m[6] - m[2] * m[5];
+		float a4 = m[1] * m[7] - m[3] * m[5];
+		float a5 = m[2] * m[7] - m[3] * m[6];
+		float b0 = m[8] * m[13] - m[9] * m[12];
+		float b1 = m[8] * m[14] - m[10] * m[12];
+		float b2 = m[8] * m[15] - m[11] * m[12];
+		float b3 = m[9] * m[14] - m[10] * m[13];
+		float b4 = m[9] * m[15] - m[11] * m[13];
+		float b5 = m[10] * m[15] - m[11] * m[14];
+
+		// Calculate the determinant.
+		return (a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0);
+	}
+
 	Matrix4x4 Matrix4x4::Transpose() const
 	{
 		return Matrix4x4(

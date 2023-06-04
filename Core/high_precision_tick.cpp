@@ -88,7 +88,7 @@ namespace win32
 			}
 			TEnd = std::chrono::high_resolution_clock::now();
 			float Delta = std::chrono::duration<float, std::milli>(TEnd - TStart).count();
-			sigTick(Delta);
+			SigTick(Delta);
 			TStart = std::chrono::high_resolution_clock::now();
 		}
 		core::LOG(core::log_inf, __FUNCTIONW__ L" Quit");

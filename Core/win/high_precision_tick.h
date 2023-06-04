@@ -17,7 +17,7 @@ namespace win32
 		HighPrecisionTick();
 		~HighPrecisionTick();
 
-		core::event<void(float Delta)> sigTick;
+		core::event<void(float Delta)> SigTick;
 
 		void Start(const std::string& Name, int32_t Fps, ThreadPriority Priority = ThreadPriority::Normal);
 		void Stop();

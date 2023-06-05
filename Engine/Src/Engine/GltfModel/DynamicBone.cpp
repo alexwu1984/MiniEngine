@@ -37,7 +37,7 @@ namespace Engine
 		delete Impl;
 	}
 
-	void DynamicBone::Update(float delta)
+	void DynamicBone::Update(float DeltaTime)
 	{
 		if (Impl->RootNode == nullptr)
 			return;
@@ -46,7 +46,7 @@ namespace Engine
 		if (Impl->UpdateRate > 0)
 		{
 			float dt = 1.0f / Impl->UpdateRate;
-			Impl->Time += delta;
+			Impl->Time += DeltaTime;
 			loop = 0;
 
 			while (Impl->Time >= dt)
@@ -60,7 +60,7 @@ namespace Engine
 			}
 		}
 
-		double UpdateDelta = delta * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den * 60.f;
+		double UpdateDelta = DeltaTime * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den * 60.f;
 
 		if (loop > 0)
 		{

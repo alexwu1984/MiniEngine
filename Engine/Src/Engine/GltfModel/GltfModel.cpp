@@ -110,11 +110,16 @@ namespace Engine
 		return Impl->Skeleton;
 	}
 
-	void GltfModel::Play(float Delta)
+	void GltfModel::Play(float TotalDeltaTime, float DeltaFrameTime)
 	{
 		if (Impl->AnimationMgr)
 		{
-			Impl->AnimationMgr->Play(Delta);
+			Impl->AnimationMgr->Play(TotalDeltaTime);
+		}
+
+		if (Impl->Skeleton)
+		{
+			Impl->Skeleton->UpdateBone(DeltaFrameTime);
 		}
 
 		UpdateNode();

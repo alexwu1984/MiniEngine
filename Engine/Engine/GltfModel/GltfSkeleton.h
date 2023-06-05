@@ -15,11 +15,11 @@ namespace Engine
 		virtual ~GltfSkeleton();
 
 		void InitSkeleton();
-		void UpdateBone();
+		void UpdateBone(float DeltaTime);
 		void UseInitPos();
 		void AddDynamicBone(const std::vector<DynamicBoneInfo>& BoneInfoArray);
 		void ResetDynamicBone();
-		void DeleteDynamicBone(const std::string& db_name);
+		void DeleteDynamicBone(const std::string& BoneName);
 		void UpdateDynamicBoneParameter(const DynamicBoneInfo& param);
 		bool HasDynamicBone() const;
 		std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray();
@@ -28,7 +28,7 @@ namespace Engine
 		void CreateModelBoneTree(int32_t NodeID);
 		//递归更新骨骼最终状态，，在此处进行动态骨骼更新，同步动态骨骼信息，计算出最后的变化矩阵
 		//param: CC3DBoneNodeInfo  骨骼信息
-		void DFSBoneTree(std::shared_ptr< GltfBoneNodeInfo> BoneNodeInfo, math::Matrix4x4& ParentMatrix);
+		void DFSBoneTree(std::shared_ptr< GltfBoneNodeInfo> BoneNodeInfo, math::Matrix4x4& ParentMatrix,float DeltaTime);
 		void InitDynamicBoneNode();
 
 	private:

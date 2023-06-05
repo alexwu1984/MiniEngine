@@ -36,7 +36,7 @@ namespace Engine
 		~DynamicBone();
 
 		// 去更新内部所有节点的信息
-		void Update(float delta); //更新节点，每一帧都会进行更新，更新动态骨骼的位置
+		void Update(float DeltaTime); //更新节点，每一帧都会进行更新，更新动态骨骼的位置
 		void Init( DynamicBoneInfo& BoneInfo); //3.设置界面上设置的刚性、弹性等参数
 		void InitParticle(DyTransformNode* RootTransform);  //1.初始化每个节点信息
 		void InitTransform(); //2.初始化动态骨骼的局部位置和局部旋转

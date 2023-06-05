@@ -30,11 +30,11 @@ namespace Engine
 
 		//动态骨骼后更新，等待骨骼动画动作完成之后更新动态骨骼位置
 		//param: BoneIndex  动态骨骼索引，为-1时表示没有动态骨骼
-		void LateUpdate(int BoneIndex = -1);
+		void LateUpdate(int BoneIndex = -1,float DeltaTime = 0.f);
 		void ResetDynamicBone();
 
-		void DeleteDynamicBone(const std::string& NodeName);
-		void DeleteChildTransfromNode(const std::string& NodeName);
+		void DeleteDynamicBone(const std::string& BoneName);
+		void DeleteChildTransfromNode(const std::string& BoneName);
 		void UpdateDynamicBoneParameter(const DynamicBoneInfo& param);
 		
 		void AddBoneParam(const DynamicBoneInfo& BoneInfo);

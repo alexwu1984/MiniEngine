@@ -140,9 +140,9 @@ namespace Engine
 	void GltfMeshComponent::Tick(float deltaTime)
 	{
 		Impl->TotalDeltaTime += deltaTime / 1000.f;
-		auto RenderMesh = [Impl = Impl](RenderCore::DynamicRHI* DyRHI)
+		auto RenderMesh = [Impl = Impl, deltaTime](RenderCore::DynamicRHI* DyRHI)
 		{
-			Impl->Model.Play(Impl->TotalDeltaTime);
+			Impl->Model.Play(Impl->TotalDeltaTime, deltaTime);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);

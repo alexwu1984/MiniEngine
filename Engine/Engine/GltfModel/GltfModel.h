@@ -21,7 +21,7 @@ namespace Engine
 		math::AABB3 GetModelBox() const;
 		std::shared_ptr<GltfNode> RootNode();
 		std::shared_ptr<GltfSkeleton> GetSkeleton();
-		void Play(float Delta);
+		void Play(float TotalDeltaTime,float DeltaFrameTime);
 	private:
 		void LoadNode();
 		void LoadMesh();

@@ -94,7 +94,7 @@ namespace Engine
 		}
 
 		UseInitPos();
-		UpdateBone();
+		UpdateBone(0.f);
 
 		for (int i = 0; i < Impl->_BoneNode.size(); i++)
 		{
@@ -102,7 +102,7 @@ namespace Engine
 		}
 	}
 
-	void GltfSkeleton::UpdateBone()
+	void GltfSkeleton::UpdateBone(float DeltaTime)
 	{
 		if (Impl->_RootNode.empty())
 		{
@@ -122,7 +122,7 @@ namespace Engine
 				Identity *= ParentNode.lock()->FinalMeshMat;
 			}
 			Impl->_DynamicBoneMgr->DynamicBonePreUpdate(Impl->_RootNode[i], Identity);
-			DFSBoneTree(Impl->_RootNode[i], Identity);
+			DFSBoneTree(Impl->_RootNode[i], Identity,DeltaTime);
 		}
 
 
@@ -160,17 +160,17 @@ namespace Engine
 
 	void GltfSkeleton::ResetDynamicBone()
 	{
-
+		Impl->_DynamicBoneMgr->ResetDynamicBone();
 	}
 
-	void GltfSkeleton::DeleteDynamicBone(const std::string& db_name)
+	void GltfSkeleton::DeleteDynamicBone(const std::string& BoneName)
 	{
-
+		Impl->_DynamicBoneMgr->DeleteDynamicBone(BoneName);
 	}
 
 	void GltfSkeleton::UpdateDynamicBoneParameter(const DynamicBoneInfo& param)
 	{
-
+		Impl->_DynamicBoneMgr->UpdateDynamicBoneParameter(param);
 	}
 
 	bool GltfSkeleton::HasDynamicBone() const
@@ -246,7 +246,7 @@ namespace Engine
 		}
 	}
 
-	void GltfSkeleton::DFSBoneTree(std::shared_ptr< GltfBoneNodeInfo> BoneNodeInfo, math::Matrix4x4& ParentMatrix)
+	void GltfSkeleton::DFSBoneTree(std::shared_ptr< GltfBoneNodeInfo> BoneNodeInfo, math::Matrix4x4& ParentMatrix, float DeltaTime)
 	{
 		math::Matrix4x4 mat4Scaling = math::Matrix4x4::ScaleMatrix(math::Vector3(BoneNodeInfo->TargetScale.x, BoneNodeInfo->TargetScale.y, BoneNodeInfo->TargetScale.z));
 		math::Matrix4x4 mat4Rotation = math::Matrix4x4::CreateFromQuaternion(math::Quaternion(BoneNodeInfo->TargetRotation));
@@ -266,7 +266,7 @@ namespace Engine
 		if (TransformBone)
 		{
 			math::Matrix4x4& RotMat = NodeTransformation;
-			Impl->_DynamicBoneMgr->LateUpdate(BoneNodeInfo->NodeIndex);
+			Impl->_DynamicBoneMgr->LateUpdate(BoneNodeInfo->BoneIndex, DeltaTime);
 			math::Vector3 Scale;
 			RotMat.GetScale(Scale);
 			math::Vector3 Translate = RotMat.GetTranslation();
@@ -284,7 +284,7 @@ namespace Engine
 
 		for (int i = 0; i < BoneNodeInfo->ChildrenNodes.size(); i++)
 		{
-			DFSBoneTree(BoneNodeInfo->ChildrenNodes[i], NodeTransformation);
+			DFSBoneTree(BoneNodeInfo->ChildrenNodes[i], NodeTransformation, DeltaTime);
 		}
 	}
 
@@ -306,13 +306,13 @@ namespace Engine
 		{
 			auto NodeInfo = Impl->_BoneNode[i];
 
-			if (NodeInfo->NodeIndex != -1)
+			if (NodeInfo->BoneIndex != -1)
 			{
 				auto TransformNode = Impl->_DynamicBoneMgr->GetTransformNode(NodeInfo->BoneName);
 				if (TransformNode)
 				{
-					Impl->_DynamicBoneMgr->InitParticle(TransformNode, NodeInfo->NodeIndex);
-					Impl->_DynamicBoneMgr->InitTransfrom(NodeInfo->NodeIndex);
+					Impl->_DynamicBoneMgr->InitParticle(TransformNode, NodeInfo->BoneIndex);
+					Impl->_DynamicBoneMgr->InitTransfrom(NodeInfo->BoneIndex);
 				}
 			}
 		}

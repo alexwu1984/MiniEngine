@@ -91,7 +91,7 @@ namespace Engine
 
 				auto dmc_bone = std::make_shared<DynamicBone>();
 				Impl->DyBoneArray.push_back(dmc_bone);
-				NodeInfo->NodeIndex = Impl->DyBoneArray.size() - 1;
+				NodeInfo->BoneIndex = Impl->DyBoneArray.size() - 1;
 
 				DynamicBoneInfo db_info;
 				db_info.Damping = cf_boneNameParam.Damping;
@@ -176,26 +176,27 @@ namespace Engine
 		}
 	}
 
-	void DynamicBoneManager::LateUpdate(int BoneIndex /*= -1*/)
+	void DynamicBoneManager::LateUpdate(int BoneIndex /*= -1*/, float DeltaTime)
 	{
 		if (BoneIndex == -1 || BoneIndex >= Impl->DyBoneArray.size())
 		{
 			return;
 		}
 
-		Impl->DyBoneArray[BoneIndex]->Update(0.05f);
+		Impl->DyBoneArray[BoneIndex]->Update(DeltaTime);
 	}
 
 	void DynamicBoneManager::ResetDynamicBone()
 	{
 		Impl->TransfromMap.clear();
 		Impl->DyBoneArray.clear();
+		Impl->DyBoneInfoArray.clear();
 	}
 
-	void DynamicBoneManager::DeleteDynamicBone(const std::string& NodeName)
+	void DynamicBoneManager::DeleteDynamicBone(const std::string& BoneName)
 	{
 		{
-			auto Iter = Impl->TransfromMap.find(NodeName);
+			auto Iter = Impl->TransfromMap.find(BoneName);
 			if (Iter != Impl->TransfromMap.end())
 			{
 				auto ChildNode = Iter->second;
@@ -217,7 +218,7 @@ namespace Engine
 		for (auto Iter = Impl->DyBoneArray.begin(); Iter != Impl->DyBoneArray.end(); )
 		{
 			auto Bone = *Iter;
-			if (Bone->GetID() == NodeName)
+			if (Bone->GetID() == BoneName)
 			{
 				Iter = Impl->DyBoneArray.erase(Iter);
 
@@ -230,7 +231,7 @@ namespace Engine
 
 		for (auto Iter = Impl->DyBoneInfoArray.begin(); Iter != Impl->DyBoneInfoArray.end(); )
 		{
-			if ((*Iter).BoneName == NodeName)
+			if ((*Iter).BoneName == BoneName)
 			{
 				Iter = Impl->DyBoneInfoArray.erase(Iter);
 			}
@@ -241,9 +242,9 @@ namespace Engine
 		}
 	}
 
-	void DynamicBoneManager::DeleteChildTransfromNode(const std::string& NodeName)
+	void DynamicBoneManager::DeleteChildTransfromNode(const std::string& BoneName)
 	{
-		auto Iter = Impl->TransfromMap.find(NodeName);
+		auto Iter = Impl->TransfromMap.find(BoneName);
 		if (Iter != Impl->TransfromMap.end())
 		{
 			auto ChildNode = Iter->second;

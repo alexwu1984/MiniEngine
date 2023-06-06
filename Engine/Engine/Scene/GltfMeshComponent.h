@@ -6,6 +6,7 @@ namespace Engine
 {
 	class GltfMesh;
 	class MaterialRender;
+	class GltfModel;
 
 	struct GltfMeshComponentP;
 
@@ -16,6 +17,7 @@ namespace Engine
 		~GltfMeshComponent();
 
 		bool Load(const std::wstring& FileName);
+		GltfModel& GetModel() const;
 		math::AABB3 GetModelBox() const;
 
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera);

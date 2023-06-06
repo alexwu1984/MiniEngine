@@ -3,12 +3,15 @@
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfSkeleton.h"
+#include "GltfModel/GltfModelConfig.h"
 #include "Render/PBRMaterialRender.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/DynamicRHI.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
 #include "Thread/RenderThread.h"
+#include "core/logger.h"
+
 
 namespace Engine
 {
@@ -33,6 +36,7 @@ namespace Engine
 		std::map<int32_t, std::shared_ptr<MaterialRender>> Renders;
 		std::vector<MeshDistanceInfo> SortMesh;
 		float TotalDeltaTime = 0.f;
+		std::shared_ptr< GltfModelConfig>  ModelConfig;
 	};
 
 	GltfMeshComponent::GltfMeshComponent(std::weak_ptr<Actor> Owner)
@@ -53,24 +57,45 @@ namespace Engine
 	//Todo: load json config
 	bool GltfMeshComponent::Load(const std::wstring& FileName)
 	{
-		if (!Impl->Model.Load(FileName))
+		std::filesystem::path Path = FileName;
+		if (!Path.has_extension())
 		{
+			core::err() << __FUNCTION__ << " Load File failed:" << FileName;
 			return false;
 		}
+		std::wstring Extension =  Path.extension().wstring();
 
-		size_t MeshSize = Impl->Model.GetModelMesh().size();
-
-		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		if (Extension == L".json")
 		{
-			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
-			//default Material
-			std::shared_ptr<PBRMaterialRender> PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(),Mesh->GetMaterial());
-			nlohmann::json jsonObj;
-			PBRMaterial->InitRenderResource(jsonObj);
-			Impl->Renders.insert({MeshIndex,PBRMaterial});
+			Impl->ModelConfig = std::make_shared<GltfModelConfig>(this->shared_from_this());
+			Impl->ModelConfig->Load(FileName);
+		}
+		else
+		{
+			if (!Impl->Model.Load(FileName))
+			{
+				return false;
+			}
+
+			size_t MeshSize = Impl->Model.GetModelMesh().size();
+
+			for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+			{
+				std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
+				//default Material
+				std::shared_ptr<PBRMaterialRender> PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+				nlohmann::json jsonObj;
+				PBRMaterial->InitRenderResource(jsonObj);
+				Impl->Renders.insert({ MeshIndex,PBRMaterial });
+			}
 		}
 
 		return true;
+	}
+
+	GltfModel& GltfMeshComponent::GetModel() const
+	{
+		return Impl->Model;
 	}
 
 	math::AABB3 GltfMeshComponent::GetModelBox() const

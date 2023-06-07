@@ -67,7 +67,7 @@ namespace Engine
 
 		if (Extension == L".json")
 		{
-			Impl->ModelConfig = std::make_shared<GltfModelConfig>(this->shared_from_this());
+			Impl->ModelConfig = std::make_shared<GltfModelConfig>(std::static_pointer_cast<GltfMeshComponent>(this->shared_from_this()));
 			Impl->ModelConfig->Load(FileName);
 		}
 		else

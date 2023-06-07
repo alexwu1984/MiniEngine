@@ -23,7 +23,15 @@ namespace Engine
 
 	bool GltfModelConfig::Load(const std::wstring& FileName)
 	{
-		return false;
+		std::ifstream input_json_file(FileName);
+		if (!input_json_file.is_open())
+		{
+			return false;
+		}
+
+		input_json_file >> Impl->Config;
+
+		return true;
 	}
 
 }

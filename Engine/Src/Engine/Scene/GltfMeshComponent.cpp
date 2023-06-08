@@ -68,7 +68,19 @@ namespace Engine
 		if (Extension == L".json")
 		{
 			Impl->ModelConfig = std::make_shared<GltfModelConfig>(std::static_pointer_cast<GltfMeshComponent>(this->shared_from_this()));
-			Impl->ModelConfig->Load(FileName);
+			if (Impl->ModelConfig->Load(FileName))
+			{
+				std::wstring Path = std::filesystem::path(FileName).parent_path().wstring();
+				Path += L"/" + Impl->ModelConfig->GetModel();
+				if (!Impl->Model.Load(Path))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				return false;
+			}
 		}
 		else
 		{
@@ -76,18 +88,18 @@ namespace Engine
 			{
 				return false;
 			}
+		}
 
-			size_t MeshSize = Impl->Model.GetModelMesh().size();
+		size_t MeshSize = Impl->Model.GetModelMesh().size();
 
-			for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
-			{
-				std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
-				//default Material
-				std::shared_ptr<PBRMaterialRender> PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
-				nlohmann::json jsonObj;
-				PBRMaterial->InitRenderResource(jsonObj);
-				Impl->Renders.insert({ MeshIndex,PBRMaterial });
-			}
+		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		{
+			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
+			//default Material
+			std::shared_ptr<PBRMaterialRender> PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+			nlohmann::json jsonObj;
+			PBRMaterial->InitRenderResource(jsonObj);
+			Impl->Renders.insert({ MeshIndex,PBRMaterial });
 		}
 
 		return true;

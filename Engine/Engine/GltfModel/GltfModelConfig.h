@@ -5,6 +5,7 @@ namespace Engine
 {
 	struct GltfModelConfigPrivate;
 	class GltfMeshComponent;
+	struct DynamicBoneInfo;
 
 	class GltfModelConfig
 	{
@@ -13,6 +14,7 @@ namespace Engine
 		~GltfModelConfig();
 
 		bool Load(const std::wstring& FileName);
+		std::wstring GetModel() const;
 
 	private:
 		GltfModelConfigPrivate* Impl = nullptr;

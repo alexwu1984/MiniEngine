@@ -68,4 +68,9 @@ namespace Engine
 		return Impl->ModelName;
 	}
 
+	const std::vector< DynamicBoneInfo>& GltfModelConfig::GetDyNamicBoneInfoList() const
+	{
+		return Impl->DyBonelist;
+	}
+
 }

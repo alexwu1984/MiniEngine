@@ -5,6 +5,7 @@
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfAnimationManager.h"
 #include "GltfModel/GltfSkeleton.h"
+#include "GltfModel/GltfModelConfig.h"
 
 namespace Engine
 {
@@ -20,6 +21,7 @@ namespace Engine
 		bool HasSkin = false;
 		AABB3  ModelBox;
 		std::shared_ptr<GltfAnimationManager> AnimationMgr;
+		std::shared_ptr< GltfModelConfig> Config;
 	};
 
 	GltfModel::GltfModel()
@@ -33,8 +35,9 @@ namespace Engine
 
 	}
 
-	bool GltfModel::Load(const std::wstring& FileName)
+	bool GltfModel::Load(const std::wstring& FileName, std::shared_ptr< GltfModelConfig> Config)
 	{
+		Impl->Config = Config;
 		std::string err;
 		std::string warn;
 		std::string utf8FileName = core::ucs2_u8(FileName);
@@ -189,6 +192,10 @@ namespace Engine
 	{
 		Impl->Skeleton = std::make_shared<GltfSkeleton>(&Impl->GltfMode, Impl->RootNode);
 		Impl->Skeleton->InitSkeleton();
+		if (Impl->Config)
+		{
+			Impl->Skeleton->AddDynamicBone(Impl->Config->GetDyNamicBoneInfoList());
+		}
 	}
 
 	std::vector <std::shared_ptr<GltfMaterial>> GltfModel::LoadMaterial()

@@ -72,7 +72,7 @@ namespace Engine
 			{
 				std::wstring Path = std::filesystem::path(FileName).parent_path().wstring();
 				Path += L"/" + Impl->ModelConfig->GetModel();
-				if (!Impl->Model.Load(Path))
+				if (!Impl->Model.Load(Path, Impl->ModelConfig))
 				{
 					return false;
 				}
@@ -84,7 +84,7 @@ namespace Engine
 		}
 		else
 		{
-			if (!Impl->Model.Load(FileName))
+			if (!Impl->Model.Load(FileName,nullptr))
 			{
 				return false;
 			}

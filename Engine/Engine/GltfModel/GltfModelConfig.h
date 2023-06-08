@@ -16,6 +16,8 @@ namespace Engine
 		bool Load(const std::wstring& FileName);
 		std::wstring GetModel() const;
 
+		const std::vector< DynamicBoneInfo>& GetDyNamicBoneInfoList() const;
+
 	private:
 		GltfModelConfigPrivate* Impl = nullptr;
 	};

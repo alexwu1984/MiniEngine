@@ -39,10 +39,12 @@ namespace math
 		{
 			return (x * x + y * y + z * z);
 		}
+		
 		void  Negate(void)                    
 		{
 			x = -x; y = -y; z = -z;
 		}
+
 		Vector3  Normalize(void)
 		{
 			float f = x * x + y * y + z * z;
@@ -64,7 +66,7 @@ namespace math
 			if (f > EPSILON_E4)
 			{
 				f = (float)1.0f / std::sqrt(f);
-				Vector3(x * f, y * f, z * f);
+				return Vector3(x * f, y * f, z * f);
 			}
 			else
 			{

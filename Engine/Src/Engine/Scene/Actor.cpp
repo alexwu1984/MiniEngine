@@ -27,7 +27,7 @@ namespace Engine
 	{
 		if (ImplActorP->State == AState::EActive)
 		{
-			ComputeWorldTransform();
+			ComputeWorldTransform(deltaTime);
 
 			TickComponents(deltaTime);
 			TickActor(deltaTime);
@@ -80,7 +80,7 @@ namespace Engine
 		ImplActorP->RecomputeWorldTransform = true;
 	}
 
-	void Actor::ComputeWorldTransform()
+	void Actor::ComputeWorldTransform(float deltaTime)
 	{
 		if (ImplActorP->RecomputeWorldTransform)
 		{
@@ -94,7 +94,7 @@ namespace Engine
 			// Inform components world transform updated
 			for (auto comp : ImplActorP->Components)
 			{
-				comp->OnUpdateWorldTransform();
+				comp->OnUpdateWorldTransform(deltaTime);
 			}
 		}
 	}

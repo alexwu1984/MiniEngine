@@ -23,6 +23,7 @@ namespace Engine
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera);
 
 		virtual void Tick(float deltaTime) override;
+		virtual void OnUpdateWorldTransform(float deltaTime) override;
 	private:
 		//对Mesh进行排序，按顺序渲染
 		void SortMesh(const math::Vector3& CameraPos);

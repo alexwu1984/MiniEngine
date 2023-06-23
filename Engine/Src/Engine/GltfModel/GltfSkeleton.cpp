@@ -183,6 +183,11 @@ namespace Engine
 		return Impl->_BoneNodeArray;
 	}
 
+	std::vector<std::shared_ptr<Engine::GltfBoneNodeInfo>>& GltfSkeleton::GetRootNode()
+	{
+		return Impl->_RootNode;
+	}
+
 	void GltfSkeleton::CreateModelBoneTree(int32_t NodeID)
 	{
 		if (Impl->_NodeBoneMap.find(NodeID) != Impl->_NodeBoneMap.end())

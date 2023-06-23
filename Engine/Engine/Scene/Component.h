@@ -30,7 +30,7 @@ namespace Engine
 		// Process input for this component
 		virtual void ProcessInput(const InputDeviceState& State) { (State); }
 		// Called when world transform changes
-		virtual void OnUpdateWorldTransform() { }
+		virtual void OnUpdateWorldTransform(float deltaTime) { }
 
 		std::shared_ptr<Actor> GetOwner() const;
 	private:

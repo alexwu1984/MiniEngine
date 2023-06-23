@@ -61,7 +61,7 @@ namespace Engine
 		}
 
 		double UpdateDelta = DeltaTime * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den * 60.f;
-
+		UpdateDelta = 6.0;
 		if (loop > 0)
 		{
 			for (int i = 0; i < loop; ++i)

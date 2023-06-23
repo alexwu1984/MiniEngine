@@ -23,6 +23,7 @@ namespace Engine
 		void UpdateDynamicBoneParameter(const DynamicBoneInfo& param);
 		bool HasDynamicBone() const;
 		std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray();
+		std::vector<std::shared_ptr<GltfBoneNodeInfo>>& GetRootNode();
 
 	private:
 		void CreateModelBoneTree(int32_t NodeID);

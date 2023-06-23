@@ -185,6 +185,18 @@ namespace Engine
 		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);
 	}
 
+	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
+	{
+		auto RenderMesh = [Impl = Impl,this, deltaTime](RenderCore::DynamicRHI* DyRHI)
+		{
+			math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
+			Impl->Model.GetSkeleton()->GetRootNode()[0]->ParentMat = WorldTransform;
+			Impl->Model.GetSkeleton()->UpdateBone(deltaTime);
+		};
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);
+	}
+
 	void GltfMeshComponent::SortMesh(const math::Vector3& CameraPos)
 	{
 		int MeshSize = Impl->Model.GetModelMesh().size();

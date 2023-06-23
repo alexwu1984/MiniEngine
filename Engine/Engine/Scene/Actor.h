@@ -52,7 +52,7 @@ namespace Engine
 		math::Quaternion GetRotation() const;
 		void SetRotation(const math::Quaternion& rotation);
 
-		void ComputeWorldTransform();
+		void ComputeWorldTransform(float deltaTime);
 		const math::Matrix4x4& GetWorldTransform() const;
 
 		AState GetState() const;

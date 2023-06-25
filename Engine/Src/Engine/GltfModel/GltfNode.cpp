@@ -48,9 +48,9 @@ namespace Engine
 
 	void GltfNode::UpdateNodeParent(std::shared_ptr<GltfNodeInfo> NodeInfo)
 	{
-		Matrix4x4 mat4Scaling = Matrix4x4::ScaleMatrix(Vector3(NodeInfo->Scale.x, NodeInfo->Scale.y, NodeInfo->Scale.z));
+		Matrix4x4 mat4Scaling = Matrix4x4::ScaleMatrix(NodeInfo->Scale);
 		Matrix4x4 mat4Rotation = Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
-		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(Vector3(NodeInfo->Translate.x, NodeInfo->Translate.y, NodeInfo->Translate.z));
+		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
 
 		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation;
 		auto ParentNode = NodeInfo->ParentNode.lock();

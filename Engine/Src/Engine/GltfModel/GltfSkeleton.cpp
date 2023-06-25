@@ -122,7 +122,7 @@ namespace Engine
 				Identity *= ParentNode.lock()->FinalMeshMat;
 			}
 			Impl->_DynamicBoneMgr->DynamicBonePreUpdate(Impl->_RootNode[i], Identity);
-			DFSBoneTree(Impl->_RootNode[i], Identity,DeltaTime);
+			DFSBoneTree(Impl->_RootNode[i], Identity, DeltaTime);
 		}
 
 

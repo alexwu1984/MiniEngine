@@ -194,7 +194,7 @@ namespace Engine
 		Impl->Skeleton->InitSkeleton();
 		if (Impl->Config)
 		{
-			Impl->Skeleton->AddDynamicBone(Impl->Config->GetDyNamicBoneInfoList());
+			//Impl->Skeleton->AddDynamicBone(Impl->Config->GetDyNamicBoneInfoList());
 		}
 	}
 

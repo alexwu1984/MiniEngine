@@ -125,7 +125,7 @@ namespace Engine
 		std::shared_ptr<DynamicParticle> particle = std::make_shared<DynamicParticle>();
 		particle->Position = particle->PrevPosition = TransformNode->GetWorldPosition();
 		particle->GPTransform = TransformNode;
-		particle->ParentIndex = BoneLength;
+		particle->ParentIndex = ParentIndex;
 		
 		particle->LocalPosition = TransformNode->GetLocalPosition();
 		particle->LocalRotation = TransformNode->GetLocalRotation();
@@ -254,7 +254,7 @@ namespace Engine
 			}
 			else
 			{
-				restLen = (p0->GPTransform->GetLocalPosition() * p->EndOffset).GetLength();
+				restLen = (p->EndOffset * p0->GPTransform->GetLocalToWorld() ).GetLength();
 			}
 
 			//TODO:keep shape

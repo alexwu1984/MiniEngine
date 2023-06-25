@@ -189,9 +189,14 @@ namespace Engine
 	{
 		auto RenderMesh = [Impl = Impl,this, deltaTime](RenderCore::DynamicRHI* DyRHI)
 		{
-			math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
-			Impl->Model.GetSkeleton()->GetRootNode()[0]->ParentMat = WorldTransform;
-			Impl->Model.GetSkeleton()->UpdateBone(deltaTime);
+			auto& RootNodes = Impl->Model.GetSkeleton()->GetRootNode();
+			if (!RootNodes.empty())
+			{
+				math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
+				RootNodes[0]->ParentMat = WorldTransform;
+				//Impl->Model.GetSkeleton()->UpdateBone(deltaTime);
+			}
+			
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);

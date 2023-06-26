@@ -39,10 +39,10 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
 {
     VS_OUTPUT_SCENE Output;
 #ifdef HAS_WEIGHTS_0
-    matrix skinningMatrix;
+    float4x4 skinningMatrix;
     skinningMatrix  = GetCurrentSkinningMatrix(input.JointsWeights0, input.JointsIndices0);
 #else
-    matrix skinningMatrix =
+    float4x4 skinningMatrix =
     {
         { 1, 0, 0, 0 },
         { 0, 1, 0, 0 },
@@ -50,7 +50,7 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
         { 0, 0, 0, 1 }
     };
 #endif
-    matrix transMatrix = mul(skinningMatrix,GetWorldMatrix());
+    float4x4 transMatrix = mul(skinningMatrix, GetWorldMatrix());
     Output.WorldPos = mul(float4(input.Position, 1),transMatrix).xyz;
     Output.svPosition = mul(float4(Output.WorldPos, 1),GetCameraViewProj());
 

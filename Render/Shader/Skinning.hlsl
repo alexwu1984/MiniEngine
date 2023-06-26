@@ -3,8 +3,8 @@
 
 struct Matrix2
 {
-    matrix Current;
-    matrix Previous;
+    float4x4 Current;
+    float4x4 Previous;
 };
 
 static const int MAX_MATRICES = 200; //the max

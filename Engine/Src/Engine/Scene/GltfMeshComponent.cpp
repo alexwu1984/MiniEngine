@@ -132,16 +132,16 @@ namespace Engine
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			if (!Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Material, Camera,0);
-			}
-
-			if (Mesh->GetSkinId()>-1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
-			{
-				auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
-				for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+				if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
 				{
-					Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+					auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
+					for (uint32_t BoneIndex = 0; BoneIndex < 2 && BoneIndex < Bone.size(); BoneIndex++)
+					{
+						Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+					}
 				}
+
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Material, Camera,0);
 			}
 		}
 
@@ -158,18 +158,20 @@ namespace Engine
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshID];
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
+				auto Material = Impl->Renders[MeshIndex];
+
+				if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
+				{
+					auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
+					for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+					{
+						Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+					}
+				}
+
 				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera, ModelPosType);
 			}
-			auto Material = Impl->Renders[MeshIndex];
 
-			if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
-			{
-				auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
-				for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
-				{
-					Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
-				}
-			}
 		}
 
 	}
@@ -187,19 +189,18 @@ namespace Engine
 
 	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
 	{
-		auto RenderMesh = [Impl = Impl,this, deltaTime](RenderCore::DynamicRHI* DyRHI)
+		auto UpdateTransform = [Impl = Impl,this, deltaTime](RenderCore::DynamicRHI* DyRHI)
 		{
 			auto& RootNodes = Impl->Model.GetSkeleton()->GetRootNode();
 			if (!RootNodes.empty())
 			{
 				math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
 				RootNodes[0]->ParentMat = WorldTransform;
-				//Impl->Model.GetSkeleton()->UpdateBone(deltaTime);
 			}
 			
 		};
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);
+		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateTransform);
 	}
 
 	void GltfMeshComponent::SortMesh(const math::Vector3& CameraPos)

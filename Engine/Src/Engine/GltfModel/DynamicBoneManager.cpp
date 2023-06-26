@@ -62,9 +62,9 @@ namespace Engine
 
 	void DynamicBoneManager::DFSInitDynamicBoneNode(std::shared_ptr<GltfBoneNodeInfo> NodeInfo, const math::Matrix4x4& ParentMatrix)
 	{
-		Matrix4x4 mat4Scaling = Matrix4x4::ScaleMatrix(Vector3(NodeInfo->TargetScale.x, NodeInfo->TargetScale.y, NodeInfo->TargetScale.z));
+		Matrix4x4 mat4Scaling = Matrix4x4::ScaleMatrix(NodeInfo->TargetScale);
 		Matrix4x4 mat4Rotation = Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->TargetRotation));
-		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(Vector3(NodeInfo->TargetTranslate.x, NodeInfo->TargetTranslate.y, NodeInfo->TargetTranslate.z));
+		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(NodeInfo->TargetTranslate);
 
 		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
 		NodeInfo->FinalTransformation = NodeTransformation;

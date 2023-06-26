@@ -65,7 +65,7 @@ namespace Engine
 
 			uint32_t nCount = 0;
 			int type = 0;
-			math::Matrix4x4* pMat = (math::Matrix4x4*)Getdata(MatID, nCount, type);
+			math::Matrix4x4* Matrices = (math::Matrix4x4*)Getdata(MatID, nCount, type);
 			if (nCount != joints.size())
 			{
 				continue;;
@@ -73,13 +73,13 @@ namespace Engine
 			BoneSkinInfo SkinInfo;
 			for (int i = 0; i < nCount; i++)
 			{
+				auto& InverseBindMat = Matrices[i];
 				auto NodeID = joints[i];
 				CreateModelBoneTree(NodeID);
 				std::shared_ptr<GltfBoneNodeInfo> Node = Impl->_BoneNode[Impl->_NodeBoneMap[NodeID]];
-				Node->NodeID = NodeID;
-				Node->InverseBindMat = pMat[i];
+				Node->InverseBindMat = InverseBindMat;
 				SkinInfo.Node = Node;
-				SkinInfo.InverseBindMat = pMat[i];
+				SkinInfo.InverseBindMat = InverseBindMat;
 				Impl->_BoneNodeArray[SkinIndex].push_back(SkinInfo);
 
 			}
@@ -264,7 +264,6 @@ namespace Engine
 		}
 
 		math::Matrix4x4 NodeTransformation =  mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
-		//NodeTransformation = ParentMatrix * mat4Translation * mat4Rotation * mat4Scaling;
 
 		//¸üÐÂ¶¯Ì¬¹Ç÷À
 		auto TransformBone = Impl->_DynamicBoneMgr->GetTransformNode(BoneNodeInfo->BoneName);

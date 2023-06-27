@@ -44,7 +44,14 @@ namespace Engine
 
 		Data->MaterialName = Material.name;
 		Data->DoubleSided = Material.doubleSided;
-		Data->IsTransParent = (Material.alphaMode != "OPAQUE");
+		if (Data->MaterialName.find("fur") != std::string::npos)
+		{
+			Data->IsTransParent = true;
+		}
+		else
+		{
+			Data->IsTransParent = (Material.alphaMode != "OPAQUE");
+		}
 
 		
 		auto CreateTexture = [Data = Data](int32_t Index,const core::FLinearColor& Color) {

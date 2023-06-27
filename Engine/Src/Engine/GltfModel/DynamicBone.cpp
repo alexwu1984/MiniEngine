@@ -17,8 +17,6 @@ namespace Engine
 		float Time{ 0.f };
 		float Weight{ 0.f };
 		float EndLength{ 0.f };
-		// 我们默认30帧
-		float UpdateRate{ 30.f };
 
 		DynamicBoneInfo Info;
 		std::string DBName;
@@ -37,39 +35,16 @@ namespace Engine
 		delete Impl;
 	}
 
-	void DynamicBone::Update(float DeltaTime)
+	void DynamicBone::Update()
 	{
 		if (Impl->RootNode == nullptr)
+		{
 			return;
-
-		int loop = 1;
-		if (Impl->UpdateRate > 0)
-		{
-			float dt = 1.0f / Impl->UpdateRate;
-			Impl->Time += DeltaTime;
-			loop = 0;
-
-			while (Impl->Time >= dt)
-			{
-				Impl->Time -= dt;
-				if (++loop >= 3)
-				{
-					Impl->Time = 0;
-					break;
-				}
-			}
 		}
-
-		double UpdateDelta = DeltaTime * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den * 60.f;
-		UpdateDelta = 6.0;
-		if (loop > 0)
-		{
-			for (int i = 0; i < loop; ++i)
-			{
-				UpdateParticle1(UpdateDelta);
-				UpdateParticle2(UpdateDelta);
-			}
-		}
+			
+		double UpdateDelta = 1.0;
+		UpdateParticle1(UpdateDelta);
+		UpdateParticle2(UpdateDelta);
 
 		ApplyParticlesToTransforms();
 	}
@@ -206,41 +181,40 @@ namespace Engine
 		return Impl->DBName;
 	}
 
-	void DynamicBone::UpdateParticle1(float DeltaTime)
+	void DynamicBone::UpdateParticle1(float UpdateDelta)
 	{
 		math::Vector3 Force = Impl->Gravity;
 		math::Vector3 Dir = Impl->Gravity.Normalize();
 
-		auto Gravity = math::Vector4(Impl->LocalGravity, 0.0f) * Impl->RootNode->GetLocalToWorld();
+		auto TmpGravity = math::Vector4(Impl->LocalGravity, 0.0f) * Impl->RootNode->GetLocalToWorld();
+		math::Vector3 Gravity3 = math::Vector3(TmpGravity.x, TmpGravity.y, TmpGravity.z);
 
-		math::Vector3 rf = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
+		math::Vector3 GravityF = Dir * (std::max)(Gravity3.Dot(Dir), 0.0f);
+		Force -= GravityF;
+		Force = (Force + Impl->Info.Force) * (Impl->ObjectScale * UpdateDelta);
 
-		math::Vector3 pf = Dir * (std::max)(rf.Dot(Dir), 0.0f);
-		Force -= pf;
-		Force = (Force + Impl->Info.Force) * (Impl->ObjectScale * DeltaTime);
-
-		for (int i = 0; i < Impl->VecDynameicParticle.size(); ++i)
+		for (int32_t Index = 0; Index < Impl->VecDynameicParticle.size(); ++Index)
 		{
-			auto p = Impl->VecDynameicParticle[i];
-			if (p->ParentIndex >= 0)
+			auto Dp = Impl->VecDynameicParticle[Index];
+			if (Dp->ParentIndex >= 0)
 			{
 				// verlet integration
-				math::Vector3 v = p->Position - p->PrevPosition; //自动添加的动态骨骼节点
-				math::Vector3 rmove =  Impl->ObjectMove * p->Inert;
-				p->PrevPosition = p->Position + rmove;
-				float damping = p->Damping;
+				math::Vector3 v = Dp->Position - Dp->PrevPosition; //自动添加的动态骨骼节点
+				math::Vector3 rmove =  Impl->ObjectMove * Dp->Inert;
+				Dp->PrevPosition = Dp->Position + rmove;
+				float damping = Dp->Damping;
 
-				p->Position += v * (1 - damping) + Force + rmove;
+				Dp->Position += v * (1 - damping) + Force + rmove;
 			}
 			else
 			{
-				p->PrevPosition = p->Position; //胸部骨骼的节点位置应该进行改变，在每一帧的运动之后需要进行更新
-				p->Position = p->GPTransform->GetWorldPosition(); //这个worldPosition是否需要在外面每一帧动作完成之后进行变化呢
+				Dp->PrevPosition = Dp->Position; //胸部骨骼的节点位置应该进行改变，在每一帧的运动之后需要进行更新
+				Dp->Position = Dp->GPTransform->GetWorldPosition(); //这个worldPosition是否需要在外面每一帧动作完成之后进行变化呢
 			}
 		}
 	}
 
-	void DynamicBone::UpdateParticle2(float DeltaTime)
+	void DynamicBone::UpdateParticle2(float UpdateDelta)
 	{
 		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
 		{
@@ -281,7 +255,7 @@ namespace Engine
 				}
 
 				math::Vector3 d = RestPos - p->Position;
-				p->Position += d * (p->Elasticity * DeltaTime);
+				p->Position += d * (p->Elasticity * UpdateDelta);
 
 				if (Stiffness > 0.0f)
 				{
@@ -289,27 +263,21 @@ namespace Engine
 					float len = d.GetLength();
 					float maxlen = restLen * (1.0f - Stiffness) * 2.0f;
 					if (len > maxlen)
+					{
 						p->Position += d * ((len - maxlen) / len);
+					}
+						
 				}
 			}
-
-			//if (!m_vecDynamicCollider.empty())
-			//{
-			//	float particleRadius = p->_fRadius * m_Info._radiusScale;
-			//	for (int j = 0; j < m_vecDynamicCollider.size(); ++j)
-			//	{
-			//		DynamicBoneColliderBase* c = m_vecDynamicCollider[j];
-			//		if (c != nullptr) {
-			//			c->Collide(p->_position, particleRadius);
-			//		}
-			//	}
-			//}
 
 			// keep length
 			math::Vector3 dd = p0->Position - p->Position;
 			float leng = dd.GetLength();
 			if (leng > 0)
+			{
 				p->Position += dd * ((leng - restLen) / leng);
+			}
+				
 		}
 	}
 

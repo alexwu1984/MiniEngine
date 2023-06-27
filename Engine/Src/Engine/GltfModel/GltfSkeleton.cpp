@@ -94,7 +94,7 @@ namespace Engine
 		}
 
 		UseInitPos();
-		UpdateBone(0.f);
+		UpdateBone();
 
 		for (int i = 0; i < Impl->_BoneNode.size(); i++)
 		{
@@ -102,13 +102,12 @@ namespace Engine
 		}
 	}
 
-	void GltfSkeleton::UpdateBone(float DeltaTime)
+	void GltfSkeleton::UpdateBone()
 	{
 		if (Impl->_RootNode.empty())
 		{
 			return;
 		}
-
 
 		for (int i = 0; i < Impl->_RootNode.size(); i++)
 		{
@@ -122,7 +121,7 @@ namespace Engine
 				Identity *= ParentNode.lock()->FinalMeshMat;
 			}
 			Impl->_DynamicBoneMgr->DynamicBonePreUpdate(Impl->_RootNode[i], Identity);
-			DFSBoneTree(Impl->_RootNode[i], Identity, DeltaTime);
+			DFSBoneTree(Impl->_RootNode[i], Identity);
 		}
 
 
@@ -251,7 +250,7 @@ namespace Engine
 		}
 	}
 
-	void GltfSkeleton::DFSBoneTree(std::shared_ptr< GltfBoneNodeInfo> BoneNodeInfo, math::Matrix4x4& ParentMatrix, float DeltaTime)
+	void GltfSkeleton::DFSBoneTree(std::shared_ptr< GltfBoneNodeInfo> BoneNodeInfo, math::Matrix4x4& ParentMatrix)
 	{
 		math::Matrix4x4 mat4Scaling = math::Matrix4x4::ScaleMatrix(math::Vector3(BoneNodeInfo->TargetScale.x, BoneNodeInfo->TargetScale.y, BoneNodeInfo->TargetScale.z));
 		math::Matrix4x4 mat4Rotation = math::Matrix4x4::CreateFromQuaternion(math::Quaternion(BoneNodeInfo->TargetRotation));
@@ -270,12 +269,12 @@ namespace Engine
 		if (TransformBone)
 		{
 			math::Matrix4x4& RotMat = NodeTransformation;
-			Impl->_DynamicBoneMgr->LateUpdate(BoneNodeInfo->BoneIndex, DeltaTime);
+			Impl->_DynamicBoneMgr->LateUpdate(BoneNodeInfo->BoneIndex);
 			math::Vector3 Scale;
 			RotMat.GetScale(Scale);
-			math::Vector3 Translate = RotMat.GetTranslation();
-			math::Quaternion Rot;
-			RotMat.GetRotation(Rot);
+			math::Vector3 Translate = TransformBone->GetWorldPosition();
+			//math::Vector3 Translate = RotMat.GetTranslation();
+			math::Quaternion Rot = TransformBone->GetWorldRotation();
 
 			auto TmpScaleMat = math::Matrix4x4::ScaleMatrix(Scale);
 			auto TmpRotMat = math::Matrix4x4::CreateFromQuaternion(Rot);
@@ -288,7 +287,7 @@ namespace Engine
 
 		for (int i = 0; i < BoneNodeInfo->ChildrenNodes.size(); i++)
 		{
-			DFSBoneTree(BoneNodeInfo->ChildrenNodes[i], NodeTransformation, DeltaTime);
+			DFSBoneTree(BoneNodeInfo->ChildrenNodes[i], NodeTransformation);
 		}
 	}
 

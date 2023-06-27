@@ -176,14 +176,14 @@ namespace Engine
 		}
 	}
 
-	void DynamicBoneManager::LateUpdate(int BoneIndex /*= -1*/, float DeltaTime)
+	void DynamicBoneManager::LateUpdate(int BoneIndex)
 	{
 		if (BoneIndex == -1 || BoneIndex >= Impl->DyBoneArray.size())
 		{
 			return;
 		}
 
-		Impl->DyBoneArray[BoneIndex]->Update(DeltaTime);
+		Impl->DyBoneArray[BoneIndex]->Update();
 	}
 
 	void DynamicBoneManager::ResetDynamicBone()

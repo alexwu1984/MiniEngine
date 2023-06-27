@@ -132,14 +132,6 @@ namespace Engine
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			if (!Mesh->GetMaterial()->IsTransparent())
 			{
-				if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
-				{
-					auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
-					for (uint32_t BoneIndex = 0; BoneIndex < 2 && BoneIndex < Bone.size(); BoneIndex++)
-					{
-						Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
-					}
-				}
 
 				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Material, Camera,0);
 			}
@@ -274,9 +266,9 @@ namespace Engine
 	}
 
 	void GltfMeshComponent::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, 
-		std::shared_ptr<MaterialRender> Render, std::shared_ptr<CameraComponent> Camera, int32_t PosType)
+		std::shared_ptr<MaterialRender> MaterialRender, std::shared_ptr<CameraComponent> Camera, int32_t PosType)
 	{
-		if (!Render)
+		if (!MaterialRender)
 		{
 			return;
 		}
@@ -288,9 +280,18 @@ namespace Engine
 		RenderParam.PosType = PosType;
 		RenderParam.HasSkin = Mesh->HasSkin();
 
-		auto RenderMesh = [Render = Render, RenderParam, Mesh = Mesh](RenderCore::DynamicRHI* DyRHI)
+		auto RenderMesh = [MaterialRender, RenderParam, Mesh ,Impl = Impl](RenderCore::DynamicRHI* DyRHI)
 		{
-			Render->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
+			if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
+			{
+				auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
+				for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+				{
+					MaterialRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+				}
+			}
+
+			MaterialRender->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);

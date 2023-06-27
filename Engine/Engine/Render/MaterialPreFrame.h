@@ -37,8 +37,14 @@ namespace Engine
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
 
+	struct Matrix2
+	{
+		math::Matrix4x4 Current;
+		math::Matrix4x4 Previous;
+	};
+
 	BEGIN_SHADER_STRUCT(CBPerSkeleton, 2)
-		DECLARE_ARRAY_PARAM(math::Matrix4x4,200, PerSkeleton_u_ModelMatrix)
+		DECLARE_ARRAY_PARAM(Matrix2,200, PerSkeleton_u_ModelMatrix)
 		BEGIN_STRUCT_CONSTRUCT(CBPerSkeleton)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT

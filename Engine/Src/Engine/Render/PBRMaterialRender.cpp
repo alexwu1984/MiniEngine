@@ -49,7 +49,7 @@ namespace Engine
 
 	void PBRMaterialRender::SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index)
 	{
-		Impl->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index] = Mat;
+		Impl->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
 	}
 
 	void PBRMaterialRender::InitShader(const std::wstring& Path)

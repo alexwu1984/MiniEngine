@@ -64,13 +64,15 @@ namespace Engine
 			return;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* RHI ) {
+		auto ClearAndSetViewPort = [Impl = Impl](RenderCore::DynamicRHI* RHI) {
 			Impl->MainViewPort->Clear(core::FLinearColor::Gray);
 			Impl->MainViewPort->SetRenderTarget();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
-		}));
+		};
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);
 
 		const auto& Actors = GetOwner()->GetAllActors();
 		for (const auto& ActorItem: Actors )
@@ -85,11 +87,12 @@ namespace Engine
 			}
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* ) {
+		auto Present = [Impl = Impl, this](RenderCore::DynamicRHI*) {
 			Impl->MainViewPort->Present();
-		}));
+		};
 
-		
+		ENQUEUE_UNIQUE_RENDER_COMMAND(Present);
+
 	}
 
 }

@@ -141,7 +141,7 @@ namespace core
             return vec2(static_cast<T>(x * rate), static_cast<T>(y * rate));
         }
 
-        vec2 operator / (const T & rate)
+        vec2 operator / (const T & rate) const
         {
             return vec2(x / rate, y / rate);
         }

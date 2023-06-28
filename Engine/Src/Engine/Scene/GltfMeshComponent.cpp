@@ -11,7 +11,8 @@
 #include "Scene/CameraComponent.h"
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
-
+#include "Engine/Engine.h"
+#include "Scene/SceneView.h"
 
 namespace Engine
 {
@@ -292,6 +293,8 @@ namespace Engine
 			}
 
 			MaterialRender->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
+
+			GEngine->GetScene()->SetCanHandleInput(true);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);

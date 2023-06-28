@@ -14,7 +14,9 @@ namespace Engine
 		std::shared_ptr<CameraComponent> MainCamera;
 
 		bool UpdatingActors = false;
-		InputDeviceState InputState;
+		std::atomic_bool CanHandleInput = false;
+		std::mutex DeviceLock;
+		std::queue< InputDeviceState> InputStates;
 	};
 
 	SceneView::SceneView()
@@ -69,12 +71,23 @@ namespace Engine
 
 	void SceneView::Tick(float DeltaTime)
 	{
+		InputDeviceState InputState;
+		if(Impl->CanHandleInput)
+		{
+			std::lock_guard L(Impl->DeviceLock);
+			while (!Impl->InputStates.empty())
+			{
+				InputState = Impl->InputStates.front();
+				Impl->InputStates.pop();
+			}
+		}
+
 		// Update all actors
 		Impl->UpdatingActors = true;
 		for (auto Item : Impl->Actors)
 		{
 			Item->Tick(DeltaTime);
-			Item->ProcessInput(Impl->InputState);
+			Item->ProcessInput(InputState);
 		}
 
 		Impl->UpdatingActors = false;
@@ -83,11 +96,10 @@ namespace Engine
 		for (auto pending : Impl->PendingActors)
 		{
 			pending->Tick(DeltaTime);
-			pending->ProcessInput(Impl->InputState);
+			pending->ProcessInput(InputState);
 			Impl->Actors.emplace_back(pending);
 		}
 
-		Impl->InputState = {};
 		Impl->PendingActors.clear();
 
 		for (auto ItActor = Impl->Actors.begin(); ItActor != Impl->Actors.end();)
@@ -118,21 +130,31 @@ namespace Engine
 		return Impl->Actors;
 	}
 
+	void SceneView::SetCanHandleInput(bool CanHandle)
+	{
+		Impl->CanHandleInput = CanHandle;
+	}
+
 	void SceneView::OnMouseButton(MouseButton Button, core::vec2f Pos)
 	{
-		Impl->InputState.Device = Mouse;
-		Impl->InputState.MouseInputState.EventType = MET_ButtonDown;
-		Impl->InputState.MouseInputState.Button = Button;
-		Impl->InputState.MouseInputState.Pos = Pos;
+		std::lock_guard L(Impl->DeviceLock);
+		InputDeviceState InputState{};
+		InputState.Device = Mouse;
+		InputState.MouseInputState.EventType = MET_ButtonDown;
+		InputState.MouseInputState.Button = Button;
+		InputState.MouseInputState.Pos = Pos;
+		Impl->InputStates.push(InputState);
 	}
 
 	void SceneView::OnMouseMove(MouseButton Button, core::vec2f Pos)
 	{
-
-		Impl->InputState.Device = Mouse;
-		Impl->InputState.MouseInputState.EventType = MET_Move;
-		Impl->InputState.MouseInputState.Button = Button;
-		Impl->InputState.MouseInputState.Pos = Pos;
+		std::lock_guard L(Impl->DeviceLock);
+		InputDeviceState InputState{};
+		InputState.Device = Mouse;
+		InputState.MouseInputState.EventType = MET_Move;
+		InputState.MouseInputState.Button = Button;
+		InputState.MouseInputState.Pos = Pos;
+		Impl->InputStates.push(InputState);
 	}
 
 }

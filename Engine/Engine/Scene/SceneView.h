@@ -37,9 +37,12 @@ namespace Engine
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
 		std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
 		
+		void SetCanHandleInput(bool CanHandle);
+	
 	private:
 		void OnMouseButton(MouseButton Button, core::vec2f Pos);
 		void OnMouseMove(MouseButton Button, core::vec2f Pos);
+		
 	private:
 		std::unique_ptr< SceneViewP> Impl;
 	};

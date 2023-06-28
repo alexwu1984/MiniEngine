@@ -11,6 +11,7 @@ namespace Engine
 		core::vec2f Rotate;
 		core::vec2f Translate;
 		core::vec2f LBtnDownTranslate;
+		core::vec2f LBtnRotate;
 		core::vec2f RBtnDownTranslate;
 	};
 
@@ -46,7 +47,7 @@ namespace Engine
 				if (Button == MouseButton::LeftButton)
 				{
 					Impl->LBDownPoint = Pos;
-					Impl->LBtnDownTranslate = Impl->Rotate;
+					Impl->LBtnRotate = Impl->Rotate;
 				}
 				else if (Button == MouseButton::RightButton)
 				{
@@ -59,21 +60,21 @@ namespace Engine
 			{
 				if (Button == MouseButton::LeftButton)
 				{
-					Impl->Rotate = Impl->LBtnDownTranslate + (Pos - Impl->LBDownPoint);
+					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) *( 1.f / 10.f);
 				}
 				if (Button == MouseButton::RightButton)
 				{
 					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint);
 				}
+
+				float xAngle = math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
+				float yAngle = math::Fmod(Impl->Rotate.y, 360.0f) * math::MATH_PI / 180.f;
+				math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle, 0.f);
+
+				GetOwner()->SetRotation(Quat);
 			}
 			break;
 			}
-
-			float xAngle = math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
-			float yAngle = math::Fmod(Impl->Rotate.y, 360.0f) * math::MATH_PI / 180.f;
-			math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle,0.f);
-
-			GetOwner()->SetRotation(Quat);
 		}
 		
 

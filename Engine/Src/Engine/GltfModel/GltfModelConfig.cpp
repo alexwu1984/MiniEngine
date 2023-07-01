@@ -15,39 +15,41 @@ namespace Engine
 	};
 
 	GltfModelConfig::GltfModelConfig(std::weak_ptr< GltfMeshComponent> Owner)
-		:Impl(new GltfModelConfigPrivate())
+		:d_ptr(new GltfModelConfigPrivate())
 	{
-		Impl->Owner = Owner;
+		C_P(GltfModelConfig);
+		d->Owner = Owner;
 	}
 
 	GltfModelConfig::~GltfModelConfig()
 	{
-		delete Impl;
+		delete d_ptr;
 	}
 
 	bool GltfModelConfig::Load(const std::wstring& FileName)
 	{
+		C_P(GltfModelConfig);
 		std::ifstream input_json_file(FileName);
 		if (!input_json_file.is_open())
 		{
 			return false;
 		}
 
-		input_json_file >> Impl->Config;
+		input_json_file >> d->Config;
 
-		if (Impl->Config.is_null())
+		if (d->Config.is_null())
 		{
 			return false;
 		}
 
-		auto GltfJson = Impl->Config["Gltf"];
+		auto GltfJson = d->Config["Gltf"];
 		if (GltfJson.is_null())
 		{
 			return false;
 		}
-		Impl->ModelName = core::u8_ucs2(GltfJson["Model"]);
+		d->ModelName = core::u8_ucs2(GltfJson["Model"]);
 
-		auto DyBoneListJson = Impl->Config["DyBone"];
+		auto DyBoneListJson = d->Config["DyBone"];
 
 		for (auto Item: DyBoneListJson)
 		{
@@ -57,7 +59,7 @@ namespace Engine
 			BoneInfo.Elasticity = Item["Elasticity"].get<float>();
 			BoneInfo.Stiffness = Item["Stiffness"].get<float>();
 			BoneInfo.Inert = Item["Inert"].get<float>();
-			Impl->DyBonelist.push_back(BoneInfo);
+			d->DyBonelist.push_back(BoneInfo);
 		}
 
 		return true;
@@ -65,12 +67,14 @@ namespace Engine
 
 	std::wstring GltfModelConfig::GetModel() const
 	{
-		return Impl->ModelName;
+		C_P(const GltfModelConfig);
+		return d->ModelName;
 	}
 
 	const std::vector< DynamicBoneInfo>& GltfModelConfig::GetDyNamicBoneInfoList() const
 	{
-		return Impl->DyBonelist;
+		C_P(const GltfModelConfig);
+		return d->DyBonelist;
 	}
 
 }

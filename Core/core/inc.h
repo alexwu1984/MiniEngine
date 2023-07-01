@@ -129,3 +129,5 @@ char(&UE4ArrayCountHelper(const T(&)[N]))[N + 1];
 // Number of elements in an array.
 #define UE_ARRAY_COUNT( array ) (sizeof(UE4ArrayCountHelper(array)) - 1)
 #define VERIFYD3D11RESULT(x) {HRESULT hr = x; if (FAILED(hr)) { Assert(false);}}
+
+#define C_P(Name) Name##Private *d = d_ptr;

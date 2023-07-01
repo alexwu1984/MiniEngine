@@ -10,7 +10,7 @@ namespace Engine
 	using namespace RenderCore;
 	using namespace math;
 
-	struct GltfMaterialP
+	struct GltfMaterialPrivate
 	{
 		tinygltf::Model* Model = nullptr;
 		std::string MaterialName;
@@ -25,9 +25,10 @@ namespace Engine
 	};
 
 	GltfMaterial::GltfMaterial(tinygltf::Model* Model)
-		:Data(std::make_shared<GltfMaterialP>())
+		:d_ptr(new GltfMaterialPrivate())
 	{
-		Data->Model = Model;
+		C_P(GltfMaterial);
+		d->Model = Model;
 	}
 
 	GltfMaterial::~GltfMaterial()
@@ -36,31 +37,34 @@ namespace Engine
 		{
 			GRenderThread->WaitForFinish();
 		}
+		delete d_ptr;
 	}
 
 	void GltfMaterial::InitMaterial(uint32_t MaterialIndex)
 	{
-		auto& Material = Data->Model->materials[MaterialIndex];
+		C_P(GltfMaterial);
+		auto& Material = d->Model->materials[MaterialIndex];
 
-		Data->MaterialName = Material.name;
-		Data->DoubleSided = Material.doubleSided;
-		if (Data->MaterialName.find("fur") != std::string::npos)
+		d->MaterialName = Material.name;
+		d->DoubleSided = Material.doubleSided;
+		if (d->MaterialName.find("fur") != std::string::npos)
 		{
-			Data->IsTransParent = true;
+			d->IsTransParent = true;
 		}
 		else
 		{
-			Data->IsTransParent = (Material.alphaMode != "OPAQUE");
+			d->IsTransParent = (Material.alphaMode != "OPAQUE");
 		}
 
 		
-		auto CreateTexture = [Data = Data](int32_t Index,const core::FLinearColor& Color) {
-			auto& gltfTexture = Data->Model->textures;
+		auto CreateTexture = [this](int32_t Index,const core::FLinearColor& Color) {
+			C_P(GltfMaterial);
+			auto& gltfTexture = d->Model->textures;
 			std::shared_ptr<RHITexture2D> TexRHI;
 			if (Index > -1 && Index < gltfTexture.size())
 			{
 				int32_t Source = gltfTexture[Index].source;
-				auto& ModelImage = Data->Model->images[Source];
+				auto& ModelImage = d->Model->images[Source];
 				uint8_t* pData = (uint8_t*)ModelImage.image.data();
 				TexRHI = GEngine->GetRHI()->RHICreateTexture2D(EPixelFormat::PF_R8G8B8A8, RenderCore::TexCreate_ShaderResource, ModelImage.width, ModelImage.height, pData, ModelImage.width * 4);
 			}
@@ -72,23 +76,23 @@ namespace Engine
 			return TexRHI;
 		};
 
-		auto CreateTexCommand = [Data = Data, Material, CreateTexture](DynamicRHI *DyRHI) {
-
+		auto CreateTexCommand = [this, Material, CreateTexture](DynamicRHI *DyRHI) {
+			C_P(GltfMaterial);
 			int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
-			Data->BaseColorTexture = CreateTexture(Index, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));
+			d->BaseColorTexture = CreateTexture(Index, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));
 
 			Index = Material.pbrMetallicRoughness.metallicRoughnessTexture.index;
-			Data->MetallicRoughnessTexture = CreateTexture(Index, core::FLinearColor(1.f, float(Material.pbrMetallicRoughness.roughnessFactor), float(Material.pbrMetallicRoughness.metallicFactor), 1.0));
+			d->MetallicRoughnessTexture = CreateTexture(Index, core::FLinearColor(1.f, float(Material.pbrMetallicRoughness.roughnessFactor), float(Material.pbrMetallicRoughness.metallicFactor), 1.0));
 
 			auto EmissiveColor = Material.emissiveFactor;
 			Index = Material.emissiveTexture.index;
-			Data->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])));
+			d->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])));
 
 			Index = Material.normalTexture.index;
-			Data->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
+			d->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
 
 			Index = Material.occlusionTexture.index;
-			Data->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
+			d->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
@@ -96,37 +100,44 @@ namespace Engine
 
 	std::string GltfMaterial::GetMaterialName() const
 	{
-		return Data->MaterialName;
+		C_P(const GltfMaterial);
+		return d->MaterialName;
 	}
 
 	bool GltfMaterial::IsTransparent() const
 	{
-		return Data->IsTransParent;
+		C_P(const GltfMaterial);
+		return d->IsTransParent;
 	}
 
 	std::shared_ptr<RHITexture2D> GltfMaterial::GetBaseColorTexture() const
 	{
-		return Data->BaseColorTexture;
+		C_P(GltfMaterial);
+		return d->BaseColorTexture;
 	}
 
 	std::shared_ptr<RHITexture2D> GltfMaterial::GetMetallicRoughnessTexture() const
 	{
-		return Data->MetallicRoughnessTexture;
+		C_P(GltfMaterial);
+		return d->MetallicRoughnessTexture;
 	}
 
 	std::shared_ptr<RHITexture2D> GltfMaterial::GetNormalTexture() const
 	{
-		return Data->NormalTexture;
+		C_P(GltfMaterial);
+		return d->NormalTexture;
 	}
 
 	std::shared_ptr<RHITexture2D> GltfMaterial::GetEmissiveTexture() const
 	{
-		return Data->EmissiveTexture;
+		C_P(GltfMaterial);
+		return d->EmissiveTexture;
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> GltfMaterial::GetOcclusionTexture() const
 	{
-		return Data->OcclusionTexture;
+		C_P(GltfMaterial);
+		return d->OcclusionTexture;
 	}
 
 }

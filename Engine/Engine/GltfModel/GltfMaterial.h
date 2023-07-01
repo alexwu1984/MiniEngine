@@ -9,7 +9,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct GltfMaterialP;
+	struct GltfMaterialPrivate;
 
 	class GltfMaterial
 	{
@@ -29,6 +29,6 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetOcclusionTexture() const;
 
 	private:
-		std::shared_ptr< GltfMaterialP> Data;
+		GltfMaterialPrivate* d_ptr = nullptr;
 	};
 }

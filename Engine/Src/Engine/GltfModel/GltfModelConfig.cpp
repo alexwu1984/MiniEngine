@@ -12,6 +12,7 @@ namespace Engine
 		std::weak_ptr< GltfMeshComponent> Owner;
 		std::vector< DynamicBoneInfo> DyBonelist;
 		std::wstring ModelName;
+		GltfFurConfig FurConfig;
 	};
 
 	GltfModelConfig::GltfModelConfig(std::weak_ptr< GltfMeshComponent> Owner)
@@ -62,6 +63,16 @@ namespace Engine
 			d->DyBonelist.push_back(BoneInfo);
 		}
 
+		auto FurJson = d->Config["FurMaterial"];
+		d->FurConfig.Name = FurJson["Name"];
+		d->FurConfig.NoiseTex = FurJson["NoiseTex"];
+		d->FurConfig.FurLength = FurJson["FurLength"];
+		d->FurConfig.FurAmbientStrength = FurJson["FurAmbientStrength"];
+		d->FurConfig.FurLevel = FurJson["FurLevel"];
+		d->FurConfig.UVScale = FurJson["UVScale"];
+		d->FurConfig.FurLightExposure = FurJson["FurLightExposure"];
+		std::string Gravity = FurJson["Gravity"];
+		sscanf_s(Gravity.c_str(), "%f,%f,%f", &d->FurConfig.Gravity.x, &d->FurConfig.Gravity.y, &d->FurConfig.Gravity.z);
 		return true;
 	}
 
@@ -75,6 +86,12 @@ namespace Engine
 	{
 		C_P(const GltfModelConfig);
 		return d->DyBonelist;
+	}
+
+	const Engine::GltfFurConfig& GltfModelConfig::GetFurConfig() const
+	{
+		C_P(const GltfModelConfig);
+		return d->FurConfig;
 	}
 
 }

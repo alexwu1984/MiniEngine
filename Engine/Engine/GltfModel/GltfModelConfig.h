@@ -10,12 +10,16 @@ namespace Engine
 
 	struct GltfFurConfig
 	{
+		std::string Name;
 		std::string NoiseTex;
 		float FurLength{ 0.18 };
 		float FurAmbientStrength{ 2.94 };
 		float FurLevel{ 28 };
 		float UVScale{ 30 };
-		math::Vector3 Gravity{ 0,-1,0 };
+		float FurLightExposure{ 0.4 };
+
+		math::Vector3 Gravity{ 0,0,0 };
+		math::Vector3 FurColor{ 1,1,1 };
 	};
 
 	class GltfModelConfig
@@ -28,6 +32,7 @@ namespace Engine
 		std::wstring GetModel() const;
 
 		const std::vector< DynamicBoneInfo>& GetDyNamicBoneInfoList() const;
+		const GltfFurConfig& GetFurConfig() const;
 
 	private:
 		GltfModelConfigPrivate* d_ptr = nullptr;

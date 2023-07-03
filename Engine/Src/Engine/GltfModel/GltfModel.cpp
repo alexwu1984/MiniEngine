@@ -3,6 +3,7 @@
 #include "GltfModel/GltfNode.h"
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
+#include "GltfModel/GltfFurMaterial.h"
 #include "GltfModel/GltfAnimationManager.h"
 #include "GltfModel/GltfSkeleton.h"
 #include "GltfModel/GltfModelConfig.h"
@@ -128,6 +129,11 @@ namespace Engine
 		UpdateNode();
 	}
 
+	std::shared_ptr< Engine::GltfModelConfig> GltfModel::GetModelConfig() const
+	{
+		return Impl->Config;
+	}
+
 	void GltfModel::LoadNode()
 	{
 		if (!Impl->GltfMode.nodes.empty())
@@ -203,8 +209,19 @@ namespace Engine
 		std::vector <std::shared_ptr<GltfMaterial>> ModelMaterial;
 		for (int i = 0; i < Impl->GltfMode.materials.size(); i++)
 		{
-			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<GltfMaterial>(&Impl->GltfMode);
+			auto& Material = Impl->GltfMode.materials[i];
+			std::string MaterialName = Material.name;
+			std::shared_ptr< GltfMaterial> PBRMaterial;
+			if (MaterialName == Impl->Config->GetFurConfig().Name)
+			{
+				PBRMaterial = std::make_shared<GltfFurMaterial>(this, &Impl->GltfMode);	
+			}
+			else
+			{
+				PBRMaterial = std::make_shared<GltfMaterial>(this, &Impl->GltfMode);
+			}
 			PBRMaterial->InitMaterial(i);
+
 			ModelMaterial.push_back(PBRMaterial);
 		}
 		return ModelMaterial;

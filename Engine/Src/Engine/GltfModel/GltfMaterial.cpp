@@ -4,6 +4,8 @@
 #include "RHI/RHITexture2D.h"
 #include "Thread/RenderThread.h"
 #include "core/color.h"
+#include "GltfModel/GltfModel.h"
+#include "GltfModel/GltfModelConfig.h"
 
 namespace Engine
 {
@@ -12,6 +14,7 @@ namespace Engine
 
 	struct GltfMaterialPrivate
 	{
+		GltfModel* Owner = nullptr;
 		tinygltf::Model* Model = nullptr;
 		std::string MaterialName;
 		bool DoubleSided = false;                
@@ -24,11 +27,12 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> OcclusionTexture;
 	};
 
-	GltfMaterial::GltfMaterial(tinygltf::Model* Model)
+	GltfMaterial::GltfMaterial(GltfModel* Owner,tinygltf::Model* Model)
 		:d_ptr(new GltfMaterialPrivate())
 	{
 		C_P(GltfMaterial);
 		d->Model = Model;
+		d->Owner = Owner;
 	}
 
 	GltfMaterial::~GltfMaterial()
@@ -47,16 +51,9 @@ namespace Engine
 
 		d->MaterialName = Material.name;
 		d->DoubleSided = Material.doubleSided;
-		if (d->MaterialName.find("fur") != std::string::npos)
-		{
-			d->IsTransParent = true;
-		}
-		else
-		{
-			d->IsTransParent = (Material.alphaMode != "OPAQUE");
-		}
 
-		
+		d->IsTransParent = (Material.alphaMode != "OPAQUE");
+
 		auto CreateTexture = [this](int32_t Index,const core::FLinearColor& Color) {
 			C_P(GltfMaterial);
 			auto& gltfTexture = d->Model->textures;
@@ -108,6 +105,12 @@ namespace Engine
 	{
 		C_P(const GltfMaterial);
 		return d->IsTransParent;
+	}
+
+	void GltfMaterial::SetTransparent(bool Transparent)
+	{
+		C_P(GltfMaterial);
+		d->IsTransParent = Transparent;
 	}
 
 	std::shared_ptr<RHITexture2D> GltfMaterial::GetBaseColorTexture() const

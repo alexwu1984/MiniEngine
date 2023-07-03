@@ -8,8 +8,10 @@ namespace Engine
 	class GltfFurMaterial : public GltfMaterial
 	{
 	public:
-		GltfFurMaterial(tinygltf::Model* Model);
+		GltfFurMaterial(GltfModel* Owner, tinygltf::Model* Model);
 		~GltfFurMaterial();
+
+		virtual void  InitMaterial(uint32_t MaterialIndex) override;
 
 	private:
 		GltfFurMaterialPrivate* d_ptr = nullptr;

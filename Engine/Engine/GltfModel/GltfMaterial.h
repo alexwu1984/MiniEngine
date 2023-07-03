@@ -10,17 +10,19 @@ namespace RenderCore
 namespace Engine
 {
 	struct GltfMaterialPrivate;
+	class GltfModel;
 
-	class GltfMaterial
+	class GltfMaterial 
 	{
 
 	public:
-		GltfMaterial(tinygltf::Model* Model);
+		GltfMaterial(GltfModel* Owner,tinygltf::Model* Model);
 		~GltfMaterial();
 
-		void  InitMaterial(uint32_t MaterialIndex);
+		virtual void  InitMaterial(uint32_t MaterialIndex);
 		std::string GetMaterialName() const;
 		bool IsTransparent() const;
+		void SetTransparent(bool Transparent);
 
 		std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const;

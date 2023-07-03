@@ -10,8 +10,8 @@ namespace Engine
 		float UVScale = 20.0f;
 	};
 
-	GltfFurMaterial::GltfFurMaterial(tinygltf::Model* Model)
-		:GltfMaterial(Model)
+	GltfFurMaterial::GltfFurMaterial(GltfModel* Owner, tinygltf::Model* Model)
+		:GltfMaterial(Owner,Model)
 		,d_ptr(new GltfFurMaterialPrivate())
 	{
 
@@ -20,6 +20,12 @@ namespace Engine
 	GltfFurMaterial::~GltfFurMaterial()
 	{
 		delete d_ptr;
+	}
+
+	void GltfFurMaterial::InitMaterial(uint32_t MaterialIndex)
+	{
+		GltfMaterial::InitMaterial(MaterialIndex);
+		SetTransparent(true);
 	}
 
 }

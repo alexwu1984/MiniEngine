@@ -10,7 +10,7 @@ namespace Engine
 	class GltfSkeleton;
 	class GltfModelConfig;
 
-	class GltfModel
+	class GltfModel : public std::enable_shared_from_this<GltfModel>
 	{
 	public:
 		GltfModel();
@@ -23,6 +23,7 @@ namespace Engine
 		std::shared_ptr<GltfNode> RootNode();
 		std::shared_ptr<GltfSkeleton> GetSkeleton();
 		void Play(float TotalDeltaTime,float DeltaFrameTime);
+		std::shared_ptr< GltfModelConfig> GetModelConfig() const;
 	private:
 		void LoadNode();
 		void LoadMesh();

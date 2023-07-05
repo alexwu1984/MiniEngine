@@ -5,6 +5,7 @@
 #include "GltfModel/GltfSkeleton.h"
 #include "GltfModel/GltfModelConfig.h"
 #include "Render/PBRMaterialRender.h"
+#include "Render/FurMaterialRender.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/DynamicRHI.h"
 #include "Scene/Actor.h"
@@ -97,9 +98,21 @@ namespace Engine
 		{
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			//default Material
-			std::shared_ptr<PBRMaterialRender> PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
-			nlohmann::json jsonObj;
-			PBRMaterial->InitRenderResource(jsonObj);
+			std::shared_ptr<PBRMaterialRender> PBRMaterial;
+
+			switch (Mesh->GetMaterial()->GetMaterialType())
+			{
+			case GltfMaterial::MaterialType::PBR:
+				PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+				break;
+			case GltfMaterial::MaterialType::FUR:
+				PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+				break;
+			default:
+				PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+			}
+
+			PBRMaterial->InitRenderResource(Impl->ModelConfig);
 			Impl->Renders.insert({ MeshIndex,PBRMaterial });
 		}
 

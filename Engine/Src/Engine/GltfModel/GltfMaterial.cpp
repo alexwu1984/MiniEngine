@@ -113,6 +113,11 @@ namespace Engine
 		d->IsTransParent = Transparent;
 	}
 
+	GltfMaterial::MaterialType GltfMaterial::GetMaterialType() const
+	{
+		return MaterialType::PBR;
+	}
+
 	std::shared_ptr<RHITexture2D> GltfMaterial::GetBaseColorTexture() const
 	{
 		C_P(GltfMaterial);

@@ -28,4 +28,9 @@ namespace Engine
 		SetTransparent(true);
 	}
 
+	GltfMaterial::MaterialType GltfFurMaterial::GetMaterialType() const
+	{
+		return MaterialType::FUR;
+	}
+
 }

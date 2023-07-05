@@ -14,6 +14,12 @@ namespace Engine
 
 	class GltfMaterial 
 	{
+	public:
+		enum class MaterialType: uint8_t
+		{
+			PBR,
+			FUR,
+		};
 
 	public:
 		GltfMaterial(GltfModel* Owner,tinygltf::Model* Model);
@@ -23,6 +29,8 @@ namespace Engine
 		std::string GetMaterialName() const;
 		bool IsTransparent() const;
 		void SetTransparent(bool Transparent);
+
+		virtual MaterialType GetMaterialType() const;
 
 		std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const;

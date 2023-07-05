@@ -23,13 +23,15 @@ namespace Engine
 		bool HasSkin = false;
 	};
 
+	class GltfModelConfig;
+
 	class MaterialRender
 	{
 	public:
 		MaterialRender() = default;
 		virtual ~MaterialRender();
 		
-		virtual void InitRenderResource(nlohmann::json& jsonObj) = 0;
+		virtual void InitRenderResource(std::shared_ptr< GltfModelConfig> ModelConfig) = 0;
 		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index) = 0;
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext,const MaterialRenderParam& RenderParam) = 0;
 	};

@@ -41,7 +41,7 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::InitRenderResource(nlohmann::json& jsonObj)
+	void PBRMaterialRender::InitRenderResource(std::shared_ptr< GltfModelConfig> ModelConfig)
 	{
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
 		InitShader(ShaderPath);

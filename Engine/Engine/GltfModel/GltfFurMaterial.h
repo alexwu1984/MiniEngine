@@ -12,7 +12,7 @@ namespace Engine
 		~GltfFurMaterial();
 
 		virtual void  InitMaterial(uint32_t MaterialIndex) override;
-
+		virtual MaterialType GetMaterialType() const override;
 	private:
 		GltfFurMaterialPrivate* d_ptr = nullptr;
 	};

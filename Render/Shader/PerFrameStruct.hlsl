@@ -64,11 +64,23 @@ cbuffer cbPerObject : register(b1)
     matrix myPerObject_u_mPrevWorld;
 }
 
-cbuffer cbPerFrameLight : register(b2)
+cbuffer cbPerFrameLight : register(b3)
 {
     int           LightCount;
     int3          Padding1;
     Light         Lights[MAX_LIGHT_INSTANCES];
+}
+
+cbuffer cbPerFur : register(b4)
+{
+    float3 Gravity;
+    float FurOffset;
+    float3 FurColor;
+    float FurLength;
+    float UVScale;
+    float FurAmbientStrength;
+    float FurLevel;
+    float FurLightExposure;
 }
 
 matrix GetWorldMatrix()

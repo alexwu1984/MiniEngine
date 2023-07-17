@@ -38,6 +38,10 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveTexture() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetOcclusionTexture() const;
 
+	protected:
+		tinygltf::Model* GetModel();
+		GltfModel* GetOwner();
+
 	private:
 		GltfMaterialPrivate* d_ptr = nullptr;
 	};

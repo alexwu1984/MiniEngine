@@ -14,7 +14,8 @@ struct VS_OUTPUT_SCENE
     float3 Tangent      :    TANGENT;       // this normal comes in per-vertex
     float3 Binormal     :    BINORMAL;     // this normal comes in per-vertex
 #endif        
-    float2 UV0       :    TEXCOORD0;    // vertex texture coords
+    float2 UV0          :    TEXCOORD0;    // vertex texture coords
+    float2 UV1          :    TEXCOORD1; // vertex texture coords
 };
 
 

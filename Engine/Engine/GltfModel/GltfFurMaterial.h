@@ -4,6 +4,7 @@
 namespace Engine
 {
 	struct GltfFurMaterialPrivate;
+	struct GltfFurConfig;
 	
 	class GltfFurMaterial : public GltfMaterial
 	{
@@ -13,6 +14,8 @@ namespace Engine
 
 		virtual void  InitMaterial(uint32_t MaterialIndex) override;
 		virtual MaterialType GetMaterialType() const override;
+
+		const GltfFurConfig& GetFurConfig() const;
 	private:
 		GltfFurMaterialPrivate* d_ptr = nullptr;
 	};

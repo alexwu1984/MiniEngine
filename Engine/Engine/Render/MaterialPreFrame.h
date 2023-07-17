@@ -48,4 +48,17 @@ namespace Engine
 		BEGIN_STRUCT_CONSTRUCT(CBPerSkeleton)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
+
+	BEGIN_SHADER_STRUCT(CBPerFur, 4)
+		DECLARE_PARAM(math::Vector3, Gravity)
+		DECLARE_PARAM(float, FurOffset)
+		DECLARE_PARAM(math::Vector3, FurColor)
+		DECLARE_PARAM(float, FurLength)
+		DECLARE_PARAM(float, UVScale)
+		DECLARE_PARAM(float, FurAmbientStrength)
+		DECLARE_PARAM(float, FurLevel)
+		DECLARE_PARAM(float, FurLightExposure)
+		BEGIN_STRUCT_CONSTRUCT(CBPerFur)
+		END_STRUCT_CONSTRUCT
+	END_SHADER_STRUCT
 }

@@ -2,6 +2,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIUniformBuffer.h"
+#include "Engine/Thread/RenderThread.h"
 
 #define BEGIN_SHADER_STRUCT(Name,CBIndex)\
 	struct Name##Wrap\

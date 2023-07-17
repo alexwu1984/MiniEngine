@@ -1,5 +1,5 @@
 #include "Engine/Render/PBRMaterialRender.h"
-#include "RHI/RHIShdader.h"
+
 #include "Engine.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -41,7 +41,7 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::InitRenderResource(std::shared_ptr< GltfModelConfig> ModelConfig)
+	void PBRMaterialRender::InitRenderResource()
 	{
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
 		InitShader(ShaderPath);
@@ -52,11 +52,21 @@ namespace Engine
 		Impl->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
 	}
 
+	std::wstring PBRMaterialRender::GetShaderFileName() const
+	{
+		return L"PBRMaterial.hlsl";
+	}
+
+	void PBRMaterialRender::AddShaderMacro(std::vector< RenderCore::RHIShaderMacro>& ShaderMacros)
+	{
+
+	}
+
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
 	{
-		auto InitShaderFun = [Impl = Impl, Path](RenderCore::DynamicRHI* RHI) {
+		auto InitShaderFun = [Impl = Impl, Path,this](RenderCore::DynamicRHI* RHI) {
 
-			std::wstring ShaderPath = Path + L"PBRMaterial.hlsl";
+			std::wstring ShaderPath = Path + GetShaderFileName();
 
 			const auto& VerticesBuffer = Impl->MeshBuffer->GetVerticesBuffer();
 			RHIVertexDeclare VertexDeclareRHI;
@@ -87,8 +97,10 @@ namespace Engine
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 			}
 
+			AddShaderMacro(ShaderMacros);
+
 			Impl->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
-			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PBRMainPS", ShaderMacros);
+			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(InitShaderFun)
@@ -150,7 +162,17 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Impl->MeshMaterial->GetBaseColorTexture());
 
 		//render
+		DrawMesh(RHIContext);
+	}
+
+	void PBRMaterialRender::DrawPrimitive(RenderCore::RHICommandContext& RHIContext)
+	{
 		RHIContext.DrawPrimitive(Impl->MeshBuffer->GetVerticesBuffer(), Impl->MeshBuffer->GetIndexBuffer());
+	}
+
+	void PBRMaterialRender::DrawMesh(RenderCore::RHICommandContext& RHIContext)
+	{
+		DrawPrimitive(RHIContext);
 	}
 
 }

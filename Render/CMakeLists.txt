@@ -34,6 +34,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFVertexFactory.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFPbrPass-VS.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PBRMaterial.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/FurMaterial.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PerFrameStruct.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Skinning.hlsl
 )

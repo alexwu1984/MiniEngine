@@ -106,8 +106,8 @@ namespace Engine
 				PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
 				break;
 			case GltfMaterial::MaterialType::FUR:
-				//PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
-				PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+				PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+				//PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
 				break;
 			default:
 				PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());

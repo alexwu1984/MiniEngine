@@ -54,10 +54,10 @@ namespace Engine
 		DECLARE_PARAM(float, FurOffset)
 		DECLARE_PARAM(math::Vector3, FurColor)
 		DECLARE_PARAM(float, FurLength)
-		DECLARE_PARAM(float, UVScale)
-		DECLARE_PARAM(float, FurAmbientStrength)
-		DECLARE_PARAM(float, FurLevel)
-		DECLARE_PARAM(float, FurLightExposure)
+		DECLARE_PARAM_VALUE(float, UVScale,1.0f)
+		DECLARE_PARAM_VALUE(float, FurAmbientStrength,1.0f)
+		DECLARE_PARAM_VALUE(float, FurLevel,1.0f)
+		DECLARE_PARAM_VALUE(float, FurLightExposure,1.0f)
 		BEGIN_STRUCT_CONSTRUCT(CBPerFur)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT

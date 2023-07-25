@@ -1,5 +1,6 @@
 #include "Engine/Render/FurMaterialRender.h"
 #include "RHI/RHIShdader.h"
+#include "RHI/RHICachedStates.h"
 #include "Engine.h"
 #include "Render/MaterialPreFrame.h"
 #include "GltfModel/GltfFurMaterial.h"
@@ -53,17 +54,20 @@ namespace Engine
 		auto& FurConfig = d->FurMaterial->GetFurConfig();
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = FurConfig.FurLength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = FurConfig.FurLevel;
+		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;
+		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
+		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
 
 		for (int32_t Index = 0; Index < FurConfig.FurLevel; Index++)
 		{
-			//float layer = (float)(i + 1) / numLayers;
 			float FurOffset = 1.0 / FurConfig.FurLevel * (Index + 1);
 			d->GET_UNIFORMDATA(CBPerFur).FurOffset = FurOffset;
 
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).UpdateUniformBuffer();
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Pixel);
-
+			RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
+			RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 
 			DrawPrimitive(RHIContext);
 		}

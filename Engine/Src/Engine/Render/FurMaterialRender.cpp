@@ -58,7 +58,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
 
-		for (int32_t Index = 0; Index < FurConfig.FurLevel; Index++)
+		for (int32_t Index = 0; Index < 1; Index++)
 		{
 			float FurOffset = 1.0 / FurConfig.FurLevel * (Index + 1);
 			d->GET_UNIFORMDATA(CBPerFur).FurOffset = FurOffset;

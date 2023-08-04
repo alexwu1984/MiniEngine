@@ -24,7 +24,7 @@ namespace win32
 
 	void HighPrecisionTick::Start(const std::string& Name, int32_t Fps, ThreadPriority Priority /*= ThreadPriority::Normal*/)
 	{
-		core::LOG(core::log_inf, __FUNCTIONW__ L" Name:%s fps=%d", Name.c_str(), Fps);
+		core::LOG(core::log_inf, __FUNCTIONW__ L" Name:%s fps=%d", core::u8_ucs2(Name).c_str(), Fps);
 		Impl->_Fps = Fps;
 		Impl->_Quit = false;
 		Impl->_hThread = (HANDLE)_beginthreadex(nullptr, 0, [](void* Param)->uint32_t {

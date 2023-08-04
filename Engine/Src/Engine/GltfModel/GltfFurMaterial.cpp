@@ -33,7 +33,7 @@ namespace Engine
 	void GltfFurMaterial::InitMaterial(uint32_t MaterialIndex)
 	{
 		GltfMaterial::InitMaterial(MaterialIndex);
-		SetTransparent(true);
+		SetTransparent(false);
 
 		C_P(GltfFurMaterial);
 

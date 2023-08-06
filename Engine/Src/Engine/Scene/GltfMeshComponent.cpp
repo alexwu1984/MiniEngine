@@ -139,47 +139,8 @@ namespace Engine
 			return;
 		}
 
-		//Draw opacity mesh at first 
-		size_t MeshSize = Impl->Model.GetModelMesh().size();
-		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
-		{
-			auto Material = Impl->Renders[MeshIndex];
-			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
-			if (!Mesh->GetMaterial()->IsTransparent())
-			{
-
-				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Material, Camera,0);
-			}
-		}
-
-		SortMesh(Camera->GetCameraPos());
-
-		MeshSize = Impl->SortMesh.size();
-
-		//draw transparent
-		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
-		{
-			int MeshID = Impl->SortMesh[MeshIndex].MeshID;
-			int ModelID = Impl->SortMesh[MeshIndex].ModelID;
-			int ModelPosType = Impl->SortMesh[MeshIndex].PosType;
-			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshID];
-			if (Mesh->GetMaterial()->IsTransparent())
-			{
-				auto Material = Impl->Renders[MeshIndex];
-
-				if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
-				{
-					auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
-					for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
-					{
-						Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
-					}
-				}
-
-				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera, ModelPosType);
-			}
-
-		}
+		ActualDraw(RHIContext, Camera, true);
+		ActualDraw(RHIContext, Camera, false);
 
 	}
 
@@ -208,6 +169,52 @@ namespace Engine
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateTransform);
+	}
+
+
+	void GltfMeshComponent::ActualDraw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
+	{
+		//Draw opacity mesh at first 
+		size_t MeshSize = Impl->Model.GetModelMesh().size();
+		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		{
+			auto Material = Impl->Renders[MeshIndex];
+			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
+			if (!Mesh->GetMaterial()->IsTransparent())
+			{
+
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Material, Camera, 0, IsPreDraw);
+			}
+		}
+
+		SortMesh(Camera->GetCameraPos());
+
+		MeshSize = Impl->SortMesh.size();
+
+		//draw transparent
+		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		{
+			int MeshID = Impl->SortMesh[MeshIndex].MeshID;
+			int ModelID = Impl->SortMesh[MeshIndex].ModelID;
+			int ModelPosType = Impl->SortMesh[MeshIndex].PosType;
+			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshID];
+			if (Mesh->GetMaterial()->IsTransparent())
+			{
+				auto Material = Impl->Renders[MeshIndex];
+
+				if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
+				{
+					auto& Bone = Impl->Model.GetSkeleton()->GetBoneNodeArray()[Mesh->GetSkinId()];
+					for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+					{
+						Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+					}
+				}
+
+				DrawMesh(Mesh, GetOwner()->GetWorldTransform(), Impl->Renders[MeshID], Camera, ModelPosType, IsPreDraw);
+			}
+
+		}
 	}
 
 	void GltfMeshComponent::SortMesh(const math::Vector3& CameraPos)
@@ -281,7 +288,7 @@ namespace Engine
 	}
 
 	void GltfMeshComponent::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, 
-		std::shared_ptr<MaterialRender> MaterialRender, std::shared_ptr<CameraComponent> Camera, int32_t PosType)
+		std::shared_ptr<Engine::MaterialRender> MaterialRender, std::shared_ptr<CameraComponent> Camera, int32_t PosType, bool IsPreDraw)
 	{
 		if (!MaterialRender)
 		{
@@ -295,7 +302,7 @@ namespace Engine
 		RenderParam.PosType = PosType;
 		RenderParam.HasSkin = Mesh->HasSkin();
 
-		auto RenderMesh = [MaterialRender, RenderParam, Mesh ,Impl = Impl](RenderCore::DynamicRHI* DyRHI)
+		auto RenderMesh = [MaterialRender, RenderParam, Mesh ,Impl = Impl, IsPreDraw](RenderCore::DynamicRHI* DyRHI)
 		{
 			if (Mesh->GetSkinId() > -1 && Impl->Model.GetSkeleton()->GetBoneNodeArray().size() > 0)
 			{
@@ -305,8 +312,15 @@ namespace Engine
 					MaterialRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
 				}
 			}
-
-			MaterialRender->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
+			if (IsPreDraw)
+			{
+				MaterialRender->PreDraw(*DyRHI->GetDefaultCommandContext(), RenderParam);
+			}
+			else
+			{
+				MaterialRender->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
+			}
+			
 
 			GEngine->GetScene()->SetCanHandleInput(true);
 		};

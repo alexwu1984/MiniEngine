@@ -4,7 +4,7 @@
 
 namespace Engine
 {
-	struct PBRMaterialRenderP;
+	struct PBRMaterialRenderPrivate;
 	class GltfMeshBuffer;
 	class GltfMaterial;
 
@@ -17,15 +17,20 @@ namespace Engine
 		virtual void InitRenderResource();
 		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index);
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) final;
+		virtual void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 	protected:
 		void DrawPrimitive(RenderCore::RHICommandContext& RHIContext);
 		virtual void DrawMesh(RenderCore::RHICommandContext& RHIContext);
+		virtual void PreDrawMesh(RenderCore::RHICommandContext& RHIContext);
+		virtual bool IsNeedPreDraw() const;
+		const MaterialRenderParam& GetRenderParam() const;
 	private:
 		virtual std::wstring GetShaderFileName() const;
 		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro> & ShaderMacros);
 	private:
 		void InitShader(const std::wstring& Path);
+		void SetPipeLineState(RenderCore::RHICommandContext& RHIContext);
 	private:
-		std::shared_ptr< PBRMaterialRenderP> Impl;
+		PBRMaterialRenderPrivate* d_ptr;
 	};
 }

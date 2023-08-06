@@ -13,9 +13,9 @@ namespace Engine
 {
 	using namespace RenderCore;
 
-	struct PBRMaterialRenderP
+	struct PBRMaterialRenderPrivate
 	{
-		PBRMaterialRenderP() :GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
+		PBRMaterialRenderPrivate() :GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
 			GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
 			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get())
 		{
@@ -24,21 +24,25 @@ namespace Engine
 		std::shared_ptr<GltfMaterial> MeshMaterial;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
+		MaterialRenderParam RenderParam;
+
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
 	};
 
 	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial)
-		:Impl(std::make_shared<PBRMaterialRenderP>())
+		:d_ptr(new PBRMaterialRenderPrivate())
 	{
-		Impl->MeshBuffer = MeshBuffer;
-		Impl->MeshMaterial = MeshMaterial;
+		
+		C_P(PBRMaterialRender);
+		d->MeshBuffer = MeshBuffer;
+		d->MeshMaterial = MeshMaterial;
 	}
 
 	PBRMaterialRender::~PBRMaterialRender()
 	{
-		
+		delete d_ptr;
 	}
 
 	void PBRMaterialRender::InitRenderResource()
@@ -49,7 +53,8 @@ namespace Engine
 
 	void PBRMaterialRender::SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index)
 	{
-		Impl->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
+		C_P(PBRMaterialRender);
+		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
 	}
 
 	std::wstring PBRMaterialRender::GetShaderFileName() const
@@ -64,11 +69,11 @@ namespace Engine
 
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
 	{
-		auto InitShaderFun = [Impl = Impl, Path,this](RenderCore::DynamicRHI* RHI) {
-
+		auto InitShaderFun = [Path,this](RenderCore::DynamicRHI* RHI) {
+			C_P(PBRMaterialRender);
 			std::wstring ShaderPath = Path + GetShaderFileName();
 
-			const auto& VerticesBuffer = Impl->MeshBuffer->GetVerticesBuffer();
+			const auto& VerticesBuffer = d->MeshBuffer->GetVerticesBuffer();
 			RHIVertexDeclare VertexDeclareRHI;
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
@@ -99,34 +104,35 @@ namespace Engine
 
 			AddShaderMacro(ShaderMacros);
 
-			Impl->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
-			Impl->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);
+			d->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
+			d->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(InitShaderFun)
 		
 	}
 
-	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
+	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext)
 	{
+		C_P(PBRMaterialRender);
 		GraphicsPipelineStateInitializer Init;
-		Init.PixelShader = Impl->PixelShader;
-		Init.VertexShader = Impl->VertexShader;
-		
-		if (Impl->MeshMaterial->IsTransparent())
+		Init.PixelShader = d->PixelShader;
+		Init.VertexShader = d->VertexShader;
+
+		if (d->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
 			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-			if (RenderParam.PosType == 0)
+			if (d->RenderParam.PosType == 0)
 			{
 				Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
-				
+
 			}
 			else
 			{
 				Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 			}
-			
+
 		}
 		else
 		{
@@ -134,45 +140,84 @@ namespace Engine
 			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 			Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
 		}
-		
+
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-		
-		const auto& VerticesBuffer = Impl->MeshBuffer->GetVerticesBuffer();
+
+		const auto& VerticesBuffer = d->MeshBuffer->GetVerticesBuffer();
 		//to do,set uniform buffer
-		Impl->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = RenderParam.CurrModelMatrix;
-		Impl->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
-		Impl->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-		Impl->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = d->RenderParam.CurrModelMatrix;
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
-		Impl->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = RenderParam.CurrViewProjMatrix;
-		Impl->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = RenderParam.CurrViewProjInverseMatrix;
-		Impl->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = RenderParam.CameraPos;
-		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
-		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-		Impl->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->RenderParam.CurrViewProjMatrix;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = d->RenderParam.CurrViewProjInverseMatrix;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
-		if (RenderParam.HasSkin)
+		if (d->RenderParam.HasSkin)
 		{
-			Impl->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).UpdateUniformBuffer();
-			Impl->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-			Impl->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+			d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		}
+	}
+
+	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
+	{
+		C_P(PBRMaterialRender);
+		d->RenderParam = RenderParam;
+
+		SetPipeLineState(RHIContext);
+
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
+
+		DrawMesh(RHIContext);
+	}
+
+	void PBRMaterialRender::PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
+	{
+		C_P(PBRMaterialRender);
+		if (!IsNeedPreDraw())
+		{
+			return;
 		}
 
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Impl->MeshMaterial->GetBaseColorTexture());
+		d->RenderParam = RenderParam;
 
-		//render
-		DrawMesh(RHIContext);
+		SetPipeLineState(RHIContext);
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
+		PreDrawMesh(RHIContext);
 	}
 
 	void PBRMaterialRender::DrawPrimitive(RenderCore::RHICommandContext& RHIContext)
 	{
-		RHIContext.DrawPrimitive(Impl->MeshBuffer->GetVerticesBuffer(), Impl->MeshBuffer->GetIndexBuffer());
+		C_P(PBRMaterialRender);
+		RHIContext.DrawPrimitive(d->MeshBuffer->GetVerticesBuffer(), d->MeshBuffer->GetIndexBuffer());
 	}
 
 	void PBRMaterialRender::DrawMesh(RenderCore::RHICommandContext& RHIContext)
 	{
 		DrawPrimitive(RHIContext);
+	}
+
+	void PBRMaterialRender::PreDrawMesh(RenderCore::RHICommandContext& RHIContext)
+	{
+
+	}
+
+	bool PBRMaterialRender::IsNeedPreDraw() const
+	{
+		return false;
+	}
+
+	const MaterialRenderParam& PBRMaterialRender::GetRenderParam() const
+	{
+		C_P(const PBRMaterialRender);
+		return d->RenderParam;
 	}
 
 }

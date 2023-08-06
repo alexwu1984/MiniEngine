@@ -13,6 +13,6 @@ struct PS_OUTPUT_SCENE
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
 	PS_OUTPUT_SCENE Output;
-    Output.Color = AlbedoMap.Sample(SampleLinear, Input.UV0);
+    Output.Color = AlbedoMap.Sample(SampleLinear, Input.UV1);
     return Output;
 }

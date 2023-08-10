@@ -18,6 +18,7 @@ namespace Engine
 		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro>& ShaderMacros);
 		virtual void DrawMesh(RenderCore::RHICommandContext& RHIContext) override;
 		virtual void PreDrawMesh(RenderCore::RHICommandContext& RHIContext) override;
+		virtual bool IsNeedPreDraw() const override;
 	private:
 		FurMaterialRenderPrivate* d_ptr = nullptr;
 	};

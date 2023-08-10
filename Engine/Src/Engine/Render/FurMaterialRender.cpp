@@ -51,6 +51,7 @@ namespace Engine
 
 	void FurMaterialRender::DrawMesh(RHICommandContext& RHIContext)
 	{
+
 		C_P(FurMaterialRender);
 		auto& FurConfig = d->FurMaterial->GetFurConfig();
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = FurConfig.FurLength;
@@ -104,6 +105,11 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 
 		DrawPrimitive(RHIContext);
+	}
+
+	bool FurMaterialRender::IsNeedPreDraw() const
+	{
+		return true;
 	}
 
 }

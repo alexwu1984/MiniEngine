@@ -59,6 +59,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;
 		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
+		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 0;
 
 		RHIContext.RHISetBlendState(RHICachedStates::BlendTraditional, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateDisable,0);
@@ -71,6 +72,8 @@ namespace Engine
 			RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
 	
 		}
+
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->FurMaterial->GetNoiseTex());
 
 		for (int32_t Index = 0; Index < FurConfig.FurLevel; Index++)
 		{
@@ -97,6 +100,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
 		d->GET_UNIFORMDATA(CBPerFur).FurOffset = 0;
+		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 1;
 
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFur).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Vertex);

@@ -81,6 +81,7 @@ cbuffer cbPerFur : register(b4)
     float FurAmbientStrength;
     float FurLevel;
     float FurLightExposure;
+    uint3 DrawSolid;
 }
 
 matrix GetWorldMatrix()

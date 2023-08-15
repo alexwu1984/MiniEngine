@@ -49,6 +49,7 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
 #endif
     
     matrix transMatrix = mul(skinningMatrix, GetWorldMatrix());
+    Output.Normal = normalize(mul(float4(input.Normal, 0), transMatrix).xyz);
 #ifdef HASFUR
     float2 UVoffset = float2(0.2, 0.2) * FurOffset;
     UVoffset *= 0.1;
@@ -59,13 +60,16 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
 	float3 Direction = lerp(input.Normal, Gravity * vGravityStength + input.Normal * (1.0 - vGravityStength), FurOffset);
 	float3 P = input.Position + Direction * FurLength * FurOffset * furLength_coeff;
     Output.WorldPos = mul(float4(P, 1.0f),transMatrix).xyz;
+    
+	float SH = clamp(Output.Normal.y * 0.25 + 0.35, 0.0, 1.0);
+    Output.SH = float3(SH, SH, SH );
 #else
     Output.UV0 = input.UV0;
     Output.WorldPos = mul(float4(input.Position, 1.0f),transMatrix).xyz;
    
  #endif
     Output.svPosition = mul(float4(Output.WorldPos, 1.0f), GetCameraViewProj());
-    Output.Normal = normalize(mul(float4(input.Normal, 0), transMatrix).xyz);
+    
     #ifdef HAS_TANGENT
         Output.Tangent = normalize(mul(float4(input.Tangent.xyz, 0),transMatrix).xyz);
         Output.Binormal = cross(Output.Normal, Output.Tangent) *input.Tangent.w;

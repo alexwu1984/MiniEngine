@@ -58,6 +58,10 @@ namespace Engine
 		DECLARE_PARAM_VALUE(float, FurAmbientStrength,1.0f)
 		DECLARE_PARAM_VALUE(float, FurLevel,1.0f)
 		DECLARE_PARAM_VALUE(float, FurLightExposure,1.0f)
+		DECLARE_PARAM_VALUE(uint32_t, DrawSolid,0)
+		DECLARE_PARAM(uint32_t, FurPad1)
+		DECLARE_PARAM(uint32_t, FurPad2)
+		DECLARE_PARAM(uint32_t, FurPad3)
 		BEGIN_STRUCT_CONSTRUCT(CBPerFur)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT

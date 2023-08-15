@@ -62,4 +62,9 @@ namespace Engine
 		return d_ptr->FurConfig;
 	}
 
+	std::shared_ptr<RenderCore::RHITexture2D> GltfFurMaterial::GetNoiseTex() const
+	{
+		return d_ptr->NoiseTex;
+	}
+
 }

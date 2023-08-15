@@ -16,6 +16,7 @@ namespace Engine
 		virtual MaterialType GetMaterialType() const override;
 
 		const GltfFurConfig& GetFurConfig() const;
+		std::shared_ptr<RenderCore::RHITexture2D> GetNoiseTex() const;
 	private:
 		GltfFurMaterialPrivate* d_ptr = nullptr;
 	};

@@ -18,7 +18,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float3 BaseColor = AlbedoMap.Sample(SampleLinear, Input.UV1).rgb;
     if(DrawSolid.x == 1)
     {
-        Output.Color = float4(Output.Color.rgb, 1.f);
+        Output.Color = float4(BaseColor.rgb, 1.f);
         return Output;
     }
     

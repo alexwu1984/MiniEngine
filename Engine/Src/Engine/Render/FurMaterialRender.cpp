@@ -62,7 +62,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 0;
 
 		RHIContext.RHISetBlendState(RHICachedStates::BlendTraditional, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateDisable,0);
+		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateEnable,0);
 		if (GetRenderParam().PosType == 0)
 		{
 			RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullFront);

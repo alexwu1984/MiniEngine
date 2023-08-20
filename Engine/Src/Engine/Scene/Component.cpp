@@ -2,13 +2,13 @@
 
 namespace Engine
 {
-	struct ComponentP
+	struct ComponentPrivate
 	{
 		std::weak_ptr<Actor> Owner;
 	};
 
 	Component::Component(std::weak_ptr<Actor> Owner)
-		:ImplComponentP(std::make_shared<ComponentP>())
+		:ImplComponentP(std::make_shared<ComponentPrivate>())
 	{
 		ImplComponentP->Owner = Owner;
 	}

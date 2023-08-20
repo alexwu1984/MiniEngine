@@ -321,8 +321,6 @@ namespace Engine
 				MaterialRender->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
 			}
 			
-
-			GEngine->GetScene()->SetCanHandleInput(true);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);

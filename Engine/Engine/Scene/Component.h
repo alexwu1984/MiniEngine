@@ -11,7 +11,7 @@ namespace RenderCore
 namespace Engine
 {
 	class Actor;
-	struct ComponentP;
+	struct ComponentPrivate;
 	class CameraComponent;
 
 	class Component : public std::enable_shared_from_this<Component>
@@ -34,6 +34,6 @@ namespace Engine
 
 		std::shared_ptr<Actor> GetOwner() const;
 	private:
-		std::shared_ptr< ComponentP> ImplComponentP;
+		std::shared_ptr< ComponentPrivate> ImplComponentP;
 	};
 }

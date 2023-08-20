@@ -83,22 +83,32 @@ namespace Engine
 		{
 		case WM_DESTROY:
 			::PostQuitMessage(0);
-			break;
+		break;
 		case WM_SIZE:
 		{
 			int32_t NewWidth = LOWORD(lParam);
 			int32_t NewHeight = HIWORD(lParam);
 			EvtSizeChanged(core::vec2i(NewWidth,NewHeight));
 		}
-			break;
+		break;
 		case WM_LBUTTONDOWN:
 		{
 			core::vec2f Point;
 			Point.x = LOWORD(lParam);
 			Point.y = HIWORD(lParam);
 			EvtMouseButtonDown(MouseButton::LeftButton, Point);
+			::SetCapture((HWND)pWnd);
 		}
-			break;
+		break;
+		case WM_LBUTTONUP:
+		{
+			core::vec2f Point;
+			Point.x = LOWORD(lParam);
+			Point.y = HIWORD(lParam);
+			EvtMouseButtonUp(MouseButton::LeftButton, Point);
+			::ReleaseCapture();
+		}
+		break;
 		case WM_RBUTTONDOWN:
 		{
 			core::vec2f Point;
@@ -106,7 +116,15 @@ namespace Engine
 			Point.y = HIWORD(lParam);
 			EvtMouseButtonDown(MouseButton::RightButton, Point);
 		}
-			break;
+		break;
+		case WM_RBUTTONUP:
+		{
+			core::vec2f Point;
+			Point.x = LOWORD(lParam);
+			Point.y = HIWORD(lParam);
+			EvtMouseButtonUp(MouseButton::RightButton, Point);
+		}
+		break;
 		case WM_MOUSEMOVE:
 		{
 			core::vec2f Point;
@@ -124,7 +142,7 @@ namespace Engine
 			}
 			EvtMouseMove(Button, Point);
 		}
-			break;
+		break;
 		}
 
 		if (Impl->_proc_old)

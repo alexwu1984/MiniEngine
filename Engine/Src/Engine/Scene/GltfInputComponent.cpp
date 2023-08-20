@@ -1,6 +1,6 @@
 #include "Scene/GltfInputComponent.h"
 #include "Scene/Actor.h"
-
+#include "win/cpu_clock.h"
 
 namespace Engine
 {
@@ -13,6 +13,8 @@ namespace Engine
 		core::vec2f LBtnDownTranslate;
 		core::vec2f LBtnRotate;
 		core::vec2f RBtnDownTranslate;
+		bool LeftButtonPressed = false;
+		bool RightButtonPressed = false;
 	};
 
 
@@ -48,21 +50,37 @@ namespace Engine
 				{
 					Impl->LBDownPoint = Pos;
 					Impl->LBtnRotate = Impl->Rotate;
+					Impl->LeftButtonPressed = true;
+					
 				}
 				else if (Button == MouseButton::RightButton)
 				{
 					Impl->RBDownPoint = Pos;
 					Impl->RBtnDownTranslate = Impl->Translate;
+					Impl->RightButtonPressed = true;
+				}
+			}
+			break;
+			case MET_ButtonUp:
+			{
+				if (Button == MouseButton::LeftButton)
+				{
+					Impl->LeftButtonPressed = false;
+				}
+				else if (Button == MouseButton::RightButton)
+				{
+					Impl->RightButtonPressed = false;
 				}
 			}
 			break;
 			case MET_Move:
 			{
-				if (Button == MouseButton::LeftButton)
+	
+				if (Impl->LeftButtonPressed)
 				{
-					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) *( 1.f / 10.f);
+					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) * ( 1.f / 10.f);
 				}
-				if (Button == MouseButton::RightButton)
+				else if (Impl->RightButtonPressed)
 				{
 					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint);
 				}

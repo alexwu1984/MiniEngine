@@ -14,6 +14,7 @@ namespace Engine
 	{
 		MET_NoEvent = 0,
 		MET_ButtonDown,
+		MET_ButtonUp,
 		MET_Move,
 	};
 

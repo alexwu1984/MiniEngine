@@ -212,7 +212,7 @@ namespace Engine
 			auto& Material = Impl->GltfMode.materials[i];
 			std::string MaterialName = Material.name;
 			std::shared_ptr< GltfMaterial> PBRMaterial;
-			if (MaterialName == Impl->Config->GetFurConfig().Name)
+			if (Impl->Config && MaterialName == Impl->Config->GetFurConfig().Name)
 			{
 				PBRMaterial = std::make_shared<GltfFurMaterial>(this, &Impl->GltfMode);	
 			}

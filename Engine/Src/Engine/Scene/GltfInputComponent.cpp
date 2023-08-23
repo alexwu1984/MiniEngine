@@ -82,7 +82,7 @@ namespace Engine
 				}
 				else if (Impl->RightButtonPressed)
 				{
-					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint);
+					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint) * State.DeltaTime / 20.f;
 				}
 
 				float xAngle = math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
@@ -90,6 +90,10 @@ namespace Engine
 				math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle, 0.f);
 
 				GetOwner()->SetRotation(Quat);
+				auto Pos = GetOwner()->GetPosition();
+				Pos.x = Impl->Translate.x;
+				Pos.y = Impl->Translate.y;
+				GetOwner()->SetPosition(Pos);
 			}
 			break;
 			}

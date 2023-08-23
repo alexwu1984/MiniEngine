@@ -35,5 +35,6 @@ namespace Engine
 	{
 		DeviceType Device = NoDevice;
 		MouseInput MouseInputState;
+		float DeltaTime{ 0 };
 	};
 }

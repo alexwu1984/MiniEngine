@@ -11,6 +11,35 @@ namespace win32
 		bool _Quit = false;
 	};
 
+	void UpdatePublishFPS(uint32_t& fpsFrameNum, uint32_t& fpsBeginTime, const std::wstring& tips, int statisticTime)
+	{
+		if (0 == fpsBeginTime)
+		{
+			fpsFrameNum = 0;
+			fpsBeginTime = win32::cpu_clock::os_gettime_ms();
+			return;
+		}
+
+		fpsFrameNum++;
+		UINT32 interval = win32::cpu_clock::os_gettime_ms() - fpsBeginTime;
+		if ((int)interval > statisticTime)
+		{
+			int fps = fpsFrameNum * 1000 / interval;
+			//GLog(TRACE_INFO, __FUNCTION__ "  %s AVG_FPS : %d FPS : %d", tips.c_str(), fps, fpsFrameNum);
+			core::LOG(core::log_inf, L"  %s AVG_FPS : %d FPS : %d", tips.c_str(), fps, fpsFrameNum);
+
+			fpsFrameNum = 0;
+			fpsBeginTime = win32::cpu_clock::os_gettime_ms();
+		}
+	}
+
+	static void UpdateRenderFPS(const std::wstring& tips)
+	{
+		static UINT32 fpsFrameNum = 0;
+		static UINT32 fpsBeginTime = 0;
+		UpdatePublishFPS(fpsFrameNum, fpsBeginTime, tips, 5 * 1000);
+	}
+
 	HighPrecisionTick::HighPrecisionTick()
 		:Impl(new HighPrecisionTickPrivate())
 	{
@@ -75,21 +104,41 @@ namespace win32
 
 		uint64_t FrameTimeNS = 1000000000 / Impl->_Fps;
 		uint64_t SleepTargetTime = win32::cpu_clock::os_gettime_ns();
-
-		std::chrono::high_resolution_clock::time_point TStart = std::chrono::high_resolution_clock::now();
-		std::chrono::high_resolution_clock::time_point TEnd;
 		
+		int64_t TEnd = 0;
+		int64_t TStart = 0;
+
+		float Delta = Impl->_Fps / 1000.f;
+
 		while (!Impl->_Quit)
 		{
+			int64_t TStart = win32::cpu_clock::os_gettime_ms();
 			win32::cpu_clock::os_sleepto_ns(&SleepTargetTime, FrameTimeNS);
 			if (Impl->_Quit)
 			{
 				break;
 			}
-			TEnd = std::chrono::high_resolution_clock::now();
-			float Delta = std::chrono::duration<float, std::milli>(TEnd - TStart).count();
+			
+
+			//TEnd = win32::cpu_clock::os_gettime_ms();
+			//float Delta = TEnd - TStart;
+			//if (Delta > 0.01)
+			//{
+			//	float fps = 1000.f / Delta;
+			//	Delta = fps /*/ 1000.f*/;
+			//}
+			//else
+			//{
+			//	Delta = 0.01;
+			//}
+
+			//std::wstring log = core::formatw(L"Delta:", Delta, L"\r\n");
+			//OutputDebugStringW(log.c_str());
+
+			UpdateRenderFPS(L"=====Render=====");
+
 			SigTick(Delta);
-			TStart = std::chrono::high_resolution_clock::now();
+			
 		}
 		core::LOG(core::log_inf, __FUNCTIONW__ L" Quit");
 	}

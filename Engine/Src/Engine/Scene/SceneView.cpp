@@ -83,6 +83,7 @@ namespace Engine
 		while (!TmpInputState.empty())
 		{
 			InputState = TmpInputState.front();
+			InputState.DeltaTime = DeltaTime;
 
 			for (auto Item : Impl->Actors)
 			{

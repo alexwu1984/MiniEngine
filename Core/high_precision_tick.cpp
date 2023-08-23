@@ -104,40 +104,26 @@ namespace win32
 
 		uint64_t FrameTimeNS = 1000000000 / Impl->_Fps;
 		uint64_t SleepTargetTime = win32::cpu_clock::os_gettime_ns();
-		
-		int64_t TEnd = 0;
-		int64_t TStart = 0;
 
 		float Delta = Impl->_Fps / 1000.f;
 
 		while (!Impl->_Quit)
 		{
-			int64_t TStart = win32::cpu_clock::os_gettime_ms();
 			win32::cpu_clock::os_sleepto_ns(&SleepTargetTime, FrameTimeNS);
 			if (Impl->_Quit)
 			{
 				break;
 			}
-			
 
-			//TEnd = win32::cpu_clock::os_gettime_ms();
-			//float Delta = TEnd - TStart;
-			//if (Delta > 0.01)
-			//{
-			//	float fps = 1000.f / Delta;
-			//	Delta = fps /*/ 1000.f*/;
-			//}
-			//else
-			//{
-			//	Delta = 0.01;
-			//}
-
-			//std::wstring log = core::formatw(L"Delta:", Delta, L"\r\n");
-			//OutputDebugStringW(log.c_str());
-
-			UpdateRenderFPS(L"=====Render=====");
-
+			UpdateRenderFPS(L"=====Tick=====");
+			auto TStart = std::chrono::high_resolution_clock::now();
 			SigTick(Delta);
+			auto TEnd = std::chrono::high_resolution_clock::now();
+			float CostTime = std::chrono::duration<float, std::milli>(TEnd - TStart).count();
+			if (CostTime > 5)
+			{
+				core::LOG(core::log_inf, __FUNCTIONW__ L" Too Long:%dms", CostTime);
+			}
 			
 		}
 		core::LOG(core::log_inf, __FUNCTIONW__ L" Quit");

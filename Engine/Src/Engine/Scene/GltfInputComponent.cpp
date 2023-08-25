@@ -78,7 +78,7 @@ namespace Engine
 	
 				if (Impl->LeftButtonPressed)
 				{
-					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) *  State.DeltaTime /*(1.f / 10.f)*/;
+					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) *  State.DeltaTime ;
 				}
 				else if (Impl->RightButtonPressed)
 				{

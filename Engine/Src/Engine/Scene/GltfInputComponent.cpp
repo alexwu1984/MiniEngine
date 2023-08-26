@@ -85,14 +85,14 @@ namespace Engine
 					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint) * State.DeltaTime / 20.f;
 				}
 
-				float xAngle = math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
+				float xAngle = -1 * math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
 				float yAngle = math::Fmod(Impl->Rotate.y, 360.0f) * math::MATH_PI / 180.f;
 				math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle, 0.f);
 
 				GetOwner()->SetRotation(Quat);
 				auto Pos = GetOwner()->GetPosition();
-				Pos.x = Impl->Translate.x;
-				Pos.y = Impl->Translate.y;
+				Pos.x = -1 * Impl->Translate.x;
+				Pos.y = -1 * Impl->Translate.y;
 				GetOwner()->SetPosition(Pos);
 			}
 			break;

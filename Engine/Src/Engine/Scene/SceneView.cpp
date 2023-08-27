@@ -35,6 +35,7 @@ namespace Engine
 		AppWindow->EvtMouseButtonDown.bind(std::bind(&SceneView::OnMouseButtonDown,this,std::placeholders::_1,std::placeholders::_2), this);
 		AppWindow->EvtMouseButtonUp.bind(std::bind(&SceneView::OnMouseButtonUp, this, std::placeholders::_1, std::placeholders::_2), this);
 		AppWindow->EvtMouseMove.bind(std::bind(&SceneView::OnMouseMove, this, std::placeholders::_1, std::placeholders::_2), this);
+		AppWindow->EvtMouseWheel.bind(std::bind(&SceneView::OnMouseWheel, this, std::placeholders::_1),this);
 	}
 
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)
@@ -76,7 +77,7 @@ namespace Engine
 		std::queue< InputDeviceState> TmpInputState;
 		{
 			
-			std::lock_guard L(Impl->DeviceLock);
+			std::lock_guard Lock(Impl->DeviceLock);
 			TmpInputState.swap(Impl->InputStates);
 		}
 
@@ -141,19 +142,19 @@ namespace Engine
 
 	void SceneView::OnMouseButtonDown(MouseButton Button, core::vec2f Pos)
 	{
-		std::lock_guard L(Impl->DeviceLock);
+		std::lock_guard Lock(Impl->DeviceLock);
 		HandleMouseEvent(MET_ButtonDown, Button, Pos);
 	}
 
 	void SceneView::OnMouseButtonUp(MouseButton Button, core::vec2f Pos)
 	{
-		std::lock_guard L(Impl->DeviceLock);
+		std::lock_guard Lock(Impl->DeviceLock);
 		HandleMouseEvent(MET_ButtonUp, Button, Pos);
 	}
 
 	void SceneView::OnMouseMove(MouseButton Button, core::vec2f Pos)
 	{
-		std::lock_guard L(Impl->DeviceLock);
+		std::lock_guard Lock(Impl->DeviceLock);
 		HandleMouseEvent(MET_Move, Button,Pos);
 	}
 
@@ -164,7 +165,17 @@ namespace Engine
 		InputState.MouseInputState.EventType = EventType;
 		InputState.MouseInputState.Button = Button;
 		InputState.MouseInputState.Pos = Pos;
-		Impl->InputStates.push(InputState);
+		Impl->InputStates.emplace(InputState);
+	}
+
+	void SceneView::OnMouseWheel(int32_t WheelValue)
+	{
+		std::lock_guard Lock(Impl->DeviceLock);
+		InputDeviceState InputState{};
+		InputState.Device = Mouse;
+		InputState.MouseInputState.EventType = MouseEventType::MET_Wheel;
+		InputState.MouseInputState.WheelValue = WheelValue;
+		Impl->InputStates.emplace(InputState);
 	}
 
 }

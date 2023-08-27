@@ -2,6 +2,9 @@
 
 namespace Engine
 {
+	IMP_COMPONENT_CLASS_NAME(Component)
+	IMP_COMPONENT_TRAITS_CLASS_NAME(Component)
+
 	struct ComponentPrivate
 	{
 		std::weak_ptr<Actor> Owner;

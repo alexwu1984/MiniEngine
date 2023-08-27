@@ -70,6 +70,7 @@ namespace Engine
 		void RemoveComponent(std::shared_ptr<Component> component);
 
 		std::vector<std::shared_ptr<Component>>& GetComponents() const;
+		template<typename TComponent> std::shared_ptr<TComponent> GetComponent() const;
 
 	public:
 		virtual void ProcessInput(const InputDeviceState& State);
@@ -79,6 +80,8 @@ namespace Engine
 	private:
 		std::shared_ptr<ActorP> ImplActorP;
 	};
+
+
 
 	DECLARE_ACTOR_TRAITS_CLASS_NAME(Actor);
 
@@ -92,5 +95,26 @@ namespace Engine
 			return std::static_pointer_cast<TActorType>(Resource);
 		}
 		return nullptr;
+	}
+
+
+	template<typename TComponent>
+	std::shared_ptr<TComponent>  Actor::GetComponent() const
+	{
+		const auto& Components = GetComponents();
+		if (Components.empty())
+		{
+			return {};
+		}
+
+		for (const auto& Comp : Components)
+		{
+			auto Temp = ComponentCast<TComponent>(Comp);
+			if (Temp)
+			{
+				return Temp;
+			}
+		}
+		return {};
 	}
 }

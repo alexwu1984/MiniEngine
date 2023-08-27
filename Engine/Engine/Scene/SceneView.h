@@ -42,7 +42,7 @@ namespace Engine
 		void OnMouseButtonUp(MouseButton Button, core::vec2f Pos);
 		void OnMouseMove(MouseButton Button, core::vec2f Pos);
 		void HandleMouseEvent(MouseEventType EventType, MouseButton Button, core::vec2f Pos);
-		
+		void OnMouseWheel(int32_t WheelValue);
 	private:
 		std::unique_ptr< SceneViewP> Impl;
 	};

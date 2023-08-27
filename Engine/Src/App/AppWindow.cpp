@@ -143,6 +143,12 @@ namespace Engine
 			EvtMouseMove(Button, Point);
 		}
 		break;
+		case WM_MOUSEWHEEL:
+		{
+			int32_t WheelValue = GET_WHEEL_DELTA_WPARAM(wParam);
+			EvtMouseWheel(WheelValue);
+		}
+		break;
 		}
 
 		if (Impl->_proc_old)

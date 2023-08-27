@@ -13,6 +13,7 @@ namespace Engine
 	class GltfMeshComponent : public Component
 	{
 	public:
+		DECLARE_COMPONENT_CLASS_NAME(GltfMeshComponent)
 		GltfMeshComponent(class std::weak_ptr<Actor> Owner);
 		~GltfMeshComponent();
 
@@ -34,5 +35,7 @@ namespace Engine
 	private:
 		std::shared_ptr< GltfMeshComponentP> Impl;
 	};
+
+	DECLARE_COMPONENT_TRAITS_CLASS_NAME(GltfMeshComponent)
 }
 

@@ -1,9 +1,14 @@
 #include "Scene/GltfInputComponent.h"
 #include "Scene/Actor.h"
+#include "Scene/SceneView.h"
+#include "Scene/CameraComponent.h"
 #include "win/cpu_clock.h"
 
 namespace Engine
 {
+	IMP_COMPONENT_CLASS_NAME(GltfDeviceInputComponent)
+	IMP_COMPONENT_TRAITS_CLASS_NAME(GltfDeviceInputComponent)
+
 	struct GltfDeviceInputComponentP
 	{
 		core::vec2f LBDownPoint;
@@ -51,7 +56,7 @@ namespace Engine
 					Impl->LBDownPoint = Pos;
 					Impl->LBtnRotate = Impl->Rotate;
 					Impl->LeftButtonPressed = true;
-					
+
 				}
 				else if (Button == MouseButton::RightButton)
 				{
@@ -75,10 +80,10 @@ namespace Engine
 			break;
 			case MET_Move:
 			{
-	
+
 				if (Impl->LeftButtonPressed)
 				{
-					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) *  State.DeltaTime ;
+					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) * State.DeltaTime;
 				}
 				else if (Impl->RightButtonPressed)
 				{
@@ -94,6 +99,24 @@ namespace Engine
 				Pos.x = -1 * Impl->Translate.x;
 				Pos.y = -1 * Impl->Translate.y;
 				GetOwner()->SetPosition(Pos);
+			}
+			break;
+			case MET_Wheel:
+			{
+				std::shared_ptr<CameraComponent> MainCamera = GetOwner()->GetComponent<CameraComponent>();
+				float Scale = 1.0f;
+				if (State.MouseInputState.WheelValue < 0)
+				{
+					Scale = -0.2f;
+				}
+				else
+				{
+					Scale = 0.2f;
+				}
+
+				math::Matrix4x4 Mat = math::Matrix4x4::CreateFromTranslate(0, 0, Scale * 1.5f);
+				MainCamera->SetCameraPos(Mat.TransformPosition(MainCamera->GetCameraPos()));
+
 			}
 			break;
 			}

@@ -7,6 +7,9 @@
 
 namespace Engine
 {
+	IMP_COMPONENT_CLASS_NAME(CameraComponent)
+	IMP_COMPONENT_TRAITS_CLASS_NAME(CameraComponent)
+
 	using namespace math;
 	CameraComponent::CameraComponent(std::weak_ptr<Actor> Owner)
 		:Component(Owner)

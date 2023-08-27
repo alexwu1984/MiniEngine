@@ -10,6 +10,7 @@ namespace Engine
 	class CameraComponent : public Component
 	{
 	public:
+		DECLARE_COMPONENT_CLASS_NAME(CameraComponent)
 		CameraComponent(std::weak_ptr<Actor> Owner);
 		virtual ~CameraComponent();
 
@@ -30,4 +31,5 @@ namespace Engine
 	protected:
 		std::shared_ptr< CameraComponentP> ImplCameraP;
 	};
+	DECLARE_COMPONENT_TRAITS_CLASS_NAME(CameraComponent);
 }

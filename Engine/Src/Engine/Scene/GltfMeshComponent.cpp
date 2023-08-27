@@ -17,6 +17,9 @@
 
 namespace Engine
 {
+	IMP_COMPONENT_CLASS_NAME(GltfMeshComponent)
+	IMP_COMPONENT_TRAITS_CLASS_NAME(GltfMeshComponent)
+
 	struct MeshDistanceInfo
 	{
 		float Distance;

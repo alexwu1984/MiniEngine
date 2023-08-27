@@ -29,6 +29,7 @@ namespace Engine
 		core::event<void(MouseButton Button, core::vec2f)> EvtMouseButtonDown;
 		core::event<void(MouseButton Button, core::vec2f)> EvtMouseButtonUp;
 		core::event<void(MouseButton Button, core::vec2f)> EvtMouseMove;
+		core::event<void(int32_t WheelValue)> EvtMouseWheel;
 	private:
 		std::shared_ptr< AppWindowP> Impl;
 	};

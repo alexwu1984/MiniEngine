@@ -78,7 +78,7 @@ namespace math
 			retVal.Normalize();
 			return retVal;
 		}
-
+		//All these parameters need radian
 		static Quaternion MakeFromEuler(float Pitch, float Yaw, float Roll);
 		// Creates a rotation which rotates from fromDirection to toDirection.
 		static Quaternion FromToRotation(const Vector3& FromDirection, const Vector3& ToDirection);

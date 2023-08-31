@@ -1,6 +1,7 @@
 #include "Engine/Thread/RenderThread.h"
 #include "win/sync.h"
 #include "RHI/DynamicRHI.h"
+#include "core/logger.h"
 
 namespace Engine
 {
@@ -26,12 +27,12 @@ namespace Engine
 
 	RenderThread::~RenderThread()
 	{
-
 	}
 
 
 	void RenderThread::Start()
 	{
+		LOG(core::log_inf, __FUNCTIONW__);
 		if (!Impl->Thread.joinable())
 		{
 			Impl->WaitForFinish.create(true, true);
@@ -42,6 +43,7 @@ namespace Engine
 
 	void RenderThread::Stop()
 	{
+		LOG(core::log_inf, __FUNCTIONW__);
 		if (Impl->Thread.joinable())
 		{
 			Impl->Stop = true;
@@ -83,20 +85,22 @@ namespace Engine
 		Impl->RenderThreadId = std::this_thread::get_id();
 		while (!Impl->Stop)
 		{
+			std::queue<std::function<void(RenderCore::DynamicRHI*)>> SwapCmd;
 			{
 				std::unique_lock<std::mutex> ConLock(Impl->CondLock);
 				Impl->Notify.wait(ConLock, [this]() {
 					return Impl->Stop || !Impl->CmdQueue.empty();
 					});
+				Impl->CmdQueue.swap(SwapCmd);
+			}
+
+			if (Impl->Stop)
+			{	
+				Impl->WaitForFinish.set();
+				break;
 			}
 
 			Impl->WaitForFinish.reset();
-
-			std::queue<std::function<void(RenderCore::DynamicRHI*)>> SwapCmd;
-			{
-				std::unique_lock<std::mutex> ConLock(Impl->CondLock);
-				Impl->CmdQueue.swap(SwapCmd);
-			}
 			
 			while (!SwapCmd.empty())
 			{

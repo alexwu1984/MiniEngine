@@ -66,7 +66,7 @@ namespace RenderCore
 
 	}
 
-	bool D3D11Texture2D::CreateWithData(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
+	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
 		Impl->Size.cx = SizeX;
 		Impl->Size.cy = SizeY;
@@ -120,7 +120,7 @@ namespace RenderCore
 		TextureDesc.Width = SizeX;
 		TextureDesc.Height = SizeY;
 		TextureDesc.MipLevels = 1;
-		TextureDesc.ArraySize = 1;
+		TextureDesc.ArraySize = SizeZ;
 		TextureDesc.Format = PlatformResourceFormat;
 		TextureDesc.SampleDesc.Count = ActualMSAACount;
 		TextureDesc.SampleDesc.Quality = ActualMSAAQuality;
@@ -304,7 +304,7 @@ namespace RenderCore
 		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
 		if (ImageBuffer)
 		{
-			return CreateWithData(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
+			return CreateD3D11Texture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
 		}
 		return false;
 	}
@@ -318,7 +318,7 @@ namespace RenderCore
 		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
 		if (ImageBuffer)
 		{
-			return CreateWithData(PF_FloatRGBA, TexCreate_ShaderResource, SizeX, SizeY, ImageBuffer.get(), 4 * SizeX * sizeof(float));
+			return CreateD3D11Texture2D(PF_FloatRGBA, TexCreate_ShaderResource, SizeX, SizeY, 1,ImageBuffer.get(), 4 * SizeX * sizeof(float));
 		}
 		return false;
 	}

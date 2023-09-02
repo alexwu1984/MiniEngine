@@ -40,7 +40,7 @@ namespace RenderCore
 				Flags |= ETextureCreateFlags::TexCreate_MSAA;
 			}
 
-			return Data->DepthTex->CreateWithData(EPixelFormat::PF_DepthStencil, Flags, Tex->GetSize().x, Tex->GetSize().y);
+			return Data->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, Tex->GetSize().x, Tex->GetSize().y);
 		}
 		return true;
 	}
@@ -54,7 +54,7 @@ namespace RenderCore
 			Flags |= ETextureCreateFlags::TexCreate_MSAA;
 		}
 
-		if (!Data->Tex2D->CreateWithData(Format, Flags,SizeX,SizeY))
+		if (!Data->Tex2D->CreateD3D11Texture2D(Format, Flags,SizeX,SizeY))
 		{
 			return false;
 		}
@@ -67,7 +67,7 @@ namespace RenderCore
 				Flags |= ETextureCreateFlags::TexCreate_MSAA;
 			}
 
-			return Data->DepthTex->CreateWithData(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
+			return Data->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
 		}
 		return true;
 	}

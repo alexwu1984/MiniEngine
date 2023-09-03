@@ -1,3 +1,4 @@
+#include "ShaderUtils.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 

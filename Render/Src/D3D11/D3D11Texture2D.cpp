@@ -8,13 +8,16 @@
 
 namespace RenderCore
 {
-	struct D3D11Texture2DP
+	struct D3D11Texture2DPrivate
 	{
 		D3D11DynamicRHI* D3D11RHI;
 		win32::com_ptr<ID3D11Texture2D> Tex2D;
+		win32::com_ptr<ID3D11Texture2D> DepthTex;
 		win32::com_ptr<ID3D11ShaderResourceView> TexSRV;
-		win32::com_ptr<ID3D11RenderTargetView> TexRTV;
 		win32::com_ptr<ID3D11DepthStencilView> TexDSV;
+
+		std::vector< win32::com_ptr <ID3D11RenderTargetView>> TexRTVS;
+
 		core::vec2i Size;
 		bool IsMultisampled = false;
 	};
@@ -56,9 +59,10 @@ namespace RenderCore
 	}
 
 	D3D11Texture2D::D3D11Texture2D(D3D11DynamicRHI* D3D11RHI)
-		:Impl(std::make_shared<D3D11Texture2DP>())
+		:d_ptr(new D3D11Texture2DPrivate())
 	{
-		Impl->D3D11RHI = D3D11RHI;
+		C_P(D3D11Texture2D);
+		d->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11Texture2D::~D3D11Texture2D()
@@ -68,8 +72,16 @@ namespace RenderCore
 
 	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
-		Impl->Size.cx = SizeX;
-		Impl->Size.cy = SizeY;
+		C_P(D3D11Texture2D);
+		d->Size.cx = SizeX;
+		d->Size.cy = SizeY;
+		return CreateD3D11Texture2D(Format,Flags,SizeX,SizeY,SizeZ,false,1, InBuffer,RowBytes);
+	}
+
+	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, 
+		bool bCubeTexture, uint32_t NumMips, void* InBuffer, int RowBytes)
+	{
+		C_P(D3D11Texture2D);
 		const bool bSRGB = (Flags & TexCreate_SRGB) != 0;
 
 		const DXGI_FORMAT PlatformResourceFormat = GetPlatformTextureResourceFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat, Flags);
@@ -78,7 +90,7 @@ namespace RenderCore
 		D3D11_USAGE TextureUsage = D3D11_USAGE_DEFAULT;
 		bool bCreateShaderResource = true;
 
-		auto Device = Impl->D3D11RHI->GetDevice();
+		auto Device = d->D3D11RHI->GetDevice();
 
 		uint32_t ActualMSAACount = 1;
 		uint32_t ActualMSAAQuality = 0;
@@ -94,7 +106,7 @@ namespace RenderCore
 			}
 		}
 
-		Impl->IsMultisampled = ActualMSAACount > 1;
+		d->IsMultisampled = ActualMSAACount > 1;
 
 		if (Flags & TexCreate_CPUReadback)
 		{
@@ -119,7 +131,7 @@ namespace RenderCore
 		ZeroMemory(&TextureDesc, sizeof(D3D11_TEXTURE2D_DESC));
 		TextureDesc.Width = SizeX;
 		TextureDesc.Height = SizeY;
-		TextureDesc.MipLevels = 1;
+		TextureDesc.MipLevels = NumMips;
 		TextureDesc.ArraySize = SizeZ;
 		TextureDesc.Format = PlatformResourceFormat;
 		TextureDesc.SampleDesc.Count = ActualMSAACount;
@@ -127,7 +139,7 @@ namespace RenderCore
 		TextureDesc.Usage = TextureUsage;
 		TextureDesc.BindFlags = bCreateShaderResource ? D3D11_BIND_SHADER_RESOURCE : 0;
 		TextureDesc.CPUAccessFlags = CPUAccessFlags;
-		TextureDesc.MiscFlags =  0;
+		TextureDesc.MiscFlags = bCubeTexture ? D3D11_RESOURCE_MISC_TEXTURECUBE : 0;
 
 		if (Flags & TexCreate_DisableSRVCreation)
 		{
@@ -150,7 +162,7 @@ namespace RenderCore
 		bool bCreateRTV = false;
 		bool bCreateDSV = false;
 
-		if (Flags & TexCreate_RenderTargetable || Impl->IsMultisampled || Flags & TexCreate_GenerateMipCapable)
+		if (Flags & TexCreate_RenderTargetable || d->IsMultisampled || Flags & TexCreate_GenerateMipCapable)
 		{
 			Assert(!(Flags & TexCreate_DepthStencilTargetable));
 			Assert(!(Flags & TexCreate_ResolveTargetable));
@@ -191,19 +203,19 @@ namespace RenderCore
 			bCreateShaderResource = false;
 		}
 
-		
-		auto DeviceContext = Impl->D3D11RHI->GetDeviceContext();
+
+		auto DeviceContext = d->D3D11RHI->GetDeviceContext();
 		HRESULT hr = S_OK;
 		if (Flags & TexCreate_GenerateMipCapable)
 		{
-			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, nullptr, Impl->Tex2D.get_init_ref()))
+			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, nullptr, d->Tex2D.get_init_ref()))
 			{
 				return false;
 			}
 
 			if (InBuffer)
 			{
-				DeviceContext->UpdateSubresource(Impl->Tex2D.get(), 0, nullptr, InBuffer, RowBytes, 0);
+				DeviceContext->UpdateSubresource(d->Tex2D.get(), 0, nullptr, InBuffer, RowBytes, 0);
 			}
 		}
 		else
@@ -213,7 +225,7 @@ namespace RenderCore
 			SubRes.SysMemPitch = RowBytes;
 			SubRes.SysMemSlicePitch = SizeY * RowBytes;
 
-			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, InBuffer ? &SubRes : nullptr, Impl->Tex2D.get_init_ref()))
+			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, InBuffer ? &SubRes : nullptr, d->Tex2D.get_init_ref()))
 			{
 				return false;
 			}
@@ -224,58 +236,125 @@ namespace RenderCore
 			D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
 			memset(&SRVDesc, 0, sizeof(SRVDesc));
 			SRVDesc.Format = TextureDesc.Format;
-			if (Impl->IsMultisampled)
+
+			if (bCubeTexture)
 			{
-				SRVDesc.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2DMS;
+				SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+				SRVDesc.TextureCube.MostDetailedMip = 0;
+				SRVDesc.TextureCube.MipLevels = NumMips;
 			}
 			else
 			{
-				SRVDesc.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2D;
+				if (d->IsMultisampled)
+				{
+					SRVDesc.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2DMS;
+				}
+				else
+				{
+					SRVDesc.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2D;
+					SRVDesc.Texture2D.MostDetailedMip = 0;
+					SRVDesc.Texture2D.MipLevels = NumMips;
+				}
 			}
-			//Set to -1 to indicate all the mipmap levels from MostDetailedMip on down to least detailed
-			SRVDesc.Texture2D.MipLevels = -1;
-			SRVDesc.Texture2D.MostDetailedMip = 0;
-			
-			hr = Device->CreateShaderResourceView(Impl->Tex2D.get(), &SRVDesc, Impl->TexSRV.get_init_ref());
+
+
+			hr = Device->CreateShaderResourceView(d->Tex2D.get(), &SRVDesc, d->TexSRV.get_init_ref());
 			if (FAILED(hr))
 			{
 				return false;
 			}
-			
-			if ((Flags & TexCreate_GenerateMipCapable) && Impl->TexSRV)
+
+			if ((Flags & TexCreate_GenerateMipCapable) && d->TexSRV)
 			{
-				DeviceContext->GenerateMips(Impl->TexSRV.get());
+				DeviceContext->GenerateMips(d->TexSRV.get());
 			}
 
 		}
 
 		if (bCreateRTV)
 		{
-			D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
-			memset(&RTVDesc, 0, sizeof(RTVDesc));
-			RTVDesc.Format = TextureDesc.Format;
-			if (Impl->IsMultisampled)
+			if (bCubeTexture)
 			{
-				RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+				for (uint32_t MipIndex = 0; MipIndex < NumMips; MipIndex++)
+				{
+					for (uint32_t SliceIndex = 0; SliceIndex < TextureDesc.ArraySize; SliceIndex++)
+					{
+						D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
+						memset(&RTVDesc, 0, sizeof(RTVDesc));
+
+						RTVDesc.Format = TextureDesc.Format;
+
+						if (d->IsMultisampled)
+						{
+							RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMSARRAY;
+							RTVDesc.Texture2DMSArray.FirstArraySlice = SliceIndex;
+							RTVDesc.Texture2DMSArray.ArraySize = 1;
+						}
+						else
+						{
+							RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
+							RTVDesc.Texture2DArray.FirstArraySlice = SliceIndex;
+							RTVDesc.Texture2DArray.ArraySize = 1;
+							RTVDesc.Texture2DArray.MipSlice = MipIndex;
+						}
+
+						win32::com_ptr<ID3D11RenderTargetView> TexRTV;
+						hr = Device->CreateRenderTargetView(d->Tex2D.get(), &RTVDesc, TexRTV.get_init_ref());
+						d->TexRTVS.emplace_back(TexRTV);
+					}
+				}
 			}
 			else
 			{
-				RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-			}
-			RTVDesc.Texture2D.MipSlice = 0;
-			hr = Device->CreateRenderTargetView(Impl->Tex2D.get(), &RTVDesc, Impl->TexRTV.get_init_ref());
-			if (FAILED(hr))
-			{
-				return false;
+				for (uint32_t MipIndex = 0; MipIndex < NumMips; MipIndex++)
+				{
+					D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
+					memset(&RTVDesc, 0, sizeof(RTVDesc));
+					RTVDesc.Format = TextureDesc.Format;
+					if (d->IsMultisampled)
+					{
+						RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+					}
+					else
+					{
+						RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+					}
+					RTVDesc.Texture2D.MipSlice = MipIndex;
+					win32::com_ptr<ID3D11RenderTargetView> TexRTV;
+					hr = Device->CreateRenderTargetView(d->Tex2D.get(), &RTVDesc, TexRTV.get_init_ref());
+					if (FAILED(hr))
+					{
+						return false;
+					}
+					d->TexRTVS.emplace_back(TexRTV);
+				}
 			}
 		}
 
 		if (bCreateDSV)
 		{
+			D3D11_TEXTURE2D_DESC DepthStencilDesc;
+			ZeroMemory(&DepthStencilDesc, sizeof(DepthStencilDesc));
+			DepthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+			DepthStencilDesc.Width = SizeX;
+			DepthStencilDesc.Height = SizeY;
+			DepthStencilDesc.MipLevels = 1;
+			DepthStencilDesc.ArraySize = 1;
+			DepthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
+			DepthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+			DepthStencilDesc.CPUAccessFlags = 0;
+			DepthStencilDesc.MiscFlags = 0;
+			DepthStencilDesc.SampleDesc.Count = 1;
+			DepthStencilDesc.SampleDesc.Quality = 0;
+			hr = Device->CreateTexture2D(&DepthStencilDesc, 0, d->DepthTex.get_init_ref());
+			if (FAILED(hr))
+			{
+				return false;
+			}
 			D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
 			memset(&DSVDesc, 0, sizeof(DSVDesc));
 			DSVDesc.Format = TextureDesc.Format;
-			if (Impl->IsMultisampled)
+			if (d->IsMultisampled)
 			{
 				DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
 			}
@@ -285,7 +364,7 @@ namespace RenderCore
 			}
 
 			DSVDesc.Texture2D.MipSlice = 0;
-			hr = Device->CreateDepthStencilView(Impl->Tex2D.get(), &DSVDesc, Impl->TexDSV.get_init_ref());
+			hr = Device->CreateDepthStencilView(d->DepthTex.get(), &DSVDesc, d->TexDSV.get_init_ref());
 			if (FAILED(hr))
 			{
 				return false;
@@ -325,32 +404,48 @@ namespace RenderCore
 
 	bool D3D11Texture2D::IsMultisampled() const
 	{
-		return Impl->IsMultisampled;
+		C_P(D3D11Texture2D);
+		return d->IsMultisampled;
 	}
 
 	core::vec2i D3D11Texture2D::GetSize() const
 	{
-		return Impl->Size;
+		C_P(D3D11Texture2D);
+		return d->Size;
 	}
 
 	ID3D11Texture2D* D3D11Texture2D::GetNativeTex() const
 	{
-		return Impl->Tex2D.get();
+		C_P(D3D11Texture2D);
+		return d->Tex2D.get();
 	}
 
 	ID3D11RenderTargetView* D3D11Texture2D::GetRTV() const
 	{
-		return Impl->TexRTV.get();
+		C_P(D3D11Texture2D);
+		if (d->TexRTVS.empty())
+		{
+			return nullptr;
+		}
+		return d->TexRTVS[0].get();
+	}
+
+	std::vector<win32::com_ptr<ID3D11RenderTargetView>> D3D11Texture2D::GetRTVS() const
+	{
+		C_P(D3D11Texture2D);
+		return d->TexRTVS;
 	}
 
 	ID3D11ShaderResourceView* D3D11Texture2D::GetSRV() const
 	{
-		return Impl->TexSRV.get();
+		C_P(D3D11Texture2D);
+		return d->TexSRV.get();
 	}
 
 	ID3D11DepthStencilView* D3D11Texture2D::GetDSV() const
 	{
-		return Impl->TexDSV.get();
+		C_P(D3D11Texture2D);
+		return d->TexDSV.get();
 	}
 
 }

@@ -37,6 +37,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/FurMaterial.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PerFrameStruct.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Skinning.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShaderUtils.hlsl
 )
 
 

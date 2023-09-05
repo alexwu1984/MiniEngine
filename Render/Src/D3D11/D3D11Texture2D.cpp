@@ -174,6 +174,7 @@ namespace RenderCore
 			Assert(!(Flags & TexCreate_RenderTargetable));
 			Assert(!(Flags & TexCreate_ResolveTargetable));
 			TextureDesc.BindFlags |= D3D11_BIND_DEPTH_STENCIL;
+
 			bCreateDSV = true;
 		}
 		else if (Flags & TexCreate_ResolveTargetable)
@@ -191,6 +192,8 @@ namespace RenderCore
 				bCreateRTV = true;
 			}
 		}
+		 
+
 
 		if (Flags & TexCreate_UAV)
 		{
@@ -333,24 +336,6 @@ namespace RenderCore
 
 		if (bCreateDSV)
 		{
-			D3D11_TEXTURE2D_DESC DepthStencilDesc;
-			ZeroMemory(&DepthStencilDesc, sizeof(DepthStencilDesc));
-			DepthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-			DepthStencilDesc.Width = SizeX;
-			DepthStencilDesc.Height = SizeY;
-			DepthStencilDesc.MipLevels = 1;
-			DepthStencilDesc.ArraySize = 1;
-			DepthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
-			DepthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-			DepthStencilDesc.CPUAccessFlags = 0;
-			DepthStencilDesc.MiscFlags = 0;
-			DepthStencilDesc.SampleDesc.Count = 1;
-			DepthStencilDesc.SampleDesc.Quality = 0;
-			hr = Device->CreateTexture2D(&DepthStencilDesc, 0, d->DepthTex.get_init_ref());
-			if (FAILED(hr))
-			{
-				return false;
-			}
 			D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
 			memset(&DSVDesc, 0, sizeof(DSVDesc));
 			DSVDesc.Format = TextureDesc.Format;
@@ -364,11 +349,12 @@ namespace RenderCore
 			}
 
 			DSVDesc.Texture2D.MipSlice = 0;
-			hr = Device->CreateDepthStencilView(d->DepthTex.get(), &DSVDesc, d->TexDSV.get_init_ref());
+			hr = Device->CreateDepthStencilView(d->Tex2D.get(), &DSVDesc, d->TexDSV.get_init_ref());
 			if (FAILED(hr))
 			{
 				return false;
 			}
+
 		}
 
 		return true;

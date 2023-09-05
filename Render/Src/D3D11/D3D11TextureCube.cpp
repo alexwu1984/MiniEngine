@@ -7,6 +7,7 @@ namespace RenderCore
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		std::shared_ptr<D3D11Texture2D> Tex2D;
+		std::shared_ptr<D3D11Texture2D> DepthSRV;
 	};
 
 	D3D11TextureCube::D3D11TextureCube(D3D11DynamicRHI* D3D11RHI)
@@ -15,6 +16,7 @@ namespace RenderCore
 		C_P(D3D11TextureCube);
 		d->D3D11RHI = D3D11RHI;
 		d->Tex2D = std::make_shared<D3D11Texture2D>(D3D11RHI);
+		d->DepthSRV = std::make_shared<D3D11Texture2D>(D3D11RHI);
 	}
 
 	D3D11TextureCube::~D3D11TextureCube()
@@ -22,10 +24,12 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	bool D3D11TextureCube::CreateD3D11TextureCube(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY)
+	bool D3D11TextureCube::CreateD3D11TextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
 	{
 		C_P(D3D11TextureCube);
-		return d->Tex2D->CreateD3D11Texture2D(Format, Flags, SizeX, SizeY, 6);
+		bool Ret =  d->Tex2D->CreateD3D11Texture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable, SizeX, SizeY, 6);
+		Ret &= d->DepthSRV->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
+		return Ret;
 	}
 
 	bool D3D11TextureCube::IsMultisampled() const
@@ -38,6 +42,30 @@ namespace RenderCore
 	{
 		C_P(D3D11TextureCube);
 		return d->Tex2D->GetSize();
+	}
+
+	ID3D11Texture2D* D3D11TextureCube::GetNativeTex() const
+	{
+		C_P(D3D11TextureCube);
+		return d->Tex2D->GetNativeTex();
+	}
+
+	std::vector<win32::com_ptr<ID3D11RenderTargetView>> D3D11TextureCube::GetRTVS() const
+	{
+		C_P(D3D11TextureCube);
+		return d->Tex2D->GetRTVS();
+	}
+
+	ID3D11ShaderResourceView* D3D11TextureCube::GetSRV() const
+	{
+		C_P(D3D11TextureCube);
+		return d->Tex2D->GetSRV();
+	}
+
+	std::shared_ptr<D3D11Texture2D> D3D11TextureCube::GetDSV() const
+	{
+		C_P(D3D11TextureCube);
+		return d->DepthSRV;
 	}
 
 }

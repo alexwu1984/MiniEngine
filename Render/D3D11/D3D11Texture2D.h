@@ -23,7 +23,7 @@ namespace RenderCore
 
 		ID3D11Texture2D* GetNativeTex() const;
 		ID3D11RenderTargetView* GetRTV() const;
-		std::vector<win32::com_ptr<ID3D11RenderTargetView>> GetRTVS() const;
+		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> GetRTVS() const;
 		ID3D11ShaderResourceView* GetSRV() const;
 		ID3D11DepthStencilView* GetDSV() const;
 

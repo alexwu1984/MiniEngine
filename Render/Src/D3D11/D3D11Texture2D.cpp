@@ -16,7 +16,7 @@ namespace RenderCore
 		win32::com_ptr<ID3D11ShaderResourceView> TexSRV;
 		win32::com_ptr<ID3D11DepthStencilView> TexDSV;
 
-		std::vector< win32::com_ptr <ID3D11RenderTargetView>> TexRTVS;
+		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> TexRTVS;
 
 		core::vec2i Size;
 		bool IsMultisampled = false;
@@ -303,7 +303,7 @@ namespace RenderCore
 
 						win32::com_ptr<ID3D11RenderTargetView> TexRTV;
 						hr = Device->CreateRenderTargetView(d->Tex2D.get(), &RTVDesc, TexRTV.get_init_ref());
-						d->TexRTVS.emplace_back(TexRTV);
+						d->TexRTVS[MipIndex].emplace_back(TexRTV);
 					}
 				}
 			}
@@ -329,7 +329,7 @@ namespace RenderCore
 					{
 						return false;
 					}
-					d->TexRTVS.emplace_back(TexRTV);
+					d->TexRTVS[MipIndex].emplace_back(TexRTV);
 				}
 			}
 		}
@@ -413,10 +413,10 @@ namespace RenderCore
 		{
 			return nullptr;
 		}
-		return d->TexRTVS[0].get();
+		return d->TexRTVS[0][0].get();
 	}
 
-	std::vector<win32::com_ptr<ID3D11RenderTargetView>> D3D11Texture2D::GetRTVS() const
+	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> D3D11Texture2D::GetRTVS() const
 	{
 		C_P(D3D11Texture2D);
 		return d->TexRTVS;

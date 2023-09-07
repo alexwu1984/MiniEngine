@@ -122,7 +122,7 @@ namespace win32
 			float CostTime = std::chrono::duration<float, std::milli>(TEnd - TStart).count();
 			if (CostTime > 5)
 			{
-				core::LOG(core::log_inf, __FUNCTIONW__ L" Too Long:%dms", CostTime);
+				core::LOG(core::log_inf, __FUNCTIONW__ L" Too Long:%0.1fms", CostTime);
 			}
 			
 		}

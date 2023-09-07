@@ -143,6 +143,20 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHITextureCube> RenderTarget, int32_t IndexView, int32_t IndexMip)
+	{
+		auto TextureCubeRHI = RHIResourceCast(RenderTarget.get());
+		if (TextureCubeRHI)
+		{
+			auto RTV = TextureCubeRHI->GetRTVS();
+			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RTV[IndexView][IndexMip], TextureCubeRHI->GetDSV()->GetDSV());
+		}
+		else
+		{
+			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+		}
+	}
+
 	void D3D11CommandContext::Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
 	{
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
@@ -159,6 +173,11 @@ namespace RenderCore
 		{
 			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
 		}
+	}
+
+	void D3D11CommandContext::Clear(std::shared_ptr< RHITextureCube> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	{
+		auto TextureCubeRHI = RHIResourceCast(RenderTarget.get());
 	}
 
 	void D3D11CommandContext::RHIEndDrawing()

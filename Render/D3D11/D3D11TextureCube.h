@@ -21,7 +21,7 @@ namespace RenderCore
 		virtual core::vec2i GetSize() const;
 
 		ID3D11Texture2D* GetNativeTex() const;
-		std::vector<win32::com_ptr<ID3D11RenderTargetView>> GetRTVS() const;
+		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> GetRTVS() const;
 		ID3D11ShaderResourceView* GetSRV() const;
 		std::shared_ptr<D3D11Texture2D> GetDSV() const;
 

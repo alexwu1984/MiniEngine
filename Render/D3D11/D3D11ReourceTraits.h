@@ -7,6 +7,7 @@
 #include "D3D11/D3D11RenderTarget.h"
 #include "D3D11/D3D11Shader.h"
 #include "D3D11/D3D11State.h"
+#include "D3D11/D3D11TextureCube.h"
 
 namespace RenderCore
 {
@@ -85,6 +86,12 @@ namespace RenderCore
 	struct TD3D11ResourceTraits<RHIDepthStencilState>
 	{
 		typedef D3D11DepthStencilState TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHITextureCube>
+	{
+		typedef D3D11TextureCube TConcreteType;
 	};
 
 	template<typename TRHIType>

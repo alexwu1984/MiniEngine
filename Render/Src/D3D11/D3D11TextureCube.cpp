@@ -50,7 +50,7 @@ namespace RenderCore
 		return d->Tex2D->GetNativeTex();
 	}
 
-	std::vector<win32::com_ptr<ID3D11RenderTargetView>> D3D11TextureCube::GetRTVS() const
+	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> D3D11TextureCube::GetRTVS() const
 	{
 		C_P(D3D11TextureCube);
 		return d->Tex2D->GetRTVS();

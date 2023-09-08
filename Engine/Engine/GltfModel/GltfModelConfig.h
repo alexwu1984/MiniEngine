@@ -12,14 +12,14 @@ namespace Engine
 	{
 		std::string Name;
 		std::string NoiseTex;
-		float FurLength{ 0.18 };
-		float FurAmbientStrength{ 2.94 };
-		float FurLevel{ 28 };
-		float UVScale{ 30 };
-		float FurLightExposure{ 0.4 };
+		float FurLength{ 0.18f };
+		float FurAmbientStrength{ 2.94f };
+		float FurLevel{ 28.f };
+		float UVScale{ 30.f };
+		float FurLightExposure{ 0.4f };
 
-		math::Vector3 Gravity{ 0,0,0 };
-		math::Vector3 FurColor{ 1,1,1 };
+		math::Vector3 Gravity{ 0.f,0.f,0.f };
+		math::Vector3 FurColor{ 1.f,1.f,1.f };
 	};
 
 	class GltfModelConfig

@@ -7,7 +7,7 @@ namespace RenderCore
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		std::shared_ptr<D3D11Texture2D> Tex2D;
-		std::shared_ptr<D3D11Texture2D> DepthSRV;
+		std::shared_ptr<D3D11Texture2D> DepthTex;
 	};
 
 	D3D11TextureCube::D3D11TextureCube(D3D11DynamicRHI* D3D11RHI)
@@ -16,7 +16,7 @@ namespace RenderCore
 		C_P(D3D11TextureCube);
 		d->D3D11RHI = D3D11RHI;
 		d->Tex2D = std::make_shared<D3D11Texture2D>(D3D11RHI);
-		d->DepthSRV = std::make_shared<D3D11Texture2D>(D3D11RHI);
+		d->DepthTex = std::make_shared<D3D11Texture2D>(D3D11RHI);
 	}
 
 	D3D11TextureCube::~D3D11TextureCube()
@@ -24,18 +24,16 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	bool D3D11TextureCube::CreateD3D11TextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
+	bool D3D11TextureCube::CreateD3D11TextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
 	{
 		C_P(D3D11TextureCube);
-		bool Ret =  d->Tex2D->CreateD3D11Texture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable, SizeX, SizeY, 6);
-		Ret &= d->DepthSRV->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
+		bool Ret =  d->Tex2D->CreateD3D11Texture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_GenerateMipCapable, SizeX, SizeY, 6,true, NumMips,nullptr,0);
+		if (CreateDepth)
+		{
+			Ret &= d->DepthTex->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
+		}
+		
 		return Ret;
-	}
-
-	bool D3D11TextureCube::IsMultisampled() const
-	{
-		C_P(D3D11TextureCube);
-		return d->Tex2D->IsMultisampled();
 	}
 
 	core::vec2i D3D11TextureCube::GetSize() const
@@ -62,10 +60,10 @@ namespace RenderCore
 		return d->Tex2D->GetSRV();
 	}
 
-	std::shared_ptr<D3D11Texture2D> D3D11TextureCube::GetDSV() const
+	std::shared_ptr<D3D11Texture2D> D3D11TextureCube::GetDepthTex() const
 	{
 		C_P(D3D11TextureCube);
-		return d->DepthSRV;
+		return d->DepthTex;
 	}
 
 }

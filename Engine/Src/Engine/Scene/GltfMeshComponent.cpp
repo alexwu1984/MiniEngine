@@ -97,7 +97,7 @@ namespace Engine
 
 		size_t MeshSize = Impl->Model.GetModelMesh().size();
 
-		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
 			//default Material
@@ -179,7 +179,7 @@ namespace Engine
 	{
 		//Draw opacity mesh at first 
 		size_t MeshSize = Impl->Model.GetModelMesh().size();
-		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
 			auto Material = Impl->Renders[MeshIndex];
 			std::shared_ptr<GltfMesh> Mesh = Impl->Model.GetModelMesh()[MeshIndex];
@@ -195,7 +195,7 @@ namespace Engine
 		MeshSize = Impl->SortMesh.size();
 
 		//draw transparent
-		for (size_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
 			int MeshID = Impl->SortMesh[MeshIndex].MeshID;
 			int ModelID = Impl->SortMesh[MeshIndex].ModelID;
@@ -222,7 +222,7 @@ namespace Engine
 
 	void GltfMeshComponent::SortMesh(const math::Vector3& CameraPos)
 	{
-		int MeshSize = Impl->Model.GetModelMesh().size();
+		auto MeshSize = Impl->Model.GetModelMesh().size();
 		if (MeshSize == 0)
 		{
 			return;

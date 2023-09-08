@@ -143,13 +143,13 @@ namespace RenderCore
 		}
 	}
 
-	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHITextureCube> RenderTarget, int32_t IndexView, int32_t IndexMip)
+	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip)
 	{
-		auto TextureCubeRHI = RHIResourceCast(RenderTarget.get());
+		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
 		if (TextureCubeRHI)
 		{
-			auto RTV = TextureCubeRHI->GetRTVS();
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RTV[IndexView][IndexMip], TextureCubeRHI->GetDSV()->GetDSV());
+			auto CubeRRVS = TextureCubeRHI->GetRTVS();
+			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &CubeRRVS[IndexMip][IndexView], TextureCubeRHI->GetDepthTex()->GetDSV());
 		}
 		else
 		{
@@ -175,9 +175,28 @@ namespace RenderCore
 		}
 	}
 
-	void D3D11CommandContext::Clear(std::shared_ptr< RHITextureCube> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	void D3D11CommandContext::Clear(std::shared_ptr< RHITextureCube> TextureCube, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
 	{
-		auto TextureCubeRHI = RHIResourceCast(RenderTarget.get());
+		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
+		auto DeviceContex = Impl->D3D11RHI->GetDeviceContext();
+
+		if (TextureCubeRHI)
+		{
+			auto CubeRRVS = TextureCubeRHI->GetRTVS();
+			for (size_t IndexMip = 0; IndexMip < CubeRRVS.size();++IndexMip)
+			{
+				auto& RRVS = CubeRRVS[IndexMip];
+				for (size_t IndexView = 0; IndexView < RRVS.size(); ++IndexView)
+				{
+					DeviceContex->ClearRenderTargetView(RRVS[IndexView].get(), &Color.R);
+				}
+			}
+			auto DSV = TextureCubeRHI->GetDepthTex()->GetDSV();
+			if (DSV != NULL)
+			{
+				DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
+			}
+		}
 	}
 
 	void D3D11CommandContext::RHIEndDrawing()

@@ -8,7 +8,7 @@ namespace win32
 	{
 		HANDLE _hThread = nullptr;
 		int32_t _Fps = 60;
-		bool _Quit = false;
+		std::atomic_bool _Quit = false;
 	};
 
 	void UpdatePublishFPS(uint32_t& fpsFrameNum, uint32_t& fpsBeginTime, const std::wstring& tips, int statisticTime)
@@ -107,10 +107,10 @@ namespace win32
 
 		float Delta = Impl->_Fps / 1000.f;
 
-		while (!Impl->_Quit)
+		while (!Impl->_Quit.load())
 		{
 			win32::cpu_clock::os_sleepto_ns(&SleepTargetTime, FrameTimeNS);
-			if (Impl->_Quit)
+			if (Impl->_Quit.load())
 			{
 				break;
 			}

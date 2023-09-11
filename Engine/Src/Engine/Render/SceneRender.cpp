@@ -8,6 +8,7 @@
 #include "Engine.h"
 #include "RHI/DynamicRHI.h"
 #include "App/AppWindow.h"
+#include "Render/PreProcessor.h"
 
 using namespace RenderCore;
 
@@ -17,7 +18,7 @@ namespace Engine
 	{
 		std::weak_ptr<SceneView> Owner;
 		std::shared_ptr<RHIViewPort> MainViewPort;
-
+		PreProcessor PreProcess;
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)

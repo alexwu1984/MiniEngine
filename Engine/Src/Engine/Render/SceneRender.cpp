@@ -43,6 +43,9 @@ namespace Engine
 	void SceneRender::InitResource(std::shared_ptr<RHIViewPort> ViewPort)
 	{
 		Impl->MainViewPort = ViewPort;
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* RHI){
+			Impl->PreProcess.InitResource(RHI);
+		}));
 	}
 
 	void SceneRender::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)

@@ -4,6 +4,7 @@
 namespace RenderCore
 {
 	class RHICommandContext;
+	class DynamicRHI;
 }
 
 namespace Engine
@@ -16,7 +17,7 @@ namespace Engine
 		IBLRender();
 		~IBLRender();
 
-		void InitResource();
+		void InitResource(RenderCore::DynamicRHI* RHI);
 
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 

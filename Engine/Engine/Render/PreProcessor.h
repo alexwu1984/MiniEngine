@@ -4,18 +4,22 @@
 namespace RenderCore
 {
 	class RHICommandContext;
+	class DynamicRHI;
 }
 
 namespace Engine
 {
-	struct PreProcessPrivate;
+	struct PreProcessorPrivate;
 	class PreProcessor
 	{
 	public:
 		PreProcessor();
 		~PreProcessor();
 
-		void InitResource();
+		void InitResource(RenderCore::DynamicRHI* RHI);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
+
+	private:
+		PreProcessorPrivate* d_ptr = nullptr;
 	};
 }

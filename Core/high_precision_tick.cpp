@@ -11,7 +11,7 @@ namespace win32
 		std::atomic_bool _Quit = false;
 	};
 
-	void UpdatePublishFPS(uint32_t& fpsFrameNum, uint32_t& fpsBeginTime, const std::wstring& tips, int statisticTime)
+	void UpdatePublishFPS(uint32_t& fpsFrameNum, uint64_t& fpsBeginTime, const std::wstring& tips, int statisticTime)
 	{
 		if (0 == fpsBeginTime)
 		{
@@ -21,10 +21,10 @@ namespace win32
 		}
 
 		fpsFrameNum++;
-		UINT32 interval = win32::cpu_clock::os_gettime_ms() - fpsBeginTime;
+		uint64_t interval = win32::cpu_clock::os_gettime_ms() - fpsBeginTime;
 		if ((int)interval > statisticTime)
 		{
-			int fps = fpsFrameNum * 1000 / interval;
+			int fps = static_cast<int32_t>(fpsFrameNum * 1000 / interval);
 			//GLog(TRACE_INFO, __FUNCTION__ "  %s AVG_FPS : %d FPS : %d", tips.c_str(), fps, fpsFrameNum);
 			core::LOG(core::log_inf, L"  %s AVG_FPS : %d FPS : %d", tips.c_str(), fps, fpsFrameNum);
 
@@ -35,8 +35,8 @@ namespace win32
 
 	static void UpdateRenderFPS(const std::wstring& tips)
 	{
-		static UINT32 fpsFrameNum = 0;
-		static UINT32 fpsBeginTime = 0;
+		static uint32_t fpsFrameNum = 0;
+		static uint64_t fpsBeginTime = 0;
 		UpdatePublishFPS(fpsFrameNum, fpsBeginTime, tips, 5 * 1000);
 	}
 

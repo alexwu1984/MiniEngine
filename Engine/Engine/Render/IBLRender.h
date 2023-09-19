@@ -17,7 +17,7 @@ namespace Engine
 		IBLRender(RenderCore::DynamicRHI* RHI);
 		~IBLRender();
 
-		void InitResource(RenderCore::DynamicRHI* RHI);
+		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
 	private:

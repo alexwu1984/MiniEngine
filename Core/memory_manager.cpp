@@ -450,7 +450,7 @@ namespace win32
 		uint8_t* Result = Top;
 		if (uiAlignment > 0)
 		{
-			Result = (uint8_t*)(((unsigned int)Top + (uiAlignment - 1)) & ~(uiAlignment - 1));
+			Result = (uint8_t*)(((size_t)Top + (uiAlignment - 1)) & ~(uiAlignment - 1));
 		}
 		Top = Result + uiSize;
 
@@ -462,7 +462,7 @@ namespace win32
 			Result = Top;
 			if (uiAlignment > 0)
 			{
-				Result = (uint8_t*)(((unsigned int)Top + (uiAlignment - 1)) & ~(uiAlignment - 1));
+				Result = (uint8_t*)(((size_t)Top + (uiAlignment - 1)) & ~(uiAlignment - 1));
 			}
 			Top = Result + uiSize;
 		}

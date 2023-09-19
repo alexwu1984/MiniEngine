@@ -6,11 +6,18 @@ namespace Engine
 {
 	struct PreProcessorPrivate
 	{
-		IBLRender GenIBL;
+		std::shared_ptr<IBLRender> GenIBL;
+		RenderCore::DynamicRHI* RHI;
+
+		PreProcessorPrivate(RenderCore::DynamicRHI* _RHI)
+			:RHI(_RHI)
+		{
+			GenIBL = std::make_shared<IBLRender>(_RHI);
+		}
 	};
 
-	PreProcessor::PreProcessor()
-		:d_ptr(new PreProcessorPrivate())
+	PreProcessor::PreProcessor(RenderCore::DynamicRHI* RHI)
+		:d_ptr(new PreProcessorPrivate(RHI))
 	{
 
 	}
@@ -20,10 +27,10 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	void PreProcessor::InitResource(RenderCore::DynamicRHI* RHI)
+	void PreProcessor::InitResource()
 	{
 		C_P(PreProcessor);
-		d->GenIBL.InitResource(RHI);
+		d->GenIBL->InitResource();
 	}
 
 	void PreProcessor::Draw(RenderCore::RHICommandContext& RHIContext)

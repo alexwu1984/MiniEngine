@@ -38,12 +38,10 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PerFrameStruct.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Skinning.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShaderUtils.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/EnvironmentShaders.hlsl
 )
 
-
 add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} )
-
-
 
 #-------------------------------------------------------------------------------------------
 # Defines

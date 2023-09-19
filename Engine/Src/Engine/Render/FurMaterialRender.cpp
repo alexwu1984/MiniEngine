@@ -9,6 +9,8 @@
 namespace Engine
 {
 	using namespace RenderCore;
+
+
 	struct FurMaterialRenderPrivate
 	{
 		FurMaterialRenderPrivate()

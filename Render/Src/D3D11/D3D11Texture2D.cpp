@@ -67,7 +67,7 @@ namespace RenderCore
 
 	D3D11Texture2D::~D3D11Texture2D()
 	{
-
+		delete d_ptr;
 	}
 
 	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)

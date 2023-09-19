@@ -14,13 +14,14 @@ namespace Engine
 	class IBLRender
 	{
 	public:
-		IBLRender();
+		IBLRender(RenderCore::DynamicRHI* RHI);
 		~IBLRender();
 
 		void InitResource(RenderCore::DynamicRHI* RHI);
-
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
+	private:
+		void InitShader();
 	private:
 		IBLRenderPrivate* d_ptr = nullptr;
 	};

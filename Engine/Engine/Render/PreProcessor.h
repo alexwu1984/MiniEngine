@@ -13,10 +13,10 @@ namespace Engine
 	class PreProcessor
 	{
 	public:
-		PreProcessor();
+		PreProcessor(RenderCore::DynamicRHI* RHI);
 		~PreProcessor();
 
-		void InitResource(RenderCore::DynamicRHI* RHI);
+		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
 	private:

@@ -18,7 +18,7 @@ namespace Engine
 	{
 		std::weak_ptr<SceneView> Owner;
 		std::shared_ptr<RHIViewPort> MainViewPort;
-		PreProcessor PreProcess;
+		std::shared_ptr<PreProcessor> PreProcess;
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
@@ -44,7 +44,11 @@ namespace Engine
 	{
 		Impl->MainViewPort = ViewPort;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* RHI){
-			Impl->PreProcess.InitResource(RHI);
+			if (!Impl->PreProcess)
+			{
+				Impl->PreProcess = std::make_shared<PreProcessor>(RHI);
+			}
+			Impl->PreProcess->InitResource();
 		}));
 	}
 

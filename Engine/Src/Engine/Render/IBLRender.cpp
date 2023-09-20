@@ -6,6 +6,8 @@
 #include "core/system.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
+#include "RHI/RHIPipeLineState.h"
+#include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
 
 using namespace math;
@@ -79,7 +81,35 @@ namespace Engine
 	void IBLRender::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
+
+		GraphicsPipelineStateInitializer Init;
+		Init.PixelShader = d->IrrPixelShader;
+		Init.VertexShader = d->VertexShader;
+
+		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
+
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+
+		//to do,set uniform buffer
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+		for (size_t i = 0; i < 6; ++i)
+		{
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[i];
+			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+			//RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
+		}
+
+
 		//m_programIRR->useShader();
 
 		//for (int i = 0; i < 6; i++)

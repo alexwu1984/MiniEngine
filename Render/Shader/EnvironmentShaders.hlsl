@@ -30,6 +30,7 @@ VertexOutput VS_SkyCube(VertexIN In)
     VertexOutput Out;
     Out.LocalDirection = In.Position;
     Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    Out.Position.z = Out.Position.w;
     return Out;
 }
 
@@ -71,4 +72,17 @@ float4 PS_GenIrradiance(VertexOutput In) : SV_Target
     Irradiance = PI * Irradiance / NumSamples;
 
     return float4(Irradiance, 1.0);
+}
+
+Texture2D EquirectangularMap : register(t0);
+
+float4 EVN_PS(VertexOutput In) : SV_Target
+{
+    float3 v = normalize(In.LocalDirection);
+    float2 uv = float2(atan2(v.z, v.x), asin(v.y));
+    uv.x *= 0.1591;
+    uv.y *= 0.3183;
+    uv += 0.5;
+    float3 color = EquirectangularMap.Sample(LinearSampler, uv).rgb;
+    return float4(color, 1.0);
 }

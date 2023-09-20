@@ -35,7 +35,8 @@ namespace Engine
 
 	void PreProcessor::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
-
+		C_P(PreProcessor);
+		d->GenIBL->Draw(RHIContext);
 	}
 
 }

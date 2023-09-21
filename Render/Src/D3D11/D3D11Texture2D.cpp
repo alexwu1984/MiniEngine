@@ -376,16 +376,32 @@ namespace RenderCore
 
 	bool D3D11Texture2D::CreateHDRFromFile(const std::wstring& FileName)
 	{
-		std::string Utf8FileName = core::ucs2_u8(FileName);
-		int32_t ImageChannel = 0;
-		int32_t SizeX = 0;
-		int32_t SizeY = 0;
-		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
-		if (ImageBuffer)
+		//std::string Utf8FileName = core::ucs2_u8(FileName);
+		//int32_t ImageChannel = 0;
+		//int32_t SizeX = 0;
+		//int32_t SizeY = 0;
+		//std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
+		//if (ImageBuffer)
+		//{
+		//	return CreateD3D11Texture2D(PF_FloatRGBA, TexCreate_ShaderResource, SizeX, SizeY, 1,ImageBuffer.get(), 4 * SizeX * sizeof(float));
+		//}
+		DirectX::ScratchImage image;
+		HRESULT hr = DirectX::LoadFromHDRFile(FileName.c_str(), nullptr, image);
+		if (FAILED(hr))
 		{
-			return CreateD3D11Texture2D(PF_FloatRGBA, TexCreate_ShaderResource, SizeX, SizeY, 1,ImageBuffer.get(), 4 * SizeX * sizeof(float));
+			return false;
 		}
-		return false;
+
+		C_P(D3D11Texture2D);
+		d->Size.cx = static_cast<int32_t>(image.GetImages()->width);
+		d->Size.cy = static_cast<int32_t>(image.GetImages()->height);
+		hr = DirectX::CreateTexture(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), reinterpret_cast<ID3D11Resource**>(d->Tex2D.getpp()));
+		if (FAILED(hr))
+		{
+			return false;
+		}
+		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.getpp());
+		return SUCCEEDED(hr);
 	}
 
 	bool D3D11Texture2D::IsMultisampled() const

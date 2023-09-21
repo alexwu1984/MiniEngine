@@ -30,7 +30,7 @@ VertexOutput VS_SkyCube(VertexIN In)
     VertexOutput Out;
     Out.LocalDirection = In.Position;
     Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
-    Out.Position.z = Out.Position.w;
+   // Out.Position.z = Out.Position.w;
     return Out;
 }
 
@@ -74,15 +74,21 @@ float4 PS_GenIrradiance(VertexOutput In) : SV_Target
     return float4(Irradiance, 1.0);
 }
 
-Texture2D EquirectangularMap : register(t0);
+Texture2D LongLatEnvironment : register(t0);
+//-------------------------------------------------------
+// Convert Longtitude-Latitude Mapping to Cube Mapping
+//-------------------------------------------------------
 
-float4 EVN_PS(VertexOutput In) : SV_Target
+static const float2 invAtan = { 0.5 / PI, -1 / PI };
+float2 SampleSphericalMap(float3 Direction)
 {
-    float3 v = normalize(In.LocalDirection);
-    float2 uv = float2(atan2(v.z, v.x), asin(v.y));
-    uv.x *= 0.1591;
-    uv.y *= 0.3183;
-    uv += 0.5;
-    float3 color = EquirectangularMap.Sample(LinearSampler, uv).rgb;
-    return float4(color, 1.0);
+    float3 v = normalize(Direction);
+    float2 uv = { atan2(v.z, v.x), asin(v.y) };
+    uv = saturate(uv * invAtan + 0.5);
+    return uv;
+}
+
+float4 PS_LongLatToCube(VertexOutput In) : SV_Target
+{
+    return LongLatEnvironment.Sample(LinearSampler, SampleSphericalMap(In.LocalDirection.xyz));
 }

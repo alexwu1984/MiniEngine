@@ -28,8 +28,14 @@ namespace Engine
 	{
 		std::shared_ptr<RenderCore::RHITextureCube> PreFilterCube;
 		std::shared_ptr<RenderCore::RHITextureCube> IrrCube;
+		std::shared_ptr< RenderCore::RHITextureCube> EvnCube;
+		std::shared_ptr<RenderCore::RHITexture2D> HDRTex;
+
 		std::shared_ptr< RenderCore::RHIVertexShader> VertexShader;
 		std::shared_ptr< RenderCore::RHIPixelShader> IrrPixelShader;
+		std::shared_ptr< RenderCore::RHIVertexShader> VSLongLatToCube;
+		std::shared_ptr< RenderCore::RHIPixelShader> PSLongLatToCube;
+		std::shared_ptr< RenderCore::RHIVertexBuffer> CubeVB;
 		RenderCore::DynamicRHI* RHI;
 
 		IBLRenderPrivate(RenderCore::DynamicRHI* _RHI)
@@ -73,7 +79,7 @@ namespace Engine
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::UnitZ,Vector3::UnitY),
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::NegUnitZ,Vector3::UnitY)
 		};
-
+		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
 		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 128,128, 8, false);
 		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 5, false);
 	}
@@ -81,11 +87,15 @@ namespace Engine
 	void IBLRender::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
+		if (!d->HDRTex)
+		{
+			return;
+		}
 
 		GraphicsPipelineStateInitializer Init;
-		Init.PixelShader = d->IrrPixelShader;
 		Init.VertexShader = d->VertexShader;
-
+		Init.PixelShader = d->PSLongLatToCube;
+		
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
@@ -99,14 +109,16 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
-		for (size_t i = 0; i < 6; ++i)
+		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
-			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[i];
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView];
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
-			//RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
+			RHIContext.SetRenderTarget(d->EvnCube, IndexView, 0);
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
+			RenderCube(RHIContext);
 		}
 
 
@@ -138,6 +150,56 @@ namespace Engine
 
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_SkyCube", VertexDeclareRHI, {});
 		d->IrrPixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_GenIrradiance", {});
+	}
+
+	void IBLRender::RenderCube(RenderCore::RHICommandContext& RHIContext)
+	{
+		C_P(IBLRender);
+		if (!d->CubeVB )
+		{
+			float vertices[] = {
+				// back face
+				-1.0f, -1.0f, -1.0f,
+				1.0f, 1.0f, -1.0f,
+				1.0f, -1.0f, -1.0f,
+				1.0f, 1.0f, -1.0f,
+				-1.0f, -1.0f, -1.0f,
+				-1.0f, 1.0f, -1.0f,
+				-1.0f, -1.0f, 1.0f,
+				1.0f, -1.0f, 1.0f,
+				1.0f, 1.0f, 1.0f,
+				1.0f, 1.0f, 1.0f,
+				-1.0f, 1.0f, 1.0f,
+				-1.0f, -1.0f, 1.0f,
+				-1.0f, 1.0f, 1.0f,
+				-1.0f, 1.0f, -1.0f,
+				-1.0f, -1.0f, -1.0f,
+				-1.0f, -1.0f, -1.0f,
+				-1.0f, -1.0f, 1.0f,
+				-1.0f, 1.0f, 1.0f,
+				1.0f, 1.0f, 1.0f,
+				1.0f, -1.0f, -1.0f,
+				1.0f, 1.0f, -1.0f,
+				1.0f, -1.0f, -1.0f,
+				1.0f, 1.0f, 1.0f,
+				1.0f, -1.0f, 1.0f,
+				-1.0f, -1.0f, -1.0f,
+				1.0f, -1.0f, -1.0f,
+				1.0f, -1.0f, 1.0f,
+				1.0f, -1.0f, 1.0f,
+				-1.0f, -1.0f, 1.0f,
+				-1.0f, -1.0f, -1.0f,
+				-1.0f, 1.0f, -1.0f,
+				1.0f, 1.0f, 1.0f,
+				1.0f, 1.0f, -1.0f,
+				1.0f, 1.0f, 1.0f,
+				-1.0f, 1.0f, -1.0f,
+				-1.0f, 1.0f, 1.0f,
+			};
+			d->CubeVB = d->RHI->RHICreateVertexBuffer(vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), 36);
+		}
+		// render Cube
+		RHIContext.DrawPrimitive(d->CubeVB);
 	}
 
 }

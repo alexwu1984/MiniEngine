@@ -353,6 +353,27 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI)
+	{
+		D3D11TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		switch (ShaderType)
+		{
+		case SF_Vertex:
+			StateCache.SetShaderResourceView<SF_Vertex>(TextureCube->GetSRV(), TextureIndex);
+			break;
+		case SF_Compute:
+			StateCache.SetShaderResourceView<SF_Compute>(TextureCube->GetSRV(), TextureIndex);
+			break;
+		case SF_Pixel:
+			StateCache.SetShaderResourceView<SF_Pixel>(TextureCube->GetSRV(), TextureIndex);
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	void D3D11CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
 	{
 		D3D11UniformBuffer* UnifromBuffer = RHIResourceCast(UniformBufferRHI.get());

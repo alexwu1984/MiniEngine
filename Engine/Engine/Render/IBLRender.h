@@ -22,6 +22,7 @@ namespace Engine
 
 	private:
 		void InitShader();
+		void RenderCube(RenderCore::RHICommandContext& RHIContext);
 	private:
 		IBLRenderPrivate* d_ptr = nullptr;
 	};

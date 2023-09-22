@@ -95,6 +95,8 @@ if(MSVC)
     string(REPLACE "/GR " "/GR- " CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 endif()
 
+target_link_libraries(DirectXTex LINK_PUBLIC Core)
+
 add_executable(texassemble Texassemble/texassemble.cpp)
 target_link_libraries(texassemble ${PROJECT_NAME})
 source_group(texassemble REGULAR_EXPRESSION Texassemble/*.*)

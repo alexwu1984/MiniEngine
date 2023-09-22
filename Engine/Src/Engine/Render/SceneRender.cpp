@@ -82,6 +82,13 @@ namespace Engine
 			return;
 		}
 
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl, CommandContext](RenderCore::DynamicRHI* RHI) {
+			if (Impl->PreProcess)
+			{
+				Impl->PreProcess->Draw(*CommandContext);
+			}
+			}));
+
 		auto ClearAndSetViewPort = [Impl = Impl](RenderCore::DynamicRHI* RHI) {
 			Impl->MainViewPort->Clear(core::FLinearColor::Gray);
 			Impl->MainViewPort->SetRenderTarget();
@@ -91,6 +98,7 @@ namespace Engine
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);
+
 
 		const auto& Actors = GetOwner()->GetAllActors();
 		for (const auto& ActorItem: Actors )

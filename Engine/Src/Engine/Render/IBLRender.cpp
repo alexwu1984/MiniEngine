@@ -144,23 +144,6 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
 		}
-
-
-		//m_programIRR->useShader();
-
-		//for (int i = 0; i < 6; i++)
-		//{
-		//	m_IBLConstantBuffer.view = captureViews[i];
-		//	m_IrrCube->SetRenderTarget(i);
-		//	GetDynamicRHI()->SetSamplerState(CC3DPiplelineState::ClampLinerSampler);
-
-		//	GetDynamicRHI()->SetPSShaderResource(0, m_envCube);
-		//	GetDynamicRHI()->UpdateConstantBuffer(m_IBLCB, &m_IBLConstantBuffer);
-		//	GetDynamicRHI()->SetVSConstantBuffer(0, m_IBLCB);
-		//	GetDynamicRHI()->SetPSConstantBuffer(0, m_IBLCB);
-		//	renderCube();
-		//}
-		//GetDynamicRHI()->GenerateMips(m_IrrCube);
 	}
 
 	void IBLRender::InitShader()

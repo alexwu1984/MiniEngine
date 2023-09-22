@@ -49,6 +49,7 @@ set(GLTFModel_GLBS
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model4.glb
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model4.json
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/noise.jpg
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/venice_sunset_1k.hdr
 )
 
 copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)

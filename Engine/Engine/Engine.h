@@ -25,6 +25,7 @@ namespace Engine
 
 		void Init(std::shared_ptr< AppWindow> AppWin);
 		void ShutDown();
+		void LoadConfig(const std::wstring& FileName);
 
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
 		std::shared_ptr<AppWindow> GetAppWindow()const;

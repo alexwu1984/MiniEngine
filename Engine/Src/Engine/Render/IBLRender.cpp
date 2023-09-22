@@ -9,6 +9,7 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
+#include "tinygltf/json.h"
 
 using namespace math;
 using namespace RenderCore;
@@ -82,6 +83,29 @@ namespace Engine
 		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
 		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 128,128, 8, false);
 		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 5, false);
+	}
+
+	void IBLRender::LoadConfig(const std::wstring& FileName)
+	{
+		try
+		{
+			C_P(IBLRender);
+			nlohmann::json Root;
+			std::ifstream input_json_file(FileName);
+			if (!input_json_file.is_open())
+			{
+				return;
+			}
+
+			input_json_file >> Root;
+			nlohmann::json GltfJson = Root["Gltf"];
+			std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(GltfJson["Hdr"]);
+			d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);
+		}
+		catch (const std::exception&)
+		{
+
+		}
 	}
 
 	void IBLRender::Draw(RenderCore::RHICommandContext& RHIContext)

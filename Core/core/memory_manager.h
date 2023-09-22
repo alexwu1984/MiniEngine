@@ -1,6 +1,6 @@
 #pragma once
 #pragma warning(disable:4595)
-#include "core/inc.h"
+
 namespace win32
 {
 	template< class T > inline T Align(const T Ptr, size_t Alignment)
@@ -170,6 +170,16 @@ inline void* operator new(size_t uiSize)
 inline void* operator new[](size_t uiSize)
 {
 	return win32::memory_object::GetMemManager().Allocate(uiSize, 0, true);
+}
+
+inline void* __cdecl operator new(size_t _Size, const std::nothrow_t&) noexcept
+{
+	return win32::memory_object::GetMemManager().Allocate(_Size, 0, false);
+}
+
+inline void* __cdecl operator new[](size_t _Size, const std::nothrow_t&) noexcept
+{
+	return win32::memory_object::GetMemManager().Allocate(_Size, 0, true);
 }
 
 inline void operator delete (void* pvAddr)

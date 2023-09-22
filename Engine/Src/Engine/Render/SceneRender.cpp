@@ -52,6 +52,16 @@ namespace Engine
 		}));
 	}
 
+	void SceneRender::LoadConfig(const std::wstring& FileName)
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl, FileName](RenderCore::DynamicRHI* RHI) {
+			if (Impl->PreProcess)
+			{
+				Impl->PreProcess->LoadConfig(FileName);
+			}
+		}));
+	}
+
 	void SceneRender::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
 	{
 		if (InSizeX ==0 || InSizeY == 0)

@@ -17,6 +17,7 @@ namespace Engine
 		~PreProcessor();
 
 		void InitResource();
+		void LoadConfig(const std::wstring& FileName);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
 	private:

@@ -2,7 +2,6 @@
 #include "math/vector2.h"
 #include "core/commandline.h"
 #include "GltfViewerApp.h"
-#include "core/memory_manager.h"
 #include <shellapi.h>
 
 

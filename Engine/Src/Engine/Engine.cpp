@@ -74,6 +74,14 @@ namespace Engine
 		
 	}
 
+	void MainEngine::LoadConfig(const std::wstring& FileName)
+	{
+		if (Impl->SeRender)
+		{
+			Impl->SeRender->LoadConfig(FileName);
+		}
+	}
+
 	std::shared_ptr<RenderCore::DynamicRHI> MainEngine::GetRHI() const
 	{
 		return Impl->DynamicRHI;

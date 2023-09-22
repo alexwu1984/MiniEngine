@@ -33,6 +33,12 @@ namespace Engine
 		d->GenIBL->InitResource();
 	}
 
+	void PreProcessor::LoadConfig(const std::wstring& FileName)
+	{
+		C_P(PreProcessor);
+		d->GenIBL->LoadConfig(FileName);
+	}
+
 	void PreProcessor::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(PreProcessor);

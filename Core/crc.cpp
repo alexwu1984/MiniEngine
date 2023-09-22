@@ -1,5 +1,4 @@
 #include "common/crc.h"
-#include "core/memory_manager.h"
 
 namespace core
 {

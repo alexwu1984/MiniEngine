@@ -73,8 +73,7 @@ namespace RenderCore
 	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
 		C_P(D3D11Texture2D);
-		d->Size.cx = SizeX;
-		d->Size.cy = SizeY;
+
 		return CreateD3D11Texture2D(Format,Flags,SizeX,SizeY,SizeZ,false,1, InBuffer,RowBytes);
 	}
 
@@ -82,6 +81,9 @@ namespace RenderCore
 		bool bCubeTexture, uint32_t NumMips, void* InBuffer, int RowBytes)
 	{
 		C_P(D3D11Texture2D);
+		d->Size.cx = SizeX;
+		d->Size.cy = SizeY;
+
 		const bool bSRGB = (Flags & TexCreate_SRGB) != 0;
 
 		const DXGI_FORMAT PlatformResourceFormat = GetPlatformTextureResourceFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat, Flags);

@@ -122,7 +122,7 @@ namespace Engine
 		
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
@@ -141,6 +141,7 @@ namespace Engine
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 			RHIContext.SetRenderTarget(d->EvnCube, IndexView, 0);
+			RHIContext.SetViewPort(0, 0, 512, 512);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
 		}
@@ -157,6 +158,7 @@ namespace Engine
 
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_SkyCube", VertexDeclareRHI, {});
 		d->IrrPixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_GenIrradiance", {});
+		d->PSLongLatToCube = d->RHI->RHICreatePixelShader(ShaderPath, "PS_LongLatToCube", {});
 	}
 
 	void IBLRender::RenderCube(RenderCore::RHICommandContext& RHIContext)

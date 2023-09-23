@@ -435,6 +435,15 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
 	}
 
+	void D3D11CommandContext::GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI)
+	{
+		D3D11TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
+		if (TextureCube)
+		{
+			Impl->D3D11RHI->GetDeviceContext()->GenerateMips(TextureCube->GetSRV());
+		}
+	}
+
 	void D3D11CommandContext::ClearAllShaderResources()
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();

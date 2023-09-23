@@ -35,7 +35,7 @@ namespace RenderCore
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) override;
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
-
+		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI);
 	private:
 		void ClearAllShaderResources();
 		void ClearState();

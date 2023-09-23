@@ -20,7 +20,9 @@ namespace Engine
 		void InitResource();
 		void LoadConfig(const std::wstring& FileName);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
-
+	private:
+		void GenerateCubeMap(RenderCore::RHICommandContext& RHIContext);
+		void GenerateIrradianceMap(RenderCore::RHICommandContext& RHIContext);
 	private:
 		void InitShader();
 		void RenderCube(RenderCore::RHICommandContext& RHIContext);

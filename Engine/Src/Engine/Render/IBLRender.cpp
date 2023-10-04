@@ -36,6 +36,7 @@ namespace Engine
 		std::shared_ptr< RenderCore::RHIPixelShader> IrrPixelShader;
 		std::shared_ptr< RenderCore::RHIVertexShader> VSLongLatToCube;
 		std::shared_ptr< RenderCore::RHIPixelShader> PSLongLatToCube;
+		std::shared_ptr< RenderCore::RHIPixelShader> PSGenPrefiltered;
 		std::shared_ptr< RenderCore::RHIVertexBuffer> CubeVB;
 		RenderCore::DynamicRHI* RHI;
 
@@ -208,6 +209,7 @@ namespace Engine
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_SkyCube", VertexDeclareRHI, {});
 		d->IrrPixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_GenIrradiance", {});
 		d->PSLongLatToCube = d->RHI->RHICreatePixelShader(ShaderPath, "PS_LongLatToCube", {});
+		d->PSGenPrefiltered = d->RHI->RHICreatePixelShader(ShaderPath, "PS_GenPrefiltered", {});
 	}
 
 	void IBLRender::RenderCube(RenderCore::RHICommandContext& RHIContext)

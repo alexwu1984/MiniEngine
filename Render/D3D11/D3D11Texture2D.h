@@ -20,10 +20,12 @@ namespace RenderCore
 		virtual bool CreateHDRFromFile(const std::wstring& FileName) override;
 		virtual bool IsMultisampled() const override;
 		virtual core::vec2i GetSize() const;
+		virtual uint32_t GetNumMips() const;
 
 		ID3D11Texture2D* GetNativeTex() const;
 		ID3D11RenderTargetView* GetRTV() const;
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> GetRTVS() const;
+		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& GetRTVS();
 		ID3D11ShaderResourceView* GetSRV() const;
 		ID3D11DepthStencilView* GetDSV() const;
 

@@ -42,6 +42,12 @@ namespace RenderCore
 		return d->Tex2D->GetSize();
 	}
 
+	uint32_t D3D11TextureCube::GetNumMips() const
+	{
+		C_P(D3D11TextureCube);
+		return d->Tex2D->GetNumMips();
+	}
+
 	ID3D11Texture2D* D3D11TextureCube::GetNativeTex() const
 	{
 		C_P(D3D11TextureCube);
@@ -49,6 +55,12 @@ namespace RenderCore
 	}
 
 	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> D3D11TextureCube::GetRTVS() const
+	{
+		C_P(const D3D11TextureCube);
+		return d->Tex2D->GetRTVS();
+	}
+
+	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& D3D11TextureCube::GetRTVS()
 	{
 		C_P(D3D11TextureCube);
 		return d->Tex2D->GetRTVS();

@@ -18,9 +18,11 @@ namespace RenderCore
 
 		virtual bool CreateD3D11TextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips,bool CreateDepth) override;
 		virtual core::vec2i GetSize() const override;
+		virtual uint32_t GetNumMips() const override;
 
 		ID3D11Texture2D* GetNativeTex() const;
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> GetRTVS() const;
+		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& GetRTVS() ;
 		ID3D11ShaderResourceView* GetSRV() const;
 		std::shared_ptr<D3D11Texture2D> GetDepthTex() const;
 

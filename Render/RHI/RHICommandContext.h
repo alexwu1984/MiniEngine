@@ -28,7 +28,7 @@ namespace RenderCore
 		virtual void SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget) = 0;
 		virtual void SetRenderTarget(std::shared_ptr< RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip) = 0;
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
-		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
+		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
 		virtual void RHIEndDrawing() = 0;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) = 0;

@@ -82,8 +82,8 @@ namespace Engine
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::NegUnitZ,Vector3::UnitY)
 		};
 		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
-		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 128,128, 8, false);
-		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 5, false);
+		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 8, false);
+		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
 	}
 
 	void IBLRender::LoadConfig(const std::wstring& FileName)
@@ -119,6 +119,7 @@ namespace Engine
 
 		GenerateCubeMap(RHIContext);
 		GenerateIrradianceMap(RHIContext);
+		GeneratePrefilteredMap(RHIContext);
 	}
 
 	void IBLRender::GenerateCubeMap(RenderCore::RHICommandContext& RHIContext)
@@ -140,8 +141,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-		RHIContext.Clear(d->EvnCube, core::FLinearColor::Black);
-
+		
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
 		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
@@ -150,6 +150,7 @@ namespace Engine
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
 			RHIContext.SetRenderTarget(d->EvnCube, IndexView, 0);
+			RHIContext.Clear(d->EvnCube, IndexView,0, core::FLinearColor::Black);
 			
 			RHIContext.SetViewPort(0, 0, d->EvnCube->GetSize().cx, d->EvnCube->GetSize().cy);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
@@ -176,7 +177,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-		RHIContext.Clear(d->IrrCube, core::FLinearColor::Black);
+		
 
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
 		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
@@ -190,10 +191,62 @@ namespace Engine
 			d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 			RHIContext.SetRenderTarget(d->IrrCube, IndexView, 0);
-			
+			RHIContext.Clear(d->IrrCube, IndexView,0,core::FLinearColor::Black);
+
 			RHIContext.SetViewPort(0, 0, d->IrrCube->GetSize().cx, d->IrrCube->GetSize().cy);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 			RenderCube(RHIContext);
+		}
+	}
+
+	void IBLRender::GeneratePrefilteredMap(RenderCore::RHICommandContext& RHIContext)
+	{
+		C_P(IBLRender);
+		GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = d->VertexShader;
+		Init.PixelShader = d->PSGenPrefiltered;
+
+		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
+
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+
+		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+
+		
+		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
+		uint32_t NumMips = d->PreFilterCube->GetNumMips();
+		d->GET_UNIFORMDATA(PSContant).MaxMipLevel = d->PreFilterCube->GetNumMips();
+
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
+
+		for (uint32_t MipLevel = 0; MipLevel < NumMips; ++MipLevel)
+		{
+			uint32_t Size = d->PreFilterCube->GetSize().cx >> MipLevel;
+			RHIContext.SetViewPort(0, 0, Size, Size);
+			d->GET_UNIFORMDATA(PSContant).MipLevel = MipLevel;
+			d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+			for (size_t IndexView = 0; IndexView < 6; ++IndexView)
+			{
+				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
+				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
+				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+
+	
+				d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
+				d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+				RHIContext.SetRenderTarget(d->PreFilterCube, IndexView, MipLevel);
+				RHIContext.Clear(d->PreFilterCube, IndexView,MipLevel, core::FLinearColor::Black);
+
+				RenderCube(RHIContext);
+			}
 		}
 	}
 

@@ -14,5 +14,6 @@ namespace RenderCore
 		virtual bool CreateHDRFromFile(const std::wstring& FileName) = 0;
 		virtual bool IsMultisampled() const = 0;
 		virtual core::vec2i GetSize() const = 0;
+		virtual uint32_t GetNumMips() const = 0;
 	};
 }

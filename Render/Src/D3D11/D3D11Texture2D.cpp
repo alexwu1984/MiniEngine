@@ -19,7 +19,8 @@ namespace RenderCore
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> TexRTVS;
 
 		core::vec2i Size;
-		bool IsMultisampled = false;
+		bool IsMultisampled{ false };
+		uint32_t NumMips{ 1 };
 	};
 
 	/**
@@ -83,6 +84,7 @@ namespace RenderCore
 		C_P(D3D11Texture2D);
 		d->Size.cx = SizeX;
 		d->Size.cy = SizeY;
+		d->NumMips = NumMips;
 
 		const bool bSRGB = (Flags & TexCreate_SRGB) != 0;
 
@@ -418,6 +420,12 @@ namespace RenderCore
 		return d->Size;
 	}
 
+	uint32_t D3D11Texture2D::GetNumMips() const
+	{
+		C_P(D3D11Texture2D);
+		return d->NumMips;
+	}
+
 	ID3D11Texture2D* D3D11Texture2D::GetNativeTex() const
 	{
 		C_P(D3D11Texture2D);
@@ -435,6 +443,12 @@ namespace RenderCore
 	}
 
 	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> D3D11Texture2D::GetRTVS() const
+	{
+		C_P(const D3D11Texture2D);
+		return d->TexRTVS;
+	}
+
+	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& D3D11Texture2D::GetRTVS()
 	{
 		C_P(D3D11Texture2D);
 		return d->TexRTVS;

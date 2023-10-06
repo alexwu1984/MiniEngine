@@ -2,6 +2,20 @@
 
 const static float PI = 3.1415926535897932f;
 
+static const float c_MinReflectance = 0.04;
+
+struct AngularInfo
+{
+    float NdotL; // cos angle between normal and light direction
+    float NdotV; // cos angle between normal and view direction
+    float NdotH; // cos angle between normal and half vector
+    float LdotH; // cos angle between light direction and half vector
+
+    float VdotH; // cos angle between view direction and half vector
+
+    float3 padding;
+};
+
 float Pow2(float x)
 {
 	return x * x;
@@ -55,6 +69,58 @@ float Pow5(float x)
 float Max3(float a, float b, float c)
 {
 	return max(a, max(b, c));
+}
+
+float GetPerceivedBrightness(float3 vec)
+{
+    return sqrt(0.299 * vec.r * vec.r + 0.587 * vec.g * vec.g + 0.114 * vec.b * vec.b);
+}
+
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_pbrSpecularGlossiness/examples/convert-between-workflows/js/three.pbrUtilities.js#L34
+float SolveMetallic(float3 diffuse, float3 specular, float oneMinusSpecularStrength)
+{
+    float specularBrightness = GetPerceivedBrightness(specular);
+
+    if (specularBrightness < c_MinReflectance)
+    {
+        return 0.0;
+    }
+
+    float diffuseBrightness = GetPerceivedBrightness(diffuse);
+
+    float a = c_MinReflectance;
+    float b = diffuseBrightness * oneMinusSpecularStrength / (1.0 - c_MinReflectance) + specularBrightness - 2.0 * c_MinReflectance;
+    float c = c_MinReflectance - specularBrightness;
+    float D = b * b - 4.0 * a * c;
+
+    return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
+}
+
+AngularInfo GetAngularInfo(float3 pointToLight, float3 normal, float3 view)
+{
+    // Standard one-letter names
+    float3 n = normalize(normal); // Outward direction of surface point
+    float3 v = normalize(view); // Direction from surface point to view
+    float3 l = normalize(pointToLight); // Direction from surface point to light
+    float3 h = normalize(l + v); // Direction of the vector between l and v
+
+    float NdotL = clamp(dot(n, l), 0.0, 1.0);
+    float NdotV = clamp(dot(n, v), 0.0, 1.0);
+    float NdotH = clamp(dot(n, h), 0.0, 1.0);
+    float LdotH = clamp(dot(l, h), 0.0, 1.0);
+    float VdotH = clamp(dot(v, h), 0.0, 1.0);
+
+    AngularInfo angularInfo =
+    {
+        NdotL,
+        NdotV,
+        NdotH,
+        LdotH,
+        VdotH,
+        float3(0, 0, 0)
+    };
+
+    return angularInfo;
 }
 
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/

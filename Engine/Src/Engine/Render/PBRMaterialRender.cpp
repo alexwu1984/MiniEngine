@@ -172,7 +172,17 @@ namespace Engine
 
 		SetPipeLineState(RHIContext);
 
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = 1;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Direction = math::Vector3::UnitZ;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Type = LightType_Directional;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Color = math::Vector3(1.f, 1.f, 1.f);
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Intensity = 1.0f;
+
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
 
 		DrawMesh(RHIContext);
 	}

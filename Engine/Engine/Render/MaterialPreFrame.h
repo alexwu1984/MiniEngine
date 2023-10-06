@@ -7,6 +7,32 @@
 
 namespace Engine
 {
+#define MAX_LIGHT_INSTANCES  80
+#define MAX_SHADOW_INSTANCES 32
+
+	static const int LightType_Directional = 0;
+	static const int LightType_Point = 1;
+	static const int LightType_Spot = 2;
+
+	struct Light
+	{
+		math::Matrix4x4	LightViewProj;
+		math::Matrix4x4 LightView;
+
+		math::Vector3	Direction;
+		float			Range;
+
+		math::Vector3   Color;
+		float			Intensity;
+
+		math::Vector3   Position;
+		float			InnerConeCos;
+
+		float			OuterConeCos;
+		int				Type;
+		float			DepthBias;
+		int				ShadowMapIndex;
+	};
 
 	struct PerFrame
 	{
@@ -14,14 +40,15 @@ namespace Engine
 		math::Matrix4x4     CameraPrevViewProj;
 		math::Matrix4x4     CameraCurrViewProjInverse;
 		math::Vector4       CameraPos;
-		float				IBLFactor;
-		float				EmissiveFactor;
+		float				IBLFactor{ 1.f };
+		float				EmissiveFactor{ 1.f };
 		math::Vector2       InvScreenResolution;
-
 		math::Vector4       WireframeOptions;
-
-		float				LodBias;
-		math::Vector3       Padding;
+		float				LodBias{ 0.f };
+		float				IBLMIpCount{ 1.f };
+		int32_t				LightCount{ 0 };
+		int32_t				Padding;
+		Light				Lights[MAX_LIGHT_INSTANCES];
 	};
 
 	BEGIN_SHADER_STRUCT(CBPerFrame, 0)
@@ -49,7 +76,7 @@ namespace Engine
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
 
-	BEGIN_SHADER_STRUCT(CBPerFur, 4)
+	BEGIN_SHADER_STRUCT(CBPerFur, 3)
 		DECLARE_PARAM(math::Vector3, Gravity)
 	DECLARE_PARAM(float, FurOffset)
 	DECLARE_PARAM(math::Vector3, FurColor)

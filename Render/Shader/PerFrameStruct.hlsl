@@ -46,11 +46,12 @@ struct PerFrame
     float         IBLFactor;
     float         EmissiveFactor;
     float2        InvScreenResolution;
-
     float4        WireframeOptions;
-
     float         LodBias;
-    float3        Padding;
+    float         IBLMIpCount;
+    int           LightCount;
+    int           Padding;
+    Light         Lights[MAX_LIGHT_INSTANCES];
 };
 
 cbuffer cbPerFrame : register(b0)
@@ -64,14 +65,7 @@ cbuffer cbPerObject : register(b1)
     matrix myPerObject_u_mPrevWorld;
 }
 
-cbuffer cbPerFrameLight : register(b3)
-{
-    int           LightCount;
-    int3          Padding1;
-    Light         Lights[MAX_LIGHT_INSTANCES];
-}
-
-cbuffer cbPerFur : register(b4)
+cbuffer cbPerFur : register(b3)
 {
     float3 Gravity;
     float FurOffset;

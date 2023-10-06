@@ -4,16 +4,385 @@
 
 
 Texture2D AlbedoMap : register(t0);
+Texture2D NormalMap : register(t1);
+Texture2D Roughness_metallicMap : register(t2);
+Texture2D EmissMap : register(t3);
+Texture2D AoMap : register(t4);
+TextureCube IrradianceTex : register(t5);
+Texture2D BrdfLut : register(t6);
+TextureCube PrefliterCubeMap : register(t7);
 SamplerState SampleLinear : register(s0);
 
 struct PS_OUTPUT_SCENE
 {
-	float4 Color : SV_Target0;
+    float4 Target0 : SV_Target0;
+    float4 Target1 : SV_Target1;
+    float4 Target2 : SV_Target2;
+    float4 Target3 : SV_Target3;
+    float4 Target4 : SV_Target4;
 };
+
+struct MaterialInfo
+{
+    float perceptualRoughness; // roughness value, as authored by the model creator (input to shader)
+    float3 reflectance0; // full reflectance color (normal incidence angle)
+
+    float alphaRoughness; // roughness mapped to a more linear change in the roughness (proposed by [2])
+    float3 diffuseColor; // color contribution from diffuse lighting
+
+    float3 reflectance90; // reflectance color at grazing angle
+    float3 specularColor; // color contribution from specular lighting
+};
+
+
+// Calculation of the lighting contribution from an optional Image Based Light source.
+
+float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
+{
+    float NdotV = clamp(dot(n, v), 0.0, 1.0);
+
+    float u_MipCount = myPerFrame.IBLMIpCount; // resolution of 512x512 of the IBL
+    float lod = clamp(MaterialInfo.perceptualRoughness * float(u_MipCount), 0.0, float(u_MipCount));
+    float3 reflection = normalize(reflect(-v, n));
+
+    float Mip = ComputeReflectionCaptureMipFromRoughness(MaterialInfo.perceptualRoughness, u_MipCount - 1);
+    
+    float2 brdfSamplePoint = clamp(float2(NdotV, Mip), float2(0.0, 0.0), float2(1.0, 1.0));
+
+    float2 BRDF = BrdfLut.Sample(SampleLinear, brdfSamplePoint).rg;
+
+    float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, n).rgb;
+    float3 SpecularLight = PrefliterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
+
+    float3 Diffuse = DiffuseLight * MaterialInfo.diffuseColor;
+    float3 Specular = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
+
+    return Diffuse + Specular;
+}
+
+// Lambert lighting
+// see https://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/
+float3 Diffuse(MaterialInfo materialInfo)
+{
+    return materialInfo.diffuseColor / PI;
+}
+
+// The following equation models the Fresnel reflectance term of the spec equation (aka F())
+// Implementation of fresnel from [4], Equation 15
+float3 SpecularReflection(MaterialInfo MaterialInfo, AngularInfo angularInfo)
+{
+    return MaterialInfo.reflectance0 + (MaterialInfo.reflectance90 - MaterialInfo.reflectance0) * pow(clamp(1.0 - angularInfo.VdotH, 0.0, 1.0), 5.0);
+}
+
+// Smith Joint GGX
+// Note: Vis = G / (4 * NdotL * NdotV)
+// see Eric Heitz. 2014. Understanding the Masking-Shadowing Function in Microfacet-Based BRDFs. Journal of Computer Graphics Techniques, 3
+// see Real-Time Rendering. Page 331 to 336.
+// see https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf/geometricshadowing(specularg)
+float VisibilityOcclusion(MaterialInfo MaterialInfo, AngularInfo AngularInfo)
+{
+    float NdotL = AngularInfo.NdotL;
+    float NdotV = AngularInfo.NdotV;
+    float alphaRoughnessSq = MaterialInfo.alphaRoughness * MaterialInfo.alphaRoughness;
+
+    float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+    float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+
+    float GGX = GGXV + GGXL;
+    if (GGX > 0.0)
+    {
+        return 0.5 / GGX;
+    }
+    return 0.0;
+}
+
+// The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
+// Implementation from "Average Irregularity Representation of a Roughened Surface for Ray Reflection" by T. S. Trowbridge, and K. P. Reitz
+// Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
+float MicrofacetDistribution(MaterialInfo MaterialInfo, AngularInfo AngularInfo)
+{
+    float alphaRoughnessSq = MaterialInfo.alphaRoughness * MaterialInfo.alphaRoughness;
+    float f = (AngularInfo.NdotH * alphaRoughnessSq - AngularInfo.NdotH) * AngularInfo.NdotH + 1.0;
+    return alphaRoughnessSq / (PI * f * f + 0.000001f);
+}
+
+float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Normal, float3 View)
+{
+    AngularInfo angularInfo = GetAngularInfo(PointToLight, Normal, View);
+
+    if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
+    {
+        // Calculate the shading terms for the microfacet specular shading model
+        float3 F = SpecularReflection(MaterialInfo, angularInfo);
+        float Vis = VisibilityOcclusion(MaterialInfo, angularInfo);
+        float D = MicrofacetDistribution(MaterialInfo, angularInfo);
+        
+        // Calculation of analytical lighting contribution
+        float3 diffuseContrib = (1.0 - F) * Diffuse(MaterialInfo);
+        float3 specContrib = F * Vis * D;
+
+        // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+        return angularInfo.NdotL * (diffuseContrib + specContrib);
+    }
+
+    return float3(0.0, 0.0, 0.0);
+}
+
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#range-property
+float GetRangeAttenuation(float Range, float Distance)
+{
+    if (Range < 0.0)
+    {
+        // negative range means unlimited
+        return 1.0;
+    }
+    return max(lerp(1, 0, Distance / Range), 0);
+    //return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
+}
+
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles
+float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterConeCos, float InnerConeCos)
+{
+    float actualCos = dot(normalize(SpotDirection), normalize(-PointToLight));
+    if (actualCos > OuterConeCos)
+    {
+        if (actualCos < InnerConeCos)
+        {
+            return smoothstep(OuterConeCos, InnerConeCos, actualCos);
+        }
+        return 1.0;
+    }
+    return 0.0;
+}
+
+float3 ApplyDirectionalLight(Light light, MaterialInfo materialInfo, float3 normal, float3 view)
+{
+    float3 pointToLight = light.Direction;
+    float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+    return light.Intensity * light.Color * shade;
+}
+
+float3 ApplyPointLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
+{
+    float3 pointToLight = light.Position - worldPos;
+    float distance = length(pointToLight);
+    float attenuation = GetRangeAttenuation(light.Range, distance);
+    float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+    return attenuation * light.Intensity * light.Color * shade;
+}
+
+float3 ApplySpotLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
+{
+    float3 pointToLight = light.Position - worldPos;
+    float distance = length(pointToLight);
+    float rangeAttenuation = GetRangeAttenuation(light.Range, distance);
+    float spotAttenuation = GetSpotAttenuation(pointToLight, -light.Direction, light.OuterConeCos, light.InnerConeCos);
+    float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+    return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * shade;
+}
+
+float ComputeDielectricF0(float reflectance)
+{
+    return 0.16 * reflectance * reflectance;
+}
+
+float3 ComputeF0(const float4 baseColor, float metallic, float reflectance)
+{
+    return baseColor.rgb * metallic + (reflectance * (1.0 - metallic));
+}
+
+float3 getNormalTexture(VS_OUTPUT_SCENE Input)
+{
+    float2 xy = 2.0 * NormalMap.SampleBias(SampleLinear, Input.UV0, myPerFrame.LodBias).rg - 1.0;
+    float z = sqrt(1.0f - dot(xy, xy));
+    return float3(xy, z);
+}
+
+// Find the normal for this fragment, pulling either from a predefined normal map
+// or from the interpolated mesh normal and tangent attributes.
+float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
+{
+    // Retrieve the tangent space matrix
+#ifndef HAS_TANGENT
+    float2 UV = Input.UV0;
+    float3 pos_dx = ddx(Input.WorldPos);
+    float3 pos_dy = ddy(Input.WorldPos);
+    float3 tex_dx = ddx(float3(UV, 0.0));
+    float3 tex_dy = ddy(float3(UV, 0.0));
+    float3 t = (tex_dy.y * pos_dx - tex_dx.y * pos_dy) / (tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y);
+
+    float3 ng = normalize(Input.Normal);
+
+    t = normalize(t - ng * dot(ng, t));
+    float3 b = normalize(cross(ng, t));
+    float3x3 tbn = float3x3(t, b, ng);
+#else // HAS_TANGENTS
+    float3x3 tbn = float3x3(Input.Tangent, Input.Binormal, Input.Normal);
+#endif
+
+    float3 n = getNormalTexture(Input);
+    n = normalize(mul(transpose(tbn), (n /* * float3(u_NormalScale, u_NormalScale, 1.0) */)));
+
+    return n * (bIsFontFacing ? -1 : 1);
+}
+
+float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diffuseColor, in float3 specularColor, in float perceptualRoughness)
+{
+#ifdef MATERIAL_UNLIT
+        return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
+#endif
+
+    // Roughness is authored as perceptual roughness; as is convention,
+    // convert to material roughness by squaring the perceptual roughness [2].
+    float alphaRoughness = perceptualRoughness * perceptualRoughness;
+    
+    float3 specularEnvironmentR0 = specularColor.rgb;
+    // Anything less than 2% is physically impossible and is instead considered to be shadowing. Compare to "Real-Time-Rendering" 4th editon on page 325.
+    float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+    float3 specularEnvironmentR90 = float3(1.0, 1.0, 1.0) * clamp(reflectance * 50.0, 0.0, 1.0);
+
+    MaterialInfo materialInfo =
+    {
+        perceptualRoughness,
+        specularEnvironmentR0,
+        alphaRoughness,
+        diffuseColor,
+        specularEnvironmentR90,
+        specularColor
+    };
+
+    // LIGHTING
+
+    float3 color = float3(0.0, 0.0, 0.0);
+    float3 normal = getPixelNormal(Input);
+    float3 worldPos = Input.WorldPos;
+    float3 view = normalize(perFrame.CameraPos.xyz - worldPos);
+
+#if (DEF_doubleSided == 1)
+    if (dot(normal, view) < 0)
+    {
+        normal = -normal;
+    }
+#endif
+
+    for (int i = 0; i < perFrame.LightCount; ++i)
+    {
+        Light light = perFrame.Lights[i];
+        float shadowFactor = 1.0f;
+       // float shadowFactor = CalcShadows(Input.WorldPos.xyz, int2(Input.svPosition.xy), light);
+        if (light.Type == LightType_Directional)
+        {
+            color += ApplyDirectionalLight(light, materialInfo, normal, view) * shadowFactor;
+        }
+        else if (light.Type == LightType_Point)
+        {
+            color += ApplyPointLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+        }
+        else if (light.Type == LightType_Spot)
+        {
+            color += ApplySpotLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+        }
+    }
+
+    // Calculate lighting contribution from image based lighting source (IBL)
+    //color += GetIBLContribution(materialInfo, normal, view);
+
+    float ao = 1.0;
+    // Apply optional PBR terms for additional (optional) shading
+    ao = AoMap.Sample(SampleLinear, Input.UV0).r;
+    color = color * ao; //mix(color, color * ao, perFrame.u_OcclusionStrength);
+
+
+    float3 emissive = float3(0, 0, 0);
+    emissive = EmissMap.Sample(SampleLinear, Input.UV0).rgb;
+    color += emissive;
+
+#ifndef DEBUG_OUTPUT // no debug
+    // regular shading
+    float3 outColor = color;
+
+#else // debug output
+
+#ifdef DEBUG_METALLIC
+    outColor.rgb = float3(metallic);
+#endif
+
+#ifdef DEBUG_ROUGHNESS
+    outColor.rgb = float3(perceptualRoughness);
+#endif
+
+#ifdef DEBUG_NORMAL
+#ifdef ID_normalTexture
+    outColor.rgb = texture(u_NormalSampler, getNormalUV(Input)).rgb;
+#else
+    outColor.rgb = float3(0.5, 0.5, 1.0);
+#endif
+#endif
+
+#ifdef DEBUG_BASECOLOR
+    outColor.rgb = (baseColor.rgb);
+#endif
+
+#ifdef DEBUG_OCCLUSION
+    outColor.rgb = float3(ao);
+#endif
+
+#ifdef DEBUG_EMISSIVE
+    outColor.rgb = (emissive);
+#endif
+
+#ifdef DEBUG_F0
+    outColor.rgb = float3(f0);
+#endif
+
+#ifdef DEBUG_ALPHA
+    outColor.rgb = float3(alpha);
+#endif
+
+#endif // !DEBUG_OUTPUT
+
+    return outColor;
+}
+
+
+void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 specularColor, out float perceptualRoughness, out float alpha)
+{
+    // Metallic and Roughness material properties are packed together
+    // In glTF, these factors can be specified by fixed scalar values
+    // or from a metallic-roughness map
+    alpha = 0.0;
+    perceptualRoughness = 0.0;
+    diffuseColor = float3(0.0, 0.0, 0.0);
+    specularColor = float3(0.0, 0.0, 0.0);
+    float3 f0 = float3(0.04, 0.04, 0.04);
+
+    float4 baseColor = AlbedoMap.Sample(SampleLinear, Input.UV0);
+    
+    float4 mr = Roughness_metallicMap.Sample(SampleLinear, Input.UV0);
+    perceptualRoughness = mr.g;
+    float metallic = mr.b;
+
+    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
+    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
+
+    diffuseColor = baseColor.rgb * (float3(1.0, 1.0, 1.0) - f0) * (1.0 - metallic);
+    specularColor = lerp(f0, baseColor.rgb, metallic);
+
+    perceptualRoughness = clamp(perceptualRoughness, 0.0, 1.0);
+
+    alpha = baseColor.a;
+}
 
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
 	PS_OUTPUT_SCENE Output;
-    Output.Color = AlbedoMap.Sample(SampleLinear, Input.UV0);
+    
+    float alpha;
+    float perceptualRoughness;
+    float3 diffuseColor;
+    float3 specularColor;
+    GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, alpha);
+    
+    Output.Target0 = float4(DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness), alpha);
     return Output;
 }

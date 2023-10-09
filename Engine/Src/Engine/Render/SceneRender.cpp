@@ -14,7 +14,7 @@ using namespace RenderCore;
 
 namespace Engine
 {
-	struct SceneRenderP
+	struct SceneRenderPrivate
 	{
 		std::weak_ptr<SceneView> Owner;
 		std::shared_ptr<RHIViewPort> MainViewPort;
@@ -22,9 +22,9 @@ namespace Engine
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
-		:Impl(std::make_shared<SceneRenderP>())
 	{
-		Impl->Owner = Owner;
+		d_ptr = new SceneRenderPrivate();
+		d_ptr->Owner = Owner;
 	}
 
 	SceneRender::~SceneRender()
@@ -33,31 +33,35 @@ namespace Engine
 		{
 			GRenderThread->WaitForFinish();
 		}
+		delete d_ptr;
 	}
 
 	std::shared_ptr<SceneView> SceneRender::GetOwner() const
 	{
-		return Impl->Owner.lock();
+		C_P(SceneRender);
+		return d->Owner.lock();
 	}
 
 	void SceneRender::InitResource(std::shared_ptr<RHIViewPort> ViewPort)
 	{
-		Impl->MainViewPort = ViewPort;
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl](RenderCore::DynamicRHI* RHI){
-			if (!Impl->PreProcess)
+		C_P(SceneRender);
+		d->MainViewPort = ViewPort;
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([d](RenderCore::DynamicRHI* RHI){
+			if (!d->PreProcess)
 			{
-				Impl->PreProcess = std::make_shared<PreProcessor>(RHI);
+				d->PreProcess = std::make_shared<PreProcessor>(RHI);
 			}
-			Impl->PreProcess->InitResource();
+			d->PreProcess->InitResource();
 		}));
 	}
 
 	void SceneRender::LoadConfig(const std::wstring& FileName)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl, FileName](RenderCore::DynamicRHI* RHI) {
-			if (Impl->PreProcess)
+		C_P(SceneRender);
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, FileName](RenderCore::DynamicRHI* RHI) {
+			if (d->PreProcess)
 			{
-				Impl->PreProcess->LoadConfig(FileName);
+				d->PreProcess->LoadConfig(FileName);
 			}
 		}));
 	}
@@ -68,9 +72,9 @@ namespace Engine
 		{
 			return;
 		}
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl, InSizeX,InSizeY,bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
-			Impl->MainViewPort->Resize(InSizeX,InSizeY,bInIsFullscreen);
+		C_P(SceneRender);
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, InSizeX,InSizeY,bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
+			d->MainViewPort->Resize(InSizeX,InSizeY,bInIsFullscreen);
 		}));
 	}
 
@@ -81,17 +85,17 @@ namespace Engine
 		{
 			return;
 		}
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([Impl = Impl, CommandContext](RenderCore::DynamicRHI* RHI) {
-			if (Impl->PreProcess)
+		C_P(SceneRender);
+		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, CommandContext](RenderCore::DynamicRHI* RHI) {
+			if (d->PreProcess)
 			{
-				Impl->PreProcess->Draw(*CommandContext);
+				d->PreProcess->Draw(*CommandContext);
 			}
 			}));
 
-		auto ClearAndSetViewPort = [Impl = Impl](RenderCore::DynamicRHI* RHI) {
-			Impl->MainViewPort->Clear(core::FLinearColor::Gray);
-			Impl->MainViewPort->SetRenderTarget();
+		auto ClearAndSetViewPort = [d](RenderCore::DynamicRHI* RHI) {
+			d->MainViewPort->Clear(core::FLinearColor::Gray);
+			d->MainViewPort->SetRenderTarget();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
@@ -113,12 +117,18 @@ namespace Engine
 			}
 		}
 
-		auto Present = [Impl = Impl, this](RenderCore::DynamicRHI*) {
-			Impl->MainViewPort->Present();
+		auto Present = [d, this](RenderCore::DynamicRHI*) {
+			d->MainViewPort->Present();
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(Present);
 
+	}
+
+	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor()
+	{
+		C_P(SceneRender);
+		return d->PreProcess;
 	}
 
 }

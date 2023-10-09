@@ -14,6 +14,7 @@
 #include "core/logger.h"
 #include "Engine/Engine.h"
 #include "Scene/SceneView.h"
+#include "Render/SceneRender.h"
 
 namespace Engine
 {
@@ -304,6 +305,7 @@ namespace Engine
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
 		RenderParam.PosType = PosType;
 		RenderParam.HasSkin = Mesh->HasSkin();
+		RenderParam._PreProcessor = GEngine->GetSceneRender()->GetPreProcessor();
 
 		auto RenderMesh = [MaterialRender, RenderParam, Mesh ,Impl = Impl, IsPreDraw](RenderCore::DynamicRHI* DyRHI)
 		{

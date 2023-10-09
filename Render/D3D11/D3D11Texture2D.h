@@ -15,7 +15,7 @@ namespace RenderCore
 		virtual ~D3D11Texture2D();
 
 		virtual bool CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ=1, void* InBuffer = nullptr, int RowBytes = 0) override;
-		bool CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, bool bCubeTexture, uint32_t NumMips, void* InBuffer, int RowBytes);
+		bool CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, bool bCubeTexture, uint32_t NumMips, void* InBuffer, size_t RowBytes);
 		virtual bool CreateFromFile(const std::wstring& FileName) override;
 		virtual bool CreateHDRFromFile(const std::wstring& FileName) override;
 		virtual bool IsMultisampled() const override;

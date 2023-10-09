@@ -5,6 +5,8 @@ namespace RenderCore
 {
 	class RHICommandContext;
 	class DynamicRHI;
+	class RHITextureCube;
+	class RHITexture2D;
 }
 
 namespace Engine
@@ -20,10 +22,15 @@ namespace Engine
 		void InitResource();
 		void LoadConfig(const std::wstring& FileName);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
+		std::shared_ptr<RenderCore::RHITextureCube> GetPreFilterCube();
+		std::shared_ptr<RenderCore::RHITextureCube> GetIrrCube();
+		std::shared_ptr<RenderCore::RHITextureCube> GetEvnCube();
+		std::shared_ptr<RenderCore::RHITexture2D> GetPreIntegrateBRDF();
 	private:
 		void GenerateCubeMap(RenderCore::RHICommandContext& RHIContext);
 		void GenerateIrradianceMap(RenderCore::RHICommandContext& RHIContext);
 		void GeneratePrefilteredMap(RenderCore::RHICommandContext& RHIContext);
+		void PreIntegrateBRDF();
 	private:
 		void InitShader();
 		void RenderCube(RenderCore::RHICommandContext& RHIContext);

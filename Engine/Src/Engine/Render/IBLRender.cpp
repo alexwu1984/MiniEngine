@@ -31,6 +31,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITextureCube> IrrCube;
 		std::shared_ptr< RenderCore::RHITextureCube> EvnCube;
 		std::shared_ptr<RenderCore::RHITexture2D> HDRTex;
+		std::shared_ptr<RenderCore::RHITexture2D> PreintegratedGF;
 
 		std::shared_ptr< RenderCore::RHIVertexShader> VertexShader;
 		std::shared_ptr< RenderCore::RHIPixelShader> IrrPixelShader;
@@ -120,6 +121,31 @@ namespace Engine
 		GenerateCubeMap(RHIContext);
 		GenerateIrradianceMap(RHIContext);
 		GeneratePrefilteredMap(RHIContext);
+		PreIntegrateBRDF();
+	}
+
+	std::shared_ptr<RenderCore::RHITextureCube> IBLRender::GetPreFilterCube()
+	{
+		C_P(IBLRender);
+		return d->PreFilterCube;
+	}
+
+	std::shared_ptr<RenderCore::RHITextureCube> IBLRender::GetIrrCube()
+	{
+		C_P(IBLRender);
+		return d->IrrCube;
+	}
+
+	std::shared_ptr< RenderCore::RHITextureCube> IBLRender::GetEvnCube()
+	{
+		C_P(IBLRender);
+		return d->EvnCube;
+	}
+
+	std::shared_ptr<RenderCore::RHITexture2D> IBLRender::GetPreIntegrateBRDF()
+	{
+		C_P(IBLRender);
+		return d->PreintegratedGF;
 	}
 
 	void IBLRender::GenerateCubeMap(RenderCore::RHICommandContext& RHIContext)
@@ -248,6 +274,84 @@ namespace Engine
 				RenderCube(RHIContext);
 			}
 		}
+	}
+
+	// Appoximation of joint Smith term for GGX
+// [Heitz 2014, "Understanding the Masking-Shadowing Function in Microfacet-Based BRDFs"]
+	float G_SmithJointApprox(float a2, float NoV, float NoL)
+	{
+		float a = math::Sqrt(a2);
+		float Vis_SmithV = NoL * (NoV * (1 - a) + a);
+		float Vis_SmithL = NoV * (NoL * (1 - a) + a);
+		return 0.5f / (Vis_SmithV + Vis_SmithL);
+	}
+
+	void IBLRender::PreIntegrateBRDF()
+	{
+		C_P(IBLRender);
+		if (d->PreintegratedGF)
+			return;
+
+		int width = 128; //NoV
+		int height = 32; //Roughness
+		std::vector<math::Vector2> ImageData(width * height * sizeof(math::Vector2));
+
+		for (int y = 0; y < height; ++y)
+		{
+			float Roughness = (float)(y + 0.5f) / height;
+			float m = Roughness * Roughness;
+			float m2 = m * m;
+
+			for (int x = 0; x < width; ++x)
+			{
+				float NoV = (float)(x + 0.5f) / width;
+
+				math::Vector3 V;
+				V.x = math::Sqrt(1.0f - NoV * NoV);	// sin
+				V.y = 0.0f;
+				V.z = NoV;						// cos
+
+				float A = 0.0f;
+				float B = 0.0f;
+
+				const uint32_t NumSamples = 128;
+				for (uint32_t i = 0; i < NumSamples; i++)
+				{
+					float E1 = (float)i / NumSamples;
+					float E2 = (float)math::ReverseBits(i) / (float)0x100000000LL;
+
+					{
+						float Phi = 2.0f * MATH_PI * E1;
+						float CosPhi = math::Cos(Phi);
+						float SinPhi = math::Sin(Phi);
+						float CosTheta = math::Sqrt((1.0f - E2) / (1.0f + (m2 - 1.0f) * E2));
+						float SinTheta = math::Sqrt(1.0f - CosTheta * CosTheta);
+
+						math::Vector3 H(SinTheta * math::Cos(Phi), SinTheta * sin(Phi), CosTheta);
+						math::Vector3 L = 2.0f * V.Dot(H) * H - V;
+
+						float NoL = std::max(L.z, 0.0f);
+						float NoH = std::max(H.z, 0.0f);
+						float VoH = std::max(V.Dot(H), 0.0f);
+
+						if (NoL > 0.0f)
+						{
+							float Vis = G_SmithJointApprox(m2, NoV, NoL);
+							float NoL_Vis_PDF = NoL * Vis * (4.f * VoH / NoH);
+							float Fc = math::Pow(1.0f - VoH, 5.f);
+							A += NoL_Vis_PDF * (1.0f - Fc);
+							B += NoL_Vis_PDF * Fc;
+						}
+					}
+				}
+
+				math::Vector2& Texel = ImageData[y * width + x];
+				Texel.x = A / NumSamples;
+				Texel.y = B / NumSamples;
+			}
+		}
+
+		d->PreintegratedGF = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, RenderCore::TexCreate_ShaderResource, width, height, ImageData.data());
 	}
 
 	void IBLRender::InitShader()

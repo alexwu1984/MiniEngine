@@ -285,7 +285,7 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
     }
 
     // Calculate lighting contribution from image based lighting source (IBL)
-    //color += GetIBLContribution(materialInfo, normal, view);
+    color += GetIBLContribution(materialInfo, normal, view);
 
     float ao = 1.0;
     // Apply optional PBR terms for additional (optional) shading

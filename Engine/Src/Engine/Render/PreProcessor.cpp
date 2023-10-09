@@ -45,4 +45,10 @@ namespace Engine
 		d->GenIBL->Draw(RHIContext);
 	}
 
+	std::shared_ptr<IBLRender> PreProcessor::GetIBLRender()
+	{
+		C_P(PreProcessor);
+		return d->GenIBL;
+	}
+
 }

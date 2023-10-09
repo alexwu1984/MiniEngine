@@ -10,7 +10,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	
+	class PreProcessor;
 	struct MaterialRenderParam
 	{
 		math::Matrix4x4 CurrModelMatrix;
@@ -21,6 +21,7 @@ namespace Engine
 		math::Vector4 CameraPos;
 		int32_t PosType;
 		bool HasSkin = false;
+		std::weak_ptr<PreProcessor> _PreProcessor;
 	};
 
 	class GltfModelConfig;

@@ -97,6 +97,11 @@ namespace Engine
 		return Impl->Scene;
 	}
 
+	std::shared_ptr<Engine::SceneRender> MainEngine::GetSceneRender() const
+	{
+		return Impl->SeRender;
+	}
+
 	void MainEngine::Tick(float DeltaTime)
 	{
 		Impl->Scene->Tick(DeltaTime);

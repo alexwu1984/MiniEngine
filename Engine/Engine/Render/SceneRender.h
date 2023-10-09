@@ -10,9 +10,9 @@ namespace RenderCore
 
 namespace Engine
 {
-	
+	class PreProcessor;
 	class SceneView;
-	struct SceneRenderP;
+	struct SceneRenderPrivate;
 
 	class SceneRender
 	{
@@ -25,8 +25,9 @@ namespace Engine
 		void LoadConfig(const std::wstring& FileName);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render();
+		std::shared_ptr<PreProcessor> GetPreProcessor();
 
 	private:
-		std::shared_ptr< SceneRenderP> Impl;
+		SceneRenderPrivate* d_ptr = nullptr;
 	};
 }

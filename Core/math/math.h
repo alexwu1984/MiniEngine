@@ -603,4 +603,22 @@ namespace math
 		float p = ((((-2.6051615e-07f * y2 + 2.4760495e-05f) * y2 - 0.0013888378f) * y2 + 0.041666638f) * y2 - 0.5f) * y2 + 1.0f;
 		*ScalarCos = sign * p;
 	}
+
+	inline float NormalRandom(float mu = 0.f, float sigma = 1.f)
+	{
+		unsigned seed = (unsigned)std::chrono::steady_clock::now().time_since_epoch().count();
+		static std::default_random_engine generator(seed);
+		static std::normal_distribution<float> distribution(mu, sigma);
+		return distribution(generator);
+	}
+
+	inline uint32_t ReverseBits(uint32_t Bits)
+	{
+		Bits = (Bits << 16) | (Bits >> 16);
+		Bits = ((Bits & 0x00ff00ff) << 8) | ((Bits & 0xff00ff00) >> 8);
+		Bits = ((Bits & 0x0f0f0f0f) << 4) | ((Bits & 0xf0f0f0f0) >> 4);
+		Bits = ((Bits & 0x33333333) << 2) | ((Bits & 0xcccccccc) >> 2);
+		Bits = ((Bits & 0x55555555) << 1) | ((Bits & 0xaaaaaaaa) >> 1);
+		return Bits;
+	}
 }

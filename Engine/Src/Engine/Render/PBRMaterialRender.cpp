@@ -8,6 +8,8 @@
 #include "RHI/RHICachedStates.h"
 #include "core/system.h"
 #include "Render/MaterialPreFrame.h"
+#include "Engine/Render/PreProcessor.h"
+#include "Engine/Render/IBLRender.h"
 
 namespace Engine
 {
@@ -183,6 +185,14 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
+
+		if (!RenderParam._PreProcessor.expired())
+		{
+			auto IBL = RenderParam._PreProcessor.lock()->GetIBLRender();
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, IBL->GetIrrCube());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 6, IBL->GetPreIntegrateBRDF());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 7, IBL->GetPreFilterCube());
+		}
 
 		DrawMesh(RHIContext);
 	}

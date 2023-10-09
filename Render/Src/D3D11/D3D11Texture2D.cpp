@@ -79,7 +79,7 @@ namespace RenderCore
 	}
 
 	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, 
-		bool bCubeTexture, uint32_t NumMips, void* InBuffer, int RowBytes)
+		bool bCubeTexture, uint32_t NumMips, void* InBuffer, size_t RowBytes)
 	{
 		C_P(D3D11Texture2D);
 		d->Size.cx = SizeX;
@@ -227,6 +227,13 @@ namespace RenderCore
 		}
 		else
 		{
+			
+			size_t SlicePitch = SizeY * RowBytes;
+			if (RowBytes == 0 && InBuffer != 0)
+			{
+				DirectX::ComputePitch(PlatformResourceFormat, SizeX, SizeY, RowBytes, SlicePitch);
+			}
+
 			D3D11_SUBRESOURCE_DATA SubRes{};
 			SubRes.pSysMem = InBuffer;
 			SubRes.SysMemPitch = RowBytes;

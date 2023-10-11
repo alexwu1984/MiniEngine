@@ -1,6 +1,9 @@
 // KHR_lights_punctual extension.
 // see https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_lights_punctual
 
+#ifndef PerFrameStruct
+#define PerFrameStruct
+
 #define MAX_LIGHT_INSTANCES  80
 #define MAX_SHADOW_INSTANCES 32
 
@@ -97,3 +100,5 @@ matrix GetPrevCameraViewProj()
 {
     return myPerFrame.CameraPrevViewProj;
 }
+
+#endif

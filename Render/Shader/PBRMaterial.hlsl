@@ -1,4 +1,4 @@
-#include "ShaderUtils.hlsl"
+#include "EnvironmentShaders.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 
@@ -383,6 +383,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float3 specularColor;
     GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, alpha);
     
-    Output.Target0 = float4(DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness), alpha);
+    float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness);
+    Output.Target0 = float4(AMDTonemapper(HDRColor), alpha);
     return Output;
 }

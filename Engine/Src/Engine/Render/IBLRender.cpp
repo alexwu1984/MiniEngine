@@ -31,7 +31,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITextureCube> IrrCube;
 		std::shared_ptr< RenderCore::RHITextureCube> EvnCube;
 		std::shared_ptr<RenderCore::RHITexture2D> HDRTex;
-		std::shared_ptr<RenderCore::RHITexture2D> PreintegratedGF;
+		std::shared_ptr<RenderCore::RHITexture2D> PreBRDF;
 
 		std::shared_ptr< RenderCore::RHIVertexShader> VertexShader;
 		std::shared_ptr< RenderCore::RHIPixelShader> IrrPixelShader;
@@ -145,7 +145,7 @@ namespace Engine
 	std::shared_ptr<RenderCore::RHITexture2D> IBLRender::GetPreIntegrateBRDF()
 	{
 		C_P(IBLRender);
-		return d->PreintegratedGF;
+		return d->PreBRDF;
 	}
 
 	void IBLRender::GenerateCubeMap(RenderCore::RHICommandContext& RHIContext)
@@ -289,7 +289,7 @@ namespace Engine
 	void IBLRender::PreIntegrateBRDF()
 	{
 		C_P(IBLRender);
-		if (d->PreintegratedGF)
+		if (d->PreBRDF)
 			return;
 
 		int width = 128; //NoV
@@ -351,7 +351,7 @@ namespace Engine
 			}
 		}
 
-		d->PreintegratedGF = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, RenderCore::TexCreate_ShaderResource, width, height, ImageData.data());
+		d->PreBRDF = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, RenderCore::TexCreate_ShaderResource, width, height, ImageData.data());
 	}
 
 	void IBLRender::InitShader()

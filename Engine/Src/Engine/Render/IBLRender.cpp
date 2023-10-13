@@ -40,6 +40,7 @@ namespace Engine
 		std::shared_ptr< RenderCore::RHIPixelShader> PSGenPrefiltered;
 		std::shared_ptr< RenderCore::RHIVertexBuffer> CubeVB;
 		RenderCore::DynamicRHI* RHI;
+		std::array< Matrix4x4, 6> CaptureViews;
 
 		IBLRenderPrivate(RenderCore::DynamicRHI* _RHI)
 			:GET_SHADER_STRUCT_MEMBER(PSContant)(_RHI),
@@ -53,8 +54,7 @@ namespace Engine
 		DECLARE_SHADER_STRUCT_MEMBER(PSContant);
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame);
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
-
-		std::array< Matrix4x4, 6> CaptureViews;
+		bool bInitRender = false;
 	};
 
 	IBLRender::IBLRender(RenderCore::DynamicRHI* RHI)
@@ -113,11 +113,11 @@ namespace Engine
 	void IBLRender::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
-		if (!d->HDRTex)
+		if (!d->HDRTex || d->bInitRender)
 		{
 			return;
 		}
-
+		d->bInitRender = true;
 		GenerateCubeMap(RHIContext);
 		GenerateIrradianceMap(RHIContext);
 		GeneratePrefilteredMap(RHIContext);

@@ -7,6 +7,8 @@
 #include "Scene/SceneView.h"
 #include "Render/SceneRender.h"
 #include "win/high_precision_tick.h"
+#include "Render/Imgui/imgui.h"
+#include "Render/Imgui/imgui_impl_win32.h"
 
 namespace Engine
 {
@@ -44,6 +46,13 @@ namespace Engine
 		Impl->AppWin = AppWin;
 		if (Impl->DynamicRHI)
 		{
+			// Setup Dear ImGui context
+			IMGUI_CHECKVERSION();
+			ImGui::CreateContext();
+			ImGuiIO& io = ImGui::GetIO(); (void)io;
+			io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+			io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
 			Impl->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
 			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
 			Impl->DynamicRHI->Init();

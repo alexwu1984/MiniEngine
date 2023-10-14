@@ -940,9 +940,9 @@ CODE
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 
-#include "Render/Imgui/imgui.h"
+#include "Imgui/imgui.h"
 #ifndef IMGUI_DISABLE
-#include "Render/Imgui/imgui_internal.h"
+#include "Imgui/imgui_internal.h"
 
 // System includes
 #include <stdio.h>      // vsnprintf, sscanf, printf

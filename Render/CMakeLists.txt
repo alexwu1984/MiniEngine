@@ -8,6 +8,7 @@ file(GLOB Header_RHI RHI/*.h)
 file(GLOB Header_D3D11 D3D11/*.h)
 file(GLOB Header_D3D12 D3D12/*.h)
 file(GLOB Header_RHIPrivate RHIPrivate/*.h)
+file(GLOB Header_Imgui Imgui/*.h)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty)
@@ -18,14 +19,17 @@ source_group("Header Files\\RHI" FILES ${Header_RHI} )
 source_group("Header Files\\D3D11" FILES ${Header_D3D11} )
 source_group("Header Files\\D3D12" FILES ${Header_D3D12} )
 source_group("Header Files\\RHIPrivate" FILES ${Header_RHIPrivate} )
+source_group("Header Files\\Imgui" FILES ${Header_Imgui} )
 
 file(GLOB Src_RHI Src/RHI/*.cpp)
 file(GLOB Src_D3D11 Src/D3D11/*.cpp)
 file(GLOB Src_RHIPrivate Src/RHIPrivate/*.cpp)
+file(GLOB Src_Imgui Src/Imgui/*.cpp)
 
 source_group("Source Files\\Src\\RHI" FILES ${Src_RHI} )
 source_group("Source Files\\Src\\D3D11" FILES ${Src_D3D11} )
 source_group("Source Files\\Src\\RHIPrivate" FILES ${Src_RHIPrivate} )
+source_group("Source Files\\Imgui" FILES ${Src_Imgui} )
 
 #-----shader
 
@@ -41,7 +45,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/EnvironmentShaders.hlsl
 )
 
-add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} )
+add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
 
 #-------------------------------------------------------------------------------------------
 # Defines

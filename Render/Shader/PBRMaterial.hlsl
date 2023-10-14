@@ -229,7 +229,7 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diffuseColor, in float3 specularColor, in float perceptualRoughness)
 {
 #ifdef MATERIAL_UNLIT
-        return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
+        //return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
 #endif
 
     // Roughness is authored as perceptual roughness; as is convention,

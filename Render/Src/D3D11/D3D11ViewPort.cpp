@@ -3,6 +3,7 @@
 #include "D3D11/D3D11RHI.h"
 #include "core/logger.h"
 #include "D3D11/D3D11Texture2D.h"
+#include "Imgui/imgui_impl_win32.h"
 
 namespace RenderCore
 {
@@ -117,6 +118,8 @@ namespace RenderCore
 
 		Impl->DepthSRV = std::make_shared<D3D11Texture2D>(Impl->D3D11RHI);
 		Impl->DepthSRV->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable , InSizeX, InSizeY);
+
+		ImGui_ImplWin32_Init(InWindowHandle);
 	}
 
 	D3D11ViewPort::~D3D11ViewPort()

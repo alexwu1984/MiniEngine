@@ -6,6 +6,7 @@
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
+#include "Imgui/imgui_impl_win32.h"
 
 namespace RenderCore
 {
@@ -105,6 +106,13 @@ namespace RenderCore
 		math::RandInit(Seed1);
 		math::SRandInit(Seed2);
 
+		// Setup Dear ImGui context
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
 		InitD3DDevice();
 
 		RHICachedStates::Initialize(this);
@@ -114,6 +122,8 @@ namespace RenderCore
 	{
 		RHICachedStates::DestroyAll();
 		Impl = {};
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
 	}
 
 	std::shared_ptr<RHICommandContext> D3D11DynamicRHI::GetDefaultCommandContext()

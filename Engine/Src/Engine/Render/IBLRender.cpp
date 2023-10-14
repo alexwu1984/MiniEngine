@@ -204,7 +204,6 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
 		
-
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
 		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
@@ -243,7 +242,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-		
+	
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
 		uint32_t NumMips = d->PreFilterCube->GetNumMips();
 		d->GET_UNIFORMDATA(PSContant).MaxMipLevel = d->PreFilterCube->GetNumMips();
@@ -253,22 +252,20 @@ namespace Engine
 		for (uint32_t MipLevel = 0; MipLevel < NumMips; ++MipLevel)
 		{
 			uint32_t Size = d->PreFilterCube->GetSize().cx >> MipLevel;
-			RHIContext.SetViewPort(0, 0, Size, Size);
+			
 			d->GET_UNIFORMDATA(PSContant).MipLevel = MipLevel;
-			d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 			for (size_t IndexView = 0; IndexView < 6; ++IndexView)
 			{
 				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
 				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-
 	
 				d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
 				d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 				RHIContext.SetRenderTarget(d->PreFilterCube, IndexView, MipLevel);
+				RHIContext.SetViewPort(0, 0, Size, Size);
 				RHIContext.Clear(d->PreFilterCube, IndexView,MipLevel, core::FLinearColor::Black);
 
 				RenderCube(RHIContext);

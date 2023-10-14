@@ -183,10 +183,10 @@ namespace RenderCore
 		if (TextureCubeRHI)
 		{
 			auto& CubeRRVS = TextureCubeRHI->GetRTVS();
-			auto& RTVs = CubeRRVS[Face];
+			auto& RTVs = CubeRRVS[Mip];
 			if (Mip < RTVs.size())
 			{
-				DeviceContex->ClearRenderTargetView(RTVs[Mip].get(), &Color.R);
+				DeviceContex->ClearRenderTargetView(RTVs[Face].get(), &Color.R);
 			}
 
 		}

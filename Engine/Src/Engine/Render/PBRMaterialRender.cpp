@@ -125,7 +125,7 @@ namespace Engine
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
 			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-			if (d->RenderParam.PosType == 0)
+			if (d->RenderParam.PosType == AABBPosition::Far)
 			{
 				Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
 
@@ -170,6 +170,7 @@ namespace Engine
 	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
 		C_P(PBRMaterialRender);
+
 		d->RenderParam = RenderParam;
 
 		SetPipeLineState(RHIContext);

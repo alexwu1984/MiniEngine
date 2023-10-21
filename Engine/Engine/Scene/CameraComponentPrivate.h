@@ -4,7 +4,7 @@
 namespace Engine
 {
 
-	struct CameraComponentP
+	struct CameraComponentPrivate
 	{
 		math::Matrix4x4 View;
 		math::Vector3  CameraPos{0.f,0.f,0.f};

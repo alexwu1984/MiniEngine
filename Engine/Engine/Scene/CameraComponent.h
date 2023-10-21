@@ -5,7 +5,7 @@
 
 namespace Engine
 {
-	struct CameraComponentP;
+	struct CameraComponentPrivate;
 
 	class CameraComponent : public Component
 	{
@@ -29,7 +29,7 @@ namespace Engine
 		const math::Frustum& GetFrustum() const;
 
 	protected:
-		std::shared_ptr< CameraComponentP> ImplCameraP;
+		CameraComponentPrivate* d_ptr;
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(CameraComponent);
 }

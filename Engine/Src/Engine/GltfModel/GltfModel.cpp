@@ -160,7 +160,7 @@ namespace Engine
 			auto& ModelMesh = Impl->GltfMode.meshes[i];
 			for (int j = 0; j < ModelMesh.primitives.size(); j++)
 			{
-				std::shared_ptr<GltfMesh> Mesh = std::make_shared<GltfMesh>(&Impl->GltfMode);
+				std::shared_ptr<GltfMesh> Mesh = std::make_shared<GltfMesh>(&Impl->GltfMode,this);
 				Mesh->Init(i, j, ModelMaterial, Impl->RootNode);
 
 				Impl->HasSkin = Mesh->HasSkin();

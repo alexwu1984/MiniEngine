@@ -3,12 +3,15 @@
 #include "RHI/RHICommandContext.h"
 #include "Scene/Actor.h"
 #include "Scene/Component.h"
+#include "Scene/GltfMeshComponent.h"
 #include "RHI/RHIViewPort.h"
 #include "Thread/RenderThread.h"
 #include "Engine.h"
 #include "RHI/DynamicRHI.h"
 #include "App/AppWindow.h"
 #include "Render/PreProcessor.h"
+#include "GltfModel/GltfMesh.h"
+#include "Render/BasePassRender.h"
 
 using namespace RenderCore;
 
@@ -19,12 +22,16 @@ namespace Engine
 		std::weak_ptr<SceneView> Owner;
 		std::shared_ptr<RHIViewPort> MainViewPort;
 		std::shared_ptr<PreProcessor> PreProcess;
+		std::shared_ptr<BasePassRender> BaseRender;
+		std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>> MeshesInfo;
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
+		:d_ptr(new SceneRenderPrivate())
 	{
-		d_ptr = new SceneRenderPrivate();
-		d_ptr->Owner = Owner;
+		C_P(SceneRender);
+		d->Owner = Owner;
+		d->BaseRender = std::make_shared<BasePassRender>();
 	}
 
 	SceneRender::~SceneRender()
@@ -86,6 +93,8 @@ namespace Engine
 			return;
 		}
 		C_P(SceneRender);
+
+
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, CommandContext](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 			{
@@ -103,19 +112,31 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);
 
-
+		
+		d->MeshesInfo.clear();
 		const auto& Actors = GetOwner()->GetAllActors();
-		for (const auto& ActorItem: Actors )
+		for (const auto& ActorItem : Actors)
 		{
 			if (ActorItem->GetState() == Actor::EActive)
 			{
-				auto& Components = ActorItem->GetComponents();
+				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
 				for (auto& ComponentItem : Components)
 				{
-					ComponentItem->Draw(*CommandContext, GetOwner()->GetMainCamera());
+					std::vector<std::shared_ptr<GltfMesh>> Meshes;
+					math::Matrix4x4 WorldTransform;
+					if (ComponentItem->GatherMesh(Meshes, WorldTransform, GetOwner()->GetMainCamera()))
+					{
+						d->MeshesInfo.push_back({ Meshes ,WorldTransform });
+					}
 				}
 			}
 		}
+
+		if (d->MeshesInfo.size())
+		{
+			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner()->GetMainCamera());
+		}
+		
 
 		auto Present = [d, this](RenderCore::DynamicRHI*) {
 			d->MainViewPort->Present();

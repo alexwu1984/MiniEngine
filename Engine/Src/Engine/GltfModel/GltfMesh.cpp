@@ -2,6 +2,8 @@
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/GltfNode.h"
 #include "GltfModel/GltfMaterial.h"
+#include "GltfModel/GltfModel.h"
+#include "GltfModel/GltfSkeleton.h"
 #include "math/matrix4x4.h"
 
 namespace Engine
@@ -21,13 +23,15 @@ namespace Engine
 		int32_t SkinID = -1;
 
 		Matrix4x4 MeshMat;
+		GltfModel* Owner;
 	};
 
-	GltfMesh::GltfMesh(tinygltf::Model* Model)
+	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
 		:GltfModelBase(Model),
 		Impl(std::make_shared<GltfMeshP>())
 	{
 		Impl->Model = Model;
+		Impl->Owner = Owner;
 		Impl->Mesh = std::make_shared<GltfMeshInfo>();
 		Impl->MeshBuffer = std::make_shared<GltfMeshBuffer>();
 	}
@@ -169,6 +173,12 @@ namespace Engine
 	void GltfMesh::SetMeshMat(const math::Matrix4x4& Mat)
 	{
 		Impl->MeshMat = Mat;
+	}
+
+	std::vector<std::vector<Engine::BoneSkinInfo>>& GltfMesh::GetBoneNodeArray()
+	{
+		assert(Impl->Owner->GetSkeleton());
+		return Impl->Owner->GetSkeleton()->GetBoneNodeArray();
 	}
 
 }

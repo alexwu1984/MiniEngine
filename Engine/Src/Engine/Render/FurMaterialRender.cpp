@@ -65,7 +65,8 @@ namespace Engine
 
 		RHIContext.RHISetBlendState(RHICachedStates::BlendTraditional, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateEnable,0);
-		if (GetRenderParam().PosType == 0)
+		//gltfÈý½ÇÐÎË³Ðò
+		if (GetRenderParam().PosType == AABBPosition::Near)
 		{
 			RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullFront);
 		}

@@ -69,7 +69,8 @@ namespace Engine
 		void AddComponent(std::shared_ptr<Component> component);
 		void RemoveComponent(std::shared_ptr<Component> component);
 
-		std::vector<std::shared_ptr<Component>>& GetComponents() const;
+		std::vector<std::shared_ptr<Component>>& GetAllComponents() const;
+		template<typename TComponent> std::vector<std::shared_ptr<TComponent>> GetComponents() const;
 		template<typename TComponent> std::shared_ptr<TComponent> GetComponent() const;
 
 	public:
@@ -101,7 +102,7 @@ namespace Engine
 	template<typename TComponent>
 	std::shared_ptr<TComponent>  Actor::GetComponent() const
 	{
-		const auto& Components = GetComponents();
+		const auto& Components = GetAllComponents();
 		if (Components.empty())
 		{
 			return {};
@@ -116,5 +117,26 @@ namespace Engine
 			}
 		}
 		return {};
+	}
+
+	template<typename TComponent> 
+	std::vector<std::shared_ptr<TComponent>> Actor::GetComponents() const
+	{
+		const auto& Components = GetAllComponents();
+		if (Components.empty())
+		{
+			return {};
+		}
+
+		std::vector<std::shared_ptr<TComponent>> TempComps;
+		for (const auto& Comp : Components)
+		{
+			auto Temp = ComponentCast<TComponent>(Comp);
+			if (Temp)
+			{
+				TempComps.emplace_back(Temp);
+			}
+		}
+		return TempComps;
 	}
 }

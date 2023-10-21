@@ -328,6 +328,10 @@ namespace RenderCore
 	void D3D11CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI)
 	{
 		D3D11Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
+		if (!Texture2D)
+		{
+			return;
+		}
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		switch (ShaderType)
 		{
@@ -349,6 +353,10 @@ namespace RenderCore
 	void D3D11CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI)
 	{
 		D3D11TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
+		if (!TextureCube)
+		{
+			return;
+		}
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		switch (ShaderType)
 		{
@@ -424,6 +432,10 @@ namespace RenderCore
 			}
 		}
 		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		if (!IndexBuffer)
+		{
+			return;
+		}
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
 		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
 	}

@@ -13,14 +13,14 @@ namespace Engine
 	using namespace math;
 	CameraComponent::CameraComponent(std::weak_ptr<Actor> Owner)
 		:Component(Owner)
-		, ImplCameraP(std::make_shared<CameraComponentP>())
+		,d_ptr(new CameraComponentPrivate)
 	{
 
 	}
 
 	CameraComponent::~CameraComponent()
 	{
-
+		delete d_ptr;
 	}
 
 	void CameraComponent::InitResource()
@@ -43,71 +43,77 @@ namespace Engine
 
 	void CameraComponent::SetViewMatrix(const math::Matrix4x4& view)
 	{
+		C_P(CameraComponent);
 		const auto& AppWin = GEngine->GetAppWindow();
-		ImplCameraP->View = view;
-		ImplCameraP->Aspect = (float)AppWin->GetWidth() / (float)AppWin->GetHeight();
-		ImplCameraP->ProjMatrix = Matrix4x4::MatrixPerspectiveFovLH(ImplCameraP->FovVertical, ImplCameraP->Aspect, ImplCameraP->Near, ImplCameraP->Far);
+		d->View = view;
+		d->Aspect = (float)AppWin->GetWidth() / (float)AppWin->GetHeight();
+		d->ProjMatrix = Matrix4x4::MatrixPerspectiveFovLH(d->FovVertical, d->Aspect, d->Near, d->Far);
 	}
 
 	Matrix4x4 CameraComponent::GetViewMatrix() const
 	{
-		return ImplCameraP->View;
+		C_P(const CameraComponent);
+		return d->View;
 	}
 
 	Vector3 CameraComponent::GetCameraPos() const
 	{
-		return ImplCameraP->CameraPos;
+		C_P(const CameraComponent);
+		return d->CameraPos;
 	}
 
 	void CameraComponent::SetCameraPos(const math::Vector3& Pos)
 	{
-		ImplCameraP->CameraPos = Pos;
+		C_P(CameraComponent);
+		d->CameraPos = Pos;
 	}
 
 	Matrix4x4 CameraComponent::GetProjMatrix() const
 	{
-		return ImplCameraP->ProjMatrix;
+		C_P(const CameraComponent);
+		return d->ProjMatrix;
 	}
 
 	void CameraComponent::UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up)
 	{
+		C_P(CameraComponent);
 		Vector3 side = Vector3::Cross(up, forward);
 		side.Normalize();
 
-		float near_height_half = ImplCameraP->Near * std::tan(ImplCameraP->FovVertical / 2.f);
-		float far_height_half = ImplCameraP->Far * std::tan(ImplCameraP->FovVertical / 2.f);
-		float near_width_half = near_height_half * ImplCameraP->Aspect;
-		float far_width_half = far_height_half * ImplCameraP->Aspect;
+		float near_height_half = d->Near * std::tan(d->FovVertical / 2.f);
+		float far_height_half = d->Far * std::tan(d->FovVertical / 2.f);
+		float near_width_half = near_height_half * d->Aspect;
+		float far_width_half = far_height_half * d->Aspect;
 
 		// near plane
-		Vector3 near_center = eye - forward * ImplCameraP->Near;
+		Vector3 near_center = eye - forward * d->Near;
 		Vector3 near_normal = forward * -1.f;
-		ImplCameraP->Frustum.planes[0].Set(near_normal, near_center);
+		d->Frustum.planes[0].Set(near_normal, near_center);
 
 		// far plane
-		Vector3 far_center = eye + forward * ImplCameraP->Far;
+		Vector3 far_center = eye + forward * d->Far;
 		Vector3 far_normal = forward;
-		ImplCameraP->Frustum.planes[1].Set(far_normal, far_center);
+		d->Frustum.planes[1].Set(far_normal, far_center);
 
 		// top plane
 		Vector3 top_center = near_center + up * near_height_half;
 		Vector3 top_normal = Vector3::Cross((top_center - eye).Normalize(), side);
-		ImplCameraP->Frustum.planes[2].Set(top_normal, top_center);
+		d->Frustum.planes[2].Set(top_normal, top_center);
 
 		// bottom plane
 		Vector3 bottom_center = near_center - up * near_height_half;
 		Vector3 bottom_normal = Vector3::Cross(side, (bottom_center - eye).Normalize());
-		ImplCameraP->Frustum.planes[3].Set(bottom_normal, bottom_center);
+		d->Frustum.planes[3].Set(bottom_normal, bottom_center);
 
 		// left plane
 		Vector3 left_center = near_center - side * near_width_half;
 		Vector3 left_normal = Vector3::Cross((left_center - eye).Normalize(), up);
-		ImplCameraP->Frustum.planes[4].Set(left_normal, left_center);
+		d->Frustum.planes[4].Set(left_normal, left_center);
 
 		// right plane
 		Vector3 right_center = near_center + side * near_width_half;
 		Vector3 right_normal = Vector3::Cross(up, (right_center - eye).Normalize());
-		ImplCameraP->Frustum.planes[5].Set(right_normal, right_center);
+		d->Frustum.planes[5].Set(right_normal, right_center);
 
 		// 8 corners
 		Vector3 nearTopLeft = near_center + up * near_height_half - side * near_width_half;
@@ -120,26 +126,27 @@ namespace Engine
 		Vector3 farBottomLeft = far_center - up * far_height_half - side * far_width_half;
 		Vector3 farBottomRight = far_center - up * far_height_half + side * far_width_half;
 
-		ImplCameraP->Frustum.corners[0] = nearTopLeft;
-		ImplCameraP->Frustum.corners[1] = nearTopRight;
-		ImplCameraP->Frustum.corners[2] = nearBottomLeft;
-		ImplCameraP->Frustum.corners[3] = nearBottomRight;
-		ImplCameraP->Frustum.corners[4] = farTopLeft;
-		ImplCameraP->Frustum.corners[5] = farTopRight;
-		ImplCameraP->Frustum.corners[6] = farBottomLeft;
-		ImplCameraP->Frustum.corners[7] = farBottomRight;
+		d->Frustum.corners[0] = nearTopLeft;
+		d->Frustum.corners[1] = nearTopRight;
+		d->Frustum.corners[2] = nearBottomLeft;
+		d->Frustum.corners[3] = nearBottomRight;
+		d->Frustum.corners[4] = farTopLeft;
+		d->Frustum.corners[5] = farTopRight;
+		d->Frustum.corners[6] = farBottomLeft;
+		d->Frustum.corners[7] = farBottomRight;
 
-		ImplCameraP->Frustum.bbox.Set(Vector3::Zero, Vector3::Zero);
+		d->Frustum.bbox.Set(Vector3::Zero, Vector3::Zero);
 
-		for (auto& corner : ImplCameraP->Frustum.corners)
+		for (auto& corner : d->Frustum.corners)
 		{
-			ImplCameraP->Frustum.bbox.UpdateMinMax(corner);
+			d->Frustum.bbox.UpdateMinMax(corner);
 		}
 	}
 
 	const math::Frustum& CameraComponent::GetFrustum() const
 	{
-		return ImplCameraP->Frustum;
+		C_P(const CameraComponent);
+		return d->Frustum;
 	}
 
 }

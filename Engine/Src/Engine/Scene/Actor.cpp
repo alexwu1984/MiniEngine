@@ -173,7 +173,7 @@ namespace Engine
 		}
 	}
 
-	std::vector<std::shared_ptr<Engine::Component>>& Actor::GetComponents() const
+	std::vector<std::shared_ptr<Engine::Component>>& Actor::GetAllComponents() const
 	{
 		return ImplActorP->Components;
 	}

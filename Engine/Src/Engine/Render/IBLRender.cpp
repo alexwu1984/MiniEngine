@@ -10,6 +10,7 @@
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
 #include "tinygltf/json.h"
+#include "Render/CubeRender.h"
 
 using namespace math;
 using namespace RenderCore;
@@ -38,7 +39,7 @@ namespace Engine
 		std::shared_ptr< RenderCore::RHIVertexShader> VSLongLatToCube;
 		std::shared_ptr< RenderCore::RHIPixelShader> PSLongLatToCube;
 		std::shared_ptr< RenderCore::RHIPixelShader> PSGenPrefiltered;
-		std::shared_ptr< RenderCore::RHIVertexBuffer> CubeVB;
+		std::shared_ptr< CubeRender>  CubeR;
 		RenderCore::DynamicRHI* RHI;
 		std::array< Matrix4x4, 6> CaptureViews;
 
@@ -85,6 +86,8 @@ namespace Engine
 		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
 		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 8, false);
 		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
+		d->CubeR = std::make_shared<CubeRender>(d->RHI);
+		d->CubeR->InitResource();
 	}
 
 	void IBLRender::LoadConfig(const std::wstring& FileName)
@@ -369,51 +372,7 @@ namespace Engine
 	void IBLRender::RenderCube(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
-		if (!d->CubeVB )
-		{
-			float vertices[] = {
-				// back face
-				-1.0f, -1.0f, -1.0f,
-				1.0f, 1.0f, -1.0f,
-				1.0f, -1.0f, -1.0f,
-				1.0f, 1.0f, -1.0f,
-				-1.0f, -1.0f, -1.0f,
-				-1.0f, 1.0f, -1.0f,
-				-1.0f, -1.0f, 1.0f,
-				1.0f, -1.0f, 1.0f,
-				1.0f, 1.0f, 1.0f,
-				1.0f, 1.0f, 1.0f,
-				-1.0f, 1.0f, 1.0f,
-				-1.0f, -1.0f, 1.0f,
-				-1.0f, 1.0f, 1.0f,
-				-1.0f, 1.0f, -1.0f,
-				-1.0f, -1.0f, -1.0f,
-				-1.0f, -1.0f, -1.0f,
-				-1.0f, -1.0f, 1.0f,
-				-1.0f, 1.0f, 1.0f,
-				1.0f, 1.0f, 1.0f,
-				1.0f, -1.0f, -1.0f,
-				1.0f, 1.0f, -1.0f,
-				1.0f, -1.0f, -1.0f,
-				1.0f, 1.0f, 1.0f,
-				1.0f, -1.0f, 1.0f,
-				-1.0f, -1.0f, -1.0f,
-				1.0f, -1.0f, -1.0f,
-				1.0f, -1.0f, 1.0f,
-				1.0f, -1.0f, 1.0f,
-				-1.0f, -1.0f, 1.0f,
-				-1.0f, -1.0f, -1.0f,
-				-1.0f, 1.0f, -1.0f,
-				1.0f, 1.0f, 1.0f,
-				1.0f, 1.0f, -1.0f,
-				1.0f, 1.0f, 1.0f,
-				-1.0f, 1.0f, -1.0f,
-				-1.0f, 1.0f, 1.0f,
-			};
-			d->CubeVB = d->RHI->RHICreateVertexBuffer(vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), 36);
-		}
-		// render Cube
-		RHIContext.DrawPrimitive(d->CubeVB);
+		d->CubeR->Render(RHIContext);
 	}
 
 }

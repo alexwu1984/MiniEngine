@@ -43,6 +43,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Skinning.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShaderUtils.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/EnvironmentShaders.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/CubeBackground.hlsl
 )
 
 add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
@@ -53,6 +54,7 @@ add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Hea
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_definitions(-D_SCL_SECURE_NO_WARNINGS)
 add_definitions(-DGUARDED_TEXTURE_CREATES)
+add_compile_options(/wd4201)
 
 target_link_libraries(Render LINK_PUBLIC DirectXTex)
 target_link_libraries(Render LINK_PUBLIC amd_ags)

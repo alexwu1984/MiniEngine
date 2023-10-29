@@ -28,6 +28,7 @@ add_library(Core ${Core_sources} ${core_headers} ${network_headers} ${win_header
 #-------------------------------------------------------------------------------------------
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+add_compile_options(/wd4201)
 
 #-------------------------------------------------------------------------------------------
 # Include dirs

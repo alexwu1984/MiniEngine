@@ -46,6 +46,7 @@ add_library(Engine ${App_Source} ${Engine_Source} ${App_Header} ${Engine_Header}
 #-------------------------------------------------------------------------------------------
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+add_compile_options(/wd4201)
 
 target_link_libraries(Engine LINK_PUBLIC Render tinygltf)
 target_include_directories(Render PUBLIC App Engine)

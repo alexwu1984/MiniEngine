@@ -12,6 +12,8 @@
 #include "Render/PreProcessor.h"
 #include "GltfModel/GltfMesh.h"
 #include "Render/BasePassRender.h"
+#include "Render/CubeBackground.h"
+#include "Render/IBLRender.h"
 
 using namespace RenderCore;
 
@@ -23,6 +25,7 @@ namespace Engine
 		std::shared_ptr<RHIViewPort> MainViewPort;
 		std::shared_ptr<PreProcessor> PreProcess;
 		std::shared_ptr<BasePassRender> BaseRender;
+		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>> MeshesInfo;
 	};
 	
@@ -59,6 +62,11 @@ namespace Engine
 				d->PreProcess = std::make_shared<PreProcessor>(RHI);
 			}
 			d->PreProcess->InitResource();
+			if (!d->BackgroundRender)
+			{
+				d->BackgroundRender = std::make_shared<CubeBackground>(RHI);
+			}
+			d->BackgroundRender->InitResource();
 		}));
 	}
 
@@ -112,6 +120,13 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);
 
+		auto RenderBackground = [d](RenderCore::DynamicRHI* RHI){
+			auto IBL = d->PreProcess->GetIBLRender();
+			auto EvnCube = IBL->GetEvnCube();
+			d->BackgroundRender->SetTextureCube(EvnCube);
+			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderBackground);
 		
 		d->MeshesInfo.clear();
 		const auto& Actors = GetOwner()->GetAllActors();

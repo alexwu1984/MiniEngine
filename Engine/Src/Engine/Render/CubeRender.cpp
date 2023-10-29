@@ -75,5 +75,4 @@ namespace Engine
 		C_P(CubeRender);
 		RHIContext.DrawPrimitive(d->CubeVB);
 	}
-
 }

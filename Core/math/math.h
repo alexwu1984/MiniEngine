@@ -621,4 +621,14 @@ namespace math
 		Bits = ((Bits & 0x55555555) << 1) | ((Bits & 0xaaaaaaaa) >> 1);
 		return Bits;
 	}
+
+	inline float Radians(float degrees)
+	{
+		return degrees * static_cast<float>(0.01745329251994329576923690768489);
+	}
+
+	inline float Degrees(float radians)
+	{
+		return radians * static_cast<float>(57.295779513082320876798154814105);
+	}
 }

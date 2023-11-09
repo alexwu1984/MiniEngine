@@ -36,6 +36,5 @@ float4 PS(VertexOut outa) : SV_Target
 {
     float3 envColor = HdrCubeMap.Sample(TrilinearFliterClamp, normalize(outa.LocalPos)).rgb;
     envColor = envColor / (envColor + 1.0);
-    //envColor = pow(envColor, 1.0 / 2.2);
-    return float4(ACESToneMapping(envColor), 1.0);
+    return float4(envColor, 1.0f);
 }

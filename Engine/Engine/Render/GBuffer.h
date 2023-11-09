@@ -1,6 +1,13 @@
 #pragma once
 #include "core/inc.h"
 
+namespace RenderCore
+{
+	class RHICommandContext;
+	class DynamicRHI;
+	class RHITexture2D;
+}
+
 namespace Engine
 {
 	struct GBufferPrivate;
@@ -16,10 +23,11 @@ namespace Engine
 	class GBuffer
 	{
 	public:
-		GBuffer();
+		GBuffer(RenderCore::DynamicRHI* RHI);
 		~GBuffer();
 
-		void InitBuffer(GBufferFlagBits Flag);
+		void InitResource(GBufferFlagBits Flag,uint32_t Width,uint32_t Height);
+		std::shared_ptr<RenderCore::RHITexture2D> GetDepth() const;
 
 	private:
 		GBufferPrivate* d_ptr = nullptr;

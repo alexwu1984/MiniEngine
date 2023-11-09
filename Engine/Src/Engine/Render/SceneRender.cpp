@@ -14,6 +14,8 @@
 #include "Render/BasePassRender.h"
 #include "Render/CubeBackground.h"
 #include "Render/IBLRender.h"
+#include "Render/PostProcessor.h"
+#include "Render/GBuffer.h"
 
 using namespace RenderCore;
 
@@ -24,8 +26,10 @@ namespace Engine
 		std::weak_ptr<SceneView> Owner;
 		std::shared_ptr<RHIViewPort> MainViewPort;
 		std::shared_ptr<PreProcessor> PreProcess;
+		std::shared_ptr<PostProcessor> PostProcess;
 		std::shared_ptr<BasePassRender> BaseRender;
 		std::shared_ptr<CubeBackground> BackgroundRender;
+		std::shared_ptr<GBuffer> Buffers;
 		std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>> MeshesInfo;
 	};
 	
@@ -62,11 +66,23 @@ namespace Engine
 				d->PreProcess = std::make_shared<PreProcessor>(RHI);
 			}
 			d->PreProcess->InitResource();
+			if (!d->PostProcess)
+			{
+				d->PostProcess = std::make_shared<PostProcessor>(RHI);
+			}
+			d->PostProcess->InitResource();
+
 			if (!d->BackgroundRender)
 			{
 				d->BackgroundRender = std::make_shared<CubeBackground>(RHI);
 			}
 			d->BackgroundRender->InitResource();
+
+			if (!d->Buffers)
+			{
+				d->Buffers = std::make_shared<GBuffer>(RHI);
+			}
+			
 		}));
 	}
 
@@ -87,9 +103,14 @@ namespace Engine
 		{
 			return;
 		}
-		C_P(SceneRender);
+		C_P(SceneRender); 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, InSizeX,InSizeY,bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Resize(InSizeX,InSizeY,bInIsFullscreen);
+			if (d->Buffers)
+			{
+				d->Buffers->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR), InSizeX, InSizeY);
+			}
+			
 		}));
 	}
 

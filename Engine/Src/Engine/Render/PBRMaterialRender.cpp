@@ -24,8 +24,8 @@ namespace Engine
 		}
 		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
 		std::shared_ptr<GltfMaterial> MeshMaterial;
-		std::shared_ptr< RHIVertexShader> VertexShader;
-		std::shared_ptr< RHIPixelShader> PixelShader;
+		std::shared_ptr<RHIVertexShader> VertexShader;
+		std::shared_ptr<RHIPixelShader> PixelShader;
 		MaterialRenderParam RenderParam;
 
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)

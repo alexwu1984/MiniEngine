@@ -384,6 +384,6 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, alpha);
     
     float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness);
-    Output.Target0 = float4(AMDTonemapper(HDRColor), alpha);
+    Output.Target0 = float4(HDRColor, alpha);
     return Output;
 }

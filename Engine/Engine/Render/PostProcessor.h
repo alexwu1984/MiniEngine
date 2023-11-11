@@ -10,6 +10,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct PostProcessorPrivate;
+	class GBuffer;
 
 	class PostProcessor
 	{
@@ -18,8 +19,9 @@ namespace Engine
 		~PostProcessor();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext);
-
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
+	private:
+		void Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
 	private:
 		PostProcessorPrivate* d_ptr = nullptr;
 	};

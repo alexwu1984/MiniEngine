@@ -53,8 +53,6 @@ namespace Engine
 	{
 		C_P(BasePassRender);
 		
-		
-
 		math::Matrix4x4 ModelMatrix;
 
 		for (const auto& PairItem : MeshesPair)

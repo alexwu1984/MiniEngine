@@ -29,7 +29,7 @@ namespace Engine
 		std::shared_ptr<PostProcessor> PostProcess;
 		std::shared_ptr<BasePassRender> BaseRender;
 		std::shared_ptr<CubeBackground> BackgroundRender;
-		std::shared_ptr<GBuffer> Buffers;
+		std::shared_ptr<GBuffer> TargetBuffer;
 		std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>> MeshesInfo;
 	};
 	
@@ -60,7 +60,8 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		d->MainViewPort = ViewPort;
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([d](RenderCore::DynamicRHI* RHI){
+
+		auto InitResCmd = [d](RenderCore::DynamicRHI* RHI) {
 			if (!d->PreProcess)
 			{
 				d->PreProcess = std::make_shared<PreProcessor>(RHI);
@@ -78,12 +79,16 @@ namespace Engine
 			}
 			d->BackgroundRender->InitResource();
 
-			if (!d->Buffers)
+			if (!d->TargetBuffer)
 			{
-				d->Buffers = std::make_shared<GBuffer>(RHI);
+				d->TargetBuffer = std::make_shared<GBuffer>(RHI);
 			}
-			
-		}));
+			auto Size = d->MainViewPort->GetSize();
+			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR),
+				Size.cx, Size.cy);
+		};
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(InitResCmd);
 	}
 
 	void SceneRender::LoadConfig(const std::wstring& FileName)
@@ -106,9 +111,9 @@ namespace Engine
 		C_P(SceneRender); 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, InSizeX,InSizeY,bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Resize(InSizeX,InSizeY,bInIsFullscreen);
-			if (d->Buffers)
+			if (d->TargetBuffer)
 			{
-				d->Buffers->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR), InSizeX, InSizeY);
+				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR), InSizeX, InSizeY);
 			}
 			
 		}));
@@ -137,6 +142,9 @@ namespace Engine
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+
+			RHI->GetDefaultCommandContext()->SetRenderTarget(d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetDepth());
+			RHI->GetDefaultCommandContext()->Clear(d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetDepth(), core::FLinearColor::Gray,1.f,0);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);
@@ -172,7 +180,17 @@ namespace Engine
 		{
 			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner()->GetMainCamera());
 		}
-		
+
+		auto PostProcess = [d, this](RenderCore::DynamicRHI* RHI)
+		{
+			d->MainViewPort->SetRenderTarget();
+			if (d->PostProcess)
+			{
+				d->PostProcess->Draw(*RHI->GetDefaultCommandContext(),d->TargetBuffer);
+			}
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(PostProcess);
+
 
 		auto Present = [d, this](RenderCore::DynamicRHI*) {
 			d->MainViewPort->Present();

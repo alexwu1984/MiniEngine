@@ -50,4 +50,9 @@ namespace Engine
 		return d->Depth;
 	}
 
+	std::shared_ptr<RHITexture2D> GBuffer::GetSceneColor() const
+	{
+		C_P(GBuffer);
+		return d->SceneColor;
+	}
 }

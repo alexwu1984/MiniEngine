@@ -28,6 +28,7 @@ namespace Engine
 
 		void InitResource(GBufferFlagBits Flag,uint32_t Width,uint32_t Height);
 		std::shared_ptr<RenderCore::RHITexture2D> GetDepth() const;
+		std::shared_ptr<RenderCore::RHITexture2D> GetSceneColor() const;
 
 	private:
 		GBufferPrivate* d_ptr = nullptr;

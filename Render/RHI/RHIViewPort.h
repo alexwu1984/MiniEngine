@@ -1,6 +1,7 @@
 #pragma once
 #include "win/win32.h"
 #include "core/color.h"
+#include "core/vec2.h"
 
 namespace RenderCore
 {
@@ -45,5 +46,6 @@ namespace RenderCore
 		virtual void Clear(const core::FLinearColor& Color) {};
 		virtual void Present() {};
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) = 0;
+		virtual core::vec2u GetSize() = 0;
 	};
 }

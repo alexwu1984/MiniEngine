@@ -208,6 +208,11 @@ namespace RenderCore
 		}
 	}
 
+	core::vec2u D3D11ViewPort::GetSize()
+	{
+		return core::vec2u(Impl->SizeX,Impl->SizeY);
+	}
+
 	DXGI_MODE_DESC D3D11ViewPort::SetupDXGI_MODE_DESC() const
 	{
 		DXGI_MODE_DESC Ret;

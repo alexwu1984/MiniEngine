@@ -21,7 +21,7 @@ namespace RenderCore
 		virtual void Clear(const core::FLinearColor& Color) override;
 		virtual void Present() override;
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
-
+		virtual core::vec2u GetSize() override;
 	private:
 		DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 		void GetSwapChainSurface();

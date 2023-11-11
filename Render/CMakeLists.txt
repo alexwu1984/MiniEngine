@@ -44,6 +44,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShaderUtils.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/EnvironmentShaders.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/CubeBackground.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PostProcess.hlsl
 )
 
 add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})

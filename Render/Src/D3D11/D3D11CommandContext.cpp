@@ -157,24 +157,6 @@ namespace RenderCore
 		}
 	}
 
-	void D3D11CommandContext::Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
-	{
-		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
-		auto DeviceContex = Impl->D3D11RHI->GetDeviceContext();
-
-		auto RTV = RenderTargetRHI->GetRTV();
-		if (RTV != NULL)
-		{
-			DeviceContex->ClearRenderTargetView(RTV, &Color.R);
-		}
-
-		auto DSV = RenderTargetRHI->GetDSV();
-		if (DSV != NULL)
-		{
-			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
-		}
-	}
-
 	void D3D11CommandContext::Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
 	{
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
@@ -191,6 +173,45 @@ namespace RenderCore
 
 		}
 	}
+
+	void D3D11CommandContext::Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	{
+		auto TextureRHI = RHIResourceCast(RenderTarget.get());
+		auto DeviceContex = Impl->D3D11RHI->GetDeviceContext();
+
+		auto RTV = TextureRHI->GetRTV();
+		if (RTV != nullptr)
+		{
+			DeviceContex->ClearRenderTargetView(RTV, &Color.R);
+		}
+
+		auto DSV = TextureRHI->GetDSV();
+		if (DSV != nullptr)
+		{
+			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH| D3D11_CLEAR_STENCIL, Depth, Stencil);
+		}
+	}
+
+	void D3D11CommandContext::Clear(std::shared_ptr< RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	{
+		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
+		auto DeviceContex = Impl->D3D11RHI->GetDeviceContext();
+
+		auto RTV = RenderTargetRHI->GetRTV();
+		if (RTV != nullptr)
+		{
+			DeviceContex->ClearRenderTargetView(RTV, &Color.R);
+		}
+
+		auto DepthTargetRHI = RHIResourceCast(DepthTarget.get());
+		auto DSV = DepthTargetRHI->GetDSV();
+		if (DSV != nullptr)
+		{
+			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH| D3D11_CLEAR_STENCIL, Depth, Stencil);
+		}
+	}
+
+
 
 	void D3D11CommandContext::RHIEndDrawing()
 	{
@@ -438,6 +459,15 @@ namespace RenderCore
 		}
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
 		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
+	}
+
+	void D3D11CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+
+		StateCache.SetStreamSource(nullptr, 0, 0, 0);
+		StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+		Impl->D3D11RHI->GetDeviceContext()->Draw(VertexCount, VertexStartOffset);
 	}
 
 	void D3D11CommandContext::GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI)

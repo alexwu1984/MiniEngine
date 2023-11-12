@@ -8,8 +8,17 @@ SamplerState SampleLinear : register(s0);
 
 struct PS_OUTPUT_SCENE
 {
-	float4 Color : SV_Target0;
+    float4 Target0 : SV_Target0;
+    float4 Target1 : SV_Target1;
+    float4 Target2 : SV_Target2;
+    float4 Target3 : SV_Target3;
+    float4 Target4 : SV_Target4;
 };
+
+float3 Reinhard(float3 color)
+{
+    return color / (1 + color);
+}
 
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
@@ -18,7 +27,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float3 BaseColor = AlbedoMap.Sample(SampleLinear, Input.UV1).rgb;
     if(DrawSolid.x == 1)
     {
-        Output.Color = float4(BaseColor.rgb, 1.f);
+        Output.Target0 = float4(BaseColor.rgb, 1.f);
         return Output;
     }
     
@@ -51,8 +60,8 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float Tming = 0.5;
     float Alpha = clamp((Noise * 2.0 - (FurOffset * FurOffset + (FurOffset * FurMask * 5.0))) * Tming, 0.0, 1.0);
 
-    float3 OutColor = Output.Color.rgb * FurLightExposure * FurAmbientStrength + SHL * FurLightExposure;
+    float3 OutColor = Output.Target0.rgb * FurLightExposure * FurAmbientStrength + SHL * FurLightExposure;
 
-    Output.Color = float4(Output.Color.rgb, Alpha);
+    Output.Target0 = float4(Reinhard(Output.Target0.rgb), Alpha);
     return Output;
 }

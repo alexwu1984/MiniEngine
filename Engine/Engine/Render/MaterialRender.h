@@ -12,12 +12,6 @@ namespace Engine
 {
 	class PreProcessor;
 
-	enum class AABBPosition
-	{
-		Near,
-		Far
-	};
-
 	struct MaterialRenderParam
 	{
 		math::Matrix4x4 CurrModelMatrix;
@@ -26,7 +20,6 @@ namespace Engine
 		math::Matrix4x4 CurrViewProjInverseMatrix;
 		math::Matrix4x4 PrevViewProjMatrix;
 		math::Vector4 CameraPos;
-		AABBPosition PosType;
 		bool HasSkin = false;
 		std::weak_ptr<PreProcessor> _PreProcessor;
 	};

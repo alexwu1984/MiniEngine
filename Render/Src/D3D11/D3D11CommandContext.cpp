@@ -188,7 +188,7 @@ namespace RenderCore
 		auto DSV = TextureRHI->GetDSV();
 		if (DSV != nullptr)
 		{
-			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH| D3D11_CLEAR_STENCIL, Depth, Stencil);
+			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
 		}
 	}
 
@@ -207,7 +207,7 @@ namespace RenderCore
 		auto DSV = DepthTargetRHI->GetDSV();
 		if (DSV != nullptr)
 		{
-			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH| D3D11_CLEAR_STENCIL, Depth, Stencil);
+			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
 		}
 	}
 

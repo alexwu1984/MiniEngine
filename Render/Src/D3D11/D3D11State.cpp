@@ -212,8 +212,7 @@ namespace RenderCore
 		RasterizerDesc.CullMode = TranslateCullMode(Initializer.CullMode);
 		RasterizerDesc.FillMode = TranslateFillMode(Initializer.FillMode);
 		RasterizerDesc.SlopeScaledDepthBias = Initializer.SlopeScaleDepthBias;
-		RasterizerDesc.FrontCounterClockwise = true;
-		//RasterizerDesc.FrontCounterClockwise = false;
+		RasterizerDesc.FrontCounterClockwise = false;
 		RasterizerDesc.DepthBias = math::FloorToInt(Initializer.DepthBias * (float)(1 << 24));
 		RasterizerDesc.DepthClipEnable = true;
 		RasterizerDesc.MultisampleEnable = Initializer.bAllowMSAA;

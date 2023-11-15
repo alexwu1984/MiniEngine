@@ -125,15 +125,7 @@ namespace Engine
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
 			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-			if (d->RenderParam.PosType == AABBPosition::Far)
-			{
-				Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
-
-			}
-			else
-			{
-				Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
-			}
+			Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
 		}
 		else

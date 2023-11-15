@@ -13,8 +13,6 @@ namespace Engine
 	struct MeshDistanceInfo
 	{
 		float Distance;
-		//区分mesh包围框的最近最远点
-		AABBPosition PosType;
 		std::shared_ptr<GltfMesh> Mesh;
 		math::Matrix4x4 WorldTransform;
 		bool operator()(const MeshDistanceInfo& Near, const MeshDistanceInfo& Far)
@@ -85,15 +83,11 @@ namespace Engine
 					if (Distance < distanceMin)
 					{
 						distanceMin = Distance;
-
-						DisInfo.PosType = AABBPosition::Near;
 						DisInfo.Distance = distanceMin;
 					}
 					if (Distance > distanceMax)
 					{
 						distanceMax = Distance;
-
-						DisInfo.PosType = AABBPosition::Far;
 						DisInfo.Distance = distanceMax;
 					}
 				}
@@ -122,7 +116,7 @@ namespace Engine
 
 				if (!Mesh->GetMaterial()->IsTransparent())
 				{
-					DrawMesh(Mesh, PairItem.second, Material, RHIContext, Camera, AABBPosition::Near, IsPreDraw);
+					DrawMesh(Mesh, PairItem.second, Material, RHIContext, Camera, IsPreDraw);
 				}
 			}
 		}
@@ -131,21 +125,20 @@ namespace Engine
 
 		for (const auto& SortItem : d->SortMesh)
 		{
-			AABBPosition ModelPosType = SortItem.PosType;
 			std::shared_ptr<GltfMesh> Mesh = SortItem.Mesh;
 
 			auto Material = GetOrCreateRender(Mesh);
 
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, SortItem.WorldTransform, Material, RHIContext, Camera, ModelPosType, IsPreDraw);
+				DrawMesh(Mesh, SortItem.WorldTransform, Material, RHIContext, Camera, IsPreDraw);
 			}
 		}
 	}
 
 	void BasePassRender::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, 
 		std::shared_ptr<MaterialRender> Render, RenderCore::RHICommandContext& RHIContext,
-		std::shared_ptr<CameraComponent> Camera, AABBPosition PosType, bool IsPreDraw)
+		std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
 	{
 		C_P(BasePassRender);
 		MaterialRenderParam RenderParam;
@@ -153,7 +146,6 @@ namespace Engine
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
-		RenderParam.PosType = PosType;
 		RenderParam.HasSkin = Mesh->HasSkin();
 		RenderParam._PreProcessor = GEngine->GetSceneRender()->GetPreProcessor();
 

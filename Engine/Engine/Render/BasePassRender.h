@@ -27,7 +27,7 @@ namespace Engine
 						RenderCore::RHICommandContext& RHIContext, 
 						std::shared_ptr<CameraComponent> Camera, bool IsPreDraw);
 		void DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, std::shared_ptr<MaterialRender> Render, RenderCore::RHICommandContext& RHIContext,
-					 std::shared_ptr<CameraComponent> Camera, AABBPosition PosType, bool IsPreDraw);
+					 std::shared_ptr<CameraComponent> Camera, bool IsPreDraw);
 		std::shared_ptr<MaterialRender> GetOrCreateRender(std::shared_ptr<GltfMesh> Mesh);
 	private:
 		BasePassRenderPrivate* d_ptr;

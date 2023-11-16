@@ -85,7 +85,7 @@ namespace Engine
 		};
 		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
 		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 8, false);
-		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
+		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 128, 128, 5, false);
 		d->CubeR = std::make_shared<CubeRender>(d->RHI);
 		d->CubeR->InitResource();
 	}
@@ -171,7 +171,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
 		
-		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
+		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
@@ -207,7 +207,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
 		
-		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
+		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
@@ -225,6 +225,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 			RenderCube(RHIContext);
 		}
+		RHIContext.GenerateMips(d->IrrCube);
 	}
 
 	void IBLRender::GeneratePrefilteredMap(RenderCore::RHICommandContext& RHIContext)
@@ -246,7 +247,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
 	
-		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.0f, 10.f);
+		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		uint32_t NumMips = d->PreFilterCube->GetNumMips();
 		d->GET_UNIFORMDATA(PSContant).MaxMipLevel = d->PreFilterCube->GetNumMips();
 

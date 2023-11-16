@@ -56,6 +56,8 @@ namespace Engine
 	void PBRMaterialRender::SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index)
 	{
 		C_P(PBRMaterialRender);
+		auto const& PreviousMatrix = d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current;
+		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Previous = PreviousMatrix;
 		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
 	}
 
@@ -125,15 +127,13 @@ namespace Engine
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
 			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-			Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
-
 		}
 		else
 		{
 			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
-			Init.RasterizerState = RHICachedStates::RasterizerStateCullFront;
 		}
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);

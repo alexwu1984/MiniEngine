@@ -21,6 +21,7 @@ namespace Engine
 		void SetCameraPos(const math::Vector3& Pos);
 
 		math::Matrix4x4 GetViewMatrix()const;
+		math::Matrix4x4 GetPrevViewMatrix()const;
 		math::Vector3 GetCameraPos() const;
 	 
 		math::Matrix4x4 GetProjMatrix() const;

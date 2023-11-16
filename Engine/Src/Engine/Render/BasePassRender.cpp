@@ -146,6 +146,8 @@ namespace Engine
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
+		RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->GetProjMatrix();
+		RenderParam.PrevViewProjInverseMatrix = RenderParam.PrevViewProjMatrix.Inverse();
 		RenderParam.HasSkin = Mesh->HasSkin();
 		RenderParam._PreProcessor = GEngine->GetSceneRender()->GetPreProcessor();
 

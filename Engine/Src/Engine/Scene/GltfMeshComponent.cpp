@@ -96,7 +96,7 @@ namespace Engine
 
 	void GltfMeshComponent::Tick(float deltaTime)
 	{
-		Impl->TotalDeltaTime += deltaTime / 1000.f;
+		Impl->TotalDeltaTime += deltaTime / 5.f;
 		Impl->Model.Play(Impl->TotalDeltaTime, deltaTime);
 	}
 

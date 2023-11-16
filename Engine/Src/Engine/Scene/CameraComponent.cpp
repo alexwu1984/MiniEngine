@@ -45,6 +45,7 @@ namespace Engine
 	{
 		C_P(CameraComponent);
 		const auto& AppWin = GEngine->GetAppWindow();
+		d->PreviousView = d->View;
 		d->View = view;
 		d->Aspect = (float)AppWin->GetWidth() / (float)AppWin->GetHeight();
 		d->ProjMatrix = Matrix4x4::MatrixPerspectiveFovLH(d->FovVertical, d->Aspect, d->Near, d->Far);
@@ -54,6 +55,12 @@ namespace Engine
 	{
 		C_P(const CameraComponent);
 		return d->View;
+	}
+
+	Matrix4x4 CameraComponent::GetPrevViewMatrix() const
+	{
+		C_P(const CameraComponent);
+		return d->PreviousView;
 	}
 
 	Vector3 CameraComponent::GetCameraPos() const

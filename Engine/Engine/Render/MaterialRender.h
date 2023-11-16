@@ -15,10 +15,10 @@ namespace Engine
 	struct MaterialRenderParam
 	{
 		math::Matrix4x4 CurrModelMatrix;
-		math::Matrix4x4 PrevModelMatrix;
 		math::Matrix4x4 CurrViewProjMatrix;
-		math::Matrix4x4 CurrViewProjInverseMatrix;
 		math::Matrix4x4 PrevViewProjMatrix;
+		math::Matrix4x4 CurrViewProjInverseMatrix;
+		math::Matrix4x4 PrevViewProjInverseMatrix;
 		math::Vector4 CameraPos;
 		bool HasSkin = false;
 		std::weak_ptr<PreProcessor> _PreProcessor;

@@ -29,6 +29,8 @@ namespace Engine
 		void UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up);
 		const math::Frustum& GetFrustum() const;
 
+		void SetProjectionJitter(float jitterX, float jitterY);
+
 	protected:
 		CameraComponentPrivate* d_ptr;
 	};

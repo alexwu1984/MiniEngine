@@ -89,6 +89,8 @@ namespace math
 			return Vector4(r0[i], r1[i], r2[i], r3[i]);
 		}
 
+		void SetColumn(int i, const Vector4& Col);
+
 		Matrix4x4 operator *(const Matrix4x4& rhs) const;
 		Matrix4x4& operator *= (const Matrix4x4& rhs);
 		Matrix4x4 operator * (float rhs) const;

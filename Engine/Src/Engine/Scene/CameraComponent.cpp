@@ -156,4 +156,13 @@ namespace Engine
 		return d->Frustum;
 	}
 
+	void CameraComponent::SetProjectionJitter(float jitterX, float jitterY)
+	{
+		C_P(CameraComponent);
+		auto Col2 =  d->ProjMatrix.Column(2);
+		Col2.x = jitterX;
+		Col2.y = jitterY;
+		d->ProjMatrix.SetColumn(2, Col2);
+	}
+
 }

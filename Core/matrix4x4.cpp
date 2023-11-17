@@ -225,6 +225,14 @@ namespace math
 		);
 	}
 
+	void Matrix4x4::SetColumn(int i, const Vector4& Col)
+	{
+		r0[i] = Col.x;
+		r1[i] = Col.y;
+		r2[i] = Col.z;
+		r3[i] = Col.w;
+	}
+
 	Matrix4x4& Matrix4x4::operator *= (const Matrix4x4& rhs)
 	{
 		*this = (*this) * rhs;

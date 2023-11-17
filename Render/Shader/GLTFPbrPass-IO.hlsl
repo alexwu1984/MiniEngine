@@ -17,6 +17,8 @@ struct VS_OUTPUT_SCENE
 #endif        
     float2 UV0          :    TEXCOORD0;    // vertex texture coords
     float2 UV1          :    TEXCOORD1; // vertex texture coords
+    float4 svCurrPosition :  TEXCOORD2; // current's frame vertex position 
+    float4 svPrevPosition :  TEXCOORD3; // previous' frame vertex position
 };
 
 

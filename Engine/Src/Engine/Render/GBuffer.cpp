@@ -13,6 +13,7 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> Depth;
 		std::shared_ptr<RHITexture2D> SceneColor;
 		std::shared_ptr<RHITexture2D> MotionVector;
+		std::shared_ptr<RHITexture2D> NormalBuffer;
 	};
 
 	GBuffer::GBuffer(DynamicRHI* RHI)
@@ -42,6 +43,10 @@ namespace Engine
 		{
 			d->SceneColor = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable, Width, Height);
 		}
+		if (Flag & GBUFFER_NORMAL_BUFFER)
+		{
+			d->NormalBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable, Width, Height);
+		}
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetDepth() const
@@ -55,4 +60,17 @@ namespace Engine
 		C_P(GBuffer);
 		return d->SceneColor;
 	}
+
+	std::shared_ptr<RenderCore::RHITexture2D> GBuffer::GetMotionVector() const
+	{
+		C_P(GBuffer);
+		return d->MotionVector;
+	}
+
+	std::shared_ptr<RenderCore::RHITexture2D> GBuffer::GetNormalBuffer() const
+	{
+		C_P(GBuffer);
+		return d->NormalBuffer;
+	}
+
 }

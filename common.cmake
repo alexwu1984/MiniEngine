@@ -57,3 +57,5 @@ function(copyTargetCommand list dest returned_target_name)
 
     set_target_properties(${returned_target_name} PROPERTIES FOLDER CopyTargets)
 endfunction()
+
+add_compile_options(/wd4201)

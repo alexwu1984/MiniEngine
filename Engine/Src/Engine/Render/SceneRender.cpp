@@ -84,7 +84,7 @@ namespace Engine
 				d->TargetBuffer = std::make_shared<GBuffer>(RHI);
 			}
 			auto Size = d->MainViewPort->GetSize();
-			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR),
+			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER),
 				Size.cx, Size.cy);
 		};
 
@@ -143,8 +143,10 @@ namespace Engine
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
 
-			RHI->GetDefaultCommandContext()->SetRenderTarget(d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetDepth());
-			RHI->GetDefaultCommandContext()->Clear(d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetDepth(), core::FLinearColor::Gray,1.f,0);
+			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer() };
+
+			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
+			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Gray,1.f,0);
 		};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);

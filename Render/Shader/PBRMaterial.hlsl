@@ -16,10 +16,8 @@ SamplerState SampleLinear : register(s0);
 struct PS_OUTPUT_SCENE
 {
     float4 Target0 : SV_Target0;
-    float4 Target1 : SV_Target1;
+    float2 Target1 : SV_Target1;
     float4 Target2 : SV_Target2;
-    float4 Target3 : SV_Target3;
-    float4 Target4 : SV_Target4;
 };
 
 struct MaterialInfo
@@ -385,5 +383,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     
     float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness);
     Output.Target0 = float4(HDRColor, alpha);
+    Output.Target1 = Input.svCurrPosition.xy / Input.svCurrPosition.w -
+                           Input.svPrevPosition.xy / Input.svPrevPosition.w;
     return Output;
 }

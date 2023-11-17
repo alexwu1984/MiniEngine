@@ -385,5 +385,6 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     Output.Target0 = float4(HDRColor, alpha);
     Output.Target1 = Input.svCurrPosition.xy / Input.svCurrPosition.w -
                            Input.svPrevPosition.xy / Input.svPrevPosition.w;
+    Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
     return Output;
 }

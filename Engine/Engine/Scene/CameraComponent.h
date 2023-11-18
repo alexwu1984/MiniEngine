@@ -30,6 +30,7 @@ namespace Engine
 		const math::Frustum& GetFrustum() const;
 
 		void SetProjectionJitter(float jitterX, float jitterY);
+		void SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex);
 
 	protected:
 		CameraComponentPrivate* d_ptr;

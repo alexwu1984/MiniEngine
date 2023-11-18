@@ -159,10 +159,37 @@ namespace Engine
 	void CameraComponent::SetProjectionJitter(float jitterX, float jitterY)
 	{
 		C_P(CameraComponent);
-		auto Col2 =  d->ProjMatrix.Column(2);
-		Col2.x = jitterX;
-		Col2.y = jitterY;
-		d->ProjMatrix.SetColumn(2, Col2);
+		auto Row2 = d->ProjMatrix[2];
+		Row2.x = jitterX;
+		Row2.y = jitterY;
+		d->ProjMatrix[2] = Row2;
+	}
+
+	void CameraComponent::SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex)
+	{
+		static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
+			{
+				float f = 1.0f, result = 0.0f;
+
+				for (uint32_t i = index; i > 0;)
+				{
+					f /= static_cast<float>(base);
+					result = result + f * static_cast<float>(i % base);
+					i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
+				}
+
+				return result;
+			};
+
+		sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
+
+		float jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
+		float jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
+
+		jitterX /= static_cast<float>(width);
+		jitterY /= static_cast<float>(height);
+
+		SetProjectionJitter(jitterX, jitterY);
 	}
 
 }

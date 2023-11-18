@@ -169,7 +169,7 @@ namespace RenderCore
 				D3D11TargetViews.emplace_back(RenderTargetRHI->GetRTV());
 			}
 		}
-		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(D3D11TargetViews.size(), D3D11TargetViews.data(), DepthRHI ? DepthRHI->GetDSV() : nullptr);
+		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets((uint32_t)D3D11TargetViews.size(), D3D11TargetViews.data(), DepthRHI ? DepthRHI->GetDSV() : nullptr);
 	}
 
 	void D3D11CommandContext::Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)

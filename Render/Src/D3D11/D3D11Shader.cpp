@@ -91,7 +91,7 @@ namespace RenderCore
 			ElementDesc.InstanceDataStepRate = Item.InstanceDataStepRate;
 		}
 
-		HRESULT hr = Device->CreateInputLayout(D3D11ElementDescs.data(), D3D11ElementDescs.size(), 
+		HRESULT hr = Device->CreateInputLayout(D3D11ElementDescs.data(), (uint32_t)D3D11ElementDescs.size(), 
 			Impl->SharderCode->GetBufferPointer(), Impl->SharderCode->GetBufferSize(), Impl->InputLayout.get_init_ref());
 		if (FAILED(hr))
 		{

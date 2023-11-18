@@ -340,7 +340,7 @@ namespace core
 	FORCEINLINE uint32_t GetTypeHash(const FLinearColor& LinearColor)
 	{
 		// Note: this assumes there's no padding in FLinearColor that could contain uncompared data.
-		return core::Hash(&LinearColor, sizeof(FLinearColor));
+		return (uint32_t)core::Hash(&LinearColor, sizeof(FLinearColor));
 	}
 
 	FORCEINLINE FLinearColor operator*(float Scalar, const FLinearColor& Color)

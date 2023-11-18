@@ -172,7 +172,7 @@ namespace Engine
 
 		
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
-		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
+		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
@@ -208,7 +208,7 @@ namespace Engine
 
 		
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
-		for (size_t IndexView = 0; IndexView < 6; ++IndexView)
+		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
@@ -259,7 +259,7 @@ namespace Engine
 			
 			d->GET_UNIFORMDATA(PSContant).MipLevel = MipLevel;
 
-			for (size_t IndexView = 0; IndexView < 6; ++IndexView)
+			for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 			{
 				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
 				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();

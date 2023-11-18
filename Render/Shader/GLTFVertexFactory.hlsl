@@ -85,9 +85,9 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
     
     Output.svCurrPosition = Output.svPosition; // current's frame vertex position 
 
-    matrix prevTransMatrix = mul(GetPrevWorldMatrix(), prevSkinningMatrix);
-    float3 worldPrevPos = mul(prevTransMatrix, float4(input.Position, 1)).xyz;
-    Output.svPrevPosition = mul(GetPrevCameraViewProj(), float4(worldPrevPos, 1));
+    matrix prevTransMatrix = mul(prevSkinningMatrix,GetPrevWorldMatrix());
+    float3 worldPrevPos = mul(float4(input.Position, 1),prevTransMatrix).xyz;
+    Output.svPrevPosition = mul(float4(worldPrevPos, 1),GetPrevCameraViewProj());
     
     #ifdef HAS_TANGENT
         Output.Tangent = normalize(mul(float4(input.Tangent.xyz, 0),transMatrix).xyz);

@@ -101,9 +101,9 @@ namespace Templates
 	{
 #if UNICODE
 		std::string utf8 = core::ucs2_u8(S);
-		return core::HashString(utf8);
+		return (uint32_t)core::HashString(utf8);
 #else
-		return core::HashString(std::string(S));
+		return (uint32_t)core::HashString(std::string(S));
 #endif
 	}
 

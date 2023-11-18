@@ -222,7 +222,7 @@ namespace RenderCore
 
 			if (InBuffer)
 			{
-				DeviceContext->UpdateSubresource(d->Tex2D.get(), 0, nullptr, InBuffer, RowBytes, 0);
+				DeviceContext->UpdateSubresource(d->Tex2D.get(), 0, nullptr, InBuffer, (uint32_t)RowBytes, 0);
 			}
 		}
 		else
@@ -237,7 +237,7 @@ namespace RenderCore
 			D3D11_SUBRESOURCE_DATA SubRes{};
 			SubRes.pSysMem = InBuffer;
 			SubRes.SysMemPitch = RowBytes;
-			SubRes.SysMemSlicePitch = SizeY * RowBytes;
+			SubRes.SysMemSlicePitch = SizeY * (uint32_t)RowBytes;
 
 			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, InBuffer ? &SubRes : nullptr, d->Tex2D.get_init_ref()))
 			{

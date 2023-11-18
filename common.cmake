@@ -59,3 +59,4 @@ function(copyTargetCommand list dest returned_target_name)
 endfunction()
 
 add_compile_options(/wd4201)
+add_compile_options(/wd4996)

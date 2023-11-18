@@ -92,6 +92,8 @@ namespace Engine
 		{
 			int32_t NewWidth = LOWORD(lParam);
 			int32_t NewHeight = HIWORD(lParam);
+			Impl->_width = NewWidth;
+			Impl->_height = NewHeight;
 			EvtSizeChanged(core::vec2i(NewWidth,NewHeight));
 		}
 		break;

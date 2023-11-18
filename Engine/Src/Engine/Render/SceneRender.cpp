@@ -109,14 +109,14 @@ namespace Engine
 			return;
 		}
 		C_P(SceneRender); 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, InSizeX,InSizeY,bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
-			d->MainViewPort->Resize(InSizeX,InSizeY,bInIsFullscreen);
+		auto ResizeCommand = [d, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
+			d->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
 			if (d->TargetBuffer)
 			{
-				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR), InSizeX, InSizeY);
+				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER), InSizeX, InSizeY);
 			}
-			
-		}));
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(ResizeCommand);
 	}
 
 	void SceneRender::Render()
@@ -127,7 +127,6 @@ namespace Engine
 			return;
 		}
 		C_P(SceneRender);
-
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, CommandContext](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
@@ -144,7 +143,6 @@ namespace Engine
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
 
 			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer() };
-
 			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Gray,1.f,0);
 		};

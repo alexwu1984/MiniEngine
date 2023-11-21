@@ -7,6 +7,7 @@ struct IDXGIFactory1;
 struct ID3D11VertexShader;
 struct ID3D11InputLayout;
 struct ID3D11PixelShader;
+struct ID3D11ComputeShader;
 
 struct ID3D11Texture2D;
 struct ID3D11Texture1D;

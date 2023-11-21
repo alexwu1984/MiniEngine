@@ -5,8 +5,9 @@
 namespace RenderCore
 {
 	class D3D11DynamicRHI;
-	struct D3D11VertexShaderP;
-	struct D3D11PixelShaderP;
+	struct D3D11VertexShaderPrivate;
+	struct D3D11PixelShaderPrivate;
+	struct D3D11ComputeShaderPrivate;
 
 	class D3D11VertexShader : public RHIVertexShader
 	{
@@ -22,7 +23,7 @@ namespace RenderCore
 		
 
 	private:
-		std::shared_ptr<D3D11VertexShaderP> Impl;
+		D3D11VertexShaderPrivate* d_ptr = nullptr;
 	};
 
 	class D3D11PixelShader : public RHIPixelShader
@@ -34,7 +35,20 @@ namespace RenderCore
 		bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
 		ID3D11PixelShader* GetNativePixelShader() const;
 	private:
-		std::shared_ptr<D3D11PixelShaderP> Impl;
+		D3D11PixelShaderPrivate* d_ptr = nullptr;
+
+	};
+
+	class D3D11ComputeShader : public RHIComputeShader
+	{
+	public:
+		D3D11ComputeShader(D3D11DynamicRHI* D3D11RHI);
+		virtual ~D3D11ComputeShader();
+
+		bool CreateShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
+		ID3D11ComputeShader* GetNativeComputeShader() const;
+	private:
+		D3D11ComputeShaderPrivate* d_ptr = nullptr;
 
 	};
 }

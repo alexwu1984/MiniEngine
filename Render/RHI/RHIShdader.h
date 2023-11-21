@@ -125,6 +125,14 @@ namespace RenderCore
 		virtual bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
 	};
 
+	class RHIComputeShader : public RHIGraphicShader
+	{
+	public:
+		RHIComputeShader(EShaderFrequency Type) :RHIGraphicShader(Type) {}
+		virtual ~RHIComputeShader() = default;
+		virtual bool CreateShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines = {}) = 0;
+	};
+
 	class RHIShaderCache
 	{
 	public:

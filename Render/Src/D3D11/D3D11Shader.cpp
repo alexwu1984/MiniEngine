@@ -7,7 +7,7 @@
 
 namespace RenderCore
 {
-	struct D3D11VertexShaderP
+	struct D3D11VertexShaderPrivate
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		win32::com_ptr<ID3DBlob> SharderCode;
@@ -16,18 +16,20 @@ namespace RenderCore
 	};
 
 	D3D11VertexShader::D3D11VertexShader(D3D11DynamicRHI* D3D11RHI)
-		:RHIVertexShader(SF_Vertex),Impl(std::make_shared<D3D11VertexShaderP>())
+		:RHIVertexShader(SF_Vertex),d_ptr(new D3D11VertexShaderPrivate())
 	{
-		Impl->D3D11RHI = D3D11RHI;
+		C_P(D3D11VertexShader);
+		d->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11VertexShader::~D3D11VertexShader()
 	{
-
+		delete d_ptr;
 	}
 
 	bool D3D11VertexShader::CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines /*= {}*/)
 	{
+		C_P(D3D11VertexShader);
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
@@ -36,14 +38,14 @@ namespace RenderCore
 		{
 			return false;
 		}
-		Impl->SharderCode = SharderCode;
+		d->SharderCode = SharderCode;
 
-		auto Device = Impl->D3D11RHI->GetDevice();
-		VERIFYD3D11RESULT(Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, Impl->VertexShader.get_init_ref()));
+		auto Device = d->D3D11RHI->GetDevice();
+		VERIFYD3D11RESULT(Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->VertexShader.get_init_ref()));
 
 		if (VertexDeclare.GetDeclareDesc().empty())
 		{
-			return Impl->VertexShader.is_valid();
+			return d->VertexShader.is_valid();
 		}
 
 		return CreateLayout(VertexDeclare.GetDeclareDesc());
@@ -51,29 +53,31 @@ namespace RenderCore
 
 	ID3D11VertexShader* D3D11VertexShader::GetNativeVertexShader() const
 	{
-		return Impl->VertexShader.get();
+		C_P(D3D11VertexShader);
+		return d->VertexShader.get();
 	}
 
 	ID3D11InputLayout* D3D11VertexShader::GetNativeInputLayout() const
 	{
-		return Impl->InputLayout.get();
+		C_P(D3D11VertexShader);
+		return d->InputLayout.get();
 	}
 
 	bool D3D11VertexShader::CreateLayout(const std::vector< VertexElementDesc>& ElementDescs)
 	{
+		C_P(D3D11VertexShader);
 		if (ElementDescs.empty() )
 		{
 			return false;
 		}
 
-		if (!Impl->SharderCode.is_valid())
+		if (!d->SharderCode.is_valid())
 		{
-
 			Assert(false);
 			return false;
 		}
 
-		auto Device = Impl->D3D11RHI->GetDevice();
+		auto Device = d->D3D11RHI->GetDevice();
 
 		std::vector<D3D11_INPUT_ELEMENT_DESC> D3D11ElementDescs;
 		D3D11ElementDescs.resize(ElementDescs.size());
@@ -92,7 +96,7 @@ namespace RenderCore
 		}
 
 		HRESULT hr = Device->CreateInputLayout(D3D11ElementDescs.data(), (uint32_t)D3D11ElementDescs.size(), 
-			Impl->SharderCode->GetBufferPointer(), Impl->SharderCode->GetBufferSize(), Impl->InputLayout.get_init_ref());
+			d->SharderCode->GetBufferPointer(), d->SharderCode->GetBufferSize(), d->InputLayout.get_init_ref());
 		if (FAILED(hr))
 		{
 			core::err() << "CreateInputLayout Failed -------";
@@ -106,16 +110,17 @@ namespace RenderCore
 		return true;
 	}
 
-	struct D3D11PixelShaderP
+	struct D3D11PixelShaderPrivate
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		win32::com_ptr<ID3D11PixelShader> PixelShader;
 	};
 
 	D3D11PixelShader::D3D11PixelShader(D3D11DynamicRHI* D3D11RHI)
-		:RHIPixelShader(SF_Pixel), Impl(std::make_shared<D3D11PixelShaderP>())
+		:RHIPixelShader(SF_Pixel), d_ptr(new D3D11PixelShaderPrivate())
 	{
-		Impl->D3D11RHI = D3D11RHI;
+		C_P(D3D11PixelShader);
+		d->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11PixelShader::~D3D11PixelShader()
@@ -125,6 +130,7 @@ namespace RenderCore
 
 	bool D3D11PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines )
 	{
+		C_P(D3D11PixelShader);
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 		auto SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0", D3DShaderMacros.data());
@@ -132,14 +138,53 @@ namespace RenderCore
 		{
 			return false;
 		}
-		auto Device = Impl->D3D11RHI->GetDevice();
-		HRESULT hr =  Device->CreatePixelShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, Impl->PixelShader.get_init_ref());
+		auto Device = d->D3D11RHI->GetDevice();
+		HRESULT hr =  Device->CreatePixelShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->PixelShader.get_init_ref());
 		return SUCCEEDED(hr);
 	}
 
 	ID3D11PixelShader* D3D11PixelShader::GetNativePixelShader() const
 	{
-		return Impl->PixelShader.get();
+		C_P(D3D11PixelShader);
+		return d->PixelShader.get();
+	}
+
+	struct D3D11ComputeShaderPrivate
+	{
+		D3D11DynamicRHI* D3D11RHI = nullptr;
+		win32::com_ptr<ID3D11ComputeShader> ComputeShader;
+	};
+
+	D3D11ComputeShader::D3D11ComputeShader(D3D11DynamicRHI* D3D11RHI)
+		:RHIComputeShader(SF_Compute),d_ptr(new D3D11ComputeShaderPrivate())
+	{
+
+	}
+
+	D3D11ComputeShader::~D3D11ComputeShader()
+	{
+		delete d_ptr;
+	}
+
+	bool D3D11ComputeShader::CreateShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		C_P(D3D11ComputeShader);
+		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+		auto SharderCode = ShaderUtil::CreateShader(FileName, CSMain, "cs_5_0", D3DShaderMacros.data());
+		if (!SharderCode.is_valid())
+		{
+			return false;
+		}
+		auto Device = d->D3D11RHI->GetDevice();
+		HRESULT hr = Device->CreateComputeShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->ComputeShader.get_init_ref());
+		return SUCCEEDED(hr);
+	}
+
+	ID3D11ComputeShader* D3D11ComputeShader::GetNativeComputeShader() const
+	{
+		C_P(D3D11ComputeShader);
+		return d->ComputeShader.get();
 	}
 
 }

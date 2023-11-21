@@ -39,12 +39,18 @@ namespace Engine
 		math::Matrix4x4 ViewMatrix = math::Matrix4x4::MatrixLookAtLH(CameraPos, Target, Up);
 		SetViewMatrix(ViewMatrix);
 		UpdateFrustum(CameraPos, Vector3(Vector3::UnitZ).Normalize(), Up);
+
+		auto AppWin = GEngine->GetAppWindow();
+		auto Width = AppWin->GetWidth();
+		auto Height = AppWin->GetHeight();
+		static uint32_t Seed = 0;
+		SetProjectionJitter(Width, Height, Seed);
 	}
 
 	void CameraComponent::SetViewMatrix(const math::Matrix4x4& view)
 	{
 		C_P(CameraComponent);
-		const auto& AppWin = GEngine->GetAppWindow();
+		auto AppWin = GEngine->GetAppWindow();
 		d->PreviousView = d->View;
 		d->View = view;
 		d->Aspect = (float)AppWin->GetWidth() / (float)AppWin->GetHeight();

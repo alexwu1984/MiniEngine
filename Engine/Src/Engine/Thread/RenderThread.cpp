@@ -6,6 +6,9 @@
 namespace Engine
 {
 	RenderThread* GRenderThread = nullptr;
+
+
+
 	struct RenderThreadP
 	{
 		std::queue<std::function<void(RenderCore::DynamicRHI*)>> CmdQueue;
@@ -113,6 +116,14 @@ namespace Engine
 			}
 
 			Impl->WaitForFinish.set();
+		}
+	}
+
+	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun)
+	{
+		if (GRenderThread)
+		{
+			GRenderThread->AppendCommand(fun);
 		}
 	}
 

@@ -73,7 +73,7 @@ namespace Engine
 
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
 	{
-		auto InitShaderFun = [Path,this](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([Path, this](RenderCore::DynamicRHI* RHI) {
 			C_P(PBRMaterialRender);
 			std::wstring ShaderPath = Path + GetShaderFileName();
 
@@ -110,9 +110,7 @@ namespace Engine
 
 			d->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 			d->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);
-		};
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND(InitShaderFun)
+			});
 		
 	}
 
@@ -144,6 +142,7 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPrevViewProj = d->RenderParam.PrevViewProjMatrix;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->RenderParam.CurrViewProjMatrix;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = d->RenderParam.CurrViewProjInverseMatrix;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;

@@ -61,7 +61,7 @@ namespace Engine
 		C_P(SceneRender);
 		d->MainViewPort = ViewPort;
 
-		auto InitResCmd = [d](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			if (!d->PreProcess)
 			{
 				d->PreProcess = std::make_shared<PreProcessor>(RHI);
@@ -86,20 +86,18 @@ namespace Engine
 			auto Size = d->MainViewPort->GetSize();
 			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER),
 				Size.cx, Size.cy);
-		};
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND(InitResCmd);
+			});
 	}
 
 	void SceneRender::LoadConfig(const std::wstring& FileName)
 	{
 		C_P(SceneRender);
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, FileName](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, FileName](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 			{
 				d->PreProcess->LoadConfig(FileName);
 			}
-		}));
+		});
 	}
 
 	void SceneRender::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
@@ -109,14 +107,13 @@ namespace Engine
 			return;
 		}
 		C_P(SceneRender); 
-		auto ResizeCommand = [d, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
 			if (d->TargetBuffer)
 			{
 				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER), InSizeX, InSizeY);
 			}
-		};
-		ENQUEUE_UNIQUE_RENDER_COMMAND(ResizeCommand);
+		});
 	}
 
 	void SceneRender::Render()
@@ -128,14 +125,14 @@ namespace Engine
 		}
 		C_P(SceneRender);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(([d, CommandContext](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 			{
 				d->PreProcess->Draw(*CommandContext);
 			}
-			}));
+			});
 
-		auto ClearAndSetViewPort = [d](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Clear(core::FLinearColor::Gray);
 			d->MainViewPort->SetRenderTarget();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
@@ -144,18 +141,15 @@ namespace Engine
 
 			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer() };
 			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
-			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Gray,1.f,0);
-		};
+			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Gray, 1.f, 0);
+			});
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(ClearAndSetViewPort);
-
-		auto RenderBackground = [d](RenderCore::DynamicRHI* RHI){
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			auto IBL = d->PreProcess->GetIBLRender();
 			auto EvnCube = IBL->GetEvnCube();
 			d->BackgroundRender->SetTextureCube(EvnCube);
 			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
-		};
-		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderBackground);
+		});
 		
 		d->MeshesInfo.clear();
 		const auto& Actors = GetOwner()->GetAllActors();
@@ -181,22 +175,19 @@ namespace Engine
 			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner()->GetMainCamera());
 		}
 
-		auto PostProcess = [d, this](RenderCore::DynamicRHI* RHI)
-		{
-			d->MainViewPort->SetRenderTarget();
-			if (d->PostProcess)
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI)
 			{
-				d->PostProcess->Draw(*RHI->GetDefaultCommandContext(),d->TargetBuffer);
-			}
-		};
-		ENQUEUE_UNIQUE_RENDER_COMMAND(PostProcess);
+				d->MainViewPort->SetRenderTarget();
+				if (d->PostProcess)
+				{
+					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer);
+				}
+		});
 
 
-		auto Present = [d, this](RenderCore::DynamicRHI*) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI*) {
 			d->MainViewPort->Present();
-		};
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND(Present);
+		});
 
 	}
 

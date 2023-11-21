@@ -31,10 +31,6 @@ namespace Engine
 
 	extern RenderThread* GRenderThread;
 
-#define ENQUEUE_UNIQUE_RENDER_COMMAND(Command) \
-	if(GRenderThread ) \
-	{ \
-		GRenderThread->AppendCommand(Command); \
-	}
 
+	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun);
 }

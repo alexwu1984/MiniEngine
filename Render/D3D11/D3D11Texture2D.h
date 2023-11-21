@@ -21,6 +21,7 @@ namespace RenderCore
 		virtual bool IsMultisampled() const override;
 		virtual core::vec2i GetSize() const;
 		virtual uint32_t GetNumMips() const;
+		virtual EPixelFormat GetPixelFormat() const override;
 
 		ID3D11Texture2D* GetNativeTex() const;
 		ID3D11RenderTargetView* GetRTV() const;

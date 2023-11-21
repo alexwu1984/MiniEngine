@@ -21,6 +21,7 @@ namespace RenderCore
 		core::vec2i Size;
 		bool IsMultisampled{ false };
 		uint32_t NumMips{ 1 };
+		EPixelFormat Format;
 	};
 
 	/**
@@ -85,6 +86,7 @@ namespace RenderCore
 		d->Size.cx = SizeX;
 		d->Size.cy = SizeY;
 		d->NumMips = NumMips;
+		d->Format = Format;
 
 		const bool bSRGB = (Flags & TexCreate_SRGB) != 0;
 
@@ -431,6 +433,12 @@ namespace RenderCore
 	{
 		C_P(D3D11Texture2D);
 		return d->NumMips;
+	}
+
+	EPixelFormat D3D11Texture2D::GetPixelFormat() const
+	{
+		C_P(D3D11Texture2D);
+		return d->Format;
 	}
 
 	ID3D11Texture2D* D3D11Texture2D::GetNativeTex() const

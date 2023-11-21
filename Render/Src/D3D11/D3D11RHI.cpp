@@ -278,6 +278,21 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr< RenderCore::RHIUnorderedAccessView> D3D11DynamicRHI::RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
+	{
+		std::shared_ptr< RHITexture2D> Tex2D = RHICreateTexture2D(Format, ETextureCreateFlags::TexCreate_UAV|ETextureCreateFlags::TexCreate_ShaderResource, SizeX, SizeY);
+		if (!Tex2D)
+		{
+			return nullptr;
+		}
+		std::shared_ptr<RHIUnorderedAccessView> UAV = std::make_shared<D3D11UnorderedAccessView>(this);
+		if (UAV->CreateFromTexture(Tex2D,0))
+		{
+			return UAV;
+		}
+		return nullptr;
+	}
+
 	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth)
 	{
 		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);

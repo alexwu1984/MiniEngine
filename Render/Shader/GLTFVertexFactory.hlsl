@@ -72,7 +72,7 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
     
 #ifdef HAS_WEIGHTS_0
         matrix prevSkinningMatrix;
-        prevSkinningMatrix  = GetPreviousSkinningMatrix(input.Weights0, input.Joints0);
+        prevSkinningMatrix  = GetPreviousSkinningMatrix(input.JointsWeights0, input.JointsIndices0);
 #else
     matrix prevSkinningMatrix =
     {

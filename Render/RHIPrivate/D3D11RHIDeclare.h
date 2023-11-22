@@ -14,6 +14,7 @@ struct ID3D11Texture1D;
 struct ID3D11RenderTargetView;
 struct ID3D11ShaderResourceView;
 struct ID3D11DepthStencilView;
+struct ID3D11UnorderedAccessView;
 
 struct ID3D11SamplerState;
 struct ID3D11RasterizerState;

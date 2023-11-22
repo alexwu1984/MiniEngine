@@ -172,6 +172,15 @@ namespace RenderCore
 		return FindShaderResourceDXGIFormat(InFormat, InFlags & TexCreate_SRGB);
 	}
 
+	inline  DXGI_FORMAT FindDepthResourceDXGIFormat(DXGI_FORMAT InFormat)
+	{
+		switch (InFormat)
+		{
+		case DXGI_FORMAT_R32_TYPELESS: return DXGI_FORMAT_D32_FLOAT;
+		}
+		return InFormat;
+	}
+
 	inline const TCHAR* GetD3D11TextureFormatString(DXGI_FORMAT TextureFormat)
 	{
 		static const TCHAR* EmptyString = TEXT("");

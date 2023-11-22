@@ -7,6 +7,7 @@
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 #include "Render/GBuffer.h"
+#include "Render/TemporalAA.h"
 
 namespace Engine
 {
@@ -16,6 +17,7 @@ namespace Engine
 		DynamicRHI* RHI = nullptr;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
+		std::shared_ptr< TemporallAA> TAA;
 	};
 
 	PostProcessor::PostProcessor(RenderCore::DynamicRHI* RHI)
@@ -39,10 +41,14 @@ namespace Engine
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_ScreenQuad", {}, {});
 		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_Tonemapping", {});
 
+		d->TAA = std::make_shared<TemporallAA>(d->RHI);
+		d->TAA->InitResource();
 	}
 
 	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
+		C_P(PostProcessor);
+		d->TAA->Draw(RHIContext, TargetBuffer);
 		Tonemapping(RHIContext, TargetBuffer);
 	}
 

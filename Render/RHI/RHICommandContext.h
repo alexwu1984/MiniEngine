@@ -16,6 +16,7 @@ namespace RenderCore
 	class RHIVertexBuffer;
 	class RHIIndexBuffer;
 	class RHITextureCube;
+	class RHIComputeShader;
 
 	class RHICommandContext
 	{
@@ -44,11 +45,14 @@ namespace RenderCore
 		virtual void RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents) = 0;
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI) = 0;
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI) = 0;
+		virtual void RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV) = 0;
 		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) = 0;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) = 0;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) = 0;
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) = 0;
 		virtual void Draw(uint32_t VertexCount, uint32_t VertexStartOffset = 0) = 0;
 		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) = 0;
+		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) = 0;
+		virtual void RHIDispatchComputeShader(uint32_t ThreadGroupCountX,uint32_t ThreadGroupCountY,uint32_t ThreadGroupCountZ) = 0;
 	};
 }

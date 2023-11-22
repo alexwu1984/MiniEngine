@@ -453,6 +453,19 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV)
+	{
+		D3D11UnorderedAccessView* UAVRHI = RHIResourceCast(UAV.get());
+		if (UAVRHI)
+		{
+
+			win32::com_ptr<ID3D11UnorderedAccessView> D3D11UAV = UAVRHI->GetNativeUAV();
+
+			uint32_t InitialCount = -1;
+			Impl->D3D11RHI->GetDeviceContext()->CSSetUnorderedAccessViews(UAVIndex, 1, &D3D11UAV, &InitialCount);
+		}
+	}
+
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
 	{
 		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
@@ -513,6 +526,27 @@ namespace RenderCore
 		{
 			Impl->D3D11RHI->GetDeviceContext()->GenerateMips(TextureCube->GetSRV());
 		}
+	}
+
+	void D3D11CommandContext::RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer)
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		if (Initializer.ComputeShader)
+		{
+			D3D11ComputeShader* ComputeShader = RHIResourceCast(Initializer.ComputeShader.get());
+			StateCache.SetComputeShader(ComputeShader->GetNativeComputeShader());
+		}
+		else
+		{
+			StateCache.SetComputeShader(nullptr);
+		}
+	}
+
+	void D3D11CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
+	{
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		Impl->D3D11RHI->GetDeviceContext()->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+		StateCache.SetComputeShader(nullptr);
 	}
 
 	void D3D11CommandContext::ClearAllShaderResources()

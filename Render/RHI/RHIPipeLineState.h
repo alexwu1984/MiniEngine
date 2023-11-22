@@ -17,4 +17,12 @@ namespace RenderCore
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 	};
+
+	struct ComputePipelineStateInitializer
+	{
+		ComputePipelineStateInitializer() = default;
+		~ComputePipelineStateInitializer() = default;
+
+		std::shared_ptr<RHIComputeShader> ComputeShader;
+	};
 }

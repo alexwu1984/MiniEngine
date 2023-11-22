@@ -158,7 +158,8 @@ namespace RenderCore
 	D3D11ComputeShader::D3D11ComputeShader(D3D11DynamicRHI* D3D11RHI)
 		:RHIComputeShader(SF_Compute),d_ptr(new D3D11ComputeShaderPrivate())
 	{
-
+		C_P(D3D11ComputeShader);
+		d->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11ComputeShader::~D3D11ComputeShader()

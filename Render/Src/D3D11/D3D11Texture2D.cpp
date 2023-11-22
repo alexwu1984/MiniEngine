@@ -90,7 +90,7 @@ namespace RenderCore
 
 		const bool bSRGB = (Flags & TexCreate_SRGB) != 0;
 
-		const DXGI_FORMAT PlatformResourceFormat = GetPlatformTextureResourceFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat, Flags);
+		const DXGI_FORMAT PlatformResourceFormat = (DXGI_FORMAT)GPixelFormats[Format].PlatformFormat;
 
 		uint32_t CPUAccessFlags = 0;
 		D3D11_USAGE TextureUsage = D3D11_USAGE_DEFAULT;
@@ -251,7 +251,7 @@ namespace RenderCore
 		{
 			D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
 			memset(&SRVDesc, 0, sizeof(SRVDesc));
-			SRVDesc.Format = TextureDesc.Format;
+			SRVDesc.Format = GetPlatformTextureResourceFormat(PlatformResourceFormat, Flags);
 
 			if (bCubeTexture)
 			{
@@ -298,7 +298,7 @@ namespace RenderCore
 						D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 						memset(&RTVDesc, 0, sizeof(RTVDesc));
 
-						RTVDesc.Format = TextureDesc.Format;
+						RTVDesc.Format = GetPlatformTextureResourceFormat(PlatformResourceFormat, Flags);
 
 						if (d->IsMultisampled)
 						{
@@ -326,7 +326,7 @@ namespace RenderCore
 				{
 					D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 					memset(&RTVDesc, 0, sizeof(RTVDesc));
-					RTVDesc.Format = TextureDesc.Format;
+					RTVDesc.Format = GetPlatformTextureResourceFormat(PlatformResourceFormat, Flags);
 					if (d->IsMultisampled)
 					{
 						RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
@@ -351,7 +351,7 @@ namespace RenderCore
 		{
 			D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
 			memset(&DSVDesc, 0, sizeof(DSVDesc));
-			DSVDesc.Format = TextureDesc.Format;
+			DSVDesc.Format = FindDepthResourceDXGIFormat(PlatformResourceFormat);
 			if (d->IsMultisampled)
 			{
 				DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;

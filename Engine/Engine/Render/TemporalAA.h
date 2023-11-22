@@ -11,6 +11,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct TemporallAAPrivate;
+	class GBuffer;
 
 	class TemporallAA
 	{
@@ -19,7 +20,7 @@ namespace Engine
 		~TemporallAA();
 
 		void InitResource();
-
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
 	private:
 		TemporallAAPrivate* d_ptr = nullptr;
 	};

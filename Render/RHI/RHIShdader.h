@@ -141,5 +141,6 @@ namespace RenderCore
 	public:
 		std::unordered_map<uint32_t, std::shared_ptr< RHIVertexShader>> VertexShaderCache;
 		std::unordered_map<size_t, std::shared_ptr< RHIPixelShader>> PixelShaderCache;
+		std::unordered_map<size_t, std::shared_ptr< RHIComputeShader>> ComputeShaderCache;
 	};
 }

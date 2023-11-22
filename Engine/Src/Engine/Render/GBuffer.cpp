@@ -1,5 +1,6 @@
 #include "Render/GBuffer.h"
 #include "RHI/RHITexture2D.h"
+#include "RHI/RHIUnorderedAccessView.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 
@@ -12,6 +13,7 @@ namespace Engine
 		DynamicRHI* RHI = nullptr;
 		std::shared_ptr<RHITexture2D> Depth;
 		std::shared_ptr<RHITexture2D> SceneColor;
+		std::shared_ptr<RHIUnorderedAccessView> SceneColorUAV;
 		std::shared_ptr<RHITexture2D> MotionVector;
 		std::shared_ptr<RHITexture2D> NormalBuffer;
 	};
@@ -33,7 +35,7 @@ namespace Engine
 		C_P(GBuffer);
 		if (Flag & GBUFFER_DEPTH)
 		{
-			d->Depth = d->RHI->RHICreateTexture2D(EPixelFormat::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, Width, Height);
+			d->Depth = d->RHI->RHICreateTexture2D(EPixelFormat::PF_ShadowDepth, ETextureCreateFlags::TexCreate_DepthStencilTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height);
 		}
 		if (Flag & GBUFFER_MOTION_VECTORS)
 		{
@@ -41,7 +43,8 @@ namespace Engine
 		}
 		if (Flag & GBUFFER_SCENE_COLOR)
 		{
-			d->SceneColor = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable, Width, Height);
+			d->SceneColor = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_UAV, Width, Height);
+			d->SceneColorUAV = d->RHI->RHICreateUnorderedAccessView(d->SceneColor);
 		}
 		if (Flag & GBUFFER_NORMAL_BUFFER)
 		{
@@ -61,13 +64,19 @@ namespace Engine
 		return d->SceneColor;
 	}
 
-	std::shared_ptr<RenderCore::RHITexture2D> GBuffer::GetMotionVector() const
+	std::shared_ptr<RHIUnorderedAccessView> GBuffer::GetSceneColorUAV() const
+	{
+		C_P(GBuffer);
+		return d->SceneColorUAV;
+	}
+
+	std::shared_ptr<RHITexture2D> GBuffer::GetMotionVector() const
 	{
 		C_P(GBuffer);
 		return d->MotionVector;
 	}
 
-	std::shared_ptr<RenderCore::RHITexture2D> GBuffer::GetNormalBuffer() const
+	std::shared_ptr<RHITexture2D> GBuffer::GetNormalBuffer() const
 	{
 		C_P(GBuffer);
 		return d->NormalBuffer;

@@ -4,6 +4,7 @@
 namespace RenderCore
 {
 	std::shared_ptr<RHISamplerState> RHICachedStates::ClampLinerSampler;
+	std::shared_ptr<RHISamplerState> RHICachedStates::ClampPointSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::ShadowSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::WarpLinerSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::MirrorLinerSampler;
@@ -23,6 +24,7 @@ namespace RenderCore
 	void RHICachedStates::Initialize(DynamicRHI* RHI)
 	{
 		ClampLinerSampler = TStaticSamplerState<SF_Bilinear>::CreateRHI(RHI);
+		ClampPointSampler = TStaticSamplerState<>::CreateRHI(RHI);
 		ShadowSampler = TStaticSamplerState<SF_Point, AM_Border, AM_Border, AM_Border>::CreateRHI(RHI);
 		WarpLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::CreateRHI(RHI);
 		MirrorLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Mirror, AM_Mirror, AM_Mirror>::CreateRHI(RHI);
@@ -44,6 +46,7 @@ namespace RenderCore
 	void RHICachedStates::DestroyAll()
 	{
 		ClampLinerSampler = {};
+		ClampPointSampler = {};
 		ShadowSampler = {};
 		WarpLinerSampler = {};
 		MirrorLinerSampler = {};

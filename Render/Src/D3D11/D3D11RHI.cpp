@@ -37,8 +37,8 @@ namespace RenderCore
 		GPixelFormats[PF_X24_G8].BlockBytes = 4;
 		GPixelFormats[PF_DepthStencil].Supported = true;
 		GPixelFormats[PF_X24_G8].Supported = true;
-		GPixelFormats[PF_ShadowDepth].PlatformFormat = DXGI_FORMAT_R16_TYPELESS;
-		GPixelFormats[PF_ShadowDepth].BlockBytes = 2;
+		GPixelFormats[PF_ShadowDepth].PlatformFormat = DXGI_FORMAT_R32_TYPELESS;
+		GPixelFormats[PF_ShadowDepth].BlockBytes = 4;
 		GPixelFormats[PF_ShadowDepth].Supported = true;
 		GPixelFormats[PF_R32_FLOAT].PlatformFormat = DXGI_FORMAT_R32_FLOAT;
 		GPixelFormats[PF_G16R16].PlatformFormat = DXGI_FORMAT_R16G16_UNORM;
@@ -278,15 +278,20 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RenderCore::RHIUnorderedAccessView> D3D11DynamicRHI::RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
+	std::shared_ptr<RHIUnorderedAccessView> D3D11DynamicRHI::RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
 	{
 		std::shared_ptr< RHITexture2D> Tex2D = RHICreateTexture2D(Format, ETextureCreateFlags::TexCreate_UAV|ETextureCreateFlags::TexCreate_ShaderResource, SizeX, SizeY);
 		if (!Tex2D)
 		{
 			return nullptr;
 		}
+		return RHICreateUnorderedAccessView(Tex2D);
+	}
+
+	std::shared_ptr< RHIUnorderedAccessView> D3D11DynamicRHI::RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D)
+	{
 		std::shared_ptr<RHIUnorderedAccessView> UAV = std::make_shared<D3D11UnorderedAccessView>(this);
-		if (UAV->CreateFromTexture(Tex2D,0))
+		if (UAV->CreateFromTexture(Tex2D, 0))
 		{
 			return UAV;
 		}
@@ -356,6 +361,28 @@ namespace RenderCore
 		{
 			Impl->ShaderCache.PixelShaderCache.insert({ HashCode,PixelShaderRHI });
 			return PixelShaderRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	std::shared_ptr< RHIComputeShader> D3D11DynamicRHI::RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		std::shared_ptr<D3D11ComputeShader> ComputeShaderRHI = std::make_shared<D3D11ComputeShader>(this);
+
+		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + CSMain);
+		auto It = Impl->ShaderCache.ComputeShaderCache.find(HashCode);
+		if (It != Impl->ShaderCache.ComputeShaderCache.end())
+		{
+			return It->second;
+		}
+
+		if (ComputeShaderRHI->CreateShader(FileName, CSMain, MacroDefines))
+		{
+			Impl->ShaderCache.ComputeShaderCache.insert({ HashCode,ComputeShaderRHI });
+			return ComputeShaderRHI;
 		}
 		else
 		{

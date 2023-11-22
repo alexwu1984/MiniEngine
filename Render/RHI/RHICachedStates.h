@@ -15,6 +15,7 @@ namespace RenderCore
 
 	public:
 		static std::shared_ptr<RHISamplerState> ClampLinerSampler;
+		static std::shared_ptr<RHISamplerState> ClampPointSampler;
 		static std::shared_ptr<RHISamplerState> WarpLinerSampler;
 		static std::shared_ptr<RHISamplerState> MirrorLinerSampler;
 		static std::shared_ptr<RHISamplerState> ShadowSampler;

@@ -39,12 +39,14 @@ namespace RenderCore
 		virtual std::shared_ptr< RHITexture1D> RHICreateTexture1D(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int RowBytes) override;
 		virtual std::shared_ptr< RHITextureCube> RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth) override;
 		virtual std::shared_ptr< RHIUnorderedAccessView> RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY) override;
+		virtual std::shared_ptr< RHIUnorderedAccessView> RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D) override;
 
 		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth) override;
 		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth) override;
 
 		virtual std::shared_ptr< RHIVertexShader> RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare , const std::vector<RHIShaderMacro>& MacroDefines) override;
 		virtual std::shared_ptr< RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
+		virtual std::shared_ptr< RHIComputeShader> RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
 
 		virtual std::shared_ptr< RHISamplerState> RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr< RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) override;

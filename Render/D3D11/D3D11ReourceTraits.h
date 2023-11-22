@@ -66,6 +66,12 @@ namespace RenderCore
 	};
 
 	template<>
+	struct TD3D11ResourceTraits<RHIComputeShader>
+	{
+		typedef D3D11ComputeShader TConcreteType;
+	};
+
+	template<>
 	struct TD3D11ResourceTraits<RHISamplerState>
 	{
 		typedef D3D11SamplerState TConcreteType;

@@ -52,6 +52,8 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr< RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) override;
 		std::shared_ptr< RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) override;
+		
+
 		// Accessors.
 		ID3D11Device* GetDevice() const;
 		ID3D11DeviceContext* GetDeviceContext() const;

@@ -1,5 +1,4 @@
-Texture2D TAABuffer : register(t0);
-
+Texture2D<float4> TAABuffer : register(t0);
 RWTexture2D<float4> HDR : register(u0);
 RWTexture2D<float4> History : register(u1);
 

@@ -39,16 +39,16 @@ namespace Engine
 		}
 		if (Flag & GBUFFER_MOTION_VECTORS)
 		{
-			d->MotionVector = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G16R16, ETextureCreateFlags::TexCreate_RenderTargetable, Width, Height);
+			d->MotionVector = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G16R16, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height);
 		}
 		if (Flag & GBUFFER_SCENE_COLOR)
 		{
-			d->SceneColor = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_UAV, Width, Height);
+			d->SceneColor = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource | ETextureCreateFlags::TexCreate_UAV, Width, Height);
 			d->SceneColorUAV = d->RHI->RHICreateUnorderedAccessView(d->SceneColor);
 		}
 		if (Flag & GBUFFER_NORMAL_BUFFER)
 		{
-			d->NormalBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable, Width, Height);
+			d->NormalBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height);
 		}
 	}
 

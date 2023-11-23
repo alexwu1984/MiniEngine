@@ -43,6 +43,7 @@ namespace RenderCore
 		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) override;
 		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) override;
 		virtual void RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) override;
+		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) override;
 	private:
 		void ClearAllShaderResources();
 		void ClearState();

@@ -81,6 +81,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) = 0;
 		virtual std::shared_ptr< RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) = 0;
 		virtual std::shared_ptr< RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) = 0;
+	
 	};
 
 	bool IsRHIDeviceAMD();

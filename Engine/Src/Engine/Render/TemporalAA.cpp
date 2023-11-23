@@ -20,6 +20,11 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIComputeShader> TAASharpener;
 		std::shared_ptr<RenderCore::RHIUnorderedAccessView> HistoryUAV;
 		std::shared_ptr<RenderCore::RHIUnorderedAccessView> MainOutUAV;
+		std::shared_ptr<RenderCore::RHIUnorderedAccessView> SceneUAV;
+
+		std::shared_ptr< RenderCore::RHITexture2D> HistoryTex;
+		std::shared_ptr< RenderCore::RHITexture2D> TAAOutTex;
+
 		bool First = true;
 	};
 
@@ -54,13 +59,28 @@ namespace Engine
 
 		auto SceneColor = TargetBuffer->GetSceneColor();
 
+		if (!d->HistoryTex)
+		{
+			d->HistoryTex = d->RHI->RHICreateTexture2D(SceneColor->GetPixelFormat(), RenderCore::ETextureCreateFlags::TexCreate_ShaderResource, SceneColor->GetSize().x, SceneColor->GetSize().y);
+		}
+
+		if (!d->TAAOutTex)
+		{
+			d->TAAOutTex = d->RHI->RHICreateTexture2D(SceneColor->GetPixelFormat(), RenderCore::ETextureCreateFlags::TexCreate_ShaderResource, SceneColor->GetSize().x, SceneColor->GetSize().y);
+		}
+
+		if (!d->HistoryUAV)
+		{
+			d->HistoryUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
+		}
+
+		if (!d->MainOutUAV)
+		{
+			d->MainOutUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
+		}
+
 		if (d->First)
 		{
-			if (!d->HistoryUAV)
-			{
-				d->HistoryUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
-			}
-
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAAFirst;
 
@@ -69,14 +89,17 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
 			RHIContext.RHISetUAVParameter(0, d->HistoryUAV);
 
+			uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 15) / 16;
+			uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 15) / 16;
+
+			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
+
+			RHIContext.RHICopyResource(d->HistoryTex, d->HistoryUAV->GetTexture2D());
+
 			d->First = false;
 		}
 		else
 		{
-			if (!d->MainOutUAV)
-			{
-				d->MainOutUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
-			}
 
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAAMain;
@@ -86,31 +109,43 @@ namespace Engine
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 1, RenderCore::RHICachedStates::ClampPointSampler);
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 2, RenderCore::RHICachedStates::ClampLinerSampler);
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 3, RenderCore::RHICachedStates::ClampPointSampler);
-			
+
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 1, TargetBuffer->GetDepth());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 2, d->HistoryUAV->GetTextre2D());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 2, d->HistoryTex);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 3, TargetBuffer->GetMotionVector());
 			RHIContext.RHISetUAVParameter(0, d->MainOutUAV);
+
+			uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 15) / 16;
+			uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 15) / 16;
+
+			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
+
+			RHIContext.RHICopyResource(d->TAAOutTex, d->MainOutUAV->GetTexture2D());
 		}
 
-		uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 15) / 16;
-		uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 15) / 16;
-
-		RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
+		if (!d->SceneUAV)
+		{
+			d->SceneUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
+		}
 
 		//Sharpener
+		if (d->MainOutUAV)
 		{
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAASharpener;
 			RHIContext.RHISetComputePipelineState(Init);
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->MainOutUAV ? d->MainOutUAV->GetTextre2D() : d->HistoryUAV->GetTextre2D());
-			RHIContext.RHISetUAVParameter(0, TargetBuffer->GetSceneColorUAV());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->TAAOutTex);
+			RHIContext.RHISetUAVParameter(0, d->SceneUAV);
 			RHIContext.RHISetUAVParameter(1, d->HistoryUAV);
+			
 
-			ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
-			ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
+			uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
+			uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
+
+			RHIContext.RHICopyResource(d->HistoryTex, d->HistoryUAV->GetTexture2D());
+			RHIContext.RHICopyResource(SceneColor, d->SceneUAV->GetTexture2D());
 		}
 	}
 

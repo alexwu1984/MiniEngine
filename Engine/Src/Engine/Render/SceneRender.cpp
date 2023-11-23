@@ -113,6 +113,11 @@ namespace Engine
 			{
 				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER), InSizeX, InSizeY);
 			}
+			if (d->PostProcess)
+			{
+				d->PostProcess->InitResource();
+			}
+			
 		});
 	}
 

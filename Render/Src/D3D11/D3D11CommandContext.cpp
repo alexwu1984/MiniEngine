@@ -546,7 +546,17 @@ namespace RenderCore
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		Impl->D3D11RHI->GetDeviceContext()->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+		Impl->D3D11RHI->GetDeviceContext()->Flush();
 		StateCache.SetComputeShader(nullptr);
+	}
+
+	void D3D11CommandContext::RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex)
+	{
+		D3D11Texture2D* DstTexRHI = RHIResourceCast(DstTex.get());
+		D3D11Texture2D* SrcTexRHI = RHIResourceCast(SrcTex.get());
+
+		Impl->D3D11RHI->GetDeviceContext()->CopyResource(DstTexRHI->GetNativeTex(), SrcTexRHI->GetNativeTex());
+		Impl->D3D11RHI->GetDeviceContext()->Flush();
 	}
 
 	void D3D11CommandContext::ClearAllShaderResources()

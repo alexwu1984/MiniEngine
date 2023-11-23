@@ -39,7 +39,7 @@ namespace RenderCore
 		return d->UnorderedAccessView.is_valid();
 	}
 
-	std::shared_ptr<RenderCore::RHITexture2D> D3D11UnorderedAccessView::GetTextre2D() const
+	std::shared_ptr<RenderCore::RHITexture2D> D3D11UnorderedAccessView::GetTexture2D() const
 	{
 		C_P(const D3D11UnorderedAccessView);
 		return d->Tex2D;

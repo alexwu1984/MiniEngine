@@ -1,6 +1,7 @@
 #include "Render/BasePassRender.h"
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMaterial.h"
+#include "Scene/GltfMeshComponent.h"
 #include "Scene/CameraComponent.h"
 #include "Engine/Render/SceneRender.h"
 #include "Engine/Engine.h"
@@ -15,6 +16,7 @@ namespace Engine
 		float Distance;
 		std::shared_ptr<GltfMesh> Mesh;
 		math::Matrix4x4 WorldTransform;
+		math::Matrix4x4 PrevWorldTransform;
 		bool operator()(const MeshDistanceInfo& Near, const MeshDistanceInfo& Far)
 		{
 			return Near.Distance > Far.Distance;
@@ -38,35 +40,36 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	void BasePassRender::Render(const std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>>& MeshesPair, RenderCore::RHICommandContext& RHIContext,
+	void BasePassRender::Render(const std::vector<GltfSceneMeshInfo>& MeshInfos, RenderCore::RHICommandContext& RHIContext,
 								std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(BasePassRender);
 		d->SortMesh.clear();
-		ActualDraw(MeshesPair,RHIContext, Camera, true);
-		ActualDraw(MeshesPair,RHIContext, Camera, false);
+		ActualDraw(MeshInfos,RHIContext, Camera, true);
+		ActualDraw(MeshInfos,RHIContext, Camera, false);
 	}
 
-	void BasePassRender::SortMesh(const std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>>& MeshesPair,const math::Vector3& CameraPos)
+	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos,const math::Vector3& CameraPos)
 	{
 		C_P(BasePassRender);
 		
 		math::Matrix4x4 ModelMatrix;
 
-		for (const auto& PairItem : MeshesPair)
+		for (const auto& MeshInfo : MeshInfos)
 		{
-			size_t MeshSize = PairItem.first.size();
+			size_t MeshSize = MeshInfo.Meshes.size();
 			for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 			{
 				MeshDistanceInfo DisInfo;
-				std::shared_ptr<GltfMesh> Mesh = PairItem.first[MeshIndex];
+				std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
 
 				math::Vector3 BoxPoint[8]{};
 				Mesh->GetBoundingBox().GetPoint(BoxPoint);
 
 				float distanceMin = 100000.f;
 				float distanceMax = 0.f;
-				DisInfo.WorldTransform = PairItem.second;
+				DisInfo.WorldTransform = MeshInfo.WorldTransform;
+				DisInfo.PrevWorldTransform = MeshInfo.PrevWorldTransform;
 				DisInfo.Mesh = Mesh;
 
 				for (int32_t PointIndex = 0; PointIndex < 8; PointIndex++)
@@ -99,29 +102,30 @@ namespace Engine
 		std::sort(d->SortMesh.begin(), d->SortMesh.end(), MeshDistanceInfo());
 	}
 
-	void BasePassRender::ActualDraw(const std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>>& MeshesPair,
+	void BasePassRender::ActualDraw(const std::vector<GltfSceneMeshInfo>& MeshInfos,
 									RenderCore::RHICommandContext& RHIContext, 
 									std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
 	{
 		C_P(BasePassRender);
 
-		for (const auto& PairItem : MeshesPair)
+		for (const auto& MeshInfo : MeshInfos)
 		{
-			size_t MeshSize = PairItem.first.size();
+			size_t MeshSize = MeshInfo.Meshes.size();
 			for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 			{
-				std::shared_ptr<GltfMesh> Mesh = PairItem.first[MeshIndex];
+				std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
 
 				auto Material = GetOrCreateRender(Mesh);
 
 				if (!Mesh->GetMaterial()->IsTransparent())
 				{
-					DrawMesh(Mesh, PairItem.second, Material, RHIContext, Camera, IsPreDraw);
+					DrawMesh(Mesh, MeshInfo.WorldTransform, MeshInfo.PrevWorldTransform, 
+						Material, RHIContext, Camera, IsPreDraw);
 				}
 			}
 		}
 
-		SortMesh(MeshesPair, Camera->GetCameraPos());
+		SortMesh(MeshInfos, Camera->GetCameraPos());
 
 		for (const auto& SortItem : d->SortMesh)
 		{
@@ -131,12 +135,14 @@ namespace Engine
 
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, SortItem.WorldTransform, Material, RHIContext, Camera, IsPreDraw);
+				DrawMesh(Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
+					Material, RHIContext, Camera, IsPreDraw);
 			}
 		}
 	}
 
-	void BasePassRender::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform, 
+	void BasePassRender::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform,
+		const math::Matrix4x4& PrevWorldTransform,
 		std::shared_ptr<MaterialRender> Render, RenderCore::RHICommandContext& RHIContext,
 		std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
 	{
@@ -144,6 +150,7 @@ namespace Engine
 		MaterialRenderParam RenderParam;
 		RenderParam.CameraPos = Camera->GetCameraPos();
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
+		RenderParam.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;
 		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(false);
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
 		RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(true);

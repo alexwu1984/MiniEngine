@@ -15,6 +15,7 @@ namespace Engine
 	struct MaterialRenderParam
 	{
 		math::Matrix4x4 CurrModelMatrix;
+		math::Matrix4x4 PrevModelMatrix;
 		math::Matrix4x4 CurrViewProjMatrix;
 		math::Matrix4x4 PrevViewProjMatrix;
 		math::Matrix4x4 CurrViewProjInverseMatrix;

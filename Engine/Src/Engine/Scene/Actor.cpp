@@ -85,6 +85,8 @@ namespace Engine
 		if (ImplActorP->RecomputeWorldTransform)
 		{
 			ImplActorP->RecomputeWorldTransform = false;
+
+			ImplActorP->PrevWorldTransform = ImplActorP->WorldTransform;
 			// Scale, then rotate, then translate
 			ImplActorP->WorldTransform = Matrix4x4::ScaleMatrix(ImplActorP->Scale);  
 			
@@ -102,6 +104,11 @@ namespace Engine
 	const Matrix4x4& Actor::GetWorldTransform() const
 	{
 		return ImplActorP->WorldTransform;
+	}
+
+	const math::Matrix4x4& Actor::GetPrevWorldTransform() const
+	{
+		return ImplActorP->PrevWorldTransform;
 	}
 
 	Actor::AState Actor::GetState() const

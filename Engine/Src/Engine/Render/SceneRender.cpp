@@ -30,7 +30,7 @@ namespace Engine
 		std::shared_ptr<BasePassRender> BaseRender;
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<GBuffer> TargetBuffer;
-		std::vector<std::pair<std::vector<std::shared_ptr<GltfMesh>>, math::Matrix4x4>> MeshesInfo;
+		std::vector<GltfSceneMeshInfo> MeshesInfo;
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
@@ -165,11 +165,10 @@ namespace Engine
 				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
 				for (auto& ComponentItem : Components)
 				{
-					std::vector<std::shared_ptr<GltfMesh>> Meshes;
-					math::Matrix4x4 WorldTransform;
-					if (ComponentItem->GatherMesh(Meshes, WorldTransform, GetOwner()->GetMainCamera()))
+					GltfSceneMeshInfo SceneMeshInfo;
+					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
 					{
-						d->MeshesInfo.push_back({ Meshes ,WorldTransform });
+						d->MeshesInfo.push_back(SceneMeshInfo);
 					}
 				}
 			}

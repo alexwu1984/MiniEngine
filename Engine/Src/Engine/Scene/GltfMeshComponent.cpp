@@ -110,16 +110,17 @@ namespace Engine
 		}
 	}
 
-	bool GltfMeshComponent::GatherMesh(std::vector<std::shared_ptr<GltfMesh>>& Meshes, math::Matrix4x4& WorldTransform, std::shared_ptr<CameraComponent> Camera)
+	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, std::shared_ptr<CameraComponent> Camera)
 	{
-		WorldTransform = GetOwner()->GetWorldTransform();
-		math::AABB3 Box = Impl->Model.GetModelBox().Transform(WorldTransform);
+		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
+		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
+		math::AABB3 Box = Impl->Model.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 		bool Render = Camera->GetFrustum().Intersects(Box);
 		if (Render)
 		{
 			auto& TmpMeshs = Impl->Model.GetModelMesh();
-			std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&Meshes](std::shared_ptr<GltfMesh> Item) {
-				Meshes.push_back(Item);
+			std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
+				SceneMeshInfo.Meshes.push_back(Item);
 				});
 			
 		}

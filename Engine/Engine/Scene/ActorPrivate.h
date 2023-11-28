@@ -21,6 +21,7 @@ namespace Engine
 
 		bool RecomputeWorldTransform = true;
 
+		Matrix4x4 PrevWorldTransform;
 		Matrix4x4 WorldTransform;
 	};
 }

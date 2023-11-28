@@ -197,55 +197,55 @@ namespace Engine
 		d->PrevjitterX = d->jitterX;
 		d->PrevjitterY = d->jitterY;
 
-		//static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
-		//	{
-		//		float f = 1.0f, result = 0.0f;
+		static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
+		{
+			float f = 1.0f, result = 0.0f;
 
-		//		for (uint32_t i = index; i > 0;)
-		//		{
-		//			f /= static_cast<float>(base);
-		//			result = result + f * static_cast<float>(i % base);
-		//			i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
-		//		}
+			for (uint32_t i = index; i > 0;)
+			{
+				f /= static_cast<float>(base);
+				result = result + f * static_cast<float>(i % base);
+				i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
+			}
 
-		//		return result;
-		//	};
+			return result;
+		};
 
-		//sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
+		sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
 
-		//
-		//d->jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
-		//d->jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
-
-		//d->jitterX /= static_cast<float>(width);
-		//d->jitterY /= static_cast<float>(height);
-		++sampleIndex;
-
-		float u1 = Halton(sampleIndex, 2);
-		float u2 = Halton(sampleIndex, 3);
-
-		// Generates samples in normal distribution
-		// exp( x^2 / Sigma^2 )
-		float FilterSize = 1;
-
-		// Scale distribution to set non-unit variance
-		// Variance = Sigma^2
-		float Sigma = 0.47f * FilterSize;
-
-		// Window to [-0.5, 0.5] output
-		// Without windowing we could generate samples far away on the infinite tails.
-		float OutWindow = 0.5f;
-		float InWindow = std::exp(-0.5f * (float)std::pow(OutWindow / Sigma, 2));
-
-		// Box-Muller transform
-		float Theta = 2.0f * MATH_PI * u2;
-		float r = Sigma * std::sqrt(-2.0f * std::log((1.0f - u1) * InWindow + u1));
-
-		d->jitterX = r * std::cos(Theta) * 2.0f;
-		d->jitterY = r * std::sin(Theta) * -2.0f;
+		
+		d->jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
+		d->jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
 
 		d->jitterX /= static_cast<float>(width);
 		d->jitterY /= static_cast<float>(height);
+		//++sampleIndex;
+
+		//float u1 = Halton(sampleIndex, 2);
+		//float u2 = Halton(sampleIndex, 3);
+
+		//// Generates samples in normal distribution
+		//// exp( x^2 / Sigma^2 )
+		//float FilterSize = 1;
+
+		//// Scale distribution to set non-unit variance
+		//// Variance = Sigma^2
+		//float Sigma = 0.47f * FilterSize;
+
+		//// Window to [-0.5, 0.5] output
+		//// Without windowing we could generate samples far away on the infinite tails.
+		//float OutWindow = 0.5f;
+		//float InWindow = std::exp(-0.5f * (float)std::pow(OutWindow / Sigma, 2));
+
+		//// Box-Muller transform
+		//float Theta = 2.0f * MATH_PI * u2;
+		//float r = Sigma * std::sqrt(-2.0f * std::log((1.0f - u1) * InWindow + u1));
+
+		//d->jitterX = r * std::cos(Theta) * 2.0f;
+		//d->jitterY = r * std::sin(Theta) * -2.0f;
+
+		//d->jitterX /= static_cast<float>(width);
+		//d->jitterY /= static_cast<float>(height);
 
 	}
 

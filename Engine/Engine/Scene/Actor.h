@@ -54,6 +54,7 @@ namespace Engine
 
 		void ComputeWorldTransform(float deltaTime);
 		const math::Matrix4x4& GetWorldTransform() const;
+		const math::Matrix4x4& GetPrevWorldTransform() const;
 
 		AState GetState() const;
 		void SetState(AState state);

@@ -11,6 +11,13 @@ namespace Engine
 
 	struct GltfMeshComponentP;
 
+	struct GltfSceneMeshInfo
+	{
+		std::vector<std::shared_ptr<GltfMesh>> Meshes;
+		math::Matrix4x4 WorldTransform;
+		math::Matrix4x4 PrevWorldTransform;
+	};
+
 	class GltfMeshComponent : public Component
 	{
 	public:
@@ -26,7 +33,7 @@ namespace Engine
 		virtual void Tick(float deltaTime) override;
 		virtual void OnUpdateWorldTransform(float deltaTime) override;
 
-		bool GatherMesh(std::vector<std::shared_ptr<GltfMesh>>& Meshes, math::Matrix4x4& WorldTransform, std::shared_ptr<CameraComponent> Camera);
+		bool GatherMesh(GltfSceneMeshInfo & SceneMeshInfo, std::shared_ptr<CameraComponent> Camera);
 	private:
 		std::shared_ptr< GltfMeshComponentP> Impl;
 	};

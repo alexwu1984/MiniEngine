@@ -47,10 +47,8 @@ namespace Engine
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
 		std::wstring TAAShaderPath = ShaderPath +  L"TAA.hlsl";
 
-		d->TAAFirst = d->RHI->RHICreateComputeShader(TAAShaderPath, "first", {});
-		d->TAAMain = d->RHI->RHICreateComputeShader(TAAShaderPath, "main", {});
-		//d->TAAFirst = d->RHI->RHICreateComputeShader(TAAShaderPath, "TAA_First", {});
-		//d->TAAMain = d->RHI->RHICreateComputeShader(TAAShaderPath, "TAA_Main", {});
+		d->TAAFirst = d->RHI->RHICreateComputeShader(TAAShaderPath, "TAA_First", {});
+		d->TAAMain = d->RHI->RHICreateComputeShader(TAAShaderPath, "TAA_Main", {});
 
 		std::wstring TAASharpenerShaderPath = ShaderPath + L"TAASharpenerCS.hlsl";
 		d->TAASharpener = d->RHI->RHICreateComputeShader(TAASharpenerShaderPath, "mainCS", {});
@@ -82,6 +80,8 @@ namespace Engine
 			d->TAAOutUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
 		}
 
+		uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
+		uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
 
 		if (d->First)
 		{
@@ -92,9 +92,6 @@ namespace Engine
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampPointSampler);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
 			RHIContext.RHISetUAVParameter(0, d->TAAOutUAV);
-
-			uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
-			uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
 
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 
@@ -120,11 +117,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 3, TargetBuffer->GetMotionVector());
 			RHIContext.RHISetUAVParameter(0, d->TAAOutUAV);
 
-			uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
-			uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
-
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
-
 			RHIContext.RHICopyResource(d->TAAOutTex, d->TAAOutUAV->GetTexture2D());
 		}
 
@@ -142,8 +135,6 @@ namespace Engine
 			RHIContext.RHISetUAVParameter(0, d->SceneUAV);
 			RHIContext.RHISetUAVParameter(1, d->HistoryUAV);
 
-			uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
-			uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 
 			RHIContext.RHICopyResource(SceneColor, d->SceneUAV->GetTexture2D());

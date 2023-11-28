@@ -48,6 +48,7 @@ namespace Engine
 		float				IBLMIpCount{ 1.f };
 		int32_t				LightCount{ 0 };
 		int32_t				Padding;
+		math::Vector4		TemporalAAJitter{1.f, 1.f, 1.f, 1.f};
 		Light				Lights[MAX_LIGHT_INSTANCES];
 	};
 

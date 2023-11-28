@@ -4,6 +4,7 @@
 #include "App/AppWindow.h"
 #include "Scene/Actor.h"
 #include "Scene/SceneView.h"
+#include "math/vector2.h"
 
 namespace Engine
 {
@@ -39,7 +40,7 @@ namespace Engine
 		math::Matrix4x4 ViewMatrix = math::Matrix4x4::MatrixLookAtLH(CameraPos, Target, Up);
 		SetViewMatrix(ViewMatrix);
 		UpdateFrustum(CameraPos, Vector3(Vector3::UnitZ).Normalize(), Up);
-
+		
 		auto AppWin = GEngine->GetAppWindow();
 		auto Width = AppWin->GetWidth();
 		auto Height = AppWin->GetHeight();
@@ -54,6 +55,7 @@ namespace Engine
 		d->PreviousView = d->View;
 		d->View = view;
 		d->Aspect = (float)AppWin->GetWidth() / (float)AppWin->GetHeight();
+		d->PrevProjMatrix = d->ProjMatrix;
 		d->ProjMatrix = Matrix4x4::MatrixPerspectiveFovLH(d->FovVertical, d->Aspect, d->Near, d->Far);
 	}
 
@@ -85,6 +87,12 @@ namespace Engine
 	{
 		C_P(const CameraComponent);
 		return d->ProjMatrix;
+	}
+
+	Vector4 CameraComponent::GetTemporalAAJitter() const
+	{
+		C_P(const CameraComponent);
+		return Vector4(d->jitterX, d->jitterY, d->PrevjitterX, d->PrevjitterY);
 	}
 
 	void CameraComponent::UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up)
@@ -165,37 +173,104 @@ namespace Engine
 	void CameraComponent::SetProjectionJitter(float jitterX, float jitterY)
 	{
 		C_P(CameraComponent);
-		auto Row2 = d->ProjMatrix[2];
-		Row2.x = jitterX;
-		Row2.y = jitterY;
-		d->ProjMatrix[2] = Row2;
+		d->ProjMatrix[2].x += jitterX;
+		d->ProjMatrix[2].y += jitterY;
+	}
+
+	inline float Halton(int32_t Index, int32_t Base)
+	{
+		float Result = 0.0f;
+		float InvBase = 1.0f / Base;
+		float Fraction = InvBase;
+		while (Index > 0)
+		{
+			Result += (Index % Base) * Fraction;
+			Index /= Base;
+			Fraction *= InvBase;
+		}
+		return Result;
 	}
 
 	void CameraComponent::SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex)
 	{
-		static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
-			{
-				float f = 1.0f, result = 0.0f;
+		C_P(CameraComponent);
+		d->PrevjitterX = d->jitterX;
+		d->PrevjitterY = d->jitterY;
 
-				for (uint32_t i = index; i > 0;)
-				{
-					f /= static_cast<float>(base);
-					result = result + f * static_cast<float>(i % base);
-					i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
-				}
+		//static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
+		//	{
+		//		float f = 1.0f, result = 0.0f;
 
-				return result;
-			};
+		//		for (uint32_t i = index; i > 0;)
+		//		{
+		//			f /= static_cast<float>(base);
+		//			result = result + f * static_cast<float>(i % base);
+		//			i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
+		//		}
 
-		sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
+		//		return result;
+		//	};
 
-		float jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
-		float jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
+		//sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
 
-		jitterX /= static_cast<float>(width);
-		jitterY /= static_cast<float>(height);
+		//
+		//d->jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
+		//d->jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
 
-		SetProjectionJitter(jitterX, jitterY);
+		//d->jitterX /= static_cast<float>(width);
+		//d->jitterY /= static_cast<float>(height);
+		++sampleIndex;
+
+		float u1 = Halton(sampleIndex, 2);
+		float u2 = Halton(sampleIndex, 3);
+
+		// Generates samples in normal distribution
+		// exp( x^2 / Sigma^2 )
+		float FilterSize = 1;
+
+		// Scale distribution to set non-unit variance
+		// Variance = Sigma^2
+		float Sigma = 0.47f * FilterSize;
+
+		// Window to [-0.5, 0.5] output
+		// Without windowing we could generate samples far away on the infinite tails.
+		float OutWindow = 0.5f;
+		float InWindow = std::exp(-0.5f * (float)std::pow(OutWindow / Sigma, 2));
+
+		// Box-Muller transform
+		float Theta = 2.0f * MATH_PI * u2;
+		float r = Sigma * std::sqrt(-2.0f * std::log((1.0f - u1) * InWindow + u1));
+
+		d->jitterX = r * std::cos(Theta) * 2.0f;
+		d->jitterY = r * std::sin(Theta) * -2.0f;
+
+		d->jitterX /= static_cast<float>(width);
+		d->jitterY /= static_cast<float>(height);
+
+	}
+
+	math::Matrix4x4 CameraComponent::HackAddTemporalAAProjectionJitter(bool PrevFrame /*= false*/)
+	{
+		C_P(CameraComponent);
+		math::Matrix4x4 ProjectMatrix;
+		math::Vector2 TemporalAAProjectionJitter;
+		if (PrevFrame)
+		{
+			ProjectMatrix = d->PrevProjMatrix;
+			TemporalAAProjectionJitter.x = d->PrevjitterX;
+			TemporalAAProjectionJitter.y = d->PrevjitterY;
+		}
+		else
+		{
+			ProjectMatrix = d->ProjMatrix;
+			TemporalAAProjectionJitter.x = d->jitterX;
+			TemporalAAProjectionJitter.y = d->jitterY;
+		}
+
+		ProjectMatrix.r2[0] += TemporalAAProjectionJitter.x;
+		ProjectMatrix.r2[1] += TemporalAAProjectionJitter.y;
+
+		return ProjectMatrix;
 	}
 
 }

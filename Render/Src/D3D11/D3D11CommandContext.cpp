@@ -546,7 +546,6 @@ namespace RenderCore
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		Impl->D3D11RHI->GetDeviceContext()->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
-		Impl->D3D11RHI->GetDeviceContext()->Flush();
 		StateCache.SetComputeShader(nullptr);
 	}
 

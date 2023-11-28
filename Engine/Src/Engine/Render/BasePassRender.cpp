@@ -144,10 +144,11 @@ namespace Engine
 		MaterialRenderParam RenderParam;
 		RenderParam.CameraPos = Camera->GetCameraPos();
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
-		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
+		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(false);
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
-		RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->GetProjMatrix();
+		RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(true);
 		RenderParam.PrevViewProjInverseMatrix = RenderParam.PrevViewProjMatrix.Inverse();
+		RenderParam.TemporalAAJitter = Camera->GetTemporalAAJitter();
 		RenderParam.HasSkin = Mesh->HasSkin();
 		RenderParam._PreProcessor = GEngine->GetSceneRender()->GetPreProcessor();
 

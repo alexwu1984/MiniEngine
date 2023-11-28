@@ -9,11 +9,16 @@ namespace Engine
 		math::Matrix4x4 View;
 		math::Matrix4x4 PreviousView;
 		math::Vector3  CameraPos{0.f,0.f,0.f};
+		math::Matrix4x4 PrevProjMatrix;
 		math::Matrix4x4 ProjMatrix;
 		float FovVertical = math::MATH_PI / 4.f;
 		float Near = 0.1f;
 		float Far = 1000.f;
 		float Aspect = 1.0f;
+		float jitterX = 0.f;
+		float jitterY = 0.f;
+		float PrevjitterX = 0.f;
+		float PrevjitterY = 0.f;
 		math::Frustum Frustum;
 	};
 }

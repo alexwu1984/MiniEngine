@@ -54,6 +54,7 @@ struct PerFrame
     float         IBLMIpCount;
     int           LightCount;
     int           Padding;
+    float4        TemporalAAJitter;
     Light         Lights[MAX_LIGHT_INSTANCES];
 };
 

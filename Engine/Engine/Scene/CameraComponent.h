@@ -25,12 +25,15 @@ namespace Engine
 		math::Vector3 GetCameraPos() const;
 	 
 		math::Matrix4x4 GetProjMatrix() const;
+		math::Vector4 GetTemporalAAJitter() const;
 
 		void UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up);
 		const math::Frustum& GetFrustum() const;
 
 		void SetProjectionJitter(float jitterX, float jitterY);
 		void SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex);
+
+		math::Matrix4x4 HackAddTemporalAAProjectionJitter( bool PrevFrame = false);
 
 	protected:
 		CameraComponentPrivate* d_ptr;

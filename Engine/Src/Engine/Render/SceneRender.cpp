@@ -146,7 +146,7 @@ namespace Engine
 
 			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer() };
 			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
-			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Gray, 1.f, 0);
+			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
 			});
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {

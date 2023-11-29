@@ -546,7 +546,14 @@ namespace RenderCore
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		Impl->D3D11RHI->GetDeviceContext()->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+		for (int32_t slot = 0; slot < 8; ++slot)
+		{
+			ID3D11UnorderedAccessView* nullUAV = nullptr;
+			Impl->D3D11RHI->GetDeviceContext()->CSSetUnorderedAccessViews(slot, 1, &nullUAV, nullptr);
+		}
+
 		StateCache.SetComputeShader(nullptr);
+		
 	}
 
 	void D3D11CommandContext::RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex)

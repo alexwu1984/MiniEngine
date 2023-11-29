@@ -162,7 +162,7 @@ void TAA_Main(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThre
 
     const float2 velocity = GetClosestVelocity(uv, texelSize, isSkyPixel);
     //const float boxSize = lerp(0.5f, 2.5f, isSkyPixel ? 0.0f : smoothstep(0.02f, 0.0f, length(velocity)));
-    const float boxSize = 1.25;//from UE4
+    const float boxSize = 1.25; //from UE4 ComputeNeighborhoodBoundingbox
     // Reproject and clamp to bounding box
     const float3 nmin = ex - dev * boxSize;
     const float3 nmax = ex + dev * boxSize;

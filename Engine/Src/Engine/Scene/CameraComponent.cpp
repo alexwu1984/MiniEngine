@@ -170,27 +170,6 @@ namespace Engine
 		return d->Frustum;
 	}
 
-	void CameraComponent::SetProjectionJitter(float jitterX, float jitterY)
-	{
-		C_P(CameraComponent);
-		d->ProjMatrix[2].x += jitterX;
-		d->ProjMatrix[2].y += jitterY;
-	}
-
-	inline float Halton(int32_t Index, int32_t Base)
-	{
-		float Result = 0.0f;
-		float InvBase = 1.0f / Base;
-		float Fraction = InvBase;
-		while (Index > 0)
-		{
-			Result += (Index % Base) * Fraction;
-			Index /= Base;
-			Fraction *= InvBase;
-		}
-		return Result;
-	}
-
 	void CameraComponent::SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex)
 	{
 		C_P(CameraComponent);
@@ -219,33 +198,6 @@ namespace Engine
 
 		d->jitterX /= static_cast<float>(width);
 		d->jitterY /= static_cast<float>(height);
-		//++sampleIndex;
-
-		//float u1 = Halton(sampleIndex, 2);
-		//float u2 = Halton(sampleIndex, 3);
-
-		//// Generates samples in normal distribution
-		//// exp( x^2 / Sigma^2 )
-		//float FilterSize = 1;
-
-		//// Scale distribution to set non-unit variance
-		//// Variance = Sigma^2
-		//float Sigma = 0.47f * FilterSize;
-
-		//// Window to [-0.5, 0.5] output
-		//// Without windowing we could generate samples far away on the infinite tails.
-		//float OutWindow = 0.5f;
-		//float InWindow = std::exp(-0.5f * (float)std::pow(OutWindow / Sigma, 2));
-
-		//// Box-Muller transform
-		//float Theta = 2.0f * MATH_PI * u2;
-		//float r = Sigma * std::sqrt(-2.0f * std::log((1.0f - u1) * InWindow + u1));
-
-		//d->jitterX = r * std::cos(Theta) * 2.0f;
-		//d->jitterY = r * std::sin(Theta) * -2.0f;
-
-		//d->jitterX /= static_cast<float>(width);
-		//d->jitterY /= static_cast<float>(height);
 
 	}
 

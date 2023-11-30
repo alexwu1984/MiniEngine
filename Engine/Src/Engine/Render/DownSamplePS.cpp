@@ -13,6 +13,8 @@
 
 namespace Engine
 {
+	using namespace RenderCore;
+
 	BEGIN_SHADER_STRUCT(DownSampleParam, 0)
 		DECLARE_PARAM(math::Vector2, InvSize)
 		DECLARE_PARAM(int32_t, MipLevel)
@@ -21,7 +23,7 @@ namespace Engine
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
 
-	using namespace RenderCore;
+	
 	struct DownSamplePSPrivate
 	{
 		DynamicRHI* RHI = nullptr;

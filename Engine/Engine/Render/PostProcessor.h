@@ -5,6 +5,7 @@ namespace RenderCore
 {
 	class RHICommandContext;
 	class DynamicRHI;
+	class RHIViewPort;
 }
 
 namespace Engine
@@ -19,7 +20,7 @@ namespace Engine
 		~PostProcessor();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 	private:
 		void Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
 	private:

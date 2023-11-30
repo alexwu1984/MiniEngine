@@ -24,26 +24,6 @@ namespace RenderCore
 
 	}
 
-	bool D3D11RenderTarget::CreateWithTexture(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth)
-	{
-		if (!Tex)
-		{
-			return false;
-		}
-		Data->Tex2D = std::shared_ptr<D3D11Texture2D>(Tex, RHIResourceCast(Tex.get()));
-		if (CreateDepth)
-		{
-			Data->DepthTex = std::make_shared<D3D11Texture2D>(Data->D3D11RHI);
-			int32_t Flags = ETextureCreateFlags::TexCreate_DepthStencilTargetable;
-			if (Tex->IsMultisampled())
-			{
-				Flags |= ETextureCreateFlags::TexCreate_MSAA;
-			}
-
-			return Data->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, Tex->GetSize().x, Tex->GetSize().y);
-		}
-		return true;
-	}
 
 	bool D3D11RenderTarget::Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth)
 	{

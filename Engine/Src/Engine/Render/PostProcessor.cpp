@@ -5,9 +5,12 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIViewPort.h"
 #include "Engine/Engine.h"
 #include "Render/GBuffer.h"
 #include "Render/TemporalAA.h"
+#include "Render/DownSamplePS.h"
+#include "Render/RenderUtil.h"
 
 namespace Engine
 {
@@ -18,6 +21,7 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< TemporallAA> TAA;
+		std::shared_ptr< DownSamplePS> DownSample;
 	};
 
 	PostProcessor::PostProcessor(RenderCore::DynamicRHI* RHI)
@@ -43,30 +47,24 @@ namespace Engine
 
 		d->TAA = std::make_shared<TemporallAA>(d->RHI);
 		d->TAA->InitResource();
+		d->DownSample = std::make_shared<DownSamplePS>(d->RHI);
+		d->DownSample->InitResource();
 	}
 
-	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
+	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);
+		ViewPort->SetRenderTarget();
 		d->TAA->Draw(RHIContext, TargetBuffer);
+		d->DownSample->Draw(RHIContext, TargetBuffer);
+		ViewPort->SetRenderTarget();
 		Tonemapping(RHIContext, TargetBuffer);
 	}
 
 	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(PostProcessor);
-		GraphicsPipelineStateInitializer Init;
-		Init.VertexShader = d->VertexShader;
-		Init.PixelShader = d->PixelShader;
-
-		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
-		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
-
-		RHIContext.RHISetGraphicsPipelineState(Init);
-		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
-		RHIContext.Draw(3);
+		RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
 	}
 
 }

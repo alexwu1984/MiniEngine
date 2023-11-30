@@ -298,19 +298,6 @@ namespace RenderCore
 		return nullptr;
 	}
 
-	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(std::shared_ptr< RHITexture2D> Tex, bool CreateDepth)
-	{
-		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);
-		if (RenderTargetRHI->CreateWithTexture(Tex,CreateDepth))
-		{
-			return RenderTargetRHI;
-		}
-		else
-		{
-			return nullptr;
-		}
-	}
-
 	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth)
 	{
 		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);

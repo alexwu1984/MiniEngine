@@ -181,10 +181,9 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI)
 			{
-				d->MainViewPort->SetRenderTarget();
 				if (d->PostProcess)
 				{
-					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer);
+					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer,d->MainViewPort);
 				}
 		});
 

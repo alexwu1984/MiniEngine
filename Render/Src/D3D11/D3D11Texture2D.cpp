@@ -72,11 +72,12 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
+	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, uint32_t NumMips, 
+		void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
 		C_P(D3D11Texture2D);
 
-		return CreateD3D11Texture2D(Format,Flags,SizeX,SizeY,SizeZ,false,1, InBuffer,RowBytes);
+		return CreateD3D11Texture2D(Format,Flags,SizeX,SizeY,SizeZ,false, NumMips, InBuffer,RowBytes);
 	}
 
 	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, 
@@ -382,7 +383,7 @@ namespace RenderCore
 		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
 		if (ImageBuffer)
 		{
-			return CreateD3D11Texture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
+			return CreateD3D11Texture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
 		}
 		return false;
 	}

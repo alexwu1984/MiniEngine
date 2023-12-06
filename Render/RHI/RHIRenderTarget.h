@@ -12,7 +12,7 @@ namespace RenderCore
 		RHIRenderTarget() = default;
 		virtual ~RHIRenderTarget() {}
 
-		virtual bool Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth) = 0;
+		virtual bool Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth) = 0;
 
 		virtual void Bind() = 0;
 		virtual void UnBind() = 0;

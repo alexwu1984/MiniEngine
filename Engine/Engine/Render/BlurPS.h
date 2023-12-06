@@ -15,6 +15,7 @@ namespace Engine
 
 	class BlurPS
 	{
+	public:
 		BlurPS(RenderCore::DynamicRHI* RHI);
 		~BlurPS();
 

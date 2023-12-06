@@ -30,6 +30,7 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< RHIRenderTarget> DownSampleTarget;
+		int32_t MipLevel = 5;
 
 		DownSamplePSPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(DownSampleParam)(_RHI)
@@ -69,7 +70,7 @@ namespace Engine
 		if (!d->DownSampleTarget)
 		{
 			d->DownSampleTarget = d->RHI->RHICreateRenderTarget(SceneColor->GetPixelFormat(),
-				SceneColor->GetSize().cx, SceneColor->GetSize().cy, false, true);
+				SceneColor->GetSize().cx, SceneColor->GetSize().cy,1, false, true);
 		}
 
 		RHIContext.SetRenderTarget(d->DownSampleTarget);

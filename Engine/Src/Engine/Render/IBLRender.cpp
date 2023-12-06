@@ -352,7 +352,7 @@ namespace Engine
 			}
 		}
 
-		d->PreBRDF = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, RenderCore::TexCreate_ShaderResource, width, height, ImageData.data());
+		d->PreBRDF = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, RenderCore::TexCreate_ShaderResource, width, height,1, ImageData.data());
 	}
 
 	void IBLRender::InitShader()

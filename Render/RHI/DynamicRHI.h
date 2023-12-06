@@ -61,7 +61,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(uint32_t ConstantBufferSize) = 0;
 		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize) = 0;
 
-		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, void* pBuffer = nullptr, int rowBytes = 0) = 0;
+		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height,uint32_t NumMips, void* pBuffer = nullptr, int rowBytes = 0) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const core::FLinearColor& Color) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName) = 0;
@@ -70,7 +70,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIUnorderedAccessView> RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY) = 0;
 		virtual std::shared_ptr< RHIUnorderedAccessView> RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D) = 0;
 
-		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth) = 0;
+		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips,bool IsMultiSampled, bool CreateDepth) = 0;
 
 		virtual std::shared_ptr< RHIVertexShader> RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines ) = 0;
 		virtual std::shared_ptr< RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) = 0;

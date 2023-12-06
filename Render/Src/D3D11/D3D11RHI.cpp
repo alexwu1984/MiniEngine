@@ -199,10 +199,10 @@ namespace RenderCore
 		}
 	}
 
-	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
+	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, uint32_t NumMips, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
-		if (Tex2DRHI->CreateD3D11Texture2D(Format, Flags, SizeX, SizeY,1, InBuffer, RowBytes))
+		if (Tex2DRHI->CreateD3D11Texture2D(Format, Flags, SizeX, SizeY,1, NumMips, InBuffer, RowBytes))
 		{
 			return Tex2DRHI;
 		}
@@ -229,7 +229,7 @@ namespace RenderCore
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
 		uint8_t tmp[] = { (uint8_t)(Color.R * 255),(uint8_t)(Color.G * 255),(uint8_t)(Color.B * 255),(uint8_t)(Color.A * 255) };
-		if (Tex2DRHI->CreateD3D11Texture2D(EPixelFormat::PF_B8G8R8A8,ETextureCreateFlags::TexCreate_ShaderResource,1,1,1,tmp,4))
+		if (Tex2DRHI->CreateD3D11Texture2D(EPixelFormat::PF_B8G8R8A8,ETextureCreateFlags::TexCreate_ShaderResource,1,1,1,1,tmp,4))
 		{
 			return Tex2DRHI;
 		}
@@ -280,7 +280,7 @@ namespace RenderCore
 
 	std::shared_ptr<RHIUnorderedAccessView> D3D11DynamicRHI::RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
 	{
-		std::shared_ptr< RHITexture2D> Tex2D = RHICreateTexture2D(Format, ETextureCreateFlags::TexCreate_UAV|ETextureCreateFlags::TexCreate_ShaderResource, SizeX, SizeY);
+		std::shared_ptr< RHITexture2D> Tex2D = RHICreateTexture2D(Format, ETextureCreateFlags::TexCreate_UAV|ETextureCreateFlags::TexCreate_ShaderResource, SizeX, SizeY,1);
 		if (!Tex2D)
 		{
 			return nullptr;
@@ -298,10 +298,10 @@ namespace RenderCore
 		return nullptr;
 	}
 
-	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth)
+	std::shared_ptr< RHIRenderTarget> D3D11DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth)
 	{
 		std::shared_ptr<D3D11RenderTarget> RenderTargetRHI = std::make_shared<D3D11RenderTarget>(this);
-		if (RenderTargetRHI->Create(Format, SizeX,SizeY,IsMultiSampled, CreateDepth))
+		if (RenderTargetRHI->Create(Format, SizeX,SizeY, NumMips,IsMultiSampled, CreateDepth))
 		{
 			return RenderTargetRHI;
 		}

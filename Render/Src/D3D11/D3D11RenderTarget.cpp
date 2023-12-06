@@ -5,97 +5,122 @@
 
 namespace RenderCore
 {
-	struct D3D11RenderTargetP
+	struct D3D11RenderTargetPrivate
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		std::shared_ptr< D3D11Texture2D> Tex2D;
 		std::shared_ptr< D3D11Texture2D> DepthTex;
+
+		D3D11RenderTargetPrivate(D3D11DynamicRHI* RHI) :
+			D3D11RHI(RHI)
+		{
+
+		}
 	};
 
 	D3D11RenderTarget::D3D11RenderTarget(D3D11DynamicRHI* D3D11RHI)
-		:Data(std::make_shared<D3D11RenderTargetP>())
+		:d_ptr(new D3D11RenderTargetPrivate(D3D11RHI))
 
 	{
-		Data->D3D11RHI = D3D11RHI;
+		
 	}
 
 	D3D11RenderTarget::~D3D11RenderTarget()
 	{
-
+		delete d_ptr;
 	}
 
 
-	bool D3D11RenderTarget::Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool IsMultiSampled, bool CreateDepth)
+	bool D3D11RenderTarget::Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth)
 	{
-		Data->Tex2D = std::make_shared<D3D11Texture2D>(Data->D3D11RHI);
+		C_P(D3D11RenderTarget);
+		d->Tex2D = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
 		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable;
 		if (IsMultiSampled)
 		{
 			Flags |= ETextureCreateFlags::TexCreate_MSAA;
 		}
 
-		if (!Data->Tex2D->CreateD3D11Texture2D(Format, Flags,SizeX,SizeY))
+		if (!d->Tex2D->CreateD3D11Texture2D(Format, Flags,SizeX,SizeY,1, NumMips))
 		{
 			return false;
 		}
 		if (CreateDepth)
 		{
-			Data->DepthTex = std::make_shared<D3D11Texture2D>(Data->D3D11RHI);
+			d->DepthTex = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
 			Flags = ETextureCreateFlags::TexCreate_DepthStencilTargetable;
 			if (IsMultiSampled)
 			{
 				Flags |= ETextureCreateFlags::TexCreate_MSAA;
 			}
 
-			return Data->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
+			return d->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
 		}
 		return true;
 	}
 
 	void D3D11RenderTarget::Bind()
 	{
-		Data->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(Data->Tex2D,Data->DepthTex);
+		C_P(D3D11RenderTarget);
+		d->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(d->Tex2D,d->DepthTex);
 	}
 
 	void D3D11RenderTarget::UnBind()
 	{
-		Data->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(nullptr, nullptr);
+		C_P(D3D11RenderTarget);
+		d->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(nullptr, nullptr);
 	}
 
 	ID3D11Texture2D* D3D11RenderTarget::GetNativeTex() const
 	{
-		if (!Data->Tex2D)
+		C_P(D3D11RenderTarget);
+		if (!d->Tex2D)
 		{
 			return nullptr;
 		}
-		return Data->Tex2D->GetNativeTex();
+		return d->Tex2D->GetNativeTex();
 	}
 
 	ID3D11RenderTargetView* D3D11RenderTarget::GetRTV() const
 	{
-		if (!Data->Tex2D)
+		C_P(const D3D11RenderTarget);
+		if (!d->Tex2D)
 		{
 			return nullptr;
 		}
-		return Data->Tex2D->GetRTV();
+		return d->Tex2D->GetRTV();
 	}
 
 	ID3D11ShaderResourceView* D3D11RenderTarget::GetSRV() const
 	{
-		if (!Data->Tex2D)
+		C_P(const D3D11RenderTarget);
+		if (!d->Tex2D)
 		{
 			return nullptr;
 		}
-		return Data->Tex2D->GetSRV();
+		return d->Tex2D->GetSRV();
 	}
 
 	ID3D11DepthStencilView* D3D11RenderTarget::GetDSV() const
 	{
-		if (!Data->DepthTex)
+		C_P(const D3D11RenderTarget);
+		if (!d->DepthTex)
 		{
 			return nullptr;
 		}
-		return Data->DepthTex->GetDSV();
+		return d->DepthTex->GetDSV();
+	}
+
+	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> D3D11RenderTarget::GetRTVS() const
+	{
+		C_P(const D3D11RenderTarget);
+		return d->Tex2D->GetRTVS();
+	}
+
+	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& D3D11RenderTarget::GetRTVS()
+	{
+		C_P(const D3D11RenderTarget);
+		return d->Tex2D->GetRTVS();
 	}
 
 }

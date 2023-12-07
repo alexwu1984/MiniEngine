@@ -55,9 +55,11 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 		ViewPort->SetRenderTarget();
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		d->TAA->Draw(RHIContext, TargetBuffer);
 		d->DownSample->Draw(RHIContext, TargetBuffer);
 		ViewPort->SetRenderTarget();
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		Tonemapping(RHIContext, TargetBuffer);
 	}
 

@@ -129,12 +129,13 @@ namespace RenderCore
 		}
 	}
 
-	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget)
+	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget, int32_t IndexMip )
 	{
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
 		if (RenderTargetRHI)
 		{
-			auto RTV = RenderTargetRHI->GetRTV();
+			auto&  RTVS = RenderTargetRHI->GetRTVS();
+			auto RTV = RTVS[IndexMip][0];
 			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RTV, RenderTargetRHI->GetDSV());
 		}
 		else

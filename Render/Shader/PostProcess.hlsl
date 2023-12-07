@@ -59,7 +59,7 @@ float4 PS_DownSample(in VertexOutput Input) : SV_Target0
     else
     {
         for (int i = 0; i < 9; i++)
-            color += SceneColorTexture.Sample(LinearSampler, Input.Tex + (2 * u_invSize * offsets[i]));
+            color += SceneColorTexture.SampleLevel(LinearSampler, Input.Tex + (2 * u_invSize * offsets[i]), u_mipLevel);
         return color / 9.0f;
     }
 }

@@ -16,5 +16,7 @@ namespace RenderCore
 
 		virtual void Bind() = 0;
 		virtual void UnBind() = 0;
+
+		virtual std::shared_ptr< RHITexture2D> GetTex() const = 0;
 	};
 }

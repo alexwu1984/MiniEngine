@@ -27,6 +27,8 @@ namespace RenderCore
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> GetRTVS() const;
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& GetRTVS();
 
+		virtual std::shared_ptr< RHITexture2D> GetTex() const;
+
 	private:
 		D3D11RenderTargetPrivate* d_ptr = nullptr;
 	};

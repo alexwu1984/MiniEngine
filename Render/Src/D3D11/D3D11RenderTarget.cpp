@@ -35,7 +35,11 @@ namespace RenderCore
 	{
 		C_P(D3D11RenderTarget);
 		d->Tex2D = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
-		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable;
+		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
+		if (NumMips > 1)
+		{
+			Flags |= TexCreate_GenerateMipCapable;
+		}
 		if (IsMultiSampled)
 		{
 			Flags |= ETextureCreateFlags::TexCreate_MSAA;
@@ -121,6 +125,12 @@ namespace RenderCore
 	{
 		C_P(const D3D11RenderTarget);
 		return d->Tex2D->GetRTVS();
+	}
+
+	std::shared_ptr< RenderCore::RHITexture2D> D3D11RenderTarget::GetTex() const
+	{
+		C_P(const D3D11RenderTarget);
+		return d->Tex2D;
 	}
 
 }

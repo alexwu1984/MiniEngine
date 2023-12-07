@@ -31,6 +31,7 @@ namespace Engine
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< RHIRenderTarget> DownSampleTarget;
 		int32_t MipLevel = 5;
+		core::vec2i Size;
 
 		DownSamplePSPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(DownSampleParam)(_RHI)
@@ -67,22 +68,56 @@ namespace Engine
 		C_P(DownSamplePS);
 
 		auto SceneColor = TargetBuffer->GetSceneColor();
+		d->Size = SceneColor->GetSize();
 		if (!d->DownSampleTarget)
 		{
 			d->DownSampleTarget = d->RHI->RHICreateRenderTarget(SceneColor->GetPixelFormat(),
-				SceneColor->GetSize().cx, SceneColor->GetSize().cy,1, false, true);
+				d->Size.cx >> 1, d->Size.cy >> 1,d->MipLevel, false, true);
 		}
 
-		RHIContext.SetRenderTarget(d->DownSampleTarget);
+		for (int32_t IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)
+		{
 
-		auto Size = TargetBuffer->GetSceneColor()->GetSize();
-		d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float)Size.cx;
-		d->GET_UNIFORMDATA(DownSampleParam).InvSize.y = 1.f / (float)Size.cy;
-		d->GET_UNIFORMDATA(DownSampleParam).MipLevel = 1;
-		d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
-		d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer();
-		Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
-	}
+			RHIContext.SetRenderTarget(d->DownSampleTarget,IndexMip);
+			RHIContext.SetViewPort(0, 0, d->Size.cx >> (IndexMip + 1), d->Size.cy >> (IndexMip + 1));
+
+			d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float)(d->Size.cx >> 1);
+			d->GET_UNIFORMDATA(DownSampleParam).InvSize.y = 1.f / (float)(d->Size.cy >> 1);
+			d->GET_UNIFORMDATA(DownSampleParam).MipLevel = IndexMip;
+			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer();
+			//if (IndexMip == 0)
+			{
+				Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
+			}
+			//else
+			//{
+			//	Engine::RenderUtil::RenderFullQuad(RHIContext, d->DownSampleTarget->GetTex(), d->VertexShader, d->PixelShader);
+			//}
+			
+		}
+
+			//pCommandList->OMSetRenderTargets(1, &m_mip[i].m_RTV.GetCPU(), true, NULL);
+			//SetViewportAndScissor(pCommandList, 0, 0, m_Width >> (i + 1), m_Height >> (i + 1));
+
+			//cbDownscale data;
+			//data.mipLevel = i;
+			//data.invWidth = 1.0f / (float)(m_Width >> i);
+			//data.invHeight = 1.0f / (float)(m_Height >> i);
+			//D3D12_GPU_VIRTUAL_ADDRESS constantBuffer = m_pConstantBufferRing->AllocConstantBuffer(sizeof(cbDownscale), &data);
+
+			//if (i > 0)
+			//{
+			//	pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_result.GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, i - 1));
+			//}
+
+			//pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_result.GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, i));
+
+			//m_downscale.Draw(pCommandList, 1, &m_mip[i].m_SRV, constantBuffer);
+		}
+
+
+
 
 	std::shared_ptr< RHIRenderTarget> DownSamplePS::GetDownSampleTarget()
 	{

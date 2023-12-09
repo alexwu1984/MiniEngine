@@ -30,6 +30,7 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< RHIRenderTarget> DownSampleTarget;
+		std::shared_ptr< RHITexture2D> Tmp;
 		int32_t MipLevel = 5;
 		core::vec2i Size;
 
@@ -86,38 +87,10 @@ namespace Engine
 			d->GET_UNIFORMDATA(DownSampleParam).MipLevel = IndexMip;
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer();
-			//if (IndexMip == 0)
-			{
-				Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
-			}
-			//else
-			//{
-			//	Engine::RenderUtil::RenderFullQuad(RHIContext, d->DownSampleTarget->GetTex(), d->VertexShader, d->PixelShader);
-			//}
+			Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
 			
 		}
-
-			//pCommandList->OMSetRenderTargets(1, &m_mip[i].m_RTV.GetCPU(), true, NULL);
-			//SetViewportAndScissor(pCommandList, 0, 0, m_Width >> (i + 1), m_Height >> (i + 1));
-
-			//cbDownscale data;
-			//data.mipLevel = i;
-			//data.invWidth = 1.0f / (float)(m_Width >> i);
-			//data.invHeight = 1.0f / (float)(m_Height >> i);
-			//D3D12_GPU_VIRTUAL_ADDRESS constantBuffer = m_pConstantBufferRing->AllocConstantBuffer(sizeof(cbDownscale), &data);
-
-			//if (i > 0)
-			//{
-			//	pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_result.GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, i - 1));
-			//}
-
-			//pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_result.GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, i));
-
-			//m_downscale.Draw(pCommandList, 1, &m_mip[i].m_SRV, constantBuffer);
-		}
-
-
-
+	}
 
 	std::shared_ptr< RHIRenderTarget> DownSamplePS::GetDownSampleTarget()
 	{

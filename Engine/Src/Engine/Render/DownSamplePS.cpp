@@ -30,7 +30,6 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< RHIRenderTarget> DownSampleTarget;
-		std::shared_ptr< RHITexture2D> Tmp;
 		int32_t MipLevel = 5;
 		core::vec2i Size;
 
@@ -82,7 +81,7 @@ namespace Engine
 			RHIContext.SetRenderTarget(d->DownSampleTarget,IndexMip);
 			RHIContext.SetViewPort(0, 0, d->Size.cx >> (IndexMip + 1), d->Size.cy >> (IndexMip + 1));
 
-			d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float)(d->Size.cx >> 1);
+			d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float) (d->Size.cx >> 1);
 			d->GET_UNIFORMDATA(DownSampleParam).InvSize.y = 1.f / (float)(d->Size.cy >> 1);
 			d->GET_UNIFORMDATA(DownSampleParam).MipLevel = IndexMip;
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);

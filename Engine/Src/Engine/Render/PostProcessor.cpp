@@ -9,7 +9,7 @@
 #include "Engine/Engine.h"
 #include "Render/GBuffer.h"
 #include "Render/TemporalAA.h"
-#include "Render/DownSamplePS.h"
+#include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
 
 namespace Engine
@@ -21,7 +21,7 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< TemporallAA> TAA;
-		std::shared_ptr< DownSamplePS> DownSample;
+		std::shared_ptr< Bloom> BloomEffect;
 	};
 
 	PostProcessor::PostProcessor(RenderCore::DynamicRHI* RHI)
@@ -47,8 +47,8 @@ namespace Engine
 
 		d->TAA = std::make_shared<TemporallAA>(d->RHI);
 		d->TAA->InitResource();
-		d->DownSample = std::make_shared<DownSamplePS>(d->RHI);
-		d->DownSample->InitResource();
+		d->BloomEffect = std::make_shared<Bloom>(d->RHI);
+		d->BloomEffect->InitResource();
 	}
 
 	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RHIViewPort> ViewPort)
@@ -57,7 +57,7 @@ namespace Engine
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		d->TAA->Draw(RHIContext, TargetBuffer);
-		d->DownSample->Draw(RHIContext, TargetBuffer);
+		d->BloomEffect->Draw(RHIContext, TargetBuffer);
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		Tonemapping(RHIContext, TargetBuffer);

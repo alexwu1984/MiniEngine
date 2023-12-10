@@ -15,7 +15,7 @@ namespace RenderCore
 		virtual ~D3D11RenderTarget();
 
 		virtual bool Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips,bool IsMultiSampled, bool CreateDepth) override;
-
+		virtual core::vec2i GetSize() const override;
 		virtual void Bind() override;
 		virtual void UnBind() override;
 

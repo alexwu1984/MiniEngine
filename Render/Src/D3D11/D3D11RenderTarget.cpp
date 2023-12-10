@@ -10,6 +10,7 @@ namespace RenderCore
 		D3D11DynamicRHI* D3D11RHI = nullptr;
 		std::shared_ptr< D3D11Texture2D> Tex2D;
 		std::shared_ptr< D3D11Texture2D> DepthTex;
+		core::vec2i Size;
 
 		D3D11RenderTargetPrivate(D3D11DynamicRHI* RHI) :
 			D3D11RHI(RHI)
@@ -34,12 +35,13 @@ namespace RenderCore
 	bool D3D11RenderTarget::Create(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth)
 	{
 		C_P(D3D11RenderTarget);
+		d->Size = core::vec2i(SizeX, SizeY);
 		d->Tex2D = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
 		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
-		if (NumMips > 1)
-		{
-			Flags |= TexCreate_GenerateMipCapable;
-		}
+		//if (NumMips > 1)
+		//{
+		//	Flags |= TexCreate_GenerateMipCapable;
+		//}
 		if (IsMultiSampled)
 		{
 			Flags |= ETextureCreateFlags::TexCreate_MSAA;
@@ -61,6 +63,12 @@ namespace RenderCore
 			return d->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
 		}
 		return true;
+	}
+
+	core::vec2i D3D11RenderTarget::GetSize() const
+	{
+		C_P(D3D11RenderTarget);
+		return d->Size;
 	}
 
 	void D3D11RenderTarget::Bind()

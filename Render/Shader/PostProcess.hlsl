@@ -67,7 +67,8 @@ float4 PS_DownSample(in VertexOutput Input) : SV_Target0
 struct BlurParam
 {
     float2 u_dir;
-    float2 pad;
+    int u_mipLevel;
+    int pad;
 };
 
 cbuffer cbBlurParam : register(b0)
@@ -93,11 +94,11 @@ float4 PS_Blur(in VertexOutput Input) : SV_Target0
     //int s_lenght = 15; float s_coeffs[] = { 0.079656, 0.078085, 0.073554, 0.066578, 0.057908, 0.048399, 0.038870, 0.029997, 0.022245, 0.015852, 0.010854, 0.007142, 0.004516, 0.002743, 0.001602, }; // norm = 0.996347
     //int s_lenght = 16; float s_coeffs[] = { 0.074693, 0.073396, 0.069638, 0.063796, 0.056431, 0.048197, 0.039746, 0.031648, 0.024332, 0.018063, 0.012947, 0.008961, 0.005988, 0.003864, 0.002407, 0.001448, }; // norm = 0.996416
 
-    float4 accum = s_coeffs[0] * SceneColorTexture.Sample(LinearSampler, Input.Tex);
+    float4 accum = s_coeffs[0] * SceneColorTexture.SampleLevel(LinearSampler, Input.Tex, blureParam.u_mipLevel);
     for (int i = 1; i < s_lenght; i++)
     {
-        accum += s_coeffs[i] * SceneColorTexture.Sample(LinearSampler, Input.Tex + blureParam.u_dir * (float) i);
-        accum += s_coeffs[i] * SceneColorTexture.Sample(LinearSampler, Input.Tex - blureParam.u_dir * (float) i);
+        accum += s_coeffs[i] * SceneColorTexture.SampleLevel(LinearSampler, Input.Tex + blureParam.u_dir * (float) i, blureParam.u_mipLevel);
+        accum += s_coeffs[i] * SceneColorTexture.SampleLevel(LinearSampler, Input.Tex - blureParam.u_dir * (float) i, blureParam.u_mipLevel);
     }
 
     return accum;

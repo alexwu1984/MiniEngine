@@ -15,7 +15,7 @@ namespace Engine
 		Init.VertexShader = VertexShader;
 		Init.PixelShader = PixelShader;
 
-		Init.BlendState = RenderCore::RHICachedStates::BlendOnAlphaOff;
+		Init.BlendState = RenderCore::RHICachedStates::BlendTraditional;
 		Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 

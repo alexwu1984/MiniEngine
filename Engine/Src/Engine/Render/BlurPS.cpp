@@ -18,7 +18,8 @@ namespace Engine
 	struct BlurParam
 	{
 		math::Vector2 Dir;
-		math::Vector2 Pad;
+		int32_t MipLevel = 0;
+		int32_t pad = 0;
 	};
 
 	BEGIN_SHADER_STRUCT(CBBlurParam, 0)
@@ -72,13 +73,13 @@ namespace Engine
 		if (!d->BlurHorizontalTarget)
 		{
 			d->BlurHorizontalTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
-				d->Size.cx >> 1, d->Size.cy >> 1, d->MipLevel, false, true);
+				d->Size.cx , d->Size.cy , d->MipLevel, false, true);
 		}
 
 		if (!d->BlurVerticalTarget)
 		{
 			d->BlurVerticalTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
-				d->Size.cx >> 1, d->Size.cy >> 1, d->MipLevel, false, true);
+				d->Size.cx , d->Size.cy , d->MipLevel, false, true);
 		}
 
 		for (int IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)
@@ -98,6 +99,8 @@ namespace Engine
 	void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex, int32_t IndexMip)
 	{
 		C_P(BlurPS);
+		d->GET_UNIFORMDATA(CBBlurParam).Param.MipLevel = IndexMip == 0 ? 0 : IndexMip - 1;
+
 		{
 			RHIContext.SetRenderTarget(d->BlurHorizontalTarget, IndexMip);
 			RHIContext.SetViewPort(0, 0, d->Size.cx >> IndexMip, d->Size.cy >> IndexMip);

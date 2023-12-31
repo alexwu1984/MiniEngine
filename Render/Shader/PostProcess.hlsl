@@ -103,3 +103,13 @@ float4 PS_Blur(in VertexOutput Input) : SV_Target0
 
     return accum;
 }
+
+cbuffer cbBlendParam : register(b0)
+{
+    float u_weight;
+}
+
+float4 BlendPS(in VertexOutput Input) : SV_Target
+{
+    return u_weight * SceneColorTexture.Sample(LinearSampler, Input.Tex).rgba;
+}

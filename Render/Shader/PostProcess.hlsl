@@ -6,7 +6,15 @@ struct VertexOutput
     float4 Pos : SV_Position;
 };
 
+cbuffer BloomContants : register(b0)
+{
+    float BloomIntensity;
+    float BloomThreshold;
+    float2 BloomPad;
+};
+
 Texture2D SceneColorTexture : register(t0);
+Texture2D BloomTexture : register(t1);
 SamplerState LinearSampler : register(s0);
 
 VertexOutput VS_ScreenQuad(in uint VertID : SV_VertexID)
@@ -27,6 +35,13 @@ float4 PS_Tonemapping(in VertexOutput Input) : SV_Target0
 {
     float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
     return float4(AMDTonemapping(Color), 1.0);
+}
+
+float4 PS_ToneMapAndBloom(in VertexOutput Input) : SV_Target0
+{
+    float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
+    float3 Bloom = BloomTexture.Sample(LinearSampler, Input.Tex).xyz;
+    return float4(AMDTonemapping(Color + Bloom * BloomIntensity), 1.0);
 }
 
 static float2 offsets[9] =
@@ -104,12 +119,64 @@ float4 PS_Blur(in VertexOutput Input) : SV_Target0
     return accum;
 }
 
-cbuffer cbBlendParam : register(b0)
+RWTexture2D<float3> BloomResult : register(u0);
+
+void GetSampleUV(uint2 ScreenCoord, inout float2 UV, inout float2 HalfPixelSize)
 {
-    float u_weight;
+    float2 ScreenSize;
+    BloomResult.GetDimensions(ScreenSize.x, ScreenSize.y);
+    float2 InvScreenSize = rcp(ScreenSize);
+    HalfPixelSize = 0.5 * InvScreenSize;
+    UV = ScreenCoord * InvScreenSize + HalfPixelSize;
 }
 
-float4 BlendPS(in VertexOutput Input) : SV_Target
+[numthreads(8, 8, 1)]
+void CS_ExtractBloom(uint3 DispatchThreadID : SV_DispatchThreadID)
 {
-    return u_weight * SceneColorTexture.Sample(LinearSampler, Input.Tex).rgba;
+    float2 HalfPixelSize, UV;
+    GetSampleUV(DispatchThreadID.xy, UV, HalfPixelSize);
+
+    float3 Color = SceneColorTexture.SampleLevel(LinearSampler, UV, 0).xyz;
+	// clamp to avoid artifacts from exceeding fp16 through framebuffer blending of multiple very bright lights
+    Color.rgb = min(float3(256 * 256, 256 * 256, 256 * 256), Color.rgb);
+	
+    half TotalLuminance = Luminance(Color);
+    half BloomLuminance = TotalLuminance - BloomThreshold;
+    half BloomAmount = saturate(BloomLuminance * 0.5f);
+    BloomResult[DispatchThreadID.xy] = BloomAmount * Color;
+}
+
+
+[numthreads(8, 8, 1)]
+void CS_DownSample(uint3 DispatchThreadID : SV_DispatchThreadID)
+{
+    float2 HalfPixelSize, UV;
+    GetSampleUV(DispatchThreadID.xy, UV, HalfPixelSize);
+
+    const float Scale = 4.0f;
+    float3 Result = SceneColorTexture.SampleLevel(LinearSampler, UV, 0).xyz * Scale;
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV - HalfPixelSize, 0).xyz;
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + HalfPixelSize, 0).xyz;
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(HalfPixelSize.x, -HalfPixelSize.y), 0).xyz;
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(-HalfPixelSize.x, HalfPixelSize.y), 0).xyz;
+    BloomResult[DispatchThreadID.xy] = Result / 8.0;
+}
+
+[numthreads(8, 8, 1)]
+void CS_UpSample(uint3 DispatchThreadID : SV_DispatchThreadID)
+{
+    float2 HalfPixelSize, UV;
+    GetSampleUV(DispatchThreadID.xy, UV, HalfPixelSize);
+
+    float3 Result = 0;
+    const float Scale = 4.0f;
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(-HalfPixelSize.x * Scale, 0.0), 0).xyz; //left
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(+HalfPixelSize.x * Scale, 0.0), 0).xyz; //right
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(0.0, -HalfPixelSize.y * Scale), 0).xyz; //up
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(0.0, +HalfPixelSize.y * Scale), 0).xyz; //bottom
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(-HalfPixelSize.x, -HalfPixelSize.y), 0).xyz * Scale; //top-left
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(+HalfPixelSize.x, -HalfPixelSize.y), 0).xyz * Scale; //top-right
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(-HalfPixelSize.x, +HalfPixelSize.y), 0).xyz * Scale; //bottom-left
+    Result += SceneColorTexture.SampleLevel(LinearSampler, UV + float2(+HalfPixelSize.x, +HalfPixelSize.y), 0).xyz * Scale; //bottom-right
+    BloomResult[DispatchThreadID.xy] = Result / 12.0;
 }

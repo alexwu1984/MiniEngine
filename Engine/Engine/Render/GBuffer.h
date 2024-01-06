@@ -16,10 +16,11 @@ namespace Engine
 	enum GBufferFlagBits
 	{
 		GBUFFER_NONE = 0,
-		GBUFFER_DEPTH = 1,
-		GBUFFER_MOTION_VECTORS = 2,
-		GBUFFER_SCENE_COLOR = 8,
-		GBUFFER_NORMAL_BUFFER = 16
+		GBUFFER_DEPTH = 0x1,
+		GBUFFER_MOTION_VECTORS = 0x3,
+		GBUFFER_SCENE_COLOR = 0x7,
+		GBUFFER_NORMAL_BUFFER = 0xf,
+		GBUFFER_EMISSIVE_BUFFER = 0x1f,
 	};
 
 	class GBuffer
@@ -34,6 +35,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIUnorderedAccessView> GetSceneColorUAV() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetMotionVector() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetNormalBuffer() const;
+		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveBuffer() const;
 	private:
 		GBufferPrivate* d_ptr = nullptr;
 	};

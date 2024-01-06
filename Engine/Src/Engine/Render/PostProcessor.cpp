@@ -22,13 +22,19 @@ namespace Engine
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< TemporallAA> TAA;
 		std::shared_ptr< Bloom> BloomEffect;
+
+		PostProcessorPrivate(DynamicRHI* _RHI) :
+			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI), RHI(_RHI)
+		{
+
+		}
+		DECLARE_SHADER_STRUCT_MEMBER(BloomContants);
 	};
 
 	PostProcessor::PostProcessor(RenderCore::DynamicRHI* RHI)
-		:d_ptr(new PostProcessorPrivate())
+		:d_ptr(new PostProcessorPrivate(RHI))
 	{
 		C_P(PostProcessor);
-		d->RHI = RHI;
 	}
 
 	PostProcessor::~PostProcessor()
@@ -43,7 +49,7 @@ namespace Engine
 		ShaderPath += L"PostProcess.hlsl";
 
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_ScreenQuad", {}, {});
-		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_Tonemapping", {});
+		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ToneMapAndBloom", {});
 
 		d->TAA = std::make_shared<TemporallAA>(d->RHI);
 		d->TAA->InitResource();
@@ -66,7 +72,20 @@ namespace Engine
 	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(PostProcessor);
-		RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
+		RenderCore::GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = d->VertexShader;
+		Init.PixelShader = d->PixelShader;
+
+		Init.BlendState = RenderCore::RHICachedStates::BlendTraditional;
+		Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
+
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->BloomEffect->GetResult());
+		d->GET_SHADER_STRUCT_MEMBER(BloomContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+		RHIContext.Draw(3);
 	}
 
 }

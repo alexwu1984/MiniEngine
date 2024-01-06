@@ -16,6 +16,7 @@ namespace Engine
 		std::shared_ptr<RHIUnorderedAccessView> SceneColorUAV;
 		std::shared_ptr<RHITexture2D> MotionVector;
 		std::shared_ptr<RHITexture2D> NormalBuffer;
+		std::shared_ptr<RHITexture2D> EmissiveBuffer;
 	};
 
 	GBuffer::GBuffer(DynamicRHI* RHI)
@@ -50,36 +51,46 @@ namespace Engine
 		{
 			d->NormalBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height, 1);
 		}
+		if (Flag & GBUFFER_EMISSIVE_BUFFER)
+		{
+			d->EmissiveBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height, 1);
+		}
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetDepth() const
 	{
-		C_P(GBuffer);
+		C_P(const GBuffer);
 		return d->Depth;
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetSceneColor() const
 	{
-		C_P(GBuffer);
+		C_P(const GBuffer);
 		return d->SceneColor;
 	}
 
 	std::shared_ptr<RHIUnorderedAccessView> GBuffer::GetSceneColorUAV() const
 	{
-		C_P(GBuffer);
+		C_P(const GBuffer);
 		return d->SceneColorUAV;
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetMotionVector() const
 	{
-		C_P(GBuffer);
+		C_P(const GBuffer);
 		return d->MotionVector;
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetNormalBuffer() const
 	{
-		C_P(GBuffer);
+		C_P(const GBuffer);
 		return d->NormalBuffer;
+	}
+
+	std::shared_ptr<RenderCore::RHITexture2D> GBuffer::GetEmissiveBuffer() const
+	{
+		C_P(const GBuffer);
+		return d->EmissiveBuffer;
 	}
 
 }

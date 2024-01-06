@@ -66,7 +66,7 @@ namespace Engine
 		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_Blur", {});
 	}
 
-	void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext,std::shared_ptr<RHITexture2D> SrcTex, std::shared_ptr<GBuffer> TargetBuffe)
+	void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext,std::shared_ptr<RHITexture2D> SrcTex)
 	{
 		C_P(BlurPS);
 		d->Size = SrcTex->GetSize();

@@ -18,6 +18,7 @@ struct PS_OUTPUT_SCENE
     float4 Target0 : SV_Target0;
     float2 Target1 : SV_Target1;
     float4 Target2 : SV_Target2;
+    float4 Target3 : SV_Target3;
 };
 
 struct MaterialInfo
@@ -291,9 +292,9 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
     color = color * ao; //mix(color, color * ao, perFrame.u_OcclusionStrength);
 
 
-    float3 emissive = float3(0, 0, 0);
-    emissive = EmissMap.Sample(SampleLinear, Input.UV0).rgb;
-    color += emissive;
+    //float3 emissive = float3(0, 0, 0);
+    //emissive = EmissMap.Sample(SampleLinear, Input.UV0).rgb;
+    //color += emissive;
 
 #ifndef DEBUG_OUTPUT // no debug
     // regular shading
@@ -405,5 +406,6 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     Output.Target0 = float4(HDRColor, alpha);
     Output.Target1 = Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition);
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
+    Output.Target3 = EmissMap.Sample(SampleLinear, Input.UV0);
     return Output;
 }

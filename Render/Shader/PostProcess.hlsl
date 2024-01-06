@@ -131,6 +131,24 @@ void GetSampleUV(uint2 ScreenCoord, inout float2 UV, inout float2 HalfPixelSize)
 }
 
 [numthreads(8, 8, 1)]
+void CS_Blur(uint3 DispatchThreadID : SV_DispatchThreadID)
+{
+    float2 HalfPixelSize, UV;
+    GetSampleUV(DispatchThreadID.xy, UV, HalfPixelSize);
+
+    int s_lenght = 5;
+    float s_coeffs[] = { 0.235833, 0.198063, 0.117294, 0.048968, 0.014408, }; // norm = 0.993299
+    
+    float4 accum = s_coeffs[0] * SceneColorTexture.SampleLevel(LinearSampler, UV, blureParam.u_mipLevel);
+    for (int i = 1; i < s_lenght; i++)
+    {
+        accum += s_coeffs[i] * SceneColorTexture.SampleLevel(LinearSampler, UV + blureParam.u_dir * (float) i, blureParam.u_mipLevel);
+        accum += s_coeffs[i] * SceneColorTexture.SampleLevel(LinearSampler, UV - blureParam.u_dir * (float) i, blureParam.u_mipLevel);
+    }
+    BloomResult[DispatchThreadID.xy] = accum.xyz;
+}
+
+[numthreads(8, 8, 1)]
 void CS_ExtractBloom(uint3 DispatchThreadID : SV_DispatchThreadID)
 {
     float2 HalfPixelSize, UV;

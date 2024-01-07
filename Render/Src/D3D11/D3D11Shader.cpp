@@ -125,7 +125,7 @@ namespace RenderCore
 
 	D3D11PixelShader::~D3D11PixelShader()
 	{
-
+		delete d_ptr;
 	}
 
 	bool D3D11PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines )

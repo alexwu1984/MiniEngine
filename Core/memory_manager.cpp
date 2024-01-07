@@ -7,8 +7,6 @@ namespace win32
 {
 	std::recursive_mutex memory_manager::s_MemLock;
 
-
-
 	typedef BOOL
 	(WINAPI
 		* tFSymInitializeW)(

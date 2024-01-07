@@ -86,6 +86,7 @@ namespace Engine
 		//}
 
 		//DownSample
+
 		{
 			for (int Index = 1; Index < 5; ++Index)
 			{
@@ -106,7 +107,9 @@ namespace Engine
 				RHIContext.RHISetUAVParameter(0, d->BloomBuffers[Index]);
 
 				auto TexSize = d->BloomBuffers[Index]->GetTexture2D()->GetSize();
-				RHIContext.RHIDispatchComputeShader(TexSize.x, TexSize.y, 1);
+				uint32_t ThreadGroupCountX = (TexSize.w + 7) / 8;
+				uint32_t ThreadGroupCountY = (TexSize.h + 7) / 8;
+				RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 			}
 		}
 
@@ -123,11 +126,11 @@ namespace Engine
 				RHIContext.RHISetUAVParameter(0, d->BloomBuffers[Index-1]);
 
 				auto TexSize = d->BloomBuffers[Index-1]->GetTexture2D()->GetSize();
-				RHIContext.RHIDispatchComputeShader(TexSize.x, TexSize.y, 1);
+				uint32_t ThreadGroupCountX = (TexSize.w + 7) / 8;
+				uint32_t ThreadGroupCountY = (TexSize.h + 7) / 8;
+				RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 			}
 		}
-
-
 	}
 
 	std::shared_ptr< RenderCore::RHITexture2D> Bloom::GetResult() const

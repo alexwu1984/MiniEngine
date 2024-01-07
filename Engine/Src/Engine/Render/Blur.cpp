@@ -170,6 +170,9 @@ namespace Engine
 			d->BlurHorizontalBuffer = d->RHI->RHICreateUnorderedAccessView(SrcTex->GetPixelFormat(), Size.x, Size.y);
 		}
 
+		uint32_t ThreadGroupCountX = (Size.w + 7) / 8;
+		uint32_t ThreadGroupCountY = (Size.h + 7) / 8;
+
 		{
 			RenderCore::ComputePipelineStateInitializer BlurPipeline;
 			BlurPipeline.ComputeShader = d->Blur;
@@ -183,7 +186,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SrcTex);
 			RHIContext.RHISetUAVParameter(0, d->BlurHorizontalBuffer);
 
-			RHIContext.RHIDispatchComputeShader(Size.x, Size.y, 1);
+			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 		}
 
 		{
@@ -199,7 +202,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BlurHorizontalBuffer->GetTexture2D());
 			RHIContext.RHISetUAVParameter(0, Target);
 
-			RHIContext.RHIDispatchComputeShader(Size.x, Size.y, 1);
+			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 		}
 		
 	}

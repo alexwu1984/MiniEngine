@@ -13,40 +13,22 @@ namespace Engine
 {
 	using namespace RenderCore;
 
-	struct BlurParam
-	{
-		math::Vector2 Dir;
-		int32_t MipLevel = 0;
-		int32_t pad = 0;
-	};
-
-	BEGIN_SHADER_STRUCT(CBBlurParam, 0)
-		DECLARE_PARAM(BlurParam, Param)
-	BEGIN_STRUCT_CONSTRUCT(CBBlurParam)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
-
 	struct BloomPrivate
 	{
 		DynamicRHI* RHI;
 		std::shared_ptr<RenderCore::RHIComputeShader> ExtractBloom;
 		std::shared_ptr<RenderCore::RHIComputeShader> Downsample;
 		std::shared_ptr<RenderCore::RHIComputeShader> UpSample;
-		std::shared_ptr<RenderCore::RHIComputeShader> Blur;
 
 		std::shared_ptr< RHIUnorderedAccessView> BloomBuffers[5];
-		std::shared_ptr< RHIUnorderedAccessView> BlurHorizontalBuffers[5];
-		std::shared_ptr< RHIUnorderedAccessView> BlurVerticalBuffers[5];
 
 		BloomPrivate(DynamicRHI* _RHI) :
 			RHI(_RHI),
-			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI),
-			GET_SHADER_STRUCT_MEMBER(CBBlurParam)(_RHI)
+			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
 		{
 
 		}
 		DECLARE_SHADER_STRUCT_MEMBER(BloomContants);
-		DECLARE_SHADER_STRUCT_MEMBER(CBBlurParam);
 	};
 
 	Bloom::Bloom(DynamicRHI* RHI)
@@ -65,12 +47,11 @@ namespace Engine
 		C_P(Bloom);
 
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
-		std::wstring TAAShaderPath = ShaderPath + L"PostProcess.hlsl";
+		ShaderPath += L"PostProcess.hlsl";
 
-		d->ExtractBloom = d->RHI->RHICreateComputeShader(TAAShaderPath, "CS_ExtractBloom", {});
-		d->Downsample = d->RHI->RHICreateComputeShader(TAAShaderPath, "CS_DownSample", {});
-		d->UpSample = d->RHI->RHICreateComputeShader(TAAShaderPath, "CS_UpSample", {});
-		d->Blur = d->RHI->RHICreateComputeShader(TAAShaderPath, "CS_Blur", {});
+		d->ExtractBloom = d->RHI->RHICreateComputeShader(ShaderPath, "CS_ExtractBloom", {});
+		d->Downsample = d->RHI->RHICreateComputeShader(ShaderPath, "CS_DownSample", {});
+		d->UpSample = d->RHI->RHICreateComputeShader(ShaderPath, "CS_UpSample", {});
 	}
 
 	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
@@ -84,8 +65,6 @@ namespace Engine
 			for (int Index = 0; Index < _countof(d->BloomBuffers); ++Index)
 			{
 				d->BloomBuffers[Index] = d->RHI->RHICreateUnorderedAccessView(EPixelFormat::PF_FloatRGB, Size.x, Size.y);
-				d->BlurHorizontalBuffers[Index] = d->RHI->RHICreateUnorderedAccessView(EPixelFormat::PF_FloatRGB, Size.x, Size.y);
-				d->BlurVerticalBuffers[Index] = d->RHI->RHICreateUnorderedAccessView(EPixelFormat::PF_FloatRGB, Size.x, Size.y);
 				Size.x >>= 1;
 				Size.y >>= 1;
 			}
@@ -128,41 +107,6 @@ namespace Engine
 
 				auto TexSize = d->BloomBuffers[Index]->GetTexture2D()->GetSize();
 				RHIContext.RHIDispatchComputeShader(TexSize.x, TexSize.y, 1);
-
-				//blur
-				{
-					RenderCore::ComputePipelineStateInitializer BlurPipeline;
-					BlurPipeline.ComputeShader = d->Blur;
-					RHIContext.RHISetComputePipelineState(BlurPipeline);
-					RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
-
-					d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 1.0f / (float)TexSize.cx;
-					d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 0.0f / (float)TexSize.cy;
-					d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Compute);
-					d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BloomBuffers[Index]->GetTexture2D());
-
-					RHIContext.RHISetUAVParameter(0, d->BlurHorizontalBuffers[Index]);
-
-					RHIContext.RHIDispatchComputeShader(TexSize.x, TexSize.y, 1);
-				}
-
-				{
-					RenderCore::ComputePipelineStateInitializer BlurPipeline;
-					BlurPipeline.ComputeShader = d->Blur;
-					RHIContext.RHISetComputePipelineState(BlurPipeline);
-					RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
-
-					d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 0.0f / (float)TexSize.cx;
-					d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 1.0f / (float)TexSize.cy;
-					d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Compute);
-					d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BlurHorizontalBuffers[Index]->GetTexture2D());
-
-					RHIContext.RHISetUAVParameter(0, d->BloomBuffers[Index]);
-
-					RHIContext.RHIDispatchComputeShader(TexSize.x, TexSize.y, 1);
-				}
 			}
 		}
 

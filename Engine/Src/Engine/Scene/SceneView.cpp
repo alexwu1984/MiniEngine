@@ -38,6 +38,11 @@ namespace Engine
 		AppWindow->EvtMouseWheel.bind(std::bind(&SceneView::OnMouseWheel, this, std::placeholders::_1),this);
 	}
 
+	void SceneView::LoadScene(const std::wstring& ModelFile)
+	{
+		Engine::GEngine->LoadConfig(ModelFile);
+	}
+
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)
 	{
 		if (Impl->UpdatingActors)

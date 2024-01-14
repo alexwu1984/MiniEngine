@@ -7,6 +7,24 @@
         "LightStrength":3.7,
         "RotateIBL":"0,0"
     },
+  "Modles": [
+    {
+      "Model": "Model3.glb",
+      "Hdr": "venice_sunset_1k.hdr",
+      "AmbientStrength": 1.48,
+      "LightDir": "0.0,0.0,1.0",
+      "LightStrength": 3.7,
+      "RotateIBL": "0,0"
+    },
+    {
+      "Model": "floor.glb",
+      "Hdr": "venice_sunset_1k.hdr",
+      "AmbientStrength": 1.48,
+      "LightDir": "0.0,0.0,1.0",
+      "LightStrength": 3.7,
+      "RotateIBL": "0,0"
+    }
+  ],
     "Tonemapping":{
         "Type":1,
         "Contrast":1.74,

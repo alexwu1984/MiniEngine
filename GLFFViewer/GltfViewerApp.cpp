@@ -20,9 +20,9 @@ bool GltfViewApp::Init()
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-	Engine::GEngine->LoadConfig(ModelFile);
 	
 	auto Scene = Engine::GEngine->GetScene();
+	Scene->LoadScene(ModelFile);
 	AGltfModel = std::make_shared<Engine::GltfActor>(Scene, ModelFile);
 	AGltfModel->InitResouce();
 	Scene->AddActor(AGltfModel);

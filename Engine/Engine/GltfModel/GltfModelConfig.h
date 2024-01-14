@@ -1,6 +1,7 @@
 #pragma once
 #include "core/inc.h"
 #include "math/vector3.h"
+#include "json.h"
 
 namespace Engine
 {
@@ -29,6 +30,7 @@ namespace Engine
 		~GltfModelConfig();
 
 		bool Load(const std::wstring& FileName);
+		bool Load(nlohmann::json& GltfJson);
 		std::wstring GetModel() const;
 
 		const std::vector< DynamicBoneInfo>& GetDyNamicBoneInfoList() const;

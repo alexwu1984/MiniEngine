@@ -48,6 +48,14 @@ namespace Engine
 		{
 			return false;
 		}
+
+
+		return Load(GltfJson);
+	}
+
+	bool GltfModelConfig::Load(nlohmann::json& GltfJson)
+	{
+		C_P(GltfModelConfig);
 		d->ModelName = core::u8_ucs2(GltfJson["Model"]);
 
 		try
@@ -75,13 +83,12 @@ namespace Engine
 			d->FurConfig.FurLightExposure = FurJson["FurLightExposure"];
 			std::string Gravity = FurJson["Gravity"];
 			sscanf_s(Gravity.c_str(), "%f,%f,%f", &d->FurConfig.Gravity.x, &d->FurConfig.Gravity.y, &d->FurConfig.Gravity.z);
+			
 		}
 		catch (const std::exception&)
 		{
-
 		}
-
-		return true;
+		return !d->ModelName.empty();
 	}
 
 	std::wstring GltfModelConfig::GetModel() const

@@ -16,6 +16,7 @@ namespace Engine
 
 		void Init();
 
+		void LoadScene(const std::wstring& ModelFile);
 		void AddActor(std::shared_ptr<Actor> actor);
 		void RemoveActor(std::shared_ptr<Actor> actor);
 		void Tick(float DeltaTime);
@@ -25,10 +26,10 @@ namespace Engine
 			std::vector<std::shared_ptr<ActorType>> Actors;
 			for (auto ActorItem : GetAllActors())
 			{
-				std::shared_ptr<ActorType> convertActor = ActorCast<ActorType>(ActorItem);
-				if (convertActor)
+				std::shared_ptr<ActorType> ConvertActor = ActorCast<ActorType>(ActorItem);
+				if (ConvertActor)
 				{
-					Actors.push_back(convertActor);
+					Actors.push_back(ConvertActor);
 				}
 			}
 			return Actors;

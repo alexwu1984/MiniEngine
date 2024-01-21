@@ -53,7 +53,7 @@ namespace Engine
 		return Load(GltfJson);
 	}
 
-	bool GltfModelConfig::Load(nlohmann::json& GltfJson)
+	bool GltfModelConfig::Load(const nlohmann::json& GltfJson)
 	{
 		C_P(GltfModelConfig);
 		d->ModelName = core::u8_ucs2(GltfJson["Model"]);

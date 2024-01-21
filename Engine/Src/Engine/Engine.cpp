@@ -26,6 +26,7 @@ namespace Engine
 		std::shared_ptr<SceneView> Scene;
 		std::shared_ptr<SceneRender> SeRender;
 		win32::HighPrecisionTick GameTick;
+		std::wstring ModelPath;
 	};
 
 	MainEngine::MainEngine()
@@ -81,6 +82,12 @@ namespace Engine
 		{
 			Impl->SeRender->LoadConfig(FileName);
 		}
+		Impl->ModelPath = std::filesystem::path(FileName).parent_path();
+	}
+
+	std::wstring MainEngine::GetModelPath() const
+	{
+		return Impl->ModelPath;
 	}
 
 	std::shared_ptr<RenderCore::DynamicRHI> MainEngine::GetRHI() const

@@ -26,6 +26,7 @@ namespace Engine
 		~GltfMeshComponent();
 
 		bool Load(const std::wstring& FileName);
+		bool Load(const nlohmann::json& GltfJson);
 		GltfModel& GetModel() const;
 		math::AABB3 GetModelBox() const;
 

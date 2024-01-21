@@ -1,6 +1,6 @@
 
 #include "Scene/SceneView.h"
-#include "Scene/Actor.h"
+#include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
@@ -41,6 +41,30 @@ namespace Engine
 	void SceneView::LoadScene(const std::wstring& ModelFile)
 	{
 		Engine::GEngine->LoadConfig(ModelFile);
+
+		try
+		{
+			nlohmann::json Root;
+			std::ifstream input_json_file(ModelFile);
+			if (!input_json_file.is_open())
+			{
+				return;
+			}
+
+			input_json_file >> Root;
+			nlohmann::json Models = Root["Modles"];
+			for (const auto &Model: Models)
+			{
+				auto AGltfModel = std::make_shared<Engine::GltfActor>(this->shared_from_this(), Model);
+				AGltfModel->InitResouce();
+				AddActor(AGltfModel);
+			}
+		}
+		catch (const std::exception& e)
+		{
+			std::string error = e.what();
+		}
+
 	}
 
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)

@@ -1,5 +1,6 @@
 #pragma once
 #include "Scene/Actor.h"
+#include "json.h"
 
 namespace Engine
 {
@@ -9,7 +10,7 @@ namespace Engine
 	{
 	public:
 		DECLARE_ACTOR_CLASS_NAME(GltfActor)
-		GltfActor(std::weak_ptr<SceneView> Scene,const std::wstring& FileName);
+		GltfActor(std::weak_ptr<SceneView> Scene, const nlohmann::json& GltfJson);
 		virtual ~GltfActor();
 
 		void InitResouce() override;

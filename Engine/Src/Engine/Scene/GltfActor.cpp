@@ -10,17 +10,17 @@ namespace Engine
 
 	struct GltfActorP
 	{
-		std::wstring ModelFileName;
+		nlohmann::json GltfJson;
 		std::shared_ptr<CameraComponent> CameraComp;
 		std::shared_ptr<GltfMeshComponent> MeshComp;
 		std::shared_ptr<GltfDeviceInputComponent> InputComp;
 	};
 
-	GltfActor::GltfActor(std::weak_ptr<SceneView> Scene, const std::wstring& FileName)
-		:Actor(Scene)
+	GltfActor::GltfActor(std::weak_ptr<SceneView> Scene, const nlohmann::json& GltfJson)
+		: Actor(Scene)
 		, Impl(std::make_shared<GltfActorP>())
 	{
-		Impl->ModelFileName = FileName;
+		Impl->GltfJson = GltfJson;
 	}
 
 	GltfActor::~GltfActor()
@@ -33,7 +33,7 @@ namespace Engine
 		Actor::InitResouce();
 
 		Impl->MeshComp = std::make_shared<GltfMeshComponent>(this->shared_from_this());
-		bool bLoad = Impl->MeshComp->Load(Impl->ModelFileName);
+		bool bLoad = Impl->MeshComp->Load(Impl->GltfJson);
 		AddComponent(Impl->MeshComp);
 		Impl->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
 		Impl->CameraComp->InitResource();

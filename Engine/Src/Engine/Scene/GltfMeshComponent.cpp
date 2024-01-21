@@ -83,6 +83,25 @@ namespace Engine
 		return true;
 	}
 
+	bool GltfMeshComponent::Load(const nlohmann::json& GltfJson)
+	{
+		Impl->ModelConfig = std::make_shared<GltfModelConfig>(std::static_pointer_cast<GltfMeshComponent>(this->shared_from_this()));
+		if (Impl->ModelConfig->Load(GltfJson))
+		{
+			std::wstring Path = GEngine->GetModelPath();
+			Path += L"/" + Impl->ModelConfig->GetModel();
+			if (!Impl->Model.Load(Path, Impl->ModelConfig))
+			{
+				return false;
+			}
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	GltfModel& GltfMeshComponent::GetModel() const
 	{
 		return Impl->Model;

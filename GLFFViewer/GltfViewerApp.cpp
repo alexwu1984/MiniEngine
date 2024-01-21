@@ -23,9 +23,7 @@ bool GltfViewApp::Init()
 	
 	auto Scene = Engine::GEngine->GetScene();
 	Scene->LoadScene(ModelFile);
-	AGltfModel = std::make_shared<Engine::GltfActor>(Scene, ModelFile);
-	AGltfModel->InitResouce();
-	Scene->AddActor(AGltfModel);
+
 	return true;
 }
 

@@ -29,7 +29,6 @@ namespace Engine
 		GltfModelConfig(std::weak_ptr< GltfMeshComponent> Owner);
 		~GltfModelConfig();
 
-		bool Load(const std::wstring& FileName);
 		bool Load(const nlohmann::json& GltfJson);
 		std::wstring GetModel() const;
 

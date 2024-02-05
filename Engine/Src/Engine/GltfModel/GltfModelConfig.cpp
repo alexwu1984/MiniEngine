@@ -27,32 +27,6 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	bool GltfModelConfig::Load(const std::wstring& FileName)
-	{
-		C_P(GltfModelConfig);
-		std::ifstream input_json_file(FileName);
-		if (!input_json_file.is_open())
-		{
-			return false;
-		}
-
-		input_json_file >> d->Config;
-
-		if (d->Config.is_null())
-		{
-			return false;
-		}
-
-		auto GltfJson = d->Config["Gltf"];
-		if (GltfJson.is_null())
-		{
-			return false;
-		}
-
-
-		return Load(GltfJson);
-	}
-
 	bool GltfModelConfig::Load(const nlohmann::json& GltfJson)
 	{
 		C_P(GltfModelConfig);

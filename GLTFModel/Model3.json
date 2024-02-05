@@ -8,10 +8,13 @@
   },
   "Modles": [
     {
-      "Model": "floor.glb"
+      "Model": "floor.glb",
+      "Scale": 0.05
     },
     {
-      "Model": "Model3.glb"
+      "Model": "Model3.glb",
+      "Scale" : 1.0,
+      "MainCamera":  true
     }
   ],
   "Tonemapping": {

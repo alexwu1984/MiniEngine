@@ -27,7 +27,6 @@ namespace Engine
 	void CameraComponent::InitResource()
 	{
 		Component::InitResource();
-		GetOwner()->GetScene()->SetMainCamera(std::static_pointer_cast<CameraComponent>(shared_from_this()));
 	}
 
 	void CameraComponent::Tick(float DeltaTime)

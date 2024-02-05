@@ -7,9 +7,9 @@
 
 namespace Engine
 {
-	struct WindowApplicationP
+	struct WindowApplicationPrivate
 	{
-		WindowApplicationP()
+		WindowApplicationPrivate()
 		{
 			Engine = std::make_shared<MainEngine>();
 		}
@@ -20,7 +20,7 @@ namespace Engine
 
 
 	WindowApplication::WindowApplication()
-		:Data(std::make_shared<WindowApplicationP>())
+		:d_ptr(new WindowApplicationPrivate())
 	{
 		std::wstring logPath = core::process_directory().wstring()+L"/Engine.log";
 		core::global_logger::start(core::ucs2_u8(logPath), core::log_inf);
@@ -28,39 +28,45 @@ namespace Engine
 
 	WindowApplication::~WindowApplication()
 	{
-		Data = {};
+		delete d_ptr;
 		core::global_logger::stop();
 	}
 
 	bool WindowApplication::Main(HINSTANCE hInst, int args, wchar_t** arguments)
 	{
-		Data->hInst = hInst;
+		C_P(WindowApplication);
+		d->hInst = hInst;
 		core::CommandLine::Get().SetCommandLine(args, arguments);
-		Data->AppWin = std::make_shared<AppWindow>(hInst);
+		d->AppWin = std::make_shared<AppWindow>(hInst);
 		if (!CreateAppWindow())
 		{
 			return false;
 		}
-		Data->Engine->Init(Data->AppWin);
-		return Init();
+		d->Engine->Init(d->AppWin);
+		bool bRet =  Init();
+		if (bRet)
+		{
+			d->Engine->StartThread();
+		}
+		return bRet;
 	}
 
 
 	void WindowApplication::Run()
 	{
-		Data->AppWin->RunLoop();
+		C_P(WindowApplication);
+		d->AppWin->RunLoop();
 		ShutDown();
-		Data->Engine->ShutDown();
+		d->Engine->ShutDown();
 	}
 
 	bool WindowApplication::CreateAppWindow()
 	{
+		C_P(WindowApplication);
 		int32_t DefWidth = 1920;
 		core::CommandLine::Get().GetInteger("width", DefWidth);
 		int32_t DefHeight = 1080;
 		core::CommandLine::Get().GetInteger("height", DefHeight);
-
-
-		return Data->AppWin->CreateAppWindow(DefWidth,DefHeight);
+		return d->AppWin->CreateAppWindow(DefWidth,DefHeight);
 	}
 }

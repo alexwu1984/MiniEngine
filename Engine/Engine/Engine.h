@@ -25,6 +25,7 @@ namespace Engine
 		~MainEngine();
 
 		void Init(std::shared_ptr< AppWindow> AppWin);
+		void StartThread();
 		void ShutDown();
 		void LoadConfig(const std::wstring& FileName);
 		std::wstring GetModelPath() const;

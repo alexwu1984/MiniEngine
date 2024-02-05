@@ -4,7 +4,7 @@
 
 namespace Engine
 {
-	struct GltfActorP;
+	struct GltfActorPrivate;
 
 	class GltfActor final: public Actor
 	{
@@ -16,7 +16,7 @@ namespace Engine
 		void InitResouce() override;
 
 	private:
-		std::shared_ptr< GltfActorP> Impl;
+		GltfActorPrivate *d_ptr = nullptr;
 	};
 
 	DECLARE_ACTOR_TRAITS_CLASS_NAME(GltfActor)

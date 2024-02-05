@@ -3,7 +3,7 @@
 
 namespace Engine
 {
-	struct WindowApplicationP;
+	struct WindowApplicationPrivate;
 
 	class WindowApplication
 	{
@@ -19,6 +19,6 @@ namespace Engine
 		bool CreateAppWindow();
 		
 	private:
-		std::shared_ptr<WindowApplicationP> Data;
+		WindowApplicationPrivate* d_ptr = nullptr;
 	};
 }

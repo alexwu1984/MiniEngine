@@ -58,12 +58,13 @@ namespace Engine
 
 	const GltfFurConfig& GltfFurMaterial::GetFurConfig() const
 	{
-		//C_P(GltfFurMaterial);
+		C_P(const GltfFurMaterial);
 		return d_ptr->FurConfig;
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> GltfFurMaterial::GetNoiseTex() const
 	{
+		C_P(const GltfFurMaterial);
 		return d_ptr->NoiseTex;
 	}
 

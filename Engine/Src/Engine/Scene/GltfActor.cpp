@@ -2,13 +2,14 @@
 #include "Scene/OrbitCamera.h"
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/GltfInputComponent.h"
+#include "Scene/SceneView.h"
 
 namespace Engine
 {
 	IMP_ACTOR_CLASS_NAME(GltfActor)
 	IMP_ACTOR_TRAITS_CLASS_NAME(GltfActor)
 
-	struct GltfActorP
+	struct GltfActorPrivate
 	{
 		nlohmann::json GltfJson;
 		std::shared_ptr<CameraComponent> CameraComp;
@@ -18,43 +19,55 @@ namespace Engine
 
 	GltfActor::GltfActor(std::weak_ptr<SceneView> Scene, const nlohmann::json& GltfJson)
 		: Actor(Scene)
-		, Impl(std::make_shared<GltfActorP>())
+		, d_ptr(new GltfActorPrivate())
 	{
-		Impl->GltfJson = GltfJson;
+		C_P(GltfActor);
+		d->GltfJson = GltfJson;
 	}
 
 	GltfActor::~GltfActor()
 	{
-
+		delete d_ptr;
 	}
 
 	void GltfActor::InitResouce()
 	{
 		Actor::InitResouce();
-
-		Impl->MeshComp = std::make_shared<GltfMeshComponent>(this->shared_from_this());
-		bool bLoad = Impl->MeshComp->Load(Impl->GltfJson);
-		AddComponent(Impl->MeshComp);
-		Impl->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
-		Impl->CameraComp->InitResource();
-		AddComponent(Impl->CameraComp);
-
-		Impl->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
-		Impl->InputComp->InitResource();
-		AddComponent(Impl->InputComp);
-
-		if (bLoad)
+		C_P(GltfActor);
+		d->MeshComp = std::make_shared<GltfMeshComponent>(this->shared_from_this());
+		bool bLoad = d->MeshComp->Load(d->GltfJson);
+		if (!bLoad)
 		{
-			auto Box = Impl->MeshComp->GetModelBox();
-			math::Vector3 Length = Box.GetMaxPoint() - Box.GetMinPoint();
-			float Dist = (std::max)(Length.x, (std::max)(Length.y, Length.z));
-			Dist = Dist * 2.5;
-			//m_Camera.SetDistanceToRO(z);
-			auto Pos = Impl->CameraComp->GetCameraPos();
-			Impl->CameraComp->SetCameraPos(math::Vector3(Pos.x,Pos.y, Dist));
+			return;
+		}
+		AddComponent(d->MeshComp);
+		d->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
+		d->CameraComp->InitResource();
+
+		if (d->GltfJson.find("MainCamera") != d->GltfJson.end())
+		{
+			if (d->GltfJson["MainCamera"])
+			{
+				GetScene()->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
+				auto Box = d->MeshComp->GetModelBox();
+				math::Vector3 Length = Box.GetMaxPoint() - Box.GetMinPoint();
+				float Dist = (std::max)(Length.x, (std::max)(Length.y, Length.z));
+				Dist = Dist * 2.5;
+				auto Pos = d->CameraComp->GetCameraPos();
+				d->CameraComp->SetCameraPos(math::Vector3(Pos.x, Pos.y, Dist));
+			}
 		}
 
+		if (d->GltfJson.find("Scale") != d->GltfJson.end())
+		{
+			SetScale(d->GltfJson["Scale"]);
+		}
 		
+		AddComponent(d->CameraComp);
+
+		d->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
+		d->InputComp->InitResource();
+		AddComponent(d->InputComp);
 	}
 
 }

@@ -148,6 +148,13 @@ namespace Engine
 		return d->OcclusionTexture;
 	}
 
+
+	const Engine::GltfMaterialConfig& GltfMaterial::GetMaterialConfig() const
+	{
+		C_P(GltfMaterial);
+		return d->Owner->GetModelConfig()->GetMaterialConfig();
+	}
+
 	tinygltf::Model* GltfMaterial::GetModel()
 	{
 		C_P(GltfMaterial);

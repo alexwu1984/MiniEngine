@@ -23,6 +23,11 @@ namespace Engine
 		math::Vector3 FurColor{ 1.f,1.f,1.f };
 	};
 
+	struct GltfMaterialConfig
+	{
+		float Metallic{ 1.0 };
+	};
+
 	class GltfModelConfig
 	{
 	public:
@@ -34,6 +39,7 @@ namespace Engine
 
 		const std::vector< DynamicBoneInfo>& GetDyNamicBoneInfoList() const;
 		const GltfFurConfig& GetFurConfig() const;
+		const GltfMaterialConfig& GetMaterialConfig() const;
 
 	private:
 		GltfModelConfigPrivate* d_ptr = nullptr;

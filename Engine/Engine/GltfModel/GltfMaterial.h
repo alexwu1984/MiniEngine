@@ -11,6 +11,7 @@ namespace Engine
 {
 	struct GltfMaterialPrivate;
 	class GltfModel;
+	struct GltfMaterialConfig;
 
 	class GltfMaterial 
 	{
@@ -37,6 +38,8 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetNormalTexture() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveTexture() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetOcclusionTexture() const;
+
+		const GltfMaterialConfig& GetMaterialConfig() const;
 
 	protected:
 		tinygltf::Model* GetModel();

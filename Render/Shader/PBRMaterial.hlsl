@@ -31,6 +31,7 @@ struct MaterialInfo
 
     float3 reflectance90; // reflectance color at grazing angle
     float3 specularColor; // color contribution from specular lighting
+    float Metallic;
 };
 
 
@@ -53,7 +54,7 @@ float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
     float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, n).rgb;
     float3 SpecularLight = PrefliterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
 
-    float3 Diffuse = DiffuseLight * MaterialInfo.diffuseColor;
+    float3 Diffuse = DiffuseLight * MaterialInfo.diffuseColor * (1.0 - MaterialInfo.Metallic);
     float3 Specular = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
 
     return Diffuse + Specular;
@@ -247,7 +248,8 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
         alphaRoughness,
         diffuseColor,
         specularEnvironmentR90,
-        specularColor
+        specularColor,
+        perFrame.Material.Metallic
     };
 
     // LIGHTING
@@ -359,7 +361,7 @@ void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 spec
     
     float4 mr = Roughness_metallicMap.Sample(SampleLinear, Input.UV0);
     perceptualRoughness = mr.g;
-    float metallic = mr.b;
+    float metallic = mr.b * myPerFrame.Material.Metallic;
 
     // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
     // This layout intentionally reserves the 'r' channel for (optional) occlusion map data

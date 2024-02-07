@@ -117,7 +117,7 @@ namespace Engine
 
 				auto Material = GetOrCreateRender(Mesh);
 
-				if (!Mesh->GetMaterial()->IsTransparent())
+				//if (!Mesh->GetMaterial()->IsTransparent())
 				{
 					DrawMesh(Mesh, MeshInfo.WorldTransform, MeshInfo.PrevWorldTransform, 
 						Material, RHIContext, Camera, IsPreDraw);
@@ -125,20 +125,20 @@ namespace Engine
 			}
 		}
 
-		SortMesh(MeshInfos, Camera->GetCameraPos());
+		//SortMesh(MeshInfos, Camera->GetCameraPos());
 
-		for (const auto& SortItem : d->SortMesh)
-		{
-			std::shared_ptr<GltfMesh> Mesh = SortItem.Mesh;
+		//for (const auto& SortItem : d->SortMesh)
+		//{
+		//	std::shared_ptr<GltfMesh> Mesh = SortItem.Mesh;
 
-			auto Material = GetOrCreateRender(Mesh);
+		//	auto Material = GetOrCreateRender(Mesh);
 
-			if (Mesh->GetMaterial()->IsTransparent())
-			{
-				DrawMesh(Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
-					Material, RHIContext, Camera, IsPreDraw);
-			}
-		}
+		//	if (Mesh->GetMaterial()->IsTransparent())
+		//	{
+		//		DrawMesh(Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
+		//			Material, RHIContext, Camera, IsPreDraw);
+		//	}
+		//}
 	}
 
 	void BasePassRender::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform,

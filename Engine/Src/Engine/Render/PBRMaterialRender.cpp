@@ -1,8 +1,8 @@
 #include "Engine/Render/PBRMaterialRender.h"
-
 #include "Engine.h"
 #include "GltfModel/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
+#include "GltfModel/GltfModelConfig.h"
 #include "Thread/RenderThread.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -173,6 +173,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Type = LightType_Directional;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Color = math::Vector3(1.f, 1.f, 1.f);
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Intensity = 1.0f;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());

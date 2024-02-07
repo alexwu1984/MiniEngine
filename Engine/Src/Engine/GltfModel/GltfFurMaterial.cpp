@@ -37,7 +37,7 @@ namespace Engine
 
 		C_P(GltfFurMaterial);
 
-		auto ModelConfig = GetOwner()->GetModelConfig();
+		const auto& ModelConfig = GetOwner()->GetModelConfig();
 		d->FurConfig = ModelConfig->GetFurConfig();
 
 		auto CreateTexCommand = [this, ModelConfig](DynamicRHI* DyRHI) {

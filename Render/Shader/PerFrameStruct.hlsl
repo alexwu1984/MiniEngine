@@ -40,6 +40,12 @@ static const int LightType_Directional = 0;
 static const int LightType_Point = 1;
 static const int LightType_Spot = 2;
 
+struct MaterialPerFrame
+{
+    float Metallic;
+    int3 Padding;
+};
+
 struct PerFrame
 {
     matrix        CameraCurrViewProj;
@@ -56,6 +62,7 @@ struct PerFrame
     int           Padding;
     float4        TemporalAAJitter;
     Light         Lights[MAX_LIGHT_INSTANCES];
+    MaterialPerFrame Material;
 };
 
 cbuffer cbPerFrame : register(b0)

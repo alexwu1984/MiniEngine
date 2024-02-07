@@ -34,6 +34,14 @@ namespace Engine
 		int				ShadowMapIndex;
 	};
 
+	struct MaterialPerFrame
+	{
+		float Metallic{ 1.f };
+		int padding0{ 0 };
+		int padding1{ 0 };
+		int padding2{ 0 };
+	};
+
 	struct PerFrame
 	{
 		math::Matrix4x4     CameraCurrViewProj;
@@ -50,6 +58,7 @@ namespace Engine
 		int32_t				Padding;
 		math::Vector4		TemporalAAJitter{1.f, 1.f, 1.f, 1.f};
 		Light				Lights[MAX_LIGHT_INSTANCES];
+		MaterialPerFrame	Material;
 	};
 
 	BEGIN_SHADER_STRUCT(CBPerFrame, 0)

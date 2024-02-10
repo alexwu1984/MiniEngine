@@ -2,8 +2,15 @@
   "Evn": {
     "Hdr": "delta_2_2k.hdr",
     "AmbientStrength": 1.48,
-    "LightDir": "0.0,0.0,1.0",
-    "LightStrength": 3.7,
+    "Light": [
+      {
+        "LightColor": "1.0,1.0,1.0",
+        "LightDir": "0.0,0.0,1.0",
+        "LightStrength": 1.0,
+        "LightType": 0
+      }
+    ],
+    
     "RotateIBL": "0,0"
   },
   "Modles": [

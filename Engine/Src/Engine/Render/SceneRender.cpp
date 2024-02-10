@@ -178,7 +178,7 @@ namespace Engine
 
 		if (d->MeshesInfo.size())
 		{
-			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner()->GetMainCamera());
+			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI)

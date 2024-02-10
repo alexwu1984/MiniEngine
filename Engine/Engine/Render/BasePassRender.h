@@ -9,6 +9,7 @@ namespace Engine
 	struct BasePassRenderPrivate;
 	class  GltfMesh;
 	class  CameraComponent;
+	class  SceneView;
 	class  MaterialRender;
 	struct GltfSceneMeshInfo;
 
@@ -19,7 +20,7 @@ namespace Engine
 		~BasePassRender();
 
 		void Render(const std::vector<GltfSceneMeshInfo> &MeshesPair,
-			RenderCore::RHICommandContext& RHIContext,std::shared_ptr<CameraComponent> Camera);
+			RenderCore::RHICommandContext& RHIContext,std::shared_ptr<SceneView> View);
 
 	private:
 		//对Mesh进行排序，按顺序渲染

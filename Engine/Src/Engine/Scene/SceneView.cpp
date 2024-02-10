@@ -4,10 +4,11 @@
 #include "Scene/CameraComponent.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
+#include "Render/MaterialPreFrame.h"
 
 namespace Engine 
 {
-	struct SceneViewP
+	struct SceneViewPrivate
 	{
 		std::vector<std::shared_ptr<Actor>> Actors;
 		std::vector<std::shared_ptr<Actor>> PendingActors;
@@ -16,17 +17,18 @@ namespace Engine
 		bool UpdatingActors = false;
 		std::mutex DeviceLock;
 		std::queue< InputDeviceState> InputStates;
+		std::vector< Light> lightInfos;
 	};
 
 	SceneView::SceneView()
-		:Impl(std::make_unique<SceneViewP>())
+		:d_ptr(new SceneViewPrivate())
 	{
 
 	}
 
 	SceneView::~SceneView()
 	{
-
+		delete d_ptr;
 	}
 
 	void SceneView::Init()
@@ -40,6 +42,7 @@ namespace Engine
 
 	void SceneView::LoadScene(const std::wstring& ModelFile)
 	{
+		C_P(SceneView);
 		Engine::GEngine->LoadConfig(ModelFile);
 
 		try
@@ -59,6 +62,21 @@ namespace Engine
 				AGltfModel->InitResouce();
 				AddActor(AGltfModel);
 			}
+
+			nlohmann::json evnJson = Root["Evn"];
+			const nlohmann::json lightJsons = evnJson["Light"];
+			for (const auto& lightInfoJson : lightJsons)
+			{
+				Light lightInfo;
+				std::string colorStr = lightInfoJson["LightColor"];
+				std::sscanf(colorStr.c_str(), "%f,%f,%f", &lightInfo.Color.x, &lightInfo.Color.y, &lightInfo.Color.z);
+				std::string dirStr = lightInfoJson["LightDir"];
+				std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z);
+				lightInfo.Type = lightInfoJson["LightType"];
+				lightInfo.Intensity = lightInfoJson["LightStrength"];
+				d->lightInfos.emplace_back(lightInfo);
+			}
+
 		}
 		catch (const std::exception& e)
 		{
@@ -69,45 +87,47 @@ namespace Engine
 
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)
 	{
-		if (Impl->UpdatingActors)
+		C_P(SceneView);
+		if (d->UpdatingActors)
 		{
-			Impl->PendingActors.emplace_back(actor);
+			d->PendingActors.emplace_back(actor);
 		}
 		else
 		{
-			Impl->Actors.emplace_back(actor);
+			d->Actors.emplace_back(actor);
 		}
 	}
 
 	void SceneView::RemoveActor(std::shared_ptr<Actor> actor)
 	{
-		auto iter = std::find(Impl->PendingActors.begin(), Impl->PendingActors.end(), actor);
-		if (iter != Impl->PendingActors.end())
+		C_P(SceneView);
+		auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
+		if (iter != d->PendingActors.end())
 		{
 			// Swap to end of vector and pop off (avoid erase copies)
-			std::iter_swap(iter, Impl->PendingActors.end() - 1);
-			Impl->PendingActors.pop_back();
+			std::iter_swap(iter, d->PendingActors.end() - 1);
+			d->PendingActors.pop_back();
 		}
 
 		// Is it in actors?
-		iter = std::find(Impl->Actors.begin(), Impl->Actors.end(), actor);
-		if (iter != Impl->Actors.end())
+		iter = std::find(d->Actors.begin(), d->Actors.end(), actor);
+		if (iter != d->Actors.end())
 		{
 			// Swap to end of vector and pop off (avoid erase copies)
-			std::iter_swap(iter, Impl->Actors.end() - 1);
-			Impl->Actors.pop_back();
+			std::iter_swap(iter, d->Actors.end() - 1);
+			d->Actors.pop_back();
 		}
 	}
 
 	void SceneView::Tick(float DeltaTime)
 	{
+		C_P(SceneView);
 		InputDeviceState InputState;
-
 		std::queue< InputDeviceState> TmpInputState;
 		{
 			
-			std::lock_guard Lock(Impl->DeviceLock);
-			TmpInputState.swap(Impl->InputStates);
+			std::lock_guard Lock(d->DeviceLock);
+			TmpInputState.swap(d->InputStates);
 		}
 
 		while (!TmpInputState.empty())
@@ -115,7 +135,7 @@ namespace Engine
 			InputState = TmpInputState.front();
 			InputState.DeltaTime = DeltaTime;
 
-			for (auto Item : Impl->Actors)
+			for (auto Item : d->Actors)
 			{
 				Item->ProcessInput(InputState);
 			}
@@ -124,28 +144,28 @@ namespace Engine
 		}
 
 		// Update all actors
-		Impl->UpdatingActors = true;
-		for (auto Item : Impl->Actors)
+		d->UpdatingActors = true;
+		for (auto Item : d->Actors)
 		{
 			Item->Tick(DeltaTime);
 		}
 
-		Impl->UpdatingActors = false;
+		d->UpdatingActors = false;
 
 		// Move any pending actors to mActors
-		for (auto pending : Impl->PendingActors)
+		for (auto pending : d->PendingActors)
 		{
 			pending->Tick(DeltaTime);
-			Impl->Actors.emplace_back(pending);
+			d->Actors.emplace_back(pending);
 		}
 
-		Impl->PendingActors.clear();
+		d->PendingActors.clear();
 
-		for (auto ItActor = Impl->Actors.begin(); ItActor != Impl->Actors.end();)
+		for (auto ItActor = d->Actors.begin(); ItActor != d->Actors.end();)
 		{
 			if ((*ItActor)->GetState() == Actor::EDead)
 			{
-				ItActor = Impl->Actors.erase(ItActor);
+				ItActor = d->Actors.erase(ItActor);
 			}
 			else
 			{
@@ -156,55 +176,69 @@ namespace Engine
 
 	void SceneView::SetMainCamera(std::shared_ptr<CameraComponent> Camera)
 	{
-		Impl->MainCamera = Camera;
+		C_P(SceneView);
+		d->MainCamera = Camera;
 	}
 
 	std::shared_ptr<Engine::CameraComponent> SceneView::GetMainCamera() const
 	{
-		return Impl->MainCamera;
+		C_P(SceneView);
+		return d->MainCamera;
 	}
 
 	std::vector<std::shared_ptr<Actor>>& SceneView::GetAllActors() const
 	{
-		return Impl->Actors;
+		C_P(SceneView);
+		return d->Actors;
+	}
+
+	const std::vector<Light>& SceneView::GetLights() const
+	{
+		C_P(const SceneView);
+		return d->lightInfos;
 	}
 
 	void SceneView::OnMouseButtonDown(MouseButton Button, core::vec2f Pos)
 	{
-		std::lock_guard Lock(Impl->DeviceLock);
+		C_P(SceneView);
+		std::lock_guard Lock(d->DeviceLock);
 		HandleMouseEvent(MET_ButtonDown, Button, Pos);
 	}
 
 	void SceneView::OnMouseButtonUp(MouseButton Button, core::vec2f Pos)
 	{
-		std::lock_guard Lock(Impl->DeviceLock);
+		C_P(SceneView);
+		std::lock_guard Lock(d->DeviceLock);
 		HandleMouseEvent(MET_ButtonUp, Button, Pos);
 	}
 
 	void SceneView::OnMouseMove(MouseButton Button, core::vec2f Pos)
 	{
-		std::lock_guard Lock(Impl->DeviceLock);
+		C_P(SceneView);
+		std::lock_guard Lock(d->DeviceLock);
 		HandleMouseEvent(MET_Move, Button,Pos);
 	}
 
 	void SceneView::HandleMouseEvent(MouseEventType EventType,MouseButton Button, core::vec2f Pos)
 	{
+		C_P(SceneView);
 		InputDeviceState InputState{};
 		InputState.Device = Mouse;
 		InputState.MouseInputState.EventType = EventType;
 		InputState.MouseInputState.Button = Button;
 		InputState.MouseInputState.Pos = Pos;
-		Impl->InputStates.emplace(InputState);
+		d->InputStates.emplace(InputState);
 	}
 
 	void SceneView::OnMouseWheel(int32_t WheelValue)
 	{
-		std::lock_guard Lock(Impl->DeviceLock);
+		C_P(SceneView);
+		std::lock_guard Lock(d->DeviceLock);
 		InputDeviceState InputState{};
 		InputState.Device = Mouse;
 		InputState.MouseInputState.EventType = MouseEventType::MET_Wheel;
 		InputState.MouseInputState.WheelValue = WheelValue;
-		Impl->InputStates.emplace(InputState);
+		d->InputStates.emplace(InputState);
 	}
 
 }

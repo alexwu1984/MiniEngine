@@ -6,7 +6,8 @@ namespace Engine
 {
 	class Actor;
 	class CameraComponent;
-	struct SceneViewP;
+	struct SceneViewPrivate;
+	struct Light;
 
 	class SceneView : public std::enable_shared_from_this<SceneView>
 	{
@@ -37,6 +38,7 @@ namespace Engine
 		void SetMainCamera(std::shared_ptr<CameraComponent> Camera);
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
 		std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
+		const std::vector<Light>& GetLights() const;
 	
 	private:
 		void OnMouseButtonDown(MouseButton Button, core::vec2f Pos);
@@ -45,7 +47,7 @@ namespace Engine
 		void HandleMouseEvent(MouseEventType EventType, MouseButton Button, core::vec2f Pos);
 		void OnMouseWheel(int32_t WheelValue);
 	private:
-		std::unique_ptr< SceneViewP> Impl;
+		SceneViewPrivate* d_ptr = nullptr;
 	};
 
 }

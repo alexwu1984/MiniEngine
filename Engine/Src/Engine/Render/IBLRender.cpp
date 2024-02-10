@@ -103,8 +103,8 @@ namespace Engine
 			}
 
 			input_json_file >> Root;
-			nlohmann::json GltfJson = Root["Evn"];
-			std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(GltfJson["Hdr"]);
+			nlohmann::json EvnJson = Root["Evn"];
+			std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(EvnJson["Hdr"]);
 			d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);
 		}
 		catch (const std::exception&)

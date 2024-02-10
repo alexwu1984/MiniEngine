@@ -1,7 +1,6 @@
 #pragma once
-#include "core/inc.h"
+#include "Render/MaterialPreFrame.h"
 #include "tinygltf/json.h"
-#include "math/matrix4x4.h"
 
 namespace RenderCore
 {
@@ -23,7 +22,8 @@ namespace Engine
 		math::Vector4 CameraPos;
 		math::Vector4 TemporalAAJitter;
 		bool HasSkin = false;
-		std::weak_ptr<PreProcessor> _PreProcessor;
+		std::weak_ptr<PreProcessor> preProcessor;
+		std::vector< Light> lightInfos;
 	};
 
 	class GltfModelConfig;

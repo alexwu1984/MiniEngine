@@ -8,6 +8,7 @@
 #include "Render/PBRMaterialRender.h"
 #include "Render/FurMaterialRender.h"
 #include "Thread/RenderThread.h"
+#include "Engine/Scene/SceneView.h"
 
 namespace Engine
 {
@@ -27,6 +28,7 @@ namespace Engine
 	{
 		std::vector<MeshDistanceInfo> SortMesh;
 		std::map<std::string, std::shared_ptr<MaterialRender>> Renders;
+		std::shared_ptr<SceneView> sceneView;
 	};
 
 	BasePassRender::BasePassRender()
@@ -41,12 +43,13 @@ namespace Engine
 	}
 
 	void BasePassRender::Render(const std::vector<GltfSceneMeshInfo>& MeshInfos, RenderCore::RHICommandContext& RHIContext,
-								std::shared_ptr<CameraComponent> Camera)
+								std::shared_ptr<SceneView> View)
 	{
 		C_P(BasePassRender);
 		d->SortMesh.clear();
-		ActualDraw(MeshInfos,RHIContext, Camera, true);
-		ActualDraw(MeshInfos,RHIContext, Camera, false);
+		d->sceneView = View;
+		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), true);
+		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), false);
 	}
 
 	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos,const math::Vector3& CameraPos)
@@ -117,7 +120,7 @@ namespace Engine
 
 				auto Material = GetOrCreateRender(Mesh);
 
-				//if (!Mesh->GetMaterial()->IsTransparent())
+				if (!Mesh->GetMaterial()->IsTransparent())
 				{
 					DrawMesh(Mesh, MeshInfo.WorldTransform, MeshInfo.PrevWorldTransform, 
 						Material, RHIContext, Camera, IsPreDraw);
@@ -125,20 +128,20 @@ namespace Engine
 			}
 		}
 
-		//SortMesh(MeshInfos, Camera->GetCameraPos());
+		SortMesh(MeshInfos, Camera->GetCameraPos());
 
-		//for (const auto& SortItem : d->SortMesh)
-		//{
-		//	std::shared_ptr<GltfMesh> Mesh = SortItem.Mesh;
+		for (const auto& SortItem : d->SortMesh)
+		{
+			std::shared_ptr<GltfMesh> Mesh = SortItem.Mesh;
 
-		//	auto Material = GetOrCreateRender(Mesh);
+			auto Material = GetOrCreateRender(Mesh);
 
-		//	if (Mesh->GetMaterial()->IsTransparent())
-		//	{
-		//		DrawMesh(Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
-		//			Material, RHIContext, Camera, IsPreDraw);
-		//	}
-		//}
+			if (Mesh->GetMaterial()->IsTransparent())
+			{
+				DrawMesh(Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
+					Material, RHIContext, Camera, IsPreDraw);
+			}
+		}
 	}
 
 	void BasePassRender::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform,
@@ -148,6 +151,7 @@ namespace Engine
 	{
 		C_P(BasePassRender);
 		MaterialRenderParam RenderParam;
+		RenderParam.lightInfos = d->sceneView->GetLights();
 		RenderParam.CameraPos = Camera->GetCameraPos();
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;
@@ -157,7 +161,7 @@ namespace Engine
 		RenderParam.PrevViewProjInverseMatrix = RenderParam.PrevViewProjMatrix.Inverse();
 		RenderParam.TemporalAAJitter = Camera->GetTemporalAAJitter();
 		RenderParam.HasSkin = Mesh->HasSkin();
-		RenderParam._PreProcessor = GEngine->GetSceneRender()->GetPreProcessor();
+		RenderParam.preProcessor = GEngine->GetSceneRender()->GetPreProcessor();
 
 		auto RenderMesh = [Render, RenderParam, Mesh, IsPreDraw](RenderCore::DynamicRHI* DyRHI)
 			{

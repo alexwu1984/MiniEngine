@@ -9,7 +9,7 @@ namespace Engine
 	class MaterialRender;
 	class GltfModel;
 
-	struct GltfMeshComponentP;
+	struct GltfMeshComponentPrivate;
 
 	struct GltfSceneMeshInfo
 	{
@@ -30,13 +30,12 @@ namespace Engine
 		GltfModel& GetModel() const;
 		math::AABB3 GetModelBox() const;
 
-
 		virtual void Tick(float deltaTime) override;
 		virtual void OnUpdateWorldTransform(float deltaTime) override;
 
 		bool GatherMesh(GltfSceneMeshInfo & SceneMeshInfo, std::shared_ptr<CameraComponent> Camera);
 	private:
-		std::shared_ptr< GltfMeshComponentP> Impl;
+		GltfMeshComponentPrivate* d_ptr = nullptr;
 	};
 
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(GltfMeshComponent)

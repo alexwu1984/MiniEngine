@@ -165,14 +165,19 @@ namespace Engine
 		C_P(PBRMaterialRender);
 
 		d->RenderParam = RenderParam;
-
 		SetPipeLineState(RHIContext);
 
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = 1;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Direction = math::Vector3::UnitZ;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Type = LightType_Directional;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Color = math::Vector3(1.f, 1.f, 1.f);
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Intensity = 1.0f;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = RenderParam.lightInfos.size();
+		for (int32_t index = 0; index < RenderParam.lightInfos.size(); ++index)
+		{
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = RenderParam.lightInfos[index];
+		}
+
+		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = 1;
+		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Direction = math::Vector3::UnitZ;
+		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Type = LightType_Directional;
+		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Color = math::Vector3(1.f, 1.f, 1.f);
+		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Intensity = 1.0f;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
@@ -181,9 +186,9 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
 
-		if (!RenderParam._PreProcessor.expired())
+		if (!RenderParam.preProcessor.expired())
 		{
-			auto IBL = RenderParam._PreProcessor.lock()->GetIBLRender();
+			auto IBL = RenderParam.preProcessor.lock()->GetIBLRender();
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, IBL->GetIrrCube());
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 6, IBL->GetPreIntegrateBRDF());
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 7, IBL->GetPreFilterCube());

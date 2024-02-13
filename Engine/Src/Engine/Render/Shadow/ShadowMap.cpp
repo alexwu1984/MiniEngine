@@ -1,7 +1,13 @@
 #include "Render/Shadow/ShadowMap.h"
+#include "Render/MaterialPreFrame.h"
+#include "Scene/SceneView.h"
+#include "Scene/CameraComponent.h"
+#include "Scene/Actor.h"
+#include "Scene/GltfMeshComponent.h"
 
 namespace Engine
 {
+	static constexpr float LIGHT_DISTANCE = 4.0f;
 
 	ShadowMap::ShadowMap()
 	{
@@ -13,9 +19,113 @@ namespace Engine
 
 	}
 
-	void ShadowMap::ComputeSceneCascadeParams(std::shared_ptr<SceneView>& sceneView, CascadeParameters& cascadeParams)
+	void ShadowMap::ComputeSceneCascadeParams(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams)
 	{
+		math::Vector3 lightDir{ 0.0,0.0,1.0f };
+		auto lights = sceneView->GetLights();
+		if (!lights.empty())
+		{
+			lightDir = lights[0].Direction.Normalize();
+		}
+		if (sceneView->GetMainCamera())
+		{
+			cascadeParams.wsLightPosition = sceneView->GetMainCamera()->GetCameraPos();
+		}
 
+		cascadeParams.lsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
+		cascadeParams.vsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
+		cascadeParams.wsShadowCastersVolume = {};
+		cascadeParams.wsShadowReceiversVolume = {};
+		calculateNearFar(sceneView, cascadeParams);
+	}
+
+	void ShadowMap::Update(const CascadeParameters& cascadesParams)
+	{
+		lsFar = cascadesParams.lsNearFar.x;
+		lsNear = cascadesParams.lsNearFar.y;
+	}
+
+	static float RayPlaneIntersect(math::Vector3 rayOrigin, math::Vector3 rayDirection, math::Vector3 planeOrigin, math::Vector3 planeNormal)
+	{
+		float dist = planeNormal.Dot(planeOrigin - rayOrigin) / planeNormal.Dot(rayDirection);
+		return dist;
+	}
+
+	void ShadowMap::calculateNearFar(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams)
+	{
+		if (!sceneView->GetMainCamera())
+		{
+			return;
+		}
+
+		auto cameraComp = sceneView->GetMainCamera();
+
+		math::Matrix4x4 view = cameraComp->GetViewMatrix();
+		//TODO:这里必须是相机作为坐标系原点，模型的位置坐标必须是相对与相机的
+		//计算世界空间坐标系下模型的包围盒大小
+		//暂时先支持一个模型投射
+
+		std::shared_ptr<Actor> projActor;
+		auto actors = sceneView->GetAllActors();
+		for (auto actor : actors)
+		{
+			if (actor->IsProjectShadow())
+			{
+				projActor = actor;
+				break;
+			}
+		}
+		if (!projActor)
+		{
+			return;
+		}
+
+		math::Matrix4x4 toWsMat = projActor->GetWorldTransform();
+		math::Matrix4x4 worldToOrign = math::Matrix4x4::CreateFromTranslate(0.0, 0.0, -LIGHT_DISTANCE);
+		auto modelBox = projActor->GetComponent<GltfMeshComponent>()->GetModelBox();
+
+		math::Vector3 wsSceneCorners[8]{};
+		modelBox.GetPoint(wsSceneCorners);
+		math::Vector3 lightDir{ 0.0,0.0,1.0f };
+		auto lights = sceneView->GetLights();
+		if (!lights.empty())
+		{
+			lightDir = lights[0].Direction.Normalize();
+		}
+
+		math::Vector3 lightPos = math::Vector3() + ((lightDir*-1) * LIGHT_DISTANCE);
+		float disMin = FLT_MAX, disMax = -FLT_MAX;
+		for (size_t i = 0; i < _ARRAYSIZE(wsSceneCorners); i++)
+		{
+			math::Vector3 temp = toWsMat.TransformPosition(wsSceneCorners[i]);
+			float d = RayPlaneIntersect(temp, (lightDir * -1), lightPos, lightDir);
+
+			disMin = (std::min)(disMin, d);
+			disMax = (std::max)(disMax, d);
+		}
+
+		cascadeParams.lsNearFar.y = disMin;
+		cascadeParams.lsNearFar.x = disMax;
+	}
+
+	math::Vector2 ShadowMap::computeNearFar(const math::Matrix4x4 view, const math::AABB3& wsShadowCastersVolume)
+	{
+		math::Vector3 corners[8]{};
+		wsShadowCastersVolume.GetPoint(corners);
+		return computeNearFar(view, corners, 8);
+	}
+
+	math::Vector2 ShadowMap::computeNearFar(const math::Matrix4x4 view, const math::Vector3* wsVertices, size_t count)
+	{
+		math::Vector2 nearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
+		for (size_t i = 0; i < count; i++)
+		{
+			math::Vector3 tmp = view.TranslateVectorWithPrespDiv(wsVertices[i]);
+			nearFar.x = (std::max)(nearFar.x, tmp.z);  // near
+			nearFar.y = (std::min)(nearFar.y, tmp.z);  // far
+		}
+
+		return nearFar;
 	}
 
 }

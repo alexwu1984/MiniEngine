@@ -2,6 +2,7 @@
 #include "core/inc.h"
 #include "math/aabb3.h"
 #include "math/vector2.h"
+#include "math/matrix4x4.h"
 
 namespace Engine
 {
@@ -32,6 +33,14 @@ namespace Engine
 		ShadowMap();
 		~ShadowMap();
 
-		static void ComputeSceneCascadeParams(std::shared_ptr<SceneView>& sceneView, CascadeParameters& cascadeParams);
+		static void ComputeSceneCascadeParams(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams);
+		void Update(const CascadeParameters& cascadesParams);
+	private:
+		static void calculateNearFar(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams);
+		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::AABB3& wsShadowCastersVolume) ;
+		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::Vector3* wsVertices, size_t count) ;
+	public:
+		float lsNear;
+		float lsFar;
 	};
 }

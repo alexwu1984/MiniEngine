@@ -185,6 +185,16 @@ namespace Engine
 		return ImplActorP->Components;
 	}
 
+	void Actor::SetProjectShadow(bool projShadow)
+	{
+		ImplActorP->projectShadow = projShadow;
+	}
+
+	bool Actor::IsProjectShadow() const
+	{
+		return ImplActorP->projectShadow;
+	}
+
 	void Actor::ProcessInput(const InputDeviceState& State)
 	{
 		for (auto comp : ImplActorP->Components)

@@ -62,6 +62,11 @@ namespace Engine
 		{
 			SetScale(d->GltfJson["Scale"]);
 		}
+
+		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
+		{
+			SetProjectShadow(d->GltfJson["ProjShadow"]);
+		}
 		
 		AddComponent(d->CameraComp);
 

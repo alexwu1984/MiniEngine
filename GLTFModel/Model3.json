@@ -27,7 +27,8 @@
       "Material": {
         "Metallic": 1.0
       },
-      "MainCamera": true
+      "MainCamera": true,
+      "ProjShadow": true
     }
   ],
   "Tonemapping": {

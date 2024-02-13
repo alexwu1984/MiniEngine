@@ -74,6 +74,9 @@ namespace Engine
 		template<typename TComponent> std::vector<std::shared_ptr<TComponent>> GetComponents() const;
 		template<typename TComponent> std::shared_ptr<TComponent> GetComponent() const;
 
+		void SetProjectShadow(bool projShadow);
+		bool IsProjectShadow() const;
+
 	public:
 		virtual void ProcessInput(const InputDeviceState& State);
 

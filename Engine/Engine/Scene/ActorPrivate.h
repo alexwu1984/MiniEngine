@@ -20,6 +20,7 @@ namespace Engine
 		std::weak_ptr<SceneView> Scene;
 
 		bool RecomputeWorldTransform = true;
+		bool projectShadow = false;
 
 		Matrix4x4 PrevWorldTransform;
 		Matrix4x4 WorldTransform;

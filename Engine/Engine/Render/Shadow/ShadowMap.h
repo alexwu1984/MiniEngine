@@ -40,7 +40,7 @@ namespace Engine
 		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::AABB3& wsShadowCastersVolume) ;
 		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::Vector3* wsVertices, size_t count) ;
 	public:
-		float lsNear;
-		float lsFar;
+		float lsNear = 0.f;
+		float lsFar = 0.f;
 	};
 }

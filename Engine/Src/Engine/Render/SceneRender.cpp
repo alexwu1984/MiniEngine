@@ -181,8 +181,7 @@ namespace Engine
 			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI)
-			{
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI){
 				if (d->PostProcess)
 				{
 					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer,d->MainViewPort);

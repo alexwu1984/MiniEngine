@@ -48,6 +48,8 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAA.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAASharpenerCS.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Blend.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShadowPass-PS.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShadowPass-VS.hlsl
 )
 
 add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})

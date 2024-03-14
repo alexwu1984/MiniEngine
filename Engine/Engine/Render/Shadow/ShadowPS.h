@@ -11,18 +11,19 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct ShadowPrivate;
+	struct ShadowPSPrivate;
+	class GltfMesh;
 
 	class ShadowPS
 	{
 	public:
-		ShadowPS(RenderCore::DynamicRHI* rhi);
+		ShadowPS(RenderCore::DynamicRHI* RHI, std::shared_ptr<GltfMesh> gltfMesh);
 		~ShadowPS();
 
 		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
 	private:
-		ShadowPrivate* d_ptr = nullptr;
+		ShadowPSPrivate* d_ptr = nullptr;
 	};
 }

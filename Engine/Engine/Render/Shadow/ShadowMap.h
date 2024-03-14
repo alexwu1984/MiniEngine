@@ -22,9 +22,6 @@ namespace Engine
 		math::Vector2 vsNearFar;
 		math::AABB3 wsShadowCastersVolume;
 		math::AABB3 wsShadowReceiversVolume;
-
-		// Position of the directional light in world space.
-		math::Vector3 wsLightPosition;
 	};
 
 	class ShadowMap

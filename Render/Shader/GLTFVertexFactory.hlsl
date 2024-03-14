@@ -95,3 +95,47 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
     #endif
     return Output;
 }
+
+//shadow vs
+VS_OUTPUT_SCENE gltfVertexFactoryForLight(VS_INPUT_SCENE input)
+{
+    VS_OUTPUT_SCENE Output;
+#ifdef HAS_WEIGHTS_0
+    matrix skinningMatrix;
+    skinningMatrix  = GetCurrentSkinningMatrix(input.JointsWeights0, input.JointsIndices0);
+#else
+    matrix skinningMatrix =
+    {
+        { 1, 0, 0, 0 },
+        { 0, 1, 0, 0 },
+        { 0, 0, 1, 0 },
+        { 0, 0, 0, 1 }
+    };
+#endif
+    
+    matrix transMatrix = mul(skinningMatrix, GetWorldMatrix());
+    Output.Normal = normalize(mul(float4(input.Normal, 0), transMatrix).xyz);
+#ifdef HASFUR
+    float2 UVoffset = float2(0.2, 0.2) * FurOffset;
+    UVoffset *= 0.1;
+    Output.UV0 = input.UV0 * UVScale + UVoffset;
+    Output.UV1 = input.UV0;
+    float furLength_coeff = 1.0;
+    float vGravityStength = 0.5;
+	float3 Direction = lerp(input.Normal, Gravity * vGravityStength + input.Normal * (1.0 - vGravityStength), FurOffset);
+	float3 P = input.Position + Direction * FurLength * FurOffset * furLength_coeff;
+    Output.WorldPos = mul(float4(P, 1.0f),transMatrix).xyz;
+    
+	float SH = clamp(Output.Normal.y * 0.25 + 0.35, 0.0, 1.0);
+    Output.SH = float3(SH, SH, SH );
+#else
+    Output.UV0 = input.UV0;
+    Output.WorldPos = mul(float4(input.Position, 1.0f),transMatrix).xyz;
+   
+ #endif
+    Output.svPosition = mul(float4(Output.WorldPos, 1.0f), GetMainLightViewProj());
+	Output.svPosition/= Output.svPosition.w;
+    Output.svPosition.z = Output.svPosition.z*0.5+0.5;
+    
+    return Output;
+}

@@ -27,10 +27,6 @@ namespace Engine
 		{
 			lightDir = lights[0].Direction.Normalize();
 		}
-		if (sceneView->GetMainCamera())
-		{
-			cascadeParams.wsLightPosition = sceneView->GetMainCamera()->GetCameraPos();
-		}
 
 		cascadeParams.lsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
 		cascadeParams.vsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };

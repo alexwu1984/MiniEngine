@@ -7,7 +7,6 @@
 #include "Engine/Engine.h"
 #include "Render/PBRMaterialRender.h"
 #include "Render/FurMaterialRender.h"
-#include "Thread/RenderThread.h"
 #include "Engine/Scene/SceneView.h"
 
 namespace Engine

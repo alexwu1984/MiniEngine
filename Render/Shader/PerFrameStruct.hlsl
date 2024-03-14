@@ -27,15 +27,6 @@ struct Light
     int           ShadowMapIndex;
 };
 
-struct LightInstance
-{
-    matrix        LightViewProj;
-    float3        Direction;
-    float3        Position;
-    int           ShadowMapIndex;
-    float         DepthBias;
-};
-
 static const int LightType_Directional = 0;
 static const int LightType_Point = 1;
 static const int LightType_Spot = 2;
@@ -107,6 +98,11 @@ matrix GetPrevWorldMatrix()
 matrix GetPrevCameraViewProj()
 {
     return myPerFrame.CameraPrevViewProj;
+}
+
+matrix GetMainLightViewProj()
+{
+    return myPerFrame.Lights[0].LightViewProj;
 }
 
 #endif

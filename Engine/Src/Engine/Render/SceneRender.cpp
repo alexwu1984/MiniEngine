@@ -16,6 +16,7 @@
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
 #include "Render/GBuffer.h"
+#include "Render/Shadow/ShadowRenderPass.h"
 
 using namespace RenderCore;
 
@@ -31,6 +32,8 @@ namespace Engine
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::vector<GltfSceneMeshInfo> MeshesInfo;
+		std::shared_ptr<ShadowRenderPass> ShadowRender;
+		std::atomic_bool IsInit{ false };
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
@@ -86,6 +89,13 @@ namespace Engine
 			auto Size = d->MainViewPort->GetSize();
 			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER),
 				Size.cx, Size.cy);
+
+			if (!d->ShadowRender)
+			{
+				d->ShadowRender = std::make_shared<ShadowRenderPass>(RHI);
+			}
+			d->ShadowRender->InitResource();
+			d->IsInit = true;
 			});
 	}
 
@@ -131,6 +141,10 @@ namespace Engine
 			return;
 		}
 		C_P(SceneRender);
+		if (!d->IsInit)
+		{
+			return;
+		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
@@ -176,8 +190,9 @@ namespace Engine
 			}
 		}
 
-		if (d->MeshesInfo.size())
+		if (d->MeshesInfo.size() )
 		{
+			d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
 			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
 		}
 

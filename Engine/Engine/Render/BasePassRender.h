@@ -1,5 +1,4 @@
 #pragma once
-#include "core/inc.h"
 #include "RHI/RHICommandContext.h"
 #include "Render/MaterialRender.h"
 #include "GltfModel/DynamicBoneInfo.h"

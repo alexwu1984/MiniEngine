@@ -18,16 +18,22 @@ namespace Engine
 
 	struct ShadowPSPrivate
 	{
-		ShadowPSPrivate(RenderCore::DynamicRHI* _RHI)
-			:RHI(_RHI)
+		ShadowPSPrivate(DynamicRHI* _RHI)
+			:RHI(_RHI),
+			GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
+			GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
+			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get())
 		{
 
 		}
-		RenderCore::DynamicRHI* RHI;
-		std::shared_ptr< RenderCore::RHIVertexShader> VS;
-		std::shared_ptr< RenderCore::RHIPixelShader> PS;
+		DynamicRHI* RHI;
+		std::shared_ptr< RHIVertexShader> VertexShader;
+		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< BlurCS> Blur;
 		std::shared_ptr<GltfMesh> Mesh;
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
 	};
 
 	ShadowPS::ShadowPS(RenderCore::DynamicRHI* RHI, std::shared_ptr<GltfMesh> gltfMesh)
@@ -81,15 +87,35 @@ namespace Engine
 		{
 			ShaderMacros.push_back({ "HASFUR","1" });
 		}
-		d->VS = d->RHI->RHICreateVertexShader(VSPath, "MainVS", VertexDeclareRHI, ShaderMacros);
+		d->VertexShader = d->RHI->RHICreateVertexShader(VSPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 
 		std::wstring PSPath = ShaderPath + L"ShadowPass-PS.hlsl";
-		d->PS = d->RHI->RHICreatePixelShader(PSPath, "MainPS", ShaderMacros);
+		d->PixelShader = d->RHI->RHICreatePixelShader(PSPath, "MainPS", ShaderMacros);
 	}
 
-	void ShadowPS::Draw(RenderCore::RHICommandContext& RHIContext)
+	void ShadowPS::Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform, const Light& mainLight)
 	{
+		C_P(ShadowPS);
+		GraphicsPipelineStateInitializer Init;
+		Init.PixelShader = d->PixelShader;
+		Init.VertexShader = d->VertexShader;
+		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+
+		//to do,set uniform buffer
+		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0] = mainLight;
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 	}
 
 }

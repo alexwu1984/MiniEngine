@@ -1,5 +1,7 @@
 #pragma once
 #include "core/inc.h"
+#include "math/matrix4x4.h"
+#include "Render/MaterialPreFrame.h"
 
 namespace RenderCore
 {
@@ -21,7 +23,7 @@ namespace Engine
 		~ShadowPS();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext);
+		void Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,const Light& mainLight);
 
 	private:
 		ShadowPSPrivate* d_ptr = nullptr;

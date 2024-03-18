@@ -10,7 +10,7 @@
 #include "Render/Shadow/ShadowPS.h"
 #include "Render/Shadow/ShadowMapManager.h"
 #include "Render/Shadow/ShadowMap.h"
-#include "RHI/RHITexture2D.h"
+#include "RHI/RHIRenderTarget.h"
 #include "Engine/Scene/Actor.h"
 #include "math/aabb3.h"
 #include "math/vector2.h"
@@ -50,7 +50,7 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		const int32_t SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-		d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
+		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 	}
 
 	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& Meshes, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
@@ -87,7 +87,8 @@ namespace Engine
 			float f = maxPoint.z;
 
 			auto shadowmap = d->ShadowMgr->GetShadowMap(0);
-			math::Vector2 nearAndFar = { shadowmap->lsNear - 0.1f,shadowmap->lsFar + 0.1f };
+			float nearValue = shadowmap->lsNear - 0.1f;
+			float farValue = shadowmap->lsFar + 0.1f;
 
 			const auto& Lights = View->GetLights();
 			Light mainLight = Lights[0];
@@ -103,9 +104,13 @@ namespace Engine
 			}
 
 			mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(lightPos, lightLookAt, lightUp);
-			mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(l, r, b, t, nearAndFar.x, nearAndFar.y);
+			mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(l, r, b, t, nearValue, farValue);
 
 			RHIContext.SetRenderTarget(d->DepthRenderBuffer);
+			RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+			auto TargetSize = d->DepthRenderBuffer->GetSize();
+			RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
+
 			for (auto itMeshInfo = Meshes.begin(); itMeshInfo != Meshes.end(); ++itMeshInfo)
 			{
 				for (auto itMesh = itMeshInfo->Meshes.begin(); itMesh != itMeshInfo->Meshes.end(); ++itMesh)

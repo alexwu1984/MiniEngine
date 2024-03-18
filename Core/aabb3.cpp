@@ -210,6 +210,14 @@ namespace math
 		_Max.x = (std::max)(_Max.x, point.x);
 		_Max.y = (std::max)(_Max.y, point.y);
 		_Max.z = (std::max)(_Max.z, point.z);
+
+		_Center = (_Min + _Max) / 2.0f;
+
+		Vector3 Temp = (_Max - _Min) / 2.0f;
+
+		_fA[0] = Temp.x;
+		_fA[1] = Temp.y;
+		_fA[2] = Temp.z;
 	}
 
 	math::Intersect AABB3::RelationWith(const AABB3& AABB) const

@@ -15,4 +15,5 @@ public:
 	virtual void ShutDown() override;
 private:
 	std::shared_ptr<Engine::GltfActor> AGltfModel;
+	int32_t SelIndex = 0;
 };

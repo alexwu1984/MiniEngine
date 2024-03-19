@@ -11,6 +11,7 @@ Texture2D AoMap : register(t4);
 TextureCube IrradianceTex : register(t5);
 Texture2D BrdfLut : register(t6);
 TextureCube PrefliterCubeMap : register(t7);
+Texture2D ShadowMap: register(t8);
 SamplerState SampleLinear : register(s0);
 
 struct PS_OUTPUT_SCENE
@@ -155,11 +156,57 @@ float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterC
     return 0.0;
 }
 
-float3 ApplyDirectionalLight(Light light, MaterialInfo materialInfo, float3 normal, float3 view)
+float Linstep(float a, float b, float v)
+{
+	return clamp((v - a) / (b - a), 0.0, 0.8);
+}
+// Reduces VSM light bleedning
+float ReduceLightBleeding(float pMax, float amount)
+{
+	// Remove the [0, amount] tail and linearly rescale (amount, 1].
+	return Linstep(amount, 1.0f, pMax);
+}
+
+float ChebyshevUpperBound(float2 Moments, float t, float3 Normal)
+{
+	float Variance = Moments.y - Moments.x * Moments.x;
+	float MinVariance = 0.0000001;
+	Variance = max(Variance, MinVariance);
+
+	// Compute probabilistic upper bound.
+	float d = t - Moments.x;
+	float pMax = Variance / (Variance + d * d);
+
+	float lightBleedingReduction = 0.5;
+	pMax = ReduceLightBleeding(pMax, lightBleedingReduction);
+
+	pMax /= 0.8;
+	float3 normal = normalize(Normal);
+	float3 L = normalize(GetMainLight().Direction);
+	float dotValue = abs(dot(normal, L));
+	float bias = max(0.01 * (1.0 - dotValue), 0.005);
+	return (t - bias <= Moments.x ? 1.0 : pMax);
+}
+
+float ComputeShadow(float4 ShadowCoord, float3 Normal)
+{
+	float3 position = ShadowCoord.xyz / ShadowCoord.w;
+	position = position * float3(0.5, -0.5, 0.5) + float3(0.5, 0.5, 0.5);
+
+	float3 Moments = ShadowMap.Sample(SampleLinear, position.xy).xyz;
+	float shadow =  ChebyshevUpperBound(Moments.xy, clamp(position.z, 0.0, 1.0), Normal);
+    return 1.0 - (1.0 - shadow) * Moments.z;
+	// return shadow * Moments.z;
+}
+
+float3 ApplyDirectionalLight(VS_OUTPUT_SCENE Input,Light light, MaterialInfo materialInfo, float3 normal, float3 view)
 {
     float3 pointToLight = light.Direction;
     float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
-    return light.Intensity * light.Color * shade;
+    float visibility = 1.0f;
+    if (IsEnableShadow())
+		visibility = clamp(ComputeShadow(Input.LightPos,normal),0.0,1.0);
+    return light.Intensity * light.Color * shade*visibility;
 }
 
 float3 ApplyPointLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
@@ -273,7 +320,7 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
        // float shadowFactor = CalcShadows(Input.WorldPos.xyz, int2(Input.svPosition.xy), light);
         if (light.Type == LightType_Directional)
         {
-            color += ApplyDirectionalLight(light, materialInfo, normal, view) * shadowFactor;
+            color += ApplyDirectionalLight(Input,light, materialInfo, normal, view) * shadowFactor;
         }
         else if (light.Type == LightType_Point)
         {

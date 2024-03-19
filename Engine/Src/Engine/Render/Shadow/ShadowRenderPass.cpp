@@ -90,20 +90,21 @@ namespace Engine
 			float nearValue = shadowmap->lsNear - 0.1f;
 			float farValue = shadowmap->lsFar + 0.1f;
 
-			const auto& Lights = View->GetLights();
-			Light mainLight = Lights[0];
+			auto& Lights = View->GetLights();
+			Light& mainLight = Lights[0];
+			mainLight.ShadowMapIndex = 0;
 
 			math::Vector3 lightLookAt; //此处没有考虑相机平移的情况
 			math::Vector3 lightUp = math::Vector3::UnitY;
-			math::Vector3 lightPos = lightLookAt + (mainLight.Direction * LIGHT_DISTANCE);
+			mainLight.Position = lightLookAt + (mainLight.Direction * LIGHT_DISTANCE);
 
-			math::Vector3 zAxis = (lightLookAt - lightPos).Normalize();
+			math::Vector3 zAxis = (lightLookAt - mainLight.Position).Normalize();
 			if (math::Abs(math::Vector3::Dot(zAxis, lightUp)) > 0.999)
 			{
 				lightUp = { lightUp.z, lightUp.x, lightUp.y };
 			}
 
-			mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(lightPos, lightLookAt, lightUp);
+			mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(mainLight.Position, lightLookAt, lightUp);
 			mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(l, r, b, t, nearValue, farValue);
 
 			RHIContext.SetRenderTarget(d->DepthRenderBuffer);
@@ -126,6 +127,12 @@ namespace Engine
 			}
 		});
 
+	}
+
+	std::shared_ptr<RenderCore::RHIRenderTarget> ShadowRenderPass::GetShadowMap() const
+	{
+		C_P(ShadowRenderPass);
+		return d->DepthRenderBuffer;
 	}
 
 }

@@ -6,10 +6,13 @@
 #include "Thread/RenderThread.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
+#include "RHI/RHIRenderTarget.h"
 #include "core/system.h"
 #include "Render/MaterialPreFrame.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
+#include "Engine/Render/Shadow/ShadowRenderPass.h"
+#include "Engine/Render/SceneRender.h"
 
 namespace Engine
 {
@@ -165,7 +168,6 @@ namespace Engine
 		C_P(PBRMaterialRender);
 
 		d->RenderParam = RenderParam;
-		SetPipeLineState(RHIContext);
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = RenderParam.lightInfos.size();
 		for (int32_t index = 0; index < RenderParam.lightInfos.size(); ++index)
@@ -173,11 +175,6 @@ namespace Engine
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = RenderParam.lightInfos[index];
 		}
 
-		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = 1;
-		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Direction = math::Vector3::UnitZ;
-		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Type = LightType_Directional;
-		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Color = math::Vector3(1.f, 1.f, 1.f);
-		//d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0].Intensity = 1.0f;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
@@ -194,6 +191,15 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 7, IBL->GetPreFilterCube());
 		}
 
+		if (RenderParam.lightInfos.size() > 0 && RenderParam.lightInfos[0].ShadowMapIndex >= 0)
+		{
+			auto shadowMap = GEngine->GetSceneRender()->GetShadowRenderPass()->GetShadowMap();
+			if (shadowMap)
+			{
+				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 8, shadowMap->GetTex());
+			}
+		}
+		SetPipeLineState(RHIContext);
 		DrawMesh(RHIContext);
 	}
 

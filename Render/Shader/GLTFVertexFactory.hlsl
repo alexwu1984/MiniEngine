@@ -69,6 +69,10 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
    
  #endif
     Output.svPosition = mul(float4(Output.WorldPos, 1.0f), GetCameraViewProj());
+    if (IsEnableShadow())
+	{
+		Output.LightPos = mul(float4(Output.WorldPos, 1.0f), GetMainLightViewProj());
+	}
     
 #ifdef HAS_WEIGHTS_0
         matrix prevSkinningMatrix;

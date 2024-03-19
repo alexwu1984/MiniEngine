@@ -1,44 +1,68 @@
 {
-    "Gltf":{
-        "Model":"Model4.glb",
-        "Hdr":"venice_sunset_1k.hdr",
-        "AmbientStrength":1.48,
-        "LightDir":"0.0,0.0,1.0",
-        "LightStrength":3.7,
-        "RotateIBL":"0,0"
+  "Evn": {
+    "Hdr": "delta_2_2k.hdr",
+    "AmbientStrength": 1.48,
+    "Light": [
+      {
+        "LightColor": "1.0,1.0,1.0",
+        "LightDir": "0.0,0.0,1.0",
+        "LightStrength": 1.0,
+        "LightType": 0
+      }
+    ],
+
+    "RotateIBL": "0,0"
+  },
+  "Modles": [
+    {
+      "Model": "floor.glb",
+      "Scale": 0.05,
+      "Material": {
+        "Metallic": 0.0
+      }
     },
-    "Tonemapping":{
-        "Type":1,
-        "Contrast":1.74,
-        "Saturation":1.23
-    },
-    "FurMaterial":{
-        "Name":"TuEr_fur",
-        "NoiseTex":"noise.jpg",
-        "FurLength":0.18,
-        "FurAmbientStrength":2.94,
-        "FurLevel":28,
-        "UVScale":30,
-        "Gravity":"0.0,-1.0,0.0",
-        "FurLightExposure":0.4,
-        "Fresnel":2,
-        "FurMask":0.5,
-        "Tming":0.5
-    },
-    "DyBone":[
+    {
+      "Model": "Model4.glb",
+      "Scale": 1.0,
+      "Material": {
+        "Metallic": 1.0
+      },
+      "MainCamera": true,
+      "ProjShadow": false,
+      "FurMaterial": {
+        "Name": "TuEr_fur",
+        "NoiseTex": "noise.jpg",
+        "FurLength": 0.18,
+        "FurAmbientStrength": 2.94,
+        "FurLevel": 28,
+        "UVScale": 30,
+        "Gravity": "0.0,-1.0,0.0",
+        "FurLightExposure": 0.4,
+        "Fresnel": 2,
+        "FurMask": 0.5,
+        "Tming": 0.5
+      },
+      "DyBone": [
         {
-            "Name":"joint2",
-            "Damping":0.2,
-            "Elasticity":0.05,
-            "Stiffness":0.5,
-            "Inert":0.5
+          "Name": "joint2",
+          "Damping": 0.2,
+          "Elasticity": 0.05,
+          "Stiffness": 0.5,
+          "Inert": 0.5
         },
         {
-            "Name":"joint15",
-            "Damping":0.2,
-            "Elasticity":0.05,
-            "Stiffness":0.5,
-            "Inert":0.5
+          "Name": "joint15",
+          "Damping": 0.2,
+          "Elasticity": 0.05,
+          "Stiffness": 0.5,
+          "Inert": 0.5
         }
-    ]
+      ]
+    }
+  ],
+  "Tonemapping": {
+    "Type": 1,
+    "Contrast": 1.74,
+    "Saturation": 1.23
+  }
 }

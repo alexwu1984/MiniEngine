@@ -20,18 +20,18 @@ namespace Engine
 		math::Matrix4x4 LightView;
 
 		math::Vector3	Direction;
-		float			Range;
+		float			Range{ 0.f };
 
 		math::Vector3   Color;
-		float			Intensity;
+		float			Intensity{ 1.f };
 
 		math::Vector3   Position;
-		float			InnerConeCos;
+		float			InnerConeCos{ 0.f };
 
-		float			OuterConeCos;
-		int				Type;
-		float			DepthBias;
-		int				ShadowMapIndex;
+		float			OuterConeCos{ 0.f };
+		int				Type{ 0 };
+		float			DepthBias{ 0.f };
+		int				ShadowMapIndex{ -1 };
 	};
 
 	struct MaterialPerFrame

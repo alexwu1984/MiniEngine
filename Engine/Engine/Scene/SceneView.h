@@ -20,6 +20,7 @@ namespace Engine
 		void LoadScene(const std::wstring& ModelFile);
 		void AddActor(std::shared_ptr<Actor> actor);
 		void RemoveActor(std::shared_ptr<Actor> actor);
+		void RemoveAllActors();
 		void Tick(float DeltaTime);
 
 		template<typename ActorType>  std::vector<std::shared_ptr<ActorType>> GetActors()
@@ -39,6 +40,7 @@ namespace Engine
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
 		std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
 		const std::vector<Light>& GetLights() const;
+		std::vector<Light>& GetLights();
 	
 	private:
 		void OnMouseButtonDown(MouseButton Button, core::vec2f Pos);

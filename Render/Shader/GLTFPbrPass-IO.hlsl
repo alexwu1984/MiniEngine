@@ -8,7 +8,8 @@
 struct VS_OUTPUT_SCENE
 {
     float4 svPosition   :    SV_POSITION;   // vertex position
-    float3 WorldPos     :    WORLDPOS;      // vertex position
+    float3 WorldPos     :    POSITION0;      // vertex position
+    float4 LightPos     :    POSITION1;
     float3 Normal       :    NORMAL;        // this normal comes in per-vertex 
     float3 SH :              NORMAL1;
 #ifdef HAS_TANGENT    

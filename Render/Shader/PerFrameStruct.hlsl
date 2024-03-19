@@ -100,9 +100,19 @@ matrix GetPrevCameraViewProj()
     return myPerFrame.CameraPrevViewProj;
 }
 
+bool IsEnableShadow()
+{
+    return myPerFrame.Lights[0].ShadowMapIndex >=0;
+}
+
 matrix GetMainLightViewProj()
 {
     return myPerFrame.Lights[0].LightViewProj;
+}
+
+Light GetMainLight()
+{
+    return myPerFrame.Lights[0];
 }
 
 #endif

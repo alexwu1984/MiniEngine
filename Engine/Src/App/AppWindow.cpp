@@ -79,6 +79,9 @@ namespace Engine
 		return false;
 	}
 
+	// There is no distinct VK_xxx for keypad enter, instead it is VK_RETURN + KF_EXTENDED, we assign it an arbitrary value to make code more readable (VK_ codes go up to 255)
+#define IM_VK_KEYPAD_ENTER      (VK_RETURN + 256)
+
 	int64_t AppWindow::WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam)
 	{
 		ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
@@ -155,6 +158,22 @@ namespace Engine
 			EvtMouseWheel(WheelValue);
 		}
 		break;
+		case WM_KEYDOWN:
+		case WM_KEYUP:
+		case WM_SYSKEYDOWN:
+		case WM_SYSKEYUP:
+		{
+			const bool is_key_down = (message == WM_KEYDOWN || message == WM_SYSKEYDOWN);
+			if (wParam < 256)
+			{
+				int vk = (int)wParam;
+				if ((wParam == VK_RETURN) && (HIWORD(lParam) & KF_EXTENDED))
+					vk = IM_VK_KEYPAD_ENTER;
+				const int scancode = (int)LOBYTE(HIWORD(lParam));
+				EvtKeyEvent(is_key_down, vk, scancode);
+			}
+		}
+			break;
 		}
 
 		if (Impl->_proc_old)

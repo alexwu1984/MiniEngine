@@ -118,7 +118,7 @@ namespace Engine
 
 	void Actor::SetState(AState State)
 	{
-		ImplActorP->Scale = State;
+		ImplActorP->State = State;
 	}
 
 	std::shared_ptr<SceneView> Actor::GetScene() const

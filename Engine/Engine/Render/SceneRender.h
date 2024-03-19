@@ -13,6 +13,7 @@ namespace Engine
 	class PreProcessor;
 	class SceneView;
 	struct SceneRenderPrivate;
+	class ShadowRenderPass;
 
 	class SceneRender
 	{
@@ -25,7 +26,8 @@ namespace Engine
 		void LoadConfig(const std::wstring& FileName);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render();
-		std::shared_ptr<PreProcessor> GetPreProcessor();
+		std::shared_ptr<PreProcessor> GetPreProcessor() const;
+		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 
 	private:
 		SceneRenderPrivate* d_ptr = nullptr;

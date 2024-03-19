@@ -18,6 +18,7 @@ namespace Engine
 		std::mutex DeviceLock;
 		std::queue< InputDeviceState> InputStates;
 		std::vector< Light> lightInfos;
+		std::recursive_mutex lock;
 	};
 
 	SceneView::SceneView()
@@ -54,6 +55,8 @@ namespace Engine
 				return;
 			}
 
+			RemoveAllActors();
+
 			input_json_file >> Root;
 			nlohmann::json Models = Root["Modles"];
 			for (const auto &Model: Models)
@@ -88,6 +91,7 @@ namespace Engine
 	void SceneView::AddActor(std::shared_ptr<Actor> actor)
 	{
 		C_P(SceneView);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
 		if (d->UpdatingActors)
 		{
 			d->PendingActors.emplace_back(actor);
@@ -101,6 +105,7 @@ namespace Engine
 	void SceneView::RemoveActor(std::shared_ptr<Actor> actor)
 	{
 		C_P(SceneView);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
 		auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
 		if (iter != d->PendingActors.end())
 		{
@@ -119,6 +124,16 @@ namespace Engine
 		}
 	}
 
+	void SceneView::RemoveAllActors()
+	{
+		C_P(SceneView);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		for (auto ItActor = d->Actors.begin(); ItActor != d->Actors.end(); ++ItActor)
+		{
+			(*ItActor)->SetState(Actor::EDead);
+		}
+	}
+
 	void SceneView::Tick(float DeltaTime)
 	{
 		C_P(SceneView);
@@ -129,25 +144,34 @@ namespace Engine
 			std::lock_guard Lock(d->DeviceLock);
 			TmpInputState.swap(d->InputStates);
 		}
-
+		
 		while (!TmpInputState.empty())
 		{
 			InputState = TmpInputState.front();
 			InputState.DeltaTime = DeltaTime;
 
+			std::lock_guard<std::recursive_mutex> l(d->lock);
 			for (auto Item : d->Actors)
 			{
-				Item->ProcessInput(InputState);
+				if (Item->GetState() == Actor::EActive)
+				{
+					Item->ProcessInput(InputState);
+				}
+				
 			}
 
 			TmpInputState.pop();
 		}
 
+		std::lock_guard<std::recursive_mutex> l(d->lock);
 		// Update all actors
 		d->UpdatingActors = true;
 		for (auto Item : d->Actors)
 		{
-			Item->Tick(DeltaTime);
+			if (Item->GetState() == Actor::EActive)
+			{
+				Item->Tick(DeltaTime);
+			}
 		}
 
 		d->UpdatingActors = false;
@@ -161,17 +185,17 @@ namespace Engine
 
 		d->PendingActors.clear();
 
-		for (auto ItActor = d->Actors.begin(); ItActor != d->Actors.end();)
-		{
-			if ((*ItActor)->GetState() == Actor::EDead)
-			{
-				ItActor = d->Actors.erase(ItActor);
-			}
-			else
-			{
-				++ItActor;
-			}
-		}
+		//for (auto ItActor = d->Actors.begin(); ItActor != d->Actors.end();)
+		//{
+		//	if ((*ItActor) && (*ItActor)->GetState() == Actor::EDead)
+		//	{
+		//		ItActor = d->Actors.erase(ItActor);
+		//	}
+		//	else
+		//	{
+		//		++ItActor;
+		//	}
+		//}
 	}
 
 	void SceneView::SetMainCamera(std::shared_ptr<CameraComponent> Camera)
@@ -195,6 +219,12 @@ namespace Engine
 	const std::vector<Light>& SceneView::GetLights() const
 	{
 		C_P(const SceneView);
+		return d->lightInfos;
+	}
+
+	std::vector<Light>& SceneView::GetLights()
+	{
+		C_P(SceneView);
 		return d->lightInfos;
 	}
 

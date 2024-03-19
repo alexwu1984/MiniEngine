@@ -216,10 +216,16 @@ namespace Engine
 
 	}
 
-	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor()
+	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor() const
 	{
 		C_P(SceneRender);
 		return d->PreProcess;
+	}
+
+	std::shared_ptr<ShadowRenderPass> SceneRender::GetShadowRenderPass() const
+	{
+		C_P(SceneRender);
+		return d->ShadowRender;
 	}
 
 }

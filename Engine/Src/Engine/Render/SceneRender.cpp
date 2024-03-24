@@ -157,7 +157,7 @@ namespace Engine
 		const auto& Actors = GetOwner()->GetAllActors();
 		for (const auto& ActorItem : Actors)
 		{
-			if (ActorItem->GetState() == Actor::EActive)
+			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
 			{
 				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
 				for (auto& ComponentItem : Components)

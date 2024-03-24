@@ -7,8 +7,6 @@ namespace Engine
 {
 	RenderThread* GRenderThread = nullptr;
 
-
-
 	struct RenderThreadP
 	{
 		std::queue<std::function<void(RenderCore::DynamicRHI*)>> CmdQueue;
@@ -30,6 +28,7 @@ namespace Engine
 
 	RenderThread::~RenderThread()
 	{
+		GRenderThread = nullptr;
 	}
 
 
@@ -74,9 +73,7 @@ namespace Engine
 			}
 			Impl->Notify.notify_one();
 		}
-
 	}
-
 
 	void RenderThread::WaitForFinish()
 	{

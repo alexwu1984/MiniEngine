@@ -3,7 +3,7 @@
 
 namespace Engine
 {
-	struct GltfModelP;
+	struct GltfModelPrivate;
 	class GltfMaterial;
 	class GltfNode;
 	class GltfMesh;
@@ -32,6 +32,6 @@ namespace Engine
 
 		std::vector <std::shared_ptr<GltfMaterial>> LoadMaterial();
 	private:
-		std::shared_ptr< GltfModelP> Impl;
+		GltfModelPrivate* d_ptr = nullptr;
 	};
 }

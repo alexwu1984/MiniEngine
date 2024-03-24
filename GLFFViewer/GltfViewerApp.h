@@ -13,6 +13,10 @@ public:
 
 	virtual bool Init() override;
 	virtual void ShutDown() override;
+
+private:
+	void HideActor(const std::wstring& Name);
+	void ShowActor(const std::wstring& Name);
 private:
 	std::shared_ptr<Engine::GltfActor> AGltfModel;
 	int32_t SelIndex = 0;

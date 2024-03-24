@@ -3,6 +3,8 @@
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/GltfInputComponent.h"
 #include "Scene/SceneView.h"
+#include "GltfModel/GltfModelConfig.h"
+#include "GltfModel/GltfModel.h"
 
 namespace Engine
 {
@@ -40,6 +42,8 @@ namespace Engine
 		{
 			return;
 		}
+		SetActorName(d->MeshComp->GetModel().GetModelConfig()->GetModelName());
+
 		AddComponent(d->MeshComp);
 		d->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
 		d->CameraComp->InitResource();

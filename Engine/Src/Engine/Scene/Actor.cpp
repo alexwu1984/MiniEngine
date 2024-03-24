@@ -9,7 +9,7 @@ namespace Engine
 	IMP_ACTOR_TRAITS_CLASS_NAME(Actor)
 
 	Actor::Actor(std::weak_ptr<SceneView> Scene)
-		:ImplActorP(std::make_shared<ActorP>())
+		:ImplActorP(std::make_shared<ActorPrivate>())
 	{
 		ImplActorP->Scene = Scene;
 	}
@@ -193,6 +193,26 @@ namespace Engine
 	bool Actor::IsProjectShadow() const
 	{
 		return ImplActorP->projectShadow;
+	}
+
+	void Actor::SetVisible(bool visible)
+	{
+		ImplActorP->visible = visible;
+	}
+
+	bool Actor::IsVisible() const
+	{
+		return ImplActorP->visible;
+	}
+
+	void Actor::SetActorName(const std::wstring& name)
+	{
+		ImplActorP->ActorName = name;
+	}
+
+	std::wstring Actor::GetActorName() const
+	{
+		return ImplActorP->ActorName;
 	}
 
 	void Actor::ProcessInput(const InputDeviceState& State)

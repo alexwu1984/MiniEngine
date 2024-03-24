@@ -55,8 +55,6 @@ namespace Engine
 				return;
 			}
 
-			RemoveAllActors();
-
 			input_json_file >> Root;
 			nlohmann::json Models = Root["Modles"];
 			for (const auto &Model: Models)

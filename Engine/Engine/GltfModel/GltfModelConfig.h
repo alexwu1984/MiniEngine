@@ -35,7 +35,7 @@ namespace Engine
 		~GltfModelConfig();
 
 		bool Load(const nlohmann::json& GltfJson);
-		std::wstring GetModel() const;
+		std::wstring GetModelName() const;
 
 		const std::vector< DynamicBoneInfo>& GetDyNamicBoneInfoList() const;
 		const GltfFurConfig& GetFurConfig() const;

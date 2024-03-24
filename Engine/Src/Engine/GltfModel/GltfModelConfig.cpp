@@ -75,7 +75,7 @@ namespace Engine
 		return !d->ModelName.empty();
 	}
 
-	std::wstring GltfModelConfig::GetModel() const
+	std::wstring GltfModelConfig::GetModelName() const
 	{
 		C_P(const GltfModelConfig);
 		return d->ModelName;

@@ -62,7 +62,7 @@ namespace Engine
 			if (d->ModelConfig->Load(FileName))
 			{
 				std::wstring Path = std::filesystem::path(FileName).parent_path().wstring();
-				Path += L"/" + d->ModelConfig->GetModel();
+				Path += L"/" + d->ModelConfig->GetModelName();
 				if (!d->Model.Load(Path, d->ModelConfig))
 				{
 					return false;
@@ -81,7 +81,6 @@ namespace Engine
 			}
 		}
 
-
 		return true;
 	}
 
@@ -92,7 +91,7 @@ namespace Engine
 		if (d->ModelConfig->Load(GltfJson))
 		{
 			std::wstring Path = GEngine->GetModelPath();
-			Path += L"/" + d->ModelConfig->GetModel();
+			Path += L"/" + d->ModelConfig->GetModelName();
 			if (!d->Model.Load(Path, d->ModelConfig))
 			{
 				return false;

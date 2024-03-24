@@ -6,7 +6,7 @@ namespace Engine
 {
 	using namespace math;
 
-	struct ActorP
+	struct ActorPrivate
 	{
 		// Actor's state
 		Actor::AState State = Actor::AState::EActive;
@@ -21,8 +21,11 @@ namespace Engine
 
 		bool RecomputeWorldTransform = true;
 		bool projectShadow = false;
+		bool visible = true;
 
 		Matrix4x4 PrevWorldTransform;
 		Matrix4x4 WorldTransform;
+
+		std::wstring ActorName;
 	};
 }

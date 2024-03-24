@@ -18,7 +18,7 @@ namespace Engine
 #define IMP_ACTOR_CLASS_NAME(ClassName)\
 	std::string ClassName::Name = {#ClassName};
 
-	struct ActorP;
+	struct ActorPrivate;
 
 	class Actor : public std::enable_shared_from_this<Actor>
 	{
@@ -77,13 +77,19 @@ namespace Engine
 		void SetProjectShadow(bool projShadow);
 		bool IsProjectShadow() const;
 
+		void SetVisible(bool visible);
+		bool IsVisible() const;
+
+		void SetActorName(const std::wstring& name);
+		std::wstring GetActorName() const;
+
 	public:
 		virtual void ProcessInput(const InputDeviceState& State);
 
 	protected:
-		std::shared_ptr<ActorP> GetActorP() const {return ImplActorP;}
+		std::shared_ptr<ActorPrivate> GetActorP() const {return ImplActorP;}
 	private:
-		std::shared_ptr<ActorP> ImplActorP;
+		std::shared_ptr<ActorPrivate> ImplActorP;
 	};
 
 

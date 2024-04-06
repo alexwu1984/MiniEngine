@@ -4,7 +4,7 @@
 
 namespace RenderCore
 {
-	struct D3D11DynamicRHIP;
+	struct D3D11DynamicRHIPrivate;
 	class D3D11StateCacheBase;
 
 	class D3D11DynamicRHI : public DynamicRHI
@@ -66,6 +66,6 @@ namespace RenderCore
 		bool FindAdapter();
 
 	private:
-		std::shared_ptr< D3D11DynamicRHIP> Impl;
+		D3D11DynamicRHIPrivate* d_ptr = nullptr;
 	};
 }

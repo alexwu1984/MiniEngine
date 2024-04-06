@@ -5,6 +5,7 @@
 #include "core/strings.h"
 #include "core/logger.h"
 #include "win/platform_memory.h"
+#include "Imgui/imgui_impl_dx11.h"
 
 namespace RenderCore
 {
@@ -201,8 +202,9 @@ namespace RenderCore
 
 	bool D3D11DynamicRHI::FindAdapter()
 	{
+		C_P(D3D11DynamicRHI);
 		win32::com_ptr<IDXGIFactory6> DXGIFactory6;
-		Impl->DXGIFactory1->QueryInterface(__uuidof(IDXGIFactory6), DXGIFactory6.getvv());
+		d->DXGIFactory1->QueryInterface(__uuidof(IDXGIFactory6), DXGIFactory6.getvv());
 
 		win32::com_ptr<IDXGIAdapter> TempAdapter;
 		D3D_FEATURE_LEVEL MinAllowedFeatureLevel = GetMinAllowedD3DFeatureLevel();
@@ -235,9 +237,10 @@ namespace RenderCore
 
 		auto LocalEnumAdapters = [&DXGIFactory6, GpuPreference,this](UINT AdapterIndex, IDXGIAdapter** Adapter) -> HRESULT
 		{
+			C_P(D3D11DynamicRHI);
 			if (!DXGIFactory6 || GpuPreference == DXGI_GPU_PREFERENCE_UNSPECIFIED)
 			{
-				return Impl->DXGIFactory1->EnumAdapters(AdapterIndex, Adapter);
+				return d->DXGIFactory1->EnumAdapters(AdapterIndex, Adapter);
 			}
 			else
 			{
@@ -318,18 +321,18 @@ namespace RenderCore
 			}
 		}
 
-		Impl->ChosenAdapter = FirstWithoutIntegratedAdapter;
+		d->ChosenAdapter = FirstWithoutIntegratedAdapter;
 
 		// We assume Intel is integrated graphics (slower than discrete) than NVIDIA or AMD cards and rather take a different one
-		if (!Impl->ChosenAdapter.IsValid())
+		if (!d->ChosenAdapter.IsValid())
 		{
-			Impl->ChosenAdapter = FirstAdapter;
+			d->ChosenAdapter = FirstAdapter;
 		}
 
-		if (Impl->ChosenAdapter.IsValid())
+		if (d->ChosenAdapter.IsValid())
 		{
-			Impl->ChosenDescription = AdapterDescription[Impl->ChosenAdapter.AdapterIndex];
-			core::LOG(core::log_inf,TEXT("Chosen D3D11 Adapter: %u"), Impl->ChosenAdapter.AdapterIndex);
+			d->ChosenDescription = AdapterDescription[d->ChosenAdapter.AdapterIndex];
+			core::LOG(core::log_inf,TEXT("Chosen D3D11 Adapter: %u"), d->ChosenAdapter.AdapterIndex);
 		}
 		else
 		{
@@ -337,17 +340,18 @@ namespace RenderCore
 		}
 
 		// The hardware must support at least 10.0 (usually 11_0, 10_0 or 10_1).
-		return Impl->ChosenAdapter.IsValid()
-			&& Impl->ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_1
-			&& Impl->ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_2
-			&& Impl->ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_3;
+		return d->ChosenAdapter.IsValid()
+			&& d->ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_1
+			&& d->ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_2
+			&& d->ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_3;
 	}
 
 	bool D3D11DynamicRHI::InitD3DDevice()
 	{
-		SafeCreateDXGIFactory(Impl->DXGIFactory1.getpp());
+		C_P(D3D11DynamicRHI);
+		SafeCreateDXGIFactory(d->DXGIFactory1.getpp());
 
-		if (!Impl->ChosenAdapter.IsValid())
+		if (!d->ChosenAdapter.IsValid())
 		{
 			if (!FindAdapter())
 			{
@@ -385,10 +389,10 @@ namespace RenderCore
 
 		win32::com_ptr<IDXGIAdapter> EnumAdapter;
 
-		if (Impl->DXGIFactory1->EnumAdapters(Impl->ChosenAdapter.AdapterIndex, EnumAdapter.get_init_ref()) != DXGI_ERROR_NOT_FOUND)
+		if (d->DXGIFactory1->EnumAdapters(d->ChosenAdapter.AdapterIndex, EnumAdapter.get_init_ref()) != DXGI_ERROR_NOT_FOUND)
 		{
 			// we don't use AdapterDesc.Description as there is a bug with Optimus where it can report the wrong name
-			DXGI_ADAPTER_DESC AdapterDesc = Impl->ChosenDescription;
+			DXGI_ADAPTER_DESC AdapterDesc = d->ChosenDescription;
 			Adapter = EnumAdapter;
 
 			GRHIAdapterName = AdapterDesc.Description;
@@ -467,16 +471,18 @@ namespace RenderCore
 				DriverType,
 				NULL,
 				DeviceFlags,
-				&Impl->FeatureLevel,
+				&d->FeatureLevel,
 				1,
 				D3D11_SDK_VERSION,
-				Impl->Direct3DDevice.get_init_ref(),
+				d->Direct3DDevice.get_init_ref(),
 				&ActualFeatureLevel,
-				Impl->Direct3DDeviceIMContext.get_init_ref()
+				d->Direct3DDeviceIMContext.get_init_ref()
 			));
 		}
 
-		Impl->StateCache.Init(Impl->Direct3DDeviceIMContext.get());
+		d->StateCache.Init(d->Direct3DDeviceIMContext.get());
+
+		::ImGui_ImplDX11_Init(d->Direct3DDevice.get(), d->Direct3DDeviceIMContext.get());
 
 		IUnknown* RenderDoc;
 		IID RenderDocID;
@@ -485,7 +491,7 @@ namespace RenderCore
 
 		if (SUCCEEDED(IIDFromString(L"{A7AA6116-9C8D-4BBA-9083-B4D816B71B78}", &RenderDocID)))
 		{
-			if (SUCCEEDED(Impl->Direct3DDevice->QueryInterface(RenderDocID, (void**)(&RenderDoc))))
+			if (SUCCEEDED(d->Direct3DDevice->QueryInterface(RenderDocID, (void**)(&RenderDoc))))
 			{
 				bRenderDoc = true;
 				core::inf() << " Running under renderdoc";
@@ -495,7 +501,7 @@ namespace RenderCore
 		IUnknown* IntelGPA;
 		static const IID IntelGPAID = { 0xCCFFEF16, 0x7B69, 0x468F, {0xBC, 0xE3, 0xCD, 0x95, 0x33, 0x69, 0xA3, 0x9A} };
 
-		if (SUCCEEDED(Impl->Direct3DDevice->QueryInterface(IntelGPAID, (void**)(&IntelGPA))))
+		if (SUCCEEDED(d->Direct3DDevice->QueryInterface(IntelGPAID, (void**)(&IntelGPA))))
 		{
 			// Running under Intel GPA, so enable capturing mode
 			core::inf() << " Running under Intel GPA, so enable capturing mode";
@@ -504,7 +510,7 @@ namespace RenderCore
 		if (DeviceFlags & D3D11_CREATE_DEVICE_DEBUG)
 		{
 			win32::com_ptr<ID3D11InfoQueue> InfoQueue;
-			VERIFYD3D11RESULT(Impl->Direct3DDevice->QueryInterface(IID_ID3D11InfoQueue, (void**)InfoQueue.get_init_ref()));
+			VERIFYD3D11RESULT(d->Direct3DDevice->QueryInterface(IID_ID3D11InfoQueue, (void**)InfoQueue.get_init_ref()));
 			if (InfoQueue)
 			{
 				D3D11_INFO_QUEUE_FILTER NewFilter;

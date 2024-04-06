@@ -32,51 +32,51 @@ bool GltfViewApp::Init()
 		Camera->SetCameraPos(CameraPos);
 	}
 
-	HideActor(L"Model4.glb");
-	HideActor(L"Model2.glb");
-	HideActor(L"floor.glb");
+	//HideActor(L"Model4.glb");
+	//HideActor(L"Model2.glb");
+	//HideActor(L"floor.glb");
 
-	auto AppWindow = Engine::GEngine->GetAppWindow();
-	AppWindow->EvtKeyEvent.bind([this, Path, Scene](bool is_key_down, int32_t vk, int32_t scancode) {
+	//auto AppWindow = Engine::GEngine->GetAppWindow();
+	//AppWindow->EvtKeyEvent.bind([this, Path, Scene](bool is_key_down, int32_t vk, int32_t scancode) {
 
-		switch (vk)
-		{
-		case '1': 
-		{
-			if (SelIndex == 0)
-				return;
-			SelIndex = 0;
-			HideActor(L"Model4.glb");
-			HideActor(L"Model2.glb");
-			ShowActor(L"Model3.glb");
+	//	switch (vk)
+	//	{
+	//	case '1': 
+	//	{
+	//		if (SelIndex == 0)
+	//			return;
+	//		SelIndex = 0;
+	//		HideActor(L"Model4.glb");
+	//		HideActor(L"Model2.glb");
+	//		ShowActor(L"Model3.glb");
 
-		}
-			break;
-		case '2': 
-		{
-			if (SelIndex == 1)
-				return;
-			SelIndex = 1;
-			HideActor(L"Model3.glb");
-			HideActor(L"Model2.glb");
-			ShowActor(L"Model4.glb");
-		}
-			break;
-		case '3':
-		{
-			if (SelIndex == 2)
-				return;
-			SelIndex = 2;
-			HideActor(L"Model3.glb");
-			HideActor(L"Model4.glb");
-			ShowActor(L"Model2.glb");
-		}
-		break;
-		default:
-			break;
-		}
-		
-	}, this);
+	//	}
+	//		break;
+	//	case '2': 
+	//	{
+	//		if (SelIndex == 1)
+	//			return;
+	//		SelIndex = 1;
+	//		HideActor(L"Model3.glb");
+	//		HideActor(L"Model2.glb");
+	//		ShowActor(L"Model4.glb");
+	//	}
+	//		break;
+	//	case '3':
+	//	{
+	//		if (SelIndex == 2)
+	//			return;
+	//		SelIndex = 2;
+	//		HideActor(L"Model3.glb");
+	//		HideActor(L"Model4.glb");
+	//		ShowActor(L"Model2.glb");
+	//	}
+	//	break;
+	//	default:
+	//		break;
+	//	}
+	//	
+	//}, this);
 
 	return true;
 }

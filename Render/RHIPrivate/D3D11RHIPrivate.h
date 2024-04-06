@@ -50,7 +50,7 @@ namespace RenderCore
 		}
 	};
 
-	struct D3D11DynamicRHIP
+	struct D3D11DynamicRHIPrivate
 	{
 
 		win32::com_ptr<IDXGIFactory1> DXGIFactory1;

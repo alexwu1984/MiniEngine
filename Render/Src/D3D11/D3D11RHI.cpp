@@ -16,9 +16,10 @@ namespace RenderCore
 	int64_t D3D11GlobalStats::GTotalGraphicsMemory{ 0 };
 
 	D3D11DynamicRHI::D3D11DynamicRHI()
-		:Impl(std::make_shared<D3D11DynamicRHIP>())
+		:d_ptr(new D3D11DynamicRHIPrivate())
 	{
-		Impl->CommandContext = std::make_shared<D3D11CommandContext>(this);
+		C_P(D3D11DynamicRHI);
+		d->CommandContext = std::make_shared<D3D11CommandContext>(this);
 		// Initialize the platform pixel format map.
 		GPixelFormats[PF_Unknown].PlatformFormat = DXGI_FORMAT_UNKNOWN;
 		GPixelFormats[PF_A32B32G32R32F].PlatformFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -95,7 +96,7 @@ namespace RenderCore
 
 	D3D11DynamicRHI::~D3D11DynamicRHI()
 	{
-
+		
 	}
 
 	void D3D11DynamicRHI::Init()
@@ -121,14 +122,19 @@ namespace RenderCore
 	void D3D11DynamicRHI::Shutdown()
 	{
 		RHICachedStates::DestroyAll();
-		Impl = {};
+		if (d_ptr)
+		{
+			delete d_ptr;
+			d_ptr = nullptr;
+		}
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 	}
 
 	std::shared_ptr<RHICommandContext> D3D11DynamicRHI::GetDefaultCommandContext()
 	{
-		return Impl->CommandContext;
+		C_P(D3D11DynamicRHI);
+		return d->CommandContext;
 	}
 
 	std::shared_ptr<RHIViewPort> D3D11DynamicRHI::RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
@@ -313,18 +319,19 @@ namespace RenderCore
 
 	std::shared_ptr< RHIVertexShader> D3D11DynamicRHI::RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines /*= {}*/)
 	{
+		C_P(D3D11DynamicRHI);
 		std::shared_ptr<D3D11VertexShader> VertexShaderRHI = std::make_shared<D3D11VertexShader>(this);
 
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + VSMain);
-		auto It = Impl->ShaderCache.VertexShaderCache.find(HashCode);
-		if (It != Impl->ShaderCache.VertexShaderCache.end())
+		auto It = d->ShaderCache.VertexShaderCache.find(HashCode);
+		if (It != d->ShaderCache.VertexShaderCache.end())
 		{
 			return It->second;
 		}
 
 		if (VertexShaderRHI->CreateShader(FileName,VSMain,VertexDeclare,MacroDefines))
 		{
-			Impl->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
+			d->ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
 			return VertexShaderRHI;
 		}
 		else
@@ -335,18 +342,19 @@ namespace RenderCore
 
 	std::shared_ptr< RHIPixelShader> D3D11DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		C_P(D3D11DynamicRHI);
 		std::shared_ptr<D3D11PixelShader> PixelShaderRHI = std::make_shared<D3D11PixelShader>(this);
 		
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + PSMain);
-		auto It = Impl->ShaderCache.PixelShaderCache.find(HashCode);
-		if (It != Impl->ShaderCache.PixelShaderCache.end())
+		auto It = d->ShaderCache.PixelShaderCache.find(HashCode);
+		if (It != d->ShaderCache.PixelShaderCache.end())
 		{
 			return It->second;
 		}
 
 		if (PixelShaderRHI->CreateShader(FileName,PSMain, MacroDefines))
 		{
-			Impl->ShaderCache.PixelShaderCache.insert({ HashCode,PixelShaderRHI });
+			d->ShaderCache.PixelShaderCache.insert({ HashCode,PixelShaderRHI });
 			return PixelShaderRHI;
 		}
 		else
@@ -357,18 +365,19 @@ namespace RenderCore
 
 	std::shared_ptr< RHIComputeShader> D3D11DynamicRHI::RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		C_P(D3D11DynamicRHI);
 		std::shared_ptr<D3D11ComputeShader> ComputeShaderRHI = std::make_shared<D3D11ComputeShader>(this);
 
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + CSMain);
-		auto It = Impl->ShaderCache.ComputeShaderCache.find(HashCode);
-		if (It != Impl->ShaderCache.ComputeShaderCache.end())
+		auto It = d->ShaderCache.ComputeShaderCache.find(HashCode);
+		if (It != d->ShaderCache.ComputeShaderCache.end())
 		{
 			return It->second;
 		}
 
 		if (ComputeShaderRHI->CreateShader(FileName, CSMain, MacroDefines))
 		{
-			Impl->ShaderCache.ComputeShaderCache.insert({ HashCode,ComputeShaderRHI });
+			d->ShaderCache.ComputeShaderCache.insert({ HashCode,ComputeShaderRHI });
 			return ComputeShaderRHI;
 		}
 		else
@@ -431,28 +440,33 @@ namespace RenderCore
 
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const
 	{
-		return Impl->Direct3DDevice.get();
+		C_P(const D3D11DynamicRHI);
+		return d->Direct3DDevice.get();
 	}
 
 	ID3D11DeviceContext* D3D11DynamicRHI::GetDeviceContext() const
 	{
-		return Impl->Direct3DDeviceIMContext.get();
+		C_P(const D3D11DynamicRHI);
+		return d->Direct3DDeviceIMContext.get();
 	}
 
 	IDXGIFactory1* D3D11DynamicRHI::GetFactory() const
 	{
-		return Impl->DXGIFactory1.get();
+		C_P(const D3D11DynamicRHI);
+		return d->DXGIFactory1.get();
 	}
 
 	D3D11StateCacheBase& D3D11DynamicRHI::GetStateCache()
 	{
-		return Impl->StateCache;
+		C_P(D3D11DynamicRHI);
+		return d->StateCache;
 	}
 
 
 	void D3D11DynamicRHI::ClearState()
 	{
-		Impl->StateCache.ClearState();
+		C_P(D3D11DynamicRHI);
+		d->StateCache.ClearState();
 	}
 
 }

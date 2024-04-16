@@ -155,9 +155,10 @@ namespace Engine
 
 		d->MeshesInfo.clear();
 		const auto& Actors = GetOwner()->GetAllActors();
+
 		for (const auto& ActorItem : Actors)
 		{
-			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
+			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible() && ActorItem->IsProjectShadow())
 			{
 				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
 				for (auto& ComponentItem : Components)
@@ -197,6 +198,22 @@ namespace Engine
 			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
 		});
 	
+		d->MeshesInfo.clear();
+		for (const auto& ActorItem : Actors)
+		{
+			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
+			{
+				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+				for (auto& ComponentItem : Components)
+				{
+					GltfSceneMeshInfo SceneMeshInfo;
+					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+					{
+						d->MeshesInfo.push_back(SceneMeshInfo);
+					}
+				}
+			}
+		}
 
 		if (d->MeshesInfo.size() )
 		{

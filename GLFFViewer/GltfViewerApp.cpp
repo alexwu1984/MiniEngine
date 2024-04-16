@@ -5,7 +5,8 @@
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
-#include "Engine/Render/SceneRender.h"
+#include "Render/SceneRender.h"
+#include "Render/MaterialPreFrame.h"
 #include "Imgui/imgui.h"
 
 GltfViewApp::GltfViewApp()
@@ -34,14 +35,22 @@ bool GltfViewApp::Init()
 		Camera->SetCameraPos(CameraPos);
 	}
 
-	Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this] {
+	mDirectLight = Scene->GetLights()[0].Direction;
+
+	Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
 
 		ImGui::SetNextWindowPos(ImVec2(10, 10));
 		if (ImGui::Begin("Light",0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			ImGui::SliderFloat("LightDir.x", &DirectLight.x, -1, 1);
-			ImGui::SliderFloat("LightDir.y", &DirectLight.y, -1, 1);
-			ImGui::SliderFloat("LightDir.z", &DirectLight.z, -1, 1);
+			auto& Lights = Scene->GetLights();
+			auto& DirectLight = Lights[0];
+			
+			ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
+			ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
+			ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
+
+			DirectLight.Direction = mDirectLight;
+			DirectLight.Direction.Normalize();
 		}
 		
 		ImGui::End();

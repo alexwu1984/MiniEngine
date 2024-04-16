@@ -28,7 +28,7 @@
         "Metallic": 1.0
       },
       "MainCamera": true,
-      "ProjShadow": false,
+      "ProjShadow": true,
       "FurMaterial": {
         "Name": "TuEr_fur",
         "NoiseTex": "noise.jpg",

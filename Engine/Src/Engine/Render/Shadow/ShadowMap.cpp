@@ -49,18 +49,6 @@ namespace Engine
 
 	void ShadowMap::calculateNearFar(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams)
 	{
-		if (!sceneView->GetMainCamera())
-		{
-			return;
-		}
-
-		auto cameraComp = sceneView->GetMainCamera();
-
-		math::Matrix4x4 view = cameraComp->GetViewMatrix();
-		//TODO:这里必须是相机作为坐标系原点，模型的位置坐标必须是相对与相机的
-		//计算世界空间坐标系下模型的包围盒大小
-		//暂时先支持一个模型投射
-
 		std::shared_ptr<Actor> projActor;
 		auto actors = sceneView->GetAllActors();
 		for (auto actor : actors)

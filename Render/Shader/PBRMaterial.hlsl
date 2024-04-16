@@ -13,6 +13,7 @@ Texture2D BrdfLut : register(t6);
 TextureCube PrefliterCubeMap : register(t7);
 Texture2D ShadowMap: register(t8);
 SamplerState SampleLinear : register(s0);
+SamplerState SampleShadow : register(s1);
 
 struct PS_OUTPUT_SCENE
 {
@@ -193,7 +194,7 @@ float ComputeShadow(float4 ShadowCoord, float3 Normal)
 	float3 position = ShadowCoord.xyz / ShadowCoord.w;
 	position = position * float3(0.5, -0.5, 0.5) + float3(0.5, 0.5, 0.5);
 
-	float3 Moments = ShadowMap.Sample(SampleLinear, position.xy).xyz;
+	float3 Moments = ShadowMap.Sample(SampleShadow, position.xy).xyz;
 	float shadow =  ChebyshevUpperBound(Moments.xy, clamp(position.z, 0.0, 1.0), Normal);
     return 1.0 - (1.0 - shadow) * Moments.z;
 	// return shadow * Moments.z;

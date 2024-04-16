@@ -50,7 +50,7 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		const int32_t SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
+		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_FloatRGBA, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 	}
 
 	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& Meshes, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
@@ -105,7 +105,10 @@ namespace Engine
 			}
 
 			mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(mainLight.Position, lightLookAt, lightUp);
-			mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(l, r, b, t, nearValue, farValue);
+			// glm::ortho(-m_CameraSizeExtent, m_CameraSizeExtent, -m_CameraSizeExtent, m_CameraSizeExtent, 0.1f, 7.5f);
+			//mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(l, r, b, t, nearValue, farValue);
+			float CameraSizeExtent = 1.0f;
+			mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(-CameraSizeExtent, CameraSizeExtent, -CameraSizeExtent, CameraSizeExtent, nearValue, farValue);
 
 			RHIContext.SetRenderTarget(d->DepthRenderBuffer);
 			RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);

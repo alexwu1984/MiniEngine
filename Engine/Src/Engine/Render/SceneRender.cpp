@@ -180,6 +180,7 @@ namespace Engine
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Clear(core::FLinearColor::Gray);
 			d->MainViewPort->SetRenderTarget();
+			d->MainViewPort->Prepare();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
@@ -211,6 +212,7 @@ namespace Engine
 
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI*) {
+			sigGuiEvent();
 			d->MainViewPort->Present();
 		});
 

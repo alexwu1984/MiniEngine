@@ -4,7 +4,7 @@
 
 namespace RenderCore
 {
-	struct D3D11ViewPortP;
+	struct D3D11ViewPortPrivate;
 	class D3D11DynamicRHI;
 
 	class D3D11ViewPort : public RHIViewPort
@@ -18,17 +18,18 @@ namespace RenderCore
 		virtual void* GetNativeBackBufferRT() const;
 
 		virtual void SetRenderTarget() override;
+		virtual void Prepare() override;
 		virtual void Clear(const core::FLinearColor& Color) override;
 		virtual void Present() override;
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
-		virtual core::vec2u GetSize() override;
+		virtual core::vec2u GetSize()const override;
 	private:
 		DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 		void GetSwapChainSurface();
-		uint32_t GetSwapChainFlags();
+		uint32_t GetSwapChainFlags() const;
 
 	private:
-		std::shared_ptr< D3D11ViewPortP> Impl;
+		D3D11ViewPortPrivate* d_ptr = nullptr;
 		static uint32_t GSwapChainFlags;
 	};
 }

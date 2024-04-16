@@ -1,4 +1,6 @@
+#pragma once
 #include "App/WindowsApp.h"
+#include "math/vector3.h"
 
 namespace Engine
 {
@@ -20,4 +22,5 @@ private:
 private:
 	std::shared_ptr<Engine::GltfActor> AGltfModel;
 	int32_t SelIndex = 0;
+	math::Vector3 DirectLight{ 0,0,1 };
 };

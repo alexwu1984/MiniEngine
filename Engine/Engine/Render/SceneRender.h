@@ -29,6 +29,8 @@ namespace Engine
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 
+	public:
+		core::event<void()> sigGuiEvent;
 	private:
 		SceneRenderPrivate* d_ptr = nullptr;
 	};

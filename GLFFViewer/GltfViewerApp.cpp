@@ -5,6 +5,8 @@
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
+#include "Engine/Render/SceneRender.h"
+#include "Imgui/imgui.h"
 
 GltfViewApp::GltfViewApp()
 {
@@ -31,6 +33,20 @@ bool GltfViewApp::Init()
 		CameraPos.y = 1;
 		Camera->SetCameraPos(CameraPos);
 	}
+
+	Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this] {
+
+		ImGui::SetNextWindowPos(ImVec2(10, 10));
+		if (ImGui::Begin("Light",0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::SliderFloat("LightDir.x", &DirectLight.x, -1, 1);
+			ImGui::SliderFloat("LightDir.y", &DirectLight.y, -1, 1);
+			ImGui::SliderFloat("LightDir.z", &DirectLight.z, -1, 1);
+		}
+		
+		ImGui::End();
+
+	},this);
 
 	//HideActor(L"Model4.glb");
 	//HideActor(L"Model2.glb");

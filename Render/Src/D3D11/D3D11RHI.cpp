@@ -7,6 +7,7 @@
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
 #include "Imgui/imgui_impl_win32.h"
+#include "Imgui/imgui_impl_dx11.h"
 
 namespace RenderCore
 {
@@ -127,7 +128,8 @@ namespace RenderCore
 			delete d_ptr;
 			d_ptr = nullptr;
 		}
-		ImGui_ImplWin32_Shutdown();
+		::ImGui_ImplDX11_Shutdown();
+		::ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 	}
 

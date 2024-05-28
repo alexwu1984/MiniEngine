@@ -17,6 +17,7 @@
 #include "Render/PostProcessor.h"
 #include "Render/GBuffer.h"
 #include "Render/Shadow/ShadowRenderPass.h"
+#include "Render/SimplePostProcessor.h"
 
 using namespace RenderCore;
 
@@ -33,6 +34,7 @@ namespace Engine
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::vector<GltfSceneMeshInfo> MeshesInfo;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
+		std::shared_ptr<SimplePostProcessor> SimplePostProc;//È«ÆÁÌØÐ§DEMO
 		std::atomic_bool IsInit{ false };
 	};
 	
@@ -146,37 +148,39 @@ namespace Engine
 			return;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
-			if (d->PreProcess)
-			{
-				d->PreProcess->Draw(*CommandContext);
-			}
-			});
-
-		d->MeshesInfo.clear();
 		const auto& Actors = GetOwner()->GetAllActors();
-
-		for (const auto& ActorItem : Actors)
+		if (!d->SimplePostProc)
 		{
-			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible() && ActorItem->IsProjectShadow())
-			{
-				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-				for (auto& ComponentItem : Components)
+			ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
+				if (d->PreProcess)
 				{
-					GltfSceneMeshInfo SceneMeshInfo;
-					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+					d->PreProcess->Draw(*CommandContext);
+				}
+				});
+
+			d->MeshesInfo.clear();
+			
+			for (const auto& ActorItem : Actors)
+			{
+				if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible() && ActorItem->IsProjectShadow())
+				{
+					auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+					for (auto& ComponentItem : Components)
 					{
-						d->MeshesInfo.push_back(SceneMeshInfo);
+						GltfSceneMeshInfo SceneMeshInfo;
+						if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+						{
+							d->MeshesInfo.push_back(SceneMeshInfo);
+						}
 					}
 				}
 			}
-		}
 
-		if (d->MeshesInfo.size())
-		{
-			d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
+			if (d->MeshesInfo.size())
+			{
+				d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
+			}
 		}
-
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Clear(core::FLinearColor::Gray);
@@ -191,41 +195,50 @@ namespace Engine
 			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
 			});
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
-			auto IBL = d->PreProcess->GetIBLRender();
-			auto EvnCube = IBL->GetEvnCube();
-			d->BackgroundRender->SetTextureCube(EvnCube);
-			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
-		});
-	
-		d->MeshesInfo.clear();
-		for (const auto& ActorItem : Actors)
+		if (d->SimplePostProc)
 		{
-			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
+			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
+				d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort);
+				});
+		}
+		else
+		{
+			ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
+				auto IBL = d->PreProcess->GetIBLRender();
+				auto EvnCube = IBL->GetEvnCube();
+				d->BackgroundRender->SetTextureCube(EvnCube);
+				d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
+				});
+
+			d->MeshesInfo.clear();
+			for (const auto& ActorItem : Actors)
 			{
-				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-				for (auto& ComponentItem : Components)
+				if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
 				{
-					GltfSceneMeshInfo SceneMeshInfo;
-					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+					auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+					for (auto& ComponentItem : Components)
 					{
-						d->MeshesInfo.push_back(SceneMeshInfo);
+						GltfSceneMeshInfo SceneMeshInfo;
+						if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+						{
+							d->MeshesInfo.push_back(SceneMeshInfo);
+						}
 					}
 				}
 			}
-		}
 
-		if (d->MeshesInfo.size() )
-		{
-			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
-		}
+			if (d->MeshesInfo.size())
+			{
+				d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
+			}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI){
+			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
 				if (d->PostProcess)
 				{
-					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer,d->MainViewPort);
+					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort);
 				}
-		});
+				});
+		}
 
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI*) {

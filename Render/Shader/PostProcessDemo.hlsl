@@ -28,6 +28,11 @@ VertexOutput VS_ScreenQuad(in uint VertID : SV_VertexID)
     return Output;
 }
 
+bool inBounds (float2 p) 
+{
+    return all(float2(0.0f,0.0f) < p) && all(p < float2(1.0,1.0));
+}
+
 float Rand(float2 v) 
 {
     return frac(sin(dot(v ,float2(12.9898,78.233))) * 43758.5453);

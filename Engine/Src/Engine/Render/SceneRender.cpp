@@ -135,7 +135,7 @@ namespace Engine
 		});
 	}
 
-	void SceneRender::Render()
+	void SceneRender::Render(float DeltaTime)
 	{
 		std::shared_ptr<RHICommandContext> CommandContext =  GEngine->GetRHI()->GetDefaultCommandContext();
 		if (!CommandContext)
@@ -197,8 +197,9 @@ namespace Engine
 
 		if (d->SimplePostProc)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
-				d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort);
+			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this, DeltaTime](RenderCore::DynamicRHI* RHI) {
+				d->MainViewPort->SetRenderTarget();
+				d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort, DeltaTime);
 				});
 		}
 		else
@@ -258,6 +259,12 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		return d->ShadowRender;
+	}
+
+	void SceneRender::SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor)
+	{
+		C_P(SceneRender);
+		d->SimplePostProc = postProcessor;
 	}
 
 }

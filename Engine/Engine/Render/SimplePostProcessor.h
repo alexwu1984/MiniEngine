@@ -18,7 +18,7 @@ namespace Engine
 	public:
 		virtual ~SimplePostProcessor() {}
 
-		virtual void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort) = 0;
+		virtual void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,float DeltaTime) = 0;
 
 	};
 }

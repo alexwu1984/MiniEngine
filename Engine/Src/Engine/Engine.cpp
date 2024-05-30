@@ -118,7 +118,7 @@ namespace Engine
 	void MainEngine::Tick(float DeltaTime)
 	{
 		Impl->Scene->Tick(DeltaTime);
-		Impl->SeRender->Render();
+		Impl->SeRender->Render(DeltaTime);
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)

@@ -31,6 +31,8 @@ bool GltfViewApp::Init()
 			_Demo = std::make_shared<PostProcessorDemo>(RHI);
 		}
 		_Demo->InitResource();
+		auto sceneRender = Engine::GEngine->GetSceneRender();
+		sceneRender->SetSamplePostProcessor(_Demo);
 		});
 
 	//core::filesystem::path Path = core::process_directory();

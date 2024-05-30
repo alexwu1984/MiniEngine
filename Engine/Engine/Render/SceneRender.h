@@ -14,6 +14,7 @@ namespace Engine
 	class SceneView;
 	struct SceneRenderPrivate;
 	class ShadowRenderPass;
+	class SimplePostProcessor;
 
 	class SceneRender
 	{
@@ -25,10 +26,11 @@ namespace Engine
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 		void LoadConfig(const std::wstring& FileName);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
-		void Render();
+		void Render(float DeltaTime);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 
+		void SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor);
 	public:
 		core::event<void()> sigGuiEvent;
 	private:

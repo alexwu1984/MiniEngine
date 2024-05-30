@@ -35,7 +35,7 @@
 	}\
 	Name##Wrap(RenderCore::DynamicRHI* RHI){\
 	_RHI = RHI;\
-	ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI){\
+	Engine::ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI){\
 		CB_ = RHI->RHICreateUniformBuffer(&Data,sizeof(Data));\
 	});\
 	uint32_t offset = 0;

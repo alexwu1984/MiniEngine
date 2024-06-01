@@ -22,7 +22,6 @@ PostProcessorDemo::PostProcessorDemo(RenderCore::DynamicRHI* RHI)
 
 PostProcessorDemo::~PostProcessorDemo()
 {
-
 }
 
 void PostProcessorDemo::InitResource()

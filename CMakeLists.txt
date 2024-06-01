@@ -23,6 +23,7 @@ add_subdirectory(Render)
 add_subdirectory(Engine)
 
 include_directories(${PROJECT_SOURCE_DIR}/ThirdParty)
+include_directories(${PROJECT_SOURCE_DIR}/ThirdParty/ffmpeg/include)
 include_directories(${PROJECT_SOURCE_DIR}/Core)
 include_directories(${PROJECT_SOURCE_DIR}/Render)
 include_directories(${PROJECT_SOURCE_DIR}/Engine)
@@ -33,7 +34,27 @@ file(GLOB Headers "GLFFViewer/*.h")
 file(GLOB Sources "GLFFViewer/*.cpp")
 
 add_executable(GLFFViewer ${Sources} ${Headers})
-target_link_libraries(GLFFViewer LINK_PUBLIC Core DirectXTex Render Engine)
+
+target_link_libraries(GLFFViewer LINK_PUBLIC Core DirectXTex Render Engine )
+
+if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+target_link_libraries(GLFFViewer LINK_PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avcodec.lib 
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avdevice.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avfilter.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avformat.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avutil.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/swresample.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/swscale.lib)
+else ()
+target_link_libraries(GLFFViewer LINK_PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avcodec.lib 
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avdevice.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avfilter.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avformat.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avutil.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/swresample.lib
+											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/swscale.lib)
+endif ()
+
 set_target_properties(GLFFViewer PROPERTIES
 	PROJECT_LABEL "GLFFViewer")
 

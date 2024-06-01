@@ -10,6 +10,17 @@
 #include "Imgui/imgui.h"
 #include "PostProcessDemo.h"
 #include "Thread/RenderThread.h"
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/avutil.h>
+#include <libavutil/opt.h>
+#include <libavutil/time.h>
+}
 
 using namespace Engine;
 
@@ -25,6 +36,8 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
+	av_register_all();
+
 	ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
 		if (!_Demo)
 		{
@@ -77,6 +90,7 @@ bool GltfViewApp::Init()
 
 void GltfViewApp::ShutDown()
 {
+	_Demo = {};
 	AGltfModel = {};
 }
 

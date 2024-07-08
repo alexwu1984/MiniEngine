@@ -1,6 +1,7 @@
 #pragma once
 #include "win/com_ptr.h"
 #include <d3d11.h>
+#include <d3d11_2.h>
 #include <dxgi1_3.h>
 #include <dxgi1_4.h>
 #include <dxgi1_6.h>
@@ -56,6 +57,10 @@ namespace RenderCore
 		win32::com_ptr<IDXGIFactory1> DXGIFactory1;
 		win32::com_ptr< ID3D11Device> Direct3DDevice;
 		win32::com_ptr<ID3D11DeviceContext> Direct3DDeviceIMContext;
+
+		win32::com_ptr<ID3D11Device2>        Direct3DDevice2;
+		win32::com_ptr<ID3D11DeviceContext2> Direct3DDeviceIMContext2;
+
 		D3D11Adapter ChosenAdapter;
 		// we don't use GetDesc().Description as there is a bug with Optimus where it can report the wrong name
 		DXGI_ADAPTER_DESC ChosenDescription;

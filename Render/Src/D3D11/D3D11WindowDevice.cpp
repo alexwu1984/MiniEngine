@@ -479,6 +479,8 @@ namespace RenderCore
 				d->Direct3DDeviceIMContext.get_init_ref()
 			));
 		}
+		d->Direct3DDevice2 = win32::com_ptr<ID3D11Device2>(d->Direct3DDevice);
+		d->Direct3DDeviceIMContext2 = win32::com_ptr<ID3D11DeviceContext2>(d->Direct3DDeviceIMContext);
 
 		d->StateCache.Init(d->Direct3DDeviceIMContext.get());
 

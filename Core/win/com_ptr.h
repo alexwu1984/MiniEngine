@@ -162,6 +162,7 @@ namespace win32
             _ptr = nullptr;
             return ptr;
         }
+
     protected:
         UT * _ptr = nullptr;
     };

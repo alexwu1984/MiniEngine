@@ -51,6 +51,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr< RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) override;
 		std::shared_ptr< RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) override;
+		virtual std::shared_ptr< RHITilePool> RHICreateTilePool(uint32_t PoolSizeInTiles) override;
 		
 
 		// Accessors.
@@ -60,6 +61,9 @@ namespace RenderCore
 
 		D3D11StateCacheBase& GetStateCache();
 		void ClearState();
+
+		ID3D11Device2* GetDevice2() const;
+		ID3D11DeviceContext2* GetDeviceContext2() const;
 
 	private:
 		bool InitD3DDevice();

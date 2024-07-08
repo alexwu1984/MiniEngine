@@ -9,6 +9,7 @@
 #include "D3D11/D3D11State.h"
 #include "D3D11/D3D11TextureCube.h"
 #include "D3D11/D3D11UnorderedAccessView.h"
+#include "D3D11/D3D11TilePool.h"
 
 namespace RenderCore
 {
@@ -105,6 +106,12 @@ namespace RenderCore
 	struct TD3D11ResourceTraits<RHIUnorderedAccessView>
 	{
 		typedef D3D11UnorderedAccessView TConcreteType;
+	};
+
+	template<>
+	struct TD3D11ResourceTraits<RHITilePool>
+	{
+		typedef D3D11TilePool TConcreteType;
 	};
 
 	template<typename TRHIType>

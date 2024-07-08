@@ -120,6 +120,7 @@ namespace RenderCore
 			Assert(!(Flags & TexCreate_RenderTargetable));
 			Assert(!(Flags & TexCreate_DepthStencilTargetable));
 			Assert(!(Flags & TexCreate_ShaderResource));
+			Assert(!(Flags & TexCreate_Tiled));
 
 			CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			TextureUsage = D3D11_USAGE_STAGING;
@@ -128,6 +129,7 @@ namespace RenderCore
 
 		if (Flags & TexCreate_CPUWritable)
 		{
+			Assert(!(Flags & TexCreate_Tiled));
 			CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 			TextureUsage = D3D11_USAGE_STAGING;
 			bCreateShaderResource = false;
@@ -163,6 +165,11 @@ namespace RenderCore
 			// Set the flag that allows us to call GenerateMips on this texture later
 			TextureDesc.MiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
 			TextureDesc.MipLevels = 0;
+		}
+
+		if (Flags & TexCreate_Tiled)
+		{
+			TextureDesc.MiscFlags |= D3D11_RESOURCE_MISC_TILED;
 		}
 
 		// Set up the texture bind flags.

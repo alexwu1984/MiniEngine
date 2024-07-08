@@ -273,6 +273,8 @@ namespace RenderCore
 		TexCreate_DepthStencilResolveTarget = 1 << 13,
 		// MSAA
 		TexCreate_MSAA = 1 << 14 ,
+		//Tiled resource https://learn.microsoft.com/zh-cn/windows/win32/api/d3d11/ne-d3d11-d3d11_tiled_resources_tier
+		TexCreate_Tiled = 1 << 15,
 	};
 
 	enum class ERHIZBuffer

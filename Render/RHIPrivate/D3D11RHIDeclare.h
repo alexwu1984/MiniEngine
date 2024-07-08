@@ -1,7 +1,9 @@
 #pragma once
 
 struct ID3D11Device;
+struct ID3D11Device2;
 struct ID3D11DeviceContext;
+struct ID3D11DeviceContext2;
 struct IDXGIFactory1;
 
 struct ID3D11VertexShader;

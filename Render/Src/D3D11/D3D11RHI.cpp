@@ -440,6 +440,12 @@ namespace RenderCore
 		}
 	}
 
+
+	std::shared_ptr< RHITilePool> D3D11DynamicRHI::RHICreateTilePool(uint32_t PoolSizeInTiles)
+	{
+		return nullptr;
+	}
+
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const
 	{
 		C_P(const D3D11DynamicRHI);
@@ -469,6 +475,20 @@ namespace RenderCore
 	{
 		C_P(D3D11DynamicRHI);
 		d->StateCache.ClearState();
+	}
+
+
+	ID3D11Device2* D3D11DynamicRHI::GetDevice2() const
+	{
+		C_P(const D3D11DynamicRHI);
+		return d->Direct3DDevice2.get();
+	}
+
+
+	ID3D11DeviceContext2* D3D11DynamicRHI::GetDeviceContext2() const
+	{
+		C_P(const D3D11DynamicRHI);
+		return d->Direct3DDeviceIMContext2.get();
 	}
 
 }

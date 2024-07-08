@@ -34,7 +34,7 @@ namespace RenderCore
 	class RHIDepthStencilState;
 	class RHITextureCube;
 	class RHIUnorderedAccessView;
-
+	class RHITilePool;
 
 	class DynamicRHI
 	{
@@ -80,6 +80,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) = 0;
 		virtual std::shared_ptr< RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) = 0;
 		virtual std::shared_ptr< RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) = 0;
+		virtual std::shared_ptr< RHITilePool> RHICreateTilePool(uint32_t PoolSizeInTiles) = 0;
 	
 	};
 

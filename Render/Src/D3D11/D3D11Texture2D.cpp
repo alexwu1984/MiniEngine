@@ -22,6 +22,12 @@ namespace RenderCore
 		bool IsMultisampled{ false };
 		uint32_t NumMips{ 1 };
 		EPixelFormat Format;
+
+		std::vector<D3D11_SUBRESOURCE_TILING> Tilings;
+		D3D11_TILE_SHAPE TileShape;
+		uint32_t NumTiles = 0;
+		D3D11_PACKED_MIP_DESC PackedMipInfo;
+		uint32_t SubresourceCount = 0;
 	};
 
 	/**
@@ -378,6 +384,13 @@ namespace RenderCore
 
 		}
 
+		if (Flags & TexCreate_Tiled)
+		{
+			d->SubresourceCount = TextureDesc.MipLevels;
+			d->Tilings.resize(d->SubresourceCount);
+			d->D3D11RHI->GetDevice2()->GetResourceTiling(d->Tex2D.get(), &d->NumTiles, &d->PackedMipInfo, &d->TileShape, &d->SubresourceCount, 0, &d->Tilings[0]);
+		}
+
 		return true;
 	}
 
@@ -487,6 +500,13 @@ namespace RenderCore
 	{
 		C_P(D3D11Texture2D);
 		return d->TexDSV.get();
+	}
+
+
+	const std::vector<D3D11_SUBRESOURCE_TILING>& D3D11Texture2D::GetSubResourceTiling() const
+	{
+		C_P(const D3D11Texture2D);
+		return d->Tilings;
 	}
 
 }

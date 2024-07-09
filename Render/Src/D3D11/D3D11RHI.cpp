@@ -443,7 +443,15 @@ namespace RenderCore
 
 	std::shared_ptr< RHITilePool> D3D11DynamicRHI::RHICreateTilePool(uint32_t PoolSizeInTiles)
 	{
-		return nullptr;
+		std::shared_ptr<RHITilePool> TilePoolRHI = std::make_shared<D3D11TilePool>(this);
+		if (TilePoolRHI->CreatePool(PoolSizeInTiles))
+		{
+			return TilePoolRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
 	}
 
 	ID3D11Device* D3D11DynamicRHI::GetDevice() const

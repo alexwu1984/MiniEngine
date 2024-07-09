@@ -24,3 +24,4 @@ struct ID3D11BlendState;
 struct ID3D11DepthStencilState;
 
 struct ID3D11Buffer;
+struct D3D11_SUBRESOURCE_TILING;

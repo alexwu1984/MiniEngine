@@ -566,6 +566,20 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDeviceContext()->Flush();
 	}
 
+
+	bool D3D11CommandContext::UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool,std::shared_ptr< RHITexture2D> TexRHI)
+	{
+		return TilePool->UpdateTileMappings(TexRHI);
+	}
+
+
+	void D3D11CommandContext::UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, const std::wstring& TexPath)
+	{
+		int32_t SizeX = 0;
+		int32_t SizeY = 0;
+		TilePool->UpdateTiles(TexRHI, GetImageData(TexPath,SizeX,SizeY).get());
+	}
+
 	void D3D11CommandContext::ClearAllShaderResources()
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();

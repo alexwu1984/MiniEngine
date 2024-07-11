@@ -4,6 +4,7 @@
 #include "D3D11/D3D11RHI.h"
 #include "DirectXTex/DirectXTex.h"
 #include "core/logger.h"
+#define STBI_FAILURE_USERMSG
 #include "tinygltf/stb_image.h"
 
 namespace RenderCore
@@ -22,13 +23,15 @@ namespace RenderCore
 		bool IsMultisampled{ false };
 		uint32_t NumMips{ 1 };
 		EPixelFormat Format;
-
-		std::vector<D3D11_SUBRESOURCE_TILING> Tilings;
-		D3D11_TILE_SHAPE TileShape;
-		uint32_t NumTiles = 0;
-		D3D11_PACKED_MIP_DESC PackedMipInfo;
-		uint32_t SubresourceCount = 0;
 	};
+
+	std::shared_ptr<uint8_t> GetImageData(const std::wstring& path, int32_t& SizeX, int32_t& SizeY)
+	{
+		std::string Utf8FileName = core::ucs2_u8(path);
+		int32_t ImageChannel = 0;
+		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
+		return ImageBuffer;
+	}
 
 	/**
  * Creates a 2D texture optionally guarded by a structured exception handler.
@@ -82,7 +85,7 @@ namespace RenderCore
 		void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
 		C_P(D3D11Texture2D);
-
+		
 		return CreateD3D11Texture2D(Format,Flags,SizeX,SizeY,SizeZ,false, NumMips, InBuffer,RowBytes);
 	}
 
@@ -384,23 +387,14 @@ namespace RenderCore
 
 		}
 
-		if (Flags & TexCreate_Tiled)
-		{
-			d->SubresourceCount = TextureDesc.MipLevels;
-			d->Tilings.resize(d->SubresourceCount);
-			d->D3D11RHI->GetDevice2()->GetResourceTiling(d->Tex2D.get(), &d->NumTiles, &d->PackedMipInfo, &d->TileShape, &d->SubresourceCount, 0, &d->Tilings[0]);
-		}
-
 		return true;
 	}
 
 	bool D3D11Texture2D::CreateFromFile(const std::wstring& FileName)
 	{
-		std::string Utf8FileName = core::ucs2_u8(FileName);
-		int32_t ImageChannel = 0;
 		int32_t SizeX = 0;
 		int32_t SizeY = 0;
-		std::shared_ptr<uint8_t> ImageBuffer(stbi_load(Utf8FileName.c_str(), &SizeX, &SizeY, &ImageChannel, 4), [](uint8_t* p) {stbi_image_free(p); });
+		std::shared_ptr<uint8_t> ImageBuffer = GetImageData(FileName,SizeX,SizeY);
 		if (ImageBuffer)
 		{
 			return CreateD3D11Texture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
@@ -503,10 +497,5 @@ namespace RenderCore
 	}
 
 
-	const std::vector<D3D11_SUBRESOURCE_TILING>& D3D11Texture2D::GetSubResourceTiling() const
-	{
-		C_P(const D3D11Texture2D);
-		return d->Tilings;
-	}
 
 }

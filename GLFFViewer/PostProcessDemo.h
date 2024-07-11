@@ -29,5 +29,6 @@ private:
 	std::shared_ptr< RenderCore::RHIPixelShader> _PixelShader;
 	std::shared_ptr< RenderCore::RHITexture2D>  _Texture1;
 	std::shared_ptr< RenderCore::RHITexture2D>  _Texture2;
+	std::shared_ptr< RenderCore::RHITilePool> _TilePool;
 	DECLARE_SHADER_STRUCT_MEMBER(cbTransition1);
 };

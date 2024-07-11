@@ -12,7 +12,9 @@ namespace RenderCore
 		D3D11TilePool(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11TilePool();
 
-		bool CreatePool(uint32_t PoolSizeInTiles) override;
+		bool CreatePool(std::shared_ptr< RHITexture2D> TexRHI) override;
+		bool UpdateTileMappings(std::shared_ptr< RHITexture2D> TexRHI) override;
+		void UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI, const void* SourceTileData) override;
 	private:
 		D3D11TilePoolPrivate* d_ptr;
 	};

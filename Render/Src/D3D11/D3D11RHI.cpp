@@ -441,10 +441,10 @@ namespace RenderCore
 	}
 
 
-	std::shared_ptr< RHITilePool> D3D11DynamicRHI::RHICreateTilePool(uint32_t PoolSizeInTiles)
+	std::shared_ptr< RHITilePool> D3D11DynamicRHI::RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D)
 	{
 		std::shared_ptr<RHITilePool> TilePoolRHI = std::make_shared<D3D11TilePool>(this);
-		if (TilePoolRHI->CreatePool(PoolSizeInTiles))
+		if (TilePoolRHI->CreatePool(Tex2D))
 		{
 			return TilePoolRHI;
 		}

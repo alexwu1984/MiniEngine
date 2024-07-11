@@ -33,8 +33,16 @@ void PostProcessorDemo::InitResource()
 	_PixelShader = _RHI->RHICreatePixelShader(ShaderPath, "PS_Transition1", {});
 
 	std::wstring TexPath = core::process_directory().wstring() + L"/GLTFModel/";
-	_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.jpg");
+	//_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.png");
 	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.jpg");
+
+	auto _Texture1 = _RHI->RHICreateTexture2D(RenderCore::PF_B8G8R8A8, RenderCore::TexCreate_ShaderResource | RenderCore::TexCreate_Tiled, 3840, 2160, 1);
+	_TilePool = _RHI->RHICreateTilePool(_Texture1);
+	if (_RHI->GetDefaultCommandContext()->UpdateTileMappings(_TilePool, _Texture1))
+	{
+		_RHI->GetDefaultCommandContext()->UpdateTiles(_TilePool, _Texture1, TexPath + L"tifa_wallpaper_3840x2160.png");
+	}
+
 }
 
 void PostProcessorDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)

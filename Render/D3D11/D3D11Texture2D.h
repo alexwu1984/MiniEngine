@@ -8,6 +8,8 @@ namespace RenderCore
 	struct D3D11Texture2DPrivate;
 	class D3D11DynamicRHI;
 
+	std::shared_ptr<uint8_t> GetImageData(const std::wstring& path,int32_t &X,int32_t &Y);
+
 	class D3D11Texture2D : public RHITexture2D
 	{
 	public:
@@ -30,8 +32,6 @@ namespace RenderCore
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& GetRTVS();
 		ID3D11ShaderResourceView* GetSRV() const;
 		ID3D11DepthStencilView* GetDSV() const;
-
-		const std::vector<D3D11_SUBRESOURCE_TILING>& GetSubResourceTiling() const;
 
 	private:
 		D3D11Texture2DPrivate* d_ptr = nullptr;

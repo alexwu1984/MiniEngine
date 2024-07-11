@@ -44,6 +44,8 @@ namespace RenderCore
 		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) override;
 		virtual void RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) override;
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) override;
+		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) override;
+		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, const std::wstring& TexPath) override;
 	private:
 		void ClearAllShaderResources();
 		void ClearState();

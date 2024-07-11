@@ -188,7 +188,7 @@ Bitmap::~Bitmap() {
 
 std::shared_ptr<Bitmap> Bitmap::bitmapFromFile(const std::wstring& filePath) {
 	int width, height, channels;
-	unsigned char* pixels = stbi_load(filePath.c_str(), &width, &height, &channels, 0);
+	unsigned char* pixels = stbi_load(filePath.c_str(), &width, &height, &channels, 4);
 	if (!pixels)
 	{
 		return nullptr;
@@ -202,7 +202,7 @@ std::shared_ptr<Bitmap> Bitmap::bitmapFromFile(const std::wstring& filePath) {
 Bitmap Bitmap::bitmapFromMemory(const uint8_t* buffer, int len)
 {
 	int width, height, channels;
-	unsigned char* pixels = stbi_load_from_memory(buffer, len, &width, &height, &channels, 0);
+	unsigned char* pixels = stbi_load_from_memory(buffer, len, &width, &height, &channels, 4);
 	if (!pixels) throw std::runtime_error(stbi_failure_reason());
 
 	Bitmap bmp(width, height, (Format)channels, pixels);

@@ -14,7 +14,7 @@ namespace RenderCore
 
 		bool CreatePool(std::shared_ptr< RHITexture2D> TexRHI) override;
 		bool UpdateTileMappings(std::shared_ptr< RHITexture2D> TexRHI) override;
-		void UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI, const void* SourceTileData) override;
+		void UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI) override;
 	private:
 		D3D11TilePoolPrivate* d_ptr;
 	};

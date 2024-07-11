@@ -573,11 +573,11 @@ namespace RenderCore
 	}
 
 
-	void D3D11CommandContext::UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, const std::wstring& TexPath)
+	void D3D11CommandContext::UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI)
 	{
 		int32_t SizeX = 0;
 		int32_t SizeY = 0;
-		TilePool->UpdateTiles(TexRHI, GetImageData(TexPath,SizeX,SizeY).get());
+		TilePool->UpdateTiles(TexRHI);
 	}
 
 	void D3D11CommandContext::ClearAllShaderResources()

@@ -56,6 +56,6 @@ namespace RenderCore
 		virtual void RHIDispatchComputeShader(uint32_t ThreadGroupCountX,uint32_t ThreadGroupCountY,uint32_t ThreadGroupCountZ) = 0;
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) = 0;
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool,std::shared_ptr< RHITexture2D> TexRHI) = 0;
-		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, const std::wstring& TexPath) = 0;
+		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) = 0;
 	};
 }

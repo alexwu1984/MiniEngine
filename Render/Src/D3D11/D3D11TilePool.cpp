@@ -38,6 +38,57 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
+	std::vector<UINT8> GenerateTextureData(UINT TextureWidth,UINT TextureHeight,  UINT firstMip, UINT mipCount)
+	{
+		const UINT TexturePixelSizeInBytes = 4;
+		// Determine the size of the data required by the mips(s).
+		UINT dataSize = (TextureWidth >> firstMip) * (TextureHeight >> firstMip) * TexturePixelSizeInBytes;
+		if (mipCount > 1)
+		{
+			// If generating more than 1 mip, double the size of the texture allocation
+			// (you will never need more than this).
+			dataSize *= 2;
+		}
+		std::vector<UINT8> data(dataSize);
+		UINT8* pData = &data[0];
+
+		UINT index = 0;
+		for (UINT n = 0; n < mipCount; n++)
+		{
+			const UINT currentMip = firstMip + n;
+			const UINT width = TextureWidth >> currentMip;
+			const UINT height = TextureHeight >> currentMip;
+			const UINT rowPitch = width * TexturePixelSizeInBytes;
+			const UINT cellPitch = std::max(rowPitch >> 3, TexturePixelSizeInBytes);    // The width of a cell in the checkboard texture.
+			const UINT cellHeight = std::max(height >> 3, (UINT)1);                        // The height of a cell in the checkerboard texture.
+			const UINT textureSize = rowPitch * height;
+
+			for (UINT m = 0; m < textureSize; m += TexturePixelSizeInBytes)
+			{
+				UINT x = m % rowPitch;
+				UINT y = m / rowPitch;
+				UINT i = x / cellPitch;
+				UINT j = y / cellHeight;
+
+				if (i % 2 == j % 2)
+				{
+					pData[index++] = 0xff;    // R
+					pData[index++] = 0x00;    // G
+					pData[index++] = 0x00;    // B
+					pData[index++] = 0xff;    // A
+				}
+				else
+				{
+					pData[index++] = 0xff;    // R
+					pData[index++] = 0xff;    // G
+					pData[index++] = 0xff;    // B
+					pData[index++] = 0xff;    // A
+				}
+			}
+		}
+		return data;
+	}
+
 	bool D3D11TilePool::CreatePool(std::shared_ptr< RHITexture2D> TexRHI)
 	{
 		C_P(D3D11TilePool);
@@ -59,6 +110,7 @@ namespace RenderCore
 		d->D3D11RHI->GetDevice2()->GetResourceTiling(Tex2d->GetNativeTex(), &d->NumTiles, &d->PackedMipInfo, &d->TileShape, &d->SubresourceCount, 0, &d->Tilings[0]);
 
 		d->MipInfo.startCoordinate = { 0,0,0,0 };
+		d->MipInfo.regionSize.bUseBox = FALSE;
 		d->MipInfo.regionSize.Width = d->Tilings[0].WidthInTiles;
 		d->MipInfo.regionSize.Height = d->Tilings[0].HeightInTiles;
 		d->MipInfo.regionSize.Depth = d->Tilings[0].DepthInTiles;
@@ -91,32 +143,29 @@ namespace RenderCore
 		{
 			return false;
 		}
-
-		std::vector<D3D11_TILED_RESOURCE_COORDINATE> startCoordinates{ d->MipInfo.startCoordinate };
-		std::vector<D3D11_TILE_REGION_SIZE> regionSizes{ d->MipInfo.regionSize };
-		std::vector<uint32_t> rangeFlags{ D3D11_TILE_RANGE_NULL };
-		std::vector<UINT> heapRangeStartOffsets{ 0 };
-		std::vector<UINT> rangeTileCounts{ d->MipInfo.regionSize.NumTiles };
+		
+		uint32_t RangeFlags = 0;
+		uint32_t StartOffset = 0;
 
 		auto Context2 = d->D3D11RHI->GetDeviceContext2();
+		//UINT tileNum = d->MipInfo.regionSize.NumTiles;
 
 		HRESULT hr = Context2->UpdateTileMappings(
 			Tex2d->GetNativeTex(),
-			startCoordinates.size(),
-			&startCoordinates[0],
-			&regionSizes[0],
+			1,
+			&d->MipInfo.startCoordinate,
+			&d->MipInfo.regionSize,
 			d->TiledPool.get(),
-			rangeFlags.size(),
-			&rangeFlags[0],
-			&heapRangeStartOffsets[0],
-			&rangeTileCounts[0],
-			0
-		);
-		Context2->TiledResourceBarrier(nullptr, Tex2d->GetNativeTex());
+			1,
+			&RangeFlags,
+			&StartOffset,
+			nullptr,
+			0);
+
 		return SUCCEEDED(hr);
 	}
 
-	void D3D11TilePool::UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI, const void* SourceTileData)
+	void D3D11TilePool::UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI)
 	{
 		C_P(D3D11TilePool);
 		D3D11Texture2D* Tex2d = RHIResourceCast(TexRHI.get());
@@ -132,18 +181,28 @@ namespace RenderCore
 			return;
 		}
 
-		std::vector<D3D11_TILED_RESOURCE_COORDINATE> startCoordinates{ d->MipInfo.startCoordinate };
-		std::vector<D3D11_TILE_REGION_SIZE> regionSizes{ d->MipInfo.regionSize };
 		auto Context2 = d->D3D11RHI->GetDeviceContext2();
+
+		D3D11_TILED_RESOURCE_COORDINATE startCoordinate;
+		ZeroMemory(&startCoordinate, sizeof(startCoordinate));
+		D3D11_TILE_REGION_SIZE regionSize;
+		ZeroMemory(&regionSize, sizeof(regionSize));
+		regionSize.NumTiles = d->MipInfo.regionSize.NumTiles;
+		//regionSize.NumTiles = 1;
+
+		//std::vector<uint8_t> genData = GenerateTextureData(TexDesc.Width, TexDesc.Height, 0, 1);
+
+		std::vector<uint8_t> testdata;
+		testdata.resize(TileSizeInBytes* regionSize.NumTiles);
+		memset(testdata.data(), 255, testdata.size());
+		//memcpy(testdata.data(), genData.data(), genData.size());
 
 		Context2->UpdateTiles(
 			Tex2d->GetNativeTex(),
-			startCoordinates.data(),
-			regionSizes.data(),
-			SourceTileData,
-			0
-		);
-		Context2->TiledResourceBarrier(nullptr, Tex2d->GetNativeTex());
+			&startCoordinate,
+			&regionSize,
+			testdata.data(),
+			0);
 	}
 
 }

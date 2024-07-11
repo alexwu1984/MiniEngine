@@ -13,6 +13,6 @@ namespace RenderCore
 
 		virtual bool CreatePool(std::shared_ptr< RHITexture2D> TexRHI) = 0;
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITexture2D> TexRHI) = 0;
-		virtual void UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI, const void* SourceTileData) = 0;
+		virtual void UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI) = 0;
 	};
 }

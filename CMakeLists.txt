@@ -77,6 +77,7 @@ set(GLTFModel_GLBS
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/delta_2_2k.hdr
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/aerith_wallpaper_3840x2160.jpg
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/tifa_wallpaper_3840x2160.png
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/test.png
 )
 
 copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)

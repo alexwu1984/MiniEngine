@@ -38,7 +38,7 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	std::vector<UINT8> GenerateTextureData(UINT TextureWidth,UINT TextureHeight,  UINT firstMip, UINT mipCount)
+	std::vector<UINT8> GenerateTextureData(UINT TextureWidth,UINT TextureHeight,  UINT firstMip, UINT mipCount,uint8_t R,uint8_t G,uint8_t B)
 	{
 		const UINT TexturePixelSizeInBytes = 4;
 		// Determine the size of the data required by the mips(s).
@@ -70,20 +70,10 @@ namespace RenderCore
 				UINT i = x / cellPitch;
 				UINT j = y / cellHeight;
 
-				if (i % 2 == j % 2)
-				{
-					pData[index++] = 0xff;    // R
-					pData[index++] = 0x00;    // G
-					pData[index++] = 0x00;    // B
-					pData[index++] = 0xff;    // A
-				}
-				else
-				{
-					pData[index++] = 0xff;    // R
-					pData[index++] = 0xff;    // G
-					pData[index++] = 0xff;    // B
-					pData[index++] = 0xff;    // A
-				}
+				pData[index++] = R;    // R
+				pData[index++] = G;    // G
+				pData[index++] = B;    // B
+				pData[index++] = 0xff;    // A
 			}
 		}
 		return data;
@@ -165,7 +155,24 @@ namespace RenderCore
 		return SUCCEEDED(hr);
 	}
 
-	void D3D11TilePool::UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI)
+	std::vector<uint8_t> GetTileData(uint8_t* StartCopy, uint32_t ImageWidth, uint32_t TileWidth,uint32_t TileHeight)
+	{
+		std::vector<uint8_t> Data;
+		Data.resize(128 * 128 * 4);
+		memset(Data.data(), 0, Data.size());
+		uint8_t* DestBuf = Data.data();
+		for (int32_t index = 0; index < TileHeight; ++index)
+		{
+			memcpy(DestBuf, StartCopy, TileWidth * 4);
+			DestBuf += 128 * 4;
+			StartCopy += ImageWidth * 4;
+	
+		}
+		return Data;
+	}
+
+
+	void D3D11TilePool::UpdateTiles(std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data)
 	{
 		C_P(D3D11TilePool);
 		D3D11Texture2D* Tex2d = RHIResourceCast(TexRHI.get());
@@ -188,20 +195,54 @@ namespace RenderCore
 		D3D11_TILE_REGION_SIZE regionSize;
 		ZeroMemory(&regionSize, sizeof(regionSize));
 		regionSize.NumTiles = d->MipInfo.regionSize.NumTiles;
-		//regionSize.NumTiles = 1;
 
-		//std::vector<uint8_t> genData = GenerateTextureData(TexDesc.Width, TexDesc.Height, 0, 1);
 
-		std::vector<uint8_t> testdata;
-		testdata.resize(TileSizeInBytes* regionSize.NumTiles);
-		memset(testdata.data(), 255, testdata.size());
-		//memcpy(testdata.data(), genData.data(), genData.size());
+		std::vector<uint8_t> TileBuf;
+		TileBuf.resize(TileSizeInBytes* regionSize.NumTiles);
+		memset(TileBuf.data(), 0, TileBuf.size());
+		uint8_t* DestTileBuf = TileBuf.data();
+
+		int32_t wCount = std::floor((double)TexDesc.Width / d->TileShape.WidthInTexels);
+		int32_t hCount = std::floor((double)TexDesc.Height / d->TileShape.HeightInTexels);
+
+
+		uint8_t* ReadBuf = Data.get();
+
+		for (int32_t hIndex = 0; hIndex < hCount; ++hIndex)
+		{
+			uint8_t* LineReadBuf = ReadBuf;
+			uint8_t* LineWrite = DestTileBuf;
+			for (int32_t wIndex = 0; wIndex < wCount; ++wIndex)
+			{
+				int width = 128;
+				if ((wIndex + 1) * 128 > TexDesc.Width)
+					width = (wIndex + 1) * 128 - TexDesc.Width;
+				int height = 128;
+				if ((hIndex + 1) * 128 > TexDesc.Height)
+					height = (hIndex + 1) * 128 - TexDesc.Height;
+				auto Buf = GetTileData(LineReadBuf, TexDesc.Width, width, height);
+				memcpy(LineWrite, Buf.data(), Buf.size());
+				LineWrite += Buf.size();
+				LineReadBuf += width * 4;
+			}
+			ReadBuf += TexDesc.Width * 4 * d->TileShape.HeightInTexels;
+			DestTileBuf += TexDesc.Width * 4 * d->TileShape.HeightInTexels;
+		}
+
+		//auto Buf1 = GenerateTextureData(128, 128, 0, 1, 255, 0, 0);
+		//memcpy(DestTileBuf, Buf1.data(), Buf1.size());
+		//DestTileBuf += Buf1.size();
+		//Buf1 = GenerateTextureData(128, 128, 0, 1, 0, 255, 0);
+		//memcpy(DestTileBuf, Buf1.data(), Buf1.size());
+		//DestTileBuf += Buf1.size();
+		//Buf1 = GenerateTextureData(128, 128, 0, 1, 0, 0, 255);
+		//memcpy(DestTileBuf, Buf1.data(), Buf1.size());
 
 		Context2->UpdateTiles(
 			Tex2d->GetNativeTex(),
 			&startCoordinate,
 			&regionSize,
-			testdata.data(),
+			TileBuf.data(),
 			0);
 	}
 

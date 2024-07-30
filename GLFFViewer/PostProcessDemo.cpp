@@ -14,6 +14,12 @@
 
 using namespace Engine;
 
+namespace RenderCore
+{
+	extern std::shared_ptr<uint8_t> GetImageData(const std::wstring& path, int32_t& SizeX, int32_t& SizeY);
+}
+
+
 PostProcessorDemo::PostProcessorDemo(RenderCore::DynamicRHI* RHI)
 	:_RHI(RHI), GET_SHADER_STRUCT_MEMBER(cbTransition1)(RHI)
 {
@@ -33,15 +39,18 @@ void PostProcessorDemo::InitResource()
 	_PixelShader = _RHI->RHICreatePixelShader(ShaderPath, "PS_Transition1", {});
 
 	std::wstring TexPath = core::process_directory().wstring() + L"/GLTFModel/";
-	//_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.png");
-	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.jpg");
+	_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"test.png");
+	//_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.jpg");
 
-	_Texture1 = _RHI->RHICreateTexture2D(RenderCore::PF_B8G8R8A8, RenderCore::TexCreate_ShaderResource | RenderCore::TexCreate_Tiled, 3840*4, 2160*4, 1);
-	_TilePool = _RHI->RHICreateTilePool(_Texture1);
-	if (_RHI->GetDefaultCommandContext()->UpdateTileMappings(_TilePool, _Texture1))
-	{
-		_RHI->GetDefaultCommandContext()->UpdateTiles(_TilePool, _Texture1);
-	}
+	//_Texture1 = _RHI->RHICreateTexture2D(RenderCore::PF_R8G8B8A8, RenderCore::TexCreate_ShaderResource | RenderCore::TexCreate_Tiled, 11520, 2160, 1);
+	//_TilePool = _RHI->RHICreateTilePool(_Texture1);
+	//if (_RHI->GetDefaultCommandContext()->UpdateTileMappings(_TilePool, _Texture1))
+	//{
+	//	int32_t X = 0;
+	//	int32_t Y = 0;
+	//	auto data = RenderCore::GetImageData(TexPath + L"test.png", X, Y);
+	//	_RHI->GetDefaultCommandContext()->UpdateTiles(_TilePool, _Texture1, data);
+	//}
 
 }
 

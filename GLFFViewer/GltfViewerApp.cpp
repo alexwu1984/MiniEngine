@@ -10,17 +10,6 @@
 #include "Imgui/imgui.h"
 #include "PostProcessDemo.h"
 #include "Thread/RenderThread.h"
-extern "C"
-{
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswresample/swresample.h>
-#include <libswscale/swscale.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/avutil.h>
-#include <libavutil/opt.h>
-#include <libavutil/time.h>
-}
 
 using namespace Engine;
 
@@ -36,54 +25,52 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-	av_register_all();
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
-		if (!_Demo)
-		{
-			_Demo = std::make_shared<PostProcessorDemo>(RHI);
-		}
-		_Demo->InitResource();
-		auto sceneRender = Engine::GEngine->GetSceneRender();
-		sceneRender->SetSamplePostProcessor(_Demo);
-		});
-
-	//core::filesystem::path Path = core::process_directory();
-	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-	//SelIndex = 0;
-	//auto Scene = Engine::GEngine->GetScene();
-	//Scene->LoadScene(ModelFile);
-
-	//auto Camera = Scene->GetMainCamera();
-	//if (Camera)
-	//{
-	//	auto CameraPos = Camera->GetCameraPos();
-	//	CameraPos.y = 1;
-	//	Camera->SetCameraPos(CameraPos);
-	//}
-
-	//mDirectLight = Scene->GetLights()[0].Direction;
-
-	//Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
-
-	//	ImGui::SetNextWindowPos(ImVec2(10, 10));
-	//	if (ImGui::Begin("Light",0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+	//ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
+	//	if (!_Demo)
 	//	{
-	//		auto& Lights = Scene->GetLights();
-	//		auto& DirectLight = Lights[0];
-	//		
-	//		ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
-	//		ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
-	//		ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
-
-	//		DirectLight.Direction = mDirectLight;
-	//		DirectLight.Direction.Normalize();
+	//		_Demo = std::make_shared<PostProcessorDemo>(RHI);
 	//	}
-	//	
-	//	ImGui::End();
+	//	_Demo->InitResource();
+	//	auto sceneRender = Engine::GEngine->GetSceneRender();
+	//	sceneRender->SetSamplePostProcessor(_Demo);
+	//	});
 
-	//},this);
+	core::filesystem::path Path = core::process_directory();
+	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+	SelIndex = 0;
+	auto Scene = Engine::GEngine->GetScene();
+	Scene->LoadScene(ModelFile);
 
+	auto Camera = Scene->GetMainCamera();
+	if (Camera)
+	{
+		auto CameraPos = Camera->GetCameraPos();
+		CameraPos.y = 1;
+		Camera->SetCameraPos(CameraPos);
+	}
+
+	mDirectLight = Scene->GetLights()[0].Direction;
+
+	Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
+
+		ImGui::SetNextWindowPos(ImVec2(10, 10));
+		if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			auto& Lights = Scene->GetLights();
+			auto& DirectLight = Lights[0];
+
+			ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
+			ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
+			ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
+
+			DirectLight.Direction = mDirectLight;
+			DirectLight.Direction.Normalize();
+		}
+
+		ImGui::End();
+
+	},this);
 
 	return true;
 }

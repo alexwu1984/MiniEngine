@@ -6,6 +6,18 @@ namespace RenderCore
 {
 	struct D3D11DynamicRHIPrivate;
 	class D3D11StateCacheBase;
+	class D3D11DynamicRHI;
+
+	class D3D11DynamicRHIModule : public IDynamicRHIModule
+	{
+	public:
+		D3D11DynamicRHIModule() = default;
+		~D3D11DynamicRHIModule() = default;
+		bool IsSupported() override;
+		std::shared_ptr<DynamicRHI> CreateRHI() override;
+	private:
+		std::shared_ptr< D3D11DynamicRHI> _dynamicRHI;
+	};
 
 	class D3D11DynamicRHI : public DynamicRHI
 	{
@@ -64,11 +76,11 @@ namespace RenderCore
 
 		ID3D11Device2* GetDevice2() const;
 		ID3D11DeviceContext2* GetDeviceContext2() const;
+		bool FindAdapter();
 
 	private:
 		bool InitD3DDevice();
-		bool FindAdapter();
-
+	
 	private:
 		D3D11DynamicRHIPrivate* d_ptr = nullptr;
 	};

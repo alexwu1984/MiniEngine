@@ -3,9 +3,19 @@
 
 namespace RenderCore
 {
+	std::shared_ptr< IDynamicRHIModule> GRHIModule;
 	std::shared_ptr<DynamicRHI> PlatformCreateDynamicRHI(RHIAPIType apiType)
 	{
-		return std::make_unique<D3D11DynamicRHI>();
+		if (apiType == RHIAPIType::E_D3D11)
+		{
+			GRHIModule = std::make_shared<D3D11DynamicRHIModule>();
+			if (GRHIModule->IsSupported())
+				return GRHIModule->CreateRHI();
+		}
+		else
+		{
+			return {};
+		}
 	}
 
 

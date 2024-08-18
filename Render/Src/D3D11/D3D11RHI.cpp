@@ -499,4 +499,19 @@ namespace RenderCore
 		return d->Direct3DDeviceIMContext2.get();
 	}
 
+	bool D3D11DynamicRHIModule::IsSupported()
+	{
+		if (!_dynamicRHI)
+			CreateRHI();
+		return _dynamicRHI->FindAdapter();
+	}
+
+	std::shared_ptr<DynamicRHI> D3D11DynamicRHIModule::CreateRHI()
+	{
+		if (_dynamicRHI)
+			return _dynamicRHI;
+		_dynamicRHI = std::make_shared<D3D11DynamicRHI>();
+		return _dynamicRHI;
+	}
+
 }

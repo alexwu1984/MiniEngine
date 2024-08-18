@@ -203,6 +203,8 @@ namespace RenderCore
 	bool D3D11DynamicRHI::FindAdapter()
 	{
 		C_P(D3D11DynamicRHI);
+		if (!d->DXGIFactory1)
+			SafeCreateDXGIFactory(&d->DXGIFactory1);
 		win32::com_ptr<IDXGIFactory6> DXGIFactory6;
 		d->DXGIFactory1->QueryInterface(__uuidof(IDXGIFactory6), DXGIFactory6.getvv());
 
@@ -349,7 +351,8 @@ namespace RenderCore
 	bool D3D11DynamicRHI::InitD3DDevice()
 	{
 		C_P(D3D11DynamicRHI);
-		SafeCreateDXGIFactory(d->DXGIFactory1.getpp());
+		if(!d->DXGIFactory1)
+			SafeCreateDXGIFactory(d->DXGIFactory1.getpp());
 
 		if (!d->ChosenAdapter.IsValid())
 		{

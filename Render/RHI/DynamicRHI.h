@@ -84,6 +84,17 @@ namespace RenderCore
 	
 	};
 
+	class IDynamicRHIModule /*: public IModuleInterface*/
+	{
+	public:
+		virtual ~IDynamicRHIModule() {}
+		/** Checks whether the RHI is supported by the current system. */
+		virtual bool IsSupported() = 0;
+
+		/** Creates a new instance of the dynamic RHI implemented by the module. */
+		virtual std::shared_ptr<DynamicRHI> CreateRHI() = 0;
+	};
+
 	bool IsRHIDeviceAMD();
 
 	// to trigger GPU specific optimizations and fallbacks

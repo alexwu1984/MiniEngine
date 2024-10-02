@@ -1,0 +1,52 @@
+#pragma once
+#include "win/win32.h"
+#include "RHI/RHIDefinitions.h"
+#include "d3dx12.h"
+
+namespace RenderCore
+{
+	struct D3D12AdapterDesc
+	{
+		D3D12AdapterDesc()
+			: AdapterIndex(-1)
+			, MaxSupportedFeatureLevel((D3D_FEATURE_LEVEL)0)
+			, NumDeviceNodes(0)
+		{
+		}
+
+		D3D12AdapterDesc(DXGI_ADAPTER_DESC& DescIn, int32_t InAdapterIndex, D3D_FEATURE_LEVEL InMaxSupportedFeatureLevel, uint32_t NumNodes)
+			: AdapterIndex(InAdapterIndex)
+			, MaxSupportedFeatureLevel(InMaxSupportedFeatureLevel)
+			, Desc(DescIn)
+			, NumDeviceNodes(NumNodes)
+		{
+		}
+
+		bool IsValid() const { return MaxSupportedFeatureLevel != (D3D_FEATURE_LEVEL)0 && AdapterIndex >= 0; }
+
+		/** -1 if not supported or FindAdpater() wasn't called. Ideally we would store a pointer to IDXGIAdapter but it's unlikely the adpaters change during engine init. */
+		int32_t AdapterIndex;
+		/** The maximum D3D12 feature level supported. 0 if not supported or FindAdpater() wasn't called */
+		D3D_FEATURE_LEVEL MaxSupportedFeatureLevel;
+
+		DXGI_ADAPTER_DESC Desc;
+
+		uint32_t NumDeviceNodes;
+	};
+
+	struct D3D12AdapterPrivate;
+	class D3D12DynamicRHI;
+
+	class D3D12Adapter
+	{
+	public:
+		D3D12Adapter(const D3D12AdapterDesc& desc);
+		~D3D12Adapter();
+
+		void Initialize(std::weak_ptr<D3D12DynamicRHI> RHI);
+		void InitializeDevices();
+		void InitializeRayTracing();
+	private:
+		D3D12AdapterPrivate* d_ptr = nullptr;
+	};
+}

@@ -11,6 +11,7 @@ namespace RenderCore
 			GRHIModule = std::make_shared<D3D11DynamicRHIModule>();
 			if (GRHIModule->IsSupported())
 				return GRHIModule->CreateRHI();
+			return {};
 		}
 		else
 		{

@@ -196,4 +196,7 @@ namespace RenderCore
 		friend bool operator== (const BlendStateInitializerRHI& A, const BlendStateInitializerRHI& B);
 
 	};
+
+	void D3D12RHI_SetShouldCreateWithD3DDebug(bool debug);
+	bool D3D12RHI_ShouldCreateWithD3DDebug();
 }

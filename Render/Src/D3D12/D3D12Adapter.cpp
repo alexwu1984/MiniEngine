@@ -3,6 +3,7 @@
 #include "D3D12/D3D12RHI.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "core/logger.h"
+#include "RHI/RHI.h"
 
 namespace RenderCore
 {
@@ -16,7 +17,14 @@ namespace RenderCore
 		win32::com_ptr<IDXGIFactory> DxgiFactory;
 		win32::com_ptr<IDXGIFactory2> DxgiFactory2;
 		win32::com_ptr<IDXGIAdapter> DxgiAdapter;
+
+		D3D12_RESOURCE_HEAP_TIER ResourceHeapTier;
+		D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
+		D3D_ROOT_SIGNATURE_VERSION RootSignatureVersion;
+
 		D3D12AdapterDesc Desc;
+		bool bDeviceRemoved = false;
+		bool bDepthBoundsTestSupported = false;
 	};
 
 	D3D12Adapter::D3D12Adapter(const D3D12AdapterDesc& desc)
@@ -39,12 +47,99 @@ namespace RenderCore
 
 	void D3D12Adapter::InitializeDevices()
 	{
+		C_P(D3D12Adapter);
+		if (d->bDeviceRemoved)
+		{
+			assert(d->RootDevice);
 
+			HRESULT hRes = d->RootDevice->GetDeviceRemovedReason();
+
+			const TCHAR* Reason = TEXT("?");
+			switch (hRes)
+			{
+			case DXGI_ERROR_DEVICE_HUNG:			Reason = TEXT("HUNG"); break;
+			case DXGI_ERROR_DEVICE_REMOVED:			Reason = TEXT("REMOVED"); break;
+			case DXGI_ERROR_DEVICE_RESET:			Reason = TEXT("RESET"); break;
+			case DXGI_ERROR_DRIVER_INTERNAL_ERROR:	Reason = TEXT("INTERNAL_ERROR"); break;
+			case DXGI_ERROR_INVALID_CALL:			Reason = TEXT("INVALID_CALL"); break;
+			}
+
+			d->bDeviceRemoved = false;
+
+			Cleanup();
+
+			// We currently don't support removed devices because FTexture2DResource can't recreate its RHI resources from scratch.
+			// We would also need to recreate the viewport swap chains from scratch.
+			//UE_LOG(LogD3D12RHI, Fatal, TEXT("The Direct3D 12 device that was being used has been removed (Error: %d '%s').  Please restart the game."), hRes, Reason);
+			core::err() << core::formatw(L"The Direct3D 12 device that was being used has been removed (Error: ", hRes, L"'", Reason, "'). Please restart the game.)");
+
+		}
+
+		// Use a debug device if specified on the command line.
+		bool bWithD3DDebug = D3D12RHI_ShouldCreateWithD3DDebug();
+
+		// If we don't have a device yet, either because this is the first viewport, or the old device was removed, create a device.
+		if (!d->RootDevice)
+		{
+			CreateRootDevice(bWithD3DDebug);
+
+			if (SUCCEEDED(d->RootDevice->QueryInterface(IID_PPV_ARGS(d->RootDevice1.get_init_ref()))))
+			{
+				//UE_LOG(LogD3D12RHI, Log, TEXT("The system supports ID3D12Device1."));
+				core::inf() << "The system supports ID3D12Device1.";
+			}
+
+			if (SUCCEEDED(d->RootDevice->QueryInterface(IID_PPV_ARGS(d->RootDevice2.get_init_ref()))))
+			{
+				//UE_LOG(LogD3D12RHI, Log, TEXT("The system supports ID3D12Device2."));
+				core::inf() << "The system supports ID3D12Device2.";
+			}
+		}
+
+		D3D12_FEATURE_DATA_D3D12_OPTIONS D3D12Caps;
+		ZeroMemory(&D3D12Caps, sizeof(D3D12Caps));
+		HRESULT hr = d->RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &D3D12Caps, sizeof(D3D12Caps));
+		d->ResourceHeapTier = D3D12Caps.ResourceHeapTier;
+		d->ResourceBindingTier = D3D12Caps.ResourceBindingTier;
+
+		D3D12_FEATURE_DATA_D3D12_OPTIONS2 D3D12Caps2 = {};
+		if (FAILED(d->RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS2, &D3D12Caps2, sizeof(D3D12Caps2))))
+		{
+			D3D12Caps2.DepthBoundsTestSupported = false;
+			D3D12Caps2.ProgrammableSamplePositionsTier = D3D12_PROGRAMMABLE_SAMPLE_POSITIONS_TIER_NOT_SUPPORTED;
+		}
+		d->bDepthBoundsTestSupported = !!D3D12Caps2.DepthBoundsTestSupported;
+
+		D3D12_FEATURE_DATA_ROOT_SIGNATURE D3D12RootSignatureCaps = {};
+		D3D12RootSignatureCaps.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;	// This is the highest version we currently support. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
+		if (FAILED(d->RootDevice->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &D3D12RootSignatureCaps, sizeof(D3D12RootSignatureCaps))))
+		{
+			D3D12RootSignatureCaps.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+		}
+		d->RootSignatureVersion = D3D12RootSignatureCaps.HighestVersion;
+
+		//FrameFence = new FD3D12ManualFence(this, FRHIGPUMask::All(), L"Adapter Frame Fence");
+		//FrameFence->CreateFence();
+
+		//StagingFence = new FD3D12Fence(this, FRHIGPUMask::All(), L"Staging Fence");
+		//StagingFence->CreateFence();
 	}
 
 	void D3D12Adapter::InitializeRayTracing()
 	{
 
+	}
+
+	void D3D12Adapter::SetDeviceRemoved(bool value)
+	{
+		C_P(D3D12Adapter);
+		d->bDeviceRemoved = value;
+	}
+
+	const bool D3D12Adapter::IsDeviceRemoved() const
+	{
+		C_P(const D3D12Adapter);
+		return d->bDeviceRemoved;
 	}
 
 	const uint32_t D3D12Adapter::GetAdapterIndex() const
@@ -124,7 +219,7 @@ namespace RenderCore
 		}
 
 		// Creating the Direct3D device.
-		D3D12CreateDevice(
+		::D3D12CreateDevice(
 			GetAdapter(),
 			GetFeatureLevel(),
 			IID_PPV_ARGS(d->RootDevice.get_init_ref())
@@ -266,6 +361,11 @@ namespace RenderCore
 			return false;
 		}
 		return true;
+	}
+
+	void D3D12Adapter::Cleanup()
+	{
+
 	}
 
 }

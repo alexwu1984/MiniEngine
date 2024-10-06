@@ -46,7 +46,8 @@ namespace RenderCore
 		void Initialize(std::weak_ptr<D3D12DynamicRHI> RHI);
 		void InitializeDevices();
 		void InitializeRayTracing();
-
+		void SetDeviceRemoved(bool value);
+		const bool IsDeviceRemoved() const;
 	public:
 		const uint32_t GetAdapterIndex() const;
 		const D3D_FEATURE_LEVEL GetFeatureLevel() const;
@@ -56,6 +57,7 @@ namespace RenderCore
 	private:
 		bool CreateRootDevice(bool bWithDebug);
 		bool CreateDXGIFactory();
+		void Cleanup();
 	private:
 		D3D12AdapterPrivate* d_ptr = nullptr;
 	};

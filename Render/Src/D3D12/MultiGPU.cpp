@@ -2,6 +2,6 @@
 
 namespace RenderCore
 {
-	uint32 GNumAlternateFrameRenderingGroups = 1;
-	uint32 GNumExplicitGPUsForRendering = 1;
+	uint32_t GNumAlternateFrameRenderingGroups = 1;
+	uint32_t GNumExplicitGPUsForRendering = 1;
 }

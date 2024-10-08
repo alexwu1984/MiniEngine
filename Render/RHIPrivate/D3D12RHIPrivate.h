@@ -41,4 +41,29 @@ namespace RenderCore
 			// We suppress warning C6322: Empty _except block. Appropriate checks are made upon returning. 
 		}
 	}
+
+	class D3D12Fence;
+	class D3D12SyncPoint
+	{
+	public:
+		explicit D3D12SyncPoint()
+			: Fence(nullptr)
+			, Value(0)
+		{
+		}
+
+		explicit D3D12SyncPoint(D3D12Fence* InFence, uint64_t InValue)
+			: Fence(InFence)
+			, Value(InValue)
+		{
+		}
+
+		bool IsValid() const;
+		bool IsComplete() const;
+		void WaitForCompletion() const;
+
+	private:
+		D3D12Fence* Fence;
+		uint64_t Value;
+	};
 }

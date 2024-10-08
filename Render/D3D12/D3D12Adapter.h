@@ -36,8 +36,9 @@ namespace RenderCore
 
 	struct D3D12AdapterPrivate;
 	class D3D12DynamicRHI;
+	class FD3D12FenceCorePool;
 
-	class D3D12Adapter
+	class D3D12Adapter : std::enable_shared_from_this<D3D12Adapter>
 	{
 	public:
 		D3D12Adapter(const D3D12AdapterDesc& desc);
@@ -48,6 +49,10 @@ namespace RenderCore
 		void InitializeRayTracing();
 		void SetDeviceRemoved(bool value);
 		const bool IsDeviceRemoved() const;
+		ID3D12Device* GetD3DDevice() const;
+		ID3D12Device1* GetD3DDevice1() const;
+		ID3D12Device2* GetD3DDevice2() const;
+		FD3D12FenceCorePool& GetFenceCorePool();
 	public:
 		const uint32_t GetAdapterIndex() const;
 		const D3D_FEATURE_LEVEL GetFeatureLevel() const;

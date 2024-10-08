@@ -4,6 +4,7 @@
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "core/logger.h"
 #include "RHI/RHI.h"
+#include "D3D12/D3D12DirectCommandListManager.h"
 
 namespace RenderCore
 {
@@ -21,6 +22,8 @@ namespace RenderCore
 		D3D12_RESOURCE_HEAP_TIER ResourceHeapTier;
 		D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
 		D3D_ROOT_SIGNATURE_VERSION RootSignatureVersion;
+
+		std::shared_ptr<FD3D12FenceCorePool> FenceCorePool;
 
 		D3D12AdapterDesc Desc;
 		bool bDeviceRemoved = false;
@@ -140,6 +143,34 @@ namespace RenderCore
 	{
 		C_P(const D3D12Adapter);
 		return d->bDeviceRemoved;
+	}
+
+	ID3D12Device* D3D12Adapter::GetD3DDevice() const
+	{
+		C_P(const D3D12Adapter);
+		return d->RootDevice.get();
+	}
+
+	ID3D12Device1* D3D12Adapter::GetD3DDevice1() const
+	{
+		C_P(const D3D12Adapter);
+		return d->RootDevice1.get();
+	}
+
+	ID3D12Device2* D3D12Adapter::GetD3DDevice2() const
+	{
+		C_P(const D3D12Adapter);
+		return d->RootDevice2.get();
+	}
+
+	FD3D12FenceCorePool& D3D12Adapter::GetFenceCorePool()
+	{
+		C_P(D3D12Adapter);
+		if (!d->FenceCorePool)
+		{
+			d->FenceCorePool = std::make_shared<FD3D12FenceCorePool>(shared_from_this());
+		}
+		return *d->FenceCorePool;
 	}
 
 	const uint32_t D3D12Adapter::GetAdapterIndex() const
@@ -306,11 +337,6 @@ namespace RenderCore
 					// so we can safely ignore this message. It could possibly be avoided by adding driver version to the PSO cache filename, but an average user is unlikely
 					// to be interested in keeping PSO caches associated with old drivers around on disk, so it's better to just reset.
 					D3D12_MESSAGE_ID_CREATEPIPELINELIBRARY_DRIVERVERSIONMISMATCH,
-
-	#if ENABLE_RESIDENCY_MANAGEMENT
-					// TODO: Remove this when the debug layers work for executions which are guarded by a fence
-					D3D12_MESSAGE_ID_INVALID_USE_OF_NON_RESIDENT_RESOURCE,
-	#endif
 				};
 
 #if D3D12_RHI_RAYTRACING

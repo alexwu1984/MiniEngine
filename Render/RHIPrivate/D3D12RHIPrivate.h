@@ -42,6 +42,40 @@ namespace RenderCore
 		}
 	}
 
+	/** Find the appropriate depth-stencil typeless DXGI format for the given format. */
+	inline DXGI_FORMAT FindDepthStencilParentDXGIFormat(DXGI_FORMAT InFormat)
+	{
+		switch (InFormat)
+		{
+		case DXGI_FORMAT_D24_UNORM_S8_UINT:
+		case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
+			return DXGI_FORMAT_R24G8_TYPELESS;
+			// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
+		case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+		case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+			return DXGI_FORMAT_R32G8X24_TYPELESS;
+		case DXGI_FORMAT_D32_FLOAT:
+			return DXGI_FORMAT_R32_TYPELESS;
+		case DXGI_FORMAT_D16_UNORM:
+			return DXGI_FORMAT_R16_TYPELESS;
+		};
+		return InFormat;
+	}
+
+	inline uint8_t GetPlaneCount(DXGI_FORMAT Format)
+	{
+		// Currently, the only planar resources used are depth-stencil formats
+		// Note there is a D3D12 helper for this, D3D12GetFormatPlaneCount
+		switch (FindDepthStencilParentDXGIFormat(Format))
+		{
+		case DXGI_FORMAT_R24G8_TYPELESS:
+		case DXGI_FORMAT_R32G8X24_TYPELESS:
+			return 2;
+		default:
+			return 1;
+		}
+	}
+
 	class D3D12Fence;
 	class D3D12SyncPoint
 	{
@@ -65,5 +99,217 @@ namespace RenderCore
 	private:
 		D3D12Fence* Fence;
 		uint64_t Value;
+	};
+
+
+	/**
+ * The base class of threadsafe reference counted objects.
+ */
+	template <class Type>
+	struct ThreadsafeQueue
+	{
+	private:
+		mutable std::recursive_mutex	SynchronizationObject; // made this mutable so this class can have const functions and still be thread safe
+		std::deque<Type>				Items;
+		uint32_t						Size = 0;
+	public:
+
+		inline const uint32_t GetSize() const { return Size; }
+
+		void Enqueue(const Type& Item)
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+			Items.push_back(Item);
+			Size++;
+		}
+
+		bool Dequeue(Type& Result)
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+			if (Items.empty())
+			{
+				return false;
+			}
+
+			Size--;
+			Result = Items.front();
+			Items.pop_front();
+			return true;
+		}
+
+		template <typename CompareFunc>
+		bool Dequeue(Type& Result, CompareFunc& Func)
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+
+			if (Items.empty())
+			{
+				return false;
+			}
+
+			Result = Items.back();
+			if (Func(Result))
+			{
+				Size--;
+				Result = Items.front();
+				Items.pop_front();
+
+				return true;
+			}
+			return false;
+		}
+
+		template <typename CompareFunc>
+		bool BatchDequeue(std::deque<Type>* Result, CompareFunc& Func, uint32_t MaxItems)
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+
+			uint32_t i = 0;
+			Type Item;
+			while (!Items.empty() && i <= MaxItems)
+			{
+				Item = Items.back();
+				if (Func(Item))
+				{
+					Size--;
+					Result = Items.front();
+					Items.pop_front();
+					Result->push_back(Item);
+
+					i++;
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			return i > 0;
+		}
+
+		bool Peek(Type& Result)
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+			if (Items.empty())
+			{
+				return false;
+			}
+
+			return Items.back();
+		}
+
+		bool IsEmpty()
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+			return Items.empty();
+		}
+
+		void Empty()
+		{
+			std::lock_guard<std::recursive_mutex> ScopeLock(SynchronizationObject);
+			Items.clear();
+		}
+	};
+
+	class FD3D12ResourceBarrierBatcher 
+	{
+	public:
+		explicit FD3D12ResourceBarrierBatcher()
+		{};
+
+		// Add a UAV barrier to the batch. Ignoring the actual resource for now.
+		void AddUAV()
+		{
+			//Barriers.AddUninitialized();
+			Barriers.push_back({});
+			D3D12_RESOURCE_BARRIER& Barrier = Barriers.back();
+			Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			Barrier.UAV.pResource = nullptr;	// Ignore the resource ptr for now. HW doesn't do anything with it.
+		}
+
+		// Add a transition resource barrier to the batch.
+		void AddTransition(ID3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)
+		{
+			assert(Before != After);
+			//Barriers.AddUninitialized();
+			Barriers.push_back({});
+			D3D12_RESOURCE_BARRIER& Barrier = Barriers.back();
+			Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			Barrier.Transition.StateBefore = Before;
+			Barrier.Transition.StateAfter = After;
+			Barrier.Transition.Subresource = Subresource;
+			Barrier.Transition.pResource = pResource;
+		}
+
+		void AddAliasingBarrier(ID3D12Resource* pResource)
+		{
+			//Barriers.AddUninitialized();
+			Barriers.push_back({});
+			D3D12_RESOURCE_BARRIER& Barrier = Barriers.back();
+			Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+			Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			Barrier.Aliasing.pResourceBefore = NULL;
+			Barrier.Aliasing.pResourceAfter = pResource;
+		}
+
+		// Flush the batch to the specified command list then reset.
+		void Flush(ID3D12GraphicsCommandList* pCommandList)
+		{
+			if (Barriers.size())
+			{
+				assert(pCommandList);
+				pCommandList->ResourceBarrier(Barriers.size(), Barriers.data());
+				Reset();
+			}
+		}
+
+		// Clears the batch.
+		void Reset()
+		{
+			Barriers.clear();
+			//Barriers.SetNumUnsafeInternal(0);	// Reset the array without shrinking (Does not destruct items, does not de-allocate memory).
+			//check(Barriers.Num() == 0);
+		}
+
+		const std::vector<D3D12_RESOURCE_BARRIER>& GetBarriers() const
+		{
+			return Barriers;
+		}
+
+	private:
+		std::vector<D3D12_RESOURCE_BARRIER> Barriers;
+	};
+
+	// Custom resource states
+// To Be Determined (TBD) means we need to fill out a resource barrier before the command list is executed.
+#define D3D12_RESOURCE_STATE_TBD (D3D12_RESOURCE_STATES)-1
+#define D3D12_RESOURCE_STATE_CORRUPT (D3D12_RESOURCE_STATES)-2
+
+	class CResourceState
+	{
+	public:
+		void Initialize(uint32_t SubresourceCount);
+
+		bool AreAllSubresourcesSame() const;
+		bool CheckResourceState(D3D12_RESOURCE_STATES State) const;
+		bool CheckResourceStateInitalized() const;
+		D3D12_RESOURCE_STATES GetSubresourceState(uint32_t SubresourceIndex) const;
+		void SetResourceState(D3D12_RESOURCE_STATES State);
+		void SetSubresourceState(uint32_t SubresourceIndex, D3D12_RESOURCE_STATES State);
+
+	private:
+		// Only used if m_AllSubresourcesSame is 1.
+		// Bits defining the state of the full resource, bits are from D3D12_RESOURCE_STATES
+		D3D12_RESOURCE_STATES m_ResourceState : 31;
+
+		// Set to 1 if m_ResourceState is valid.  In this case, all subresources have the same state
+		// Set to 0 if m_SubresourceState is valid.  In this case, each subresources may have a different state (or may be unknown)
+		uint32_t m_AllSubresourcesSame : 1;
+
+		// Only used if m_AllSubresourcesSame is 0.
+		// The state of each subresources.  Bits are from D3D12_RESOURCE_STATES.
+		std::vector<D3D12_RESOURCE_STATES> m_SubresourceState;
 	};
 }

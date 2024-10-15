@@ -37,4 +37,29 @@ namespace RenderCore
 		}
 	};
 
+	class D3D12Device;
+	class D3D12DeviceChild
+	{
+	protected:
+		D3D12Device* Parent;
+
+	public:
+		D3D12DeviceChild(D3D12Device* InParent = nullptr) : Parent(InParent) {}
+
+		FORCEINLINE D3D12Device* GetParentDevice() const
+		{
+			// If this fires an object was likely created with a default constructor i.e in an STL container
+			// and is therefore an orphan
+			assert(Parent != nullptr);
+			return Parent;
+		}
+
+		// To be used with delayed setup
+		inline void SetParentDevice(D3D12Device* InParent)
+		{
+			assert(Parent == nullptr);
+			Parent = InParent;
+		}
+	};
+
 }

@@ -1,6 +1,7 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12DirectCommandListManager.h"
 
 namespace RenderCore
 {
@@ -39,6 +40,11 @@ namespace RenderCore
 	ID3D12Device* D3D12Device::GetDevice()
 	{
 		return GetParentAdapter()->GetD3DDevice();
+	}
+
+	ID3D12CommandQueue* D3D12Device::GetD3DCommandQueue(ED3D12CommandQueueType InQueueType /*= ED3D12CommandQueueType::Default*/) const
+	{
+		return nullptr;
 	}
 
 }

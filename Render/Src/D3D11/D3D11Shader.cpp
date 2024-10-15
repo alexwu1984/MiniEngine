@@ -41,7 +41,7 @@ namespace RenderCore
 		d->SharderCode = SharderCode;
 
 		auto Device = d->D3D11RHI->GetDevice();
-		VERIFYD3D11RESULT(Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->VertexShader.get_init_ref()));
+		VERIFYD3DRESULT(Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->VertexShader.get_init_ref()));
 
 		if (VertexDeclare.GetDeclareDesc().empty())
 		{

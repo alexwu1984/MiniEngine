@@ -35,7 +35,7 @@ namespace RenderCore
 
 		Impl->ConstantBufferSize = ConstantBufferSize;
 
-		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateBuffer(&Desc, Contents ? &ImmutableData : nullptr, Impl->UniformBuffer.get_init_ref()));
+		VERIFYD3DRESULT(Impl->D3D11RHI->GetDevice()->CreateBuffer(&Desc, Contents ? &ImmutableData : nullptr, Impl->UniformBuffer.get_init_ref()));
 		return Impl->UniformBuffer.is_valid();
 	}
 

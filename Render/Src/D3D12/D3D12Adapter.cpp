@@ -5,6 +5,7 @@
 #include "core/logger.h"
 #include "RHI/RHI.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
+#include "D3D12/D3D12WindowDevice.h"
 
 namespace RenderCore
 {
@@ -24,10 +25,18 @@ namespace RenderCore
 		D3D_ROOT_SIGNATURE_VERSION RootSignatureVersion;
 
 		std::shared_ptr<FD3D12FenceCorePool> FenceCorePool;
+		std::shared_ptr<D3D12ManualFence> FrameFence;
+		std::shared_ptr<D3D12Fence> StagingFence;
+
+		win32::com_ptr<ID3D12CommandSignature> DrawIndirectCommandSignature;
+		win32::com_ptr<ID3D12CommandSignature> DrawIndexedIndirectCommandSignature;
+		win32::com_ptr<ID3D12CommandSignature> DispatchIndirectCommandSignature;
 
 		D3D12AdapterDesc Desc;
 		bool bDeviceRemoved = false;
 		bool bDepthBoundsTestSupported = false;
+
+		D3D12Device* Devices[MAX_NUM_GPUS]{};
 	};
 
 	D3D12Adapter::D3D12Adapter(const D3D12AdapterDesc& desc)
@@ -121,11 +130,74 @@ namespace RenderCore
 		}
 		d->RootSignatureVersion = D3D12RootSignatureCaps.HighestVersion;
 
-		//FrameFence = new FD3D12ManualFence(this, FRHIGPUMask::All(), L"Adapter Frame Fence");
-		//FrameFence->CreateFence();
+		d->FrameFence = std::make_shared<D3D12ManualFence>(this->shared_from_this(), L"Adapter Frame Fence");
+		d->FrameFence->CreateFence();
 
-		//StagingFence = new FD3D12Fence(this, FRHIGPUMask::All(), L"Staging Fence");
-		//StagingFence->CreateFence();
+		d->StagingFence = std::make_shared<D3D12Fence>(this->shared_from_this(), L"Staging Fence");
+		d->StagingFence->CreateFence();
+
+		CreateSignatures();
+
+		constexpr int32_t GPUIndex = 0;
+		d->Devices[GPUIndex] = new D3D12Device(this->shared_from_this());
+		d->Devices[GPUIndex]->Initialize();
+		////Create all of the FD3D12Devices
+		//for (uint32 GPUIndex : FRHIGPUMask::All())
+		//{
+		//	Devices[GPUIndex] = new FD3D12Device(FRHIGPUMask::FromIndex(GPUIndex), this);
+		//	Devices[GPUIndex]->Initialize();
+
+		//	// The redirectors allow to broadcast to any GPU set
+		//	DefaultContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultCommandContext());
+		//	if (GEnableAsyncCompute)
+		//	{
+		//		DefaultAsyncComputeContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultAsyncComputeContext());
+		//	}
+		//}
+
+		//DefaultContextRedirector.SetGPUMask(FRHIGPUMask::All());
+		//DefaultAsyncComputeContextRedirector.SetGPUMask(FRHIGPUMask::All());
+
+		//// Initialize the immediate command list GPU mask now that everything is set.
+		//FRHICommandListExecutor::GetImmediateCommandList().SetGPUMask(FRHIGPUMask::All());
+		//FRHICommandListExecutor::GetImmediateAsyncComputeCommandList().SetGPUMask(FRHIGPUMask::All());
+
+		////GPUProfilingData.Init();
+
+		//const std::basic_string<TCHAR> Name(L"Upload Buffer Allocator");
+
+		//for (uint32 GPUIndex : FRHIGPUMask::All())
+		//{
+		//	// Safe to init as we have a device;
+		//	UploadHeapAllocator[GPUIndex] = new FD3D12DynamicHeapAllocator(this,
+		//		Devices[GPUIndex],
+		//		Name,
+		//		kManualSubAllocationStrategy,
+		//		DEFAULT_CONTEXT_UPLOAD_POOL_MAX_ALLOC_SIZE,
+		//		DEFAULT_CONTEXT_UPLOAD_POOL_SIZE,
+		//		DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT);
+
+		//	UploadHeapAllocator[GPUIndex]->Init();
+		//}
+
+
+		//// ID3D12Device1::CreatePipelineLibrary() requires each blob to be specific to the given adapter. To do this we create a unique file name with from the adpater desc. 
+		//// Note that : "The uniqueness of an LUID is guaranteed only until the system is restarted" according to windows doc and thus can not be reused.
+		//const std::basic_string<TCHAR> UniqueDeviceCachePath = core::formatw(L"V", Desc.Desc.VendorId, L"_D", Desc.Desc.DeviceId, L"_S", Desc.Desc.SubSysId, L"_R", Desc.Desc.Revision);
+
+		////const FString UniqueDeviceCachePath = FString::Printf(TEXT("V%d_D%d_S%d_R%d.ushaderprecache"), Desc.Desc.VendorId, Desc.Desc.DeviceId, Desc.Desc.SubSysId, Desc.Desc.Revision);
+		//const std::wstring GraphicsCacheFile = PIPELINE_STATE_FILE_LOCATION + core::formatw(TEXT("D3DGraphics_"), UniqueDeviceCachePath);
+		//const std::wstring ComputeCacheFile = PIPELINE_STATE_FILE_LOCATION + core::formatw(TEXT("D3DCompute_%s"), UniqueDeviceCachePath);
+		//const std::wstring DriverBlobFilename = PIPELINE_STATE_FILE_LOCATION + core::formatw(TEXT("D3DDriverByteCodeBlob_%s"), UniqueDeviceCachePath);
+
+		//PipelineStateCache.Init(GraphicsCacheFile, ComputeCacheFile, DriverBlobFilename);
+
+		//ID3D12RootSignature* StaticGraphicsRS = (GetStaticGraphicsRootSignature()) ? GetStaticGraphicsRootSignature()->GetRootSignature() : nullptr;
+		//ID3D12RootSignature* StaticComputeRS = (GetStaticComputeRootSignature()) ? GetStaticComputeRootSignature()->GetRootSignature() : nullptr;
+
+		//// #dxr_todo: verify that disk cache works correctly with DXR
+		//PipelineStateCache.RebuildFromDiskCache(StaticGraphicsRS, StaticComputeRS);
+
 	}
 
 	void D3D12Adapter::InitializeRayTracing()
@@ -171,6 +243,68 @@ namespace RenderCore
 			d->FenceCorePool = std::make_shared<FD3D12FenceCorePool>(shared_from_this());
 		}
 		return *d->FenceCorePool;
+	}
+
+	D3D12ManualFence& D3D12Adapter::GetFrameFence()
+	{
+		C_P(D3D12Adapter);
+		assert(d->FrameFence);
+		return *d->FrameFence;
+	}
+
+	D3D12Device* D3D12Adapter::GetDevice(uint32_t GPUIndex)
+	{
+		C_P(D3D12Adapter);
+		assert(GPUIndex < MAX_NUM_GPUS);
+		return d->Devices[GPUIndex];
+	}
+
+	std::shared_ptr<D3D12DynamicRHI> D3D12Adapter::GetOwningRHI()
+	{
+		C_P(D3D12Adapter);
+		assert(!d->OwningRHI.expired());
+		return d->OwningRHI.lock();
+	}
+
+	void D3D12Adapter::CreateSignatures()
+	{
+		C_P(D3D12Adapter);
+		ID3D12Device* Device = GetD3DDevice();
+
+		D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
+		commandSignatureDesc.NumArgumentDescs = 1;
+		commandSignatureDesc.ByteStride = 20;
+		commandSignatureDesc.NodeMask = 1;
+
+		D3D12_INDIRECT_ARGUMENT_DESC indirectParameterDesc[1] = {};
+		commandSignatureDesc.pArgumentDescs = indirectParameterDesc;
+
+		indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+		commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS);
+		HRESULT hr = Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(d->DrawIndirectCommandSignature.get_init_ref()));
+		if (FAILED(hr))
+		{
+			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
+			return;
+		}
+
+		indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+		commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+		hr = Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(d->DrawIndexedIndirectCommandSignature.get_init_ref()));
+		if (FAILED(hr))
+		{
+			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
+			return;
+		}
+
+		indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+		commandSignatureDesc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
+		hr = Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(d->DispatchIndirectCommandSignature.get_init_ref()));
+		if (FAILED(hr))
+		{
+			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
+			return;
+		}
 	}
 
 	const uint32_t D3D12Adapter::GetAdapterIndex() const
@@ -377,13 +511,13 @@ namespace RenderCore
 		HRESULT hr = ::CreateDXGIFactory(IID_PPV_ARGS(d->DxgiFactory.get_init_ref()));
 		if (FAILED(hr))
 		{
-			core::logger::err() << std::hex << hr;
+			core::logger::err() << __FUNCTION__" CreateDXGIFactory failed:" << std::hex << hr;
 			return false;
 		}
 		hr = d->DxgiFactory->QueryInterface(IID_PPV_ARGS(d->DxgiFactory2.get_init_ref()));
 		if (FAILED(hr))
 		{
-			core::logger::err() << std::hex << hr;
+			core::logger::err() << __FUNCTION__" QueryInterface(DxgiFactory2) failed:" << std::hex << hr;
 			return false;
 		}
 		return true;
@@ -391,6 +525,14 @@ namespace RenderCore
 
 	void D3D12Adapter::Cleanup()
 	{
+		C_P(D3D12Adapter);
+		constexpr int32_t GPUIndex = 0;
+		if (d->Devices[GPUIndex])
+		{
+			d->Devices[GPUIndex]->Cleanup();
+			delete d->Devices[GPUIndex];
+			d->Devices[GPUIndex] = nullptr;
+		}
 
 	}
 

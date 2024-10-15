@@ -265,7 +265,7 @@ namespace RenderCore
 				if (SafeTestD3D11CreateDevice(TempAdapter.get(), MinAllowedFeatureLevel, MaxAllowedFeatureLevel, &ActualFeatureLevel))
 				{
 					// Log some information about the available D3D11 adapters.
-					VERIFYD3D11RESULT(TempAdapter->GetDesc(&AdapterDesc));
+					VERIFYD3DRESULT(TempAdapter->GetDesc(&AdapterDesc));
 					uint32_t OutputCount = CountAdapterOutputs(TempAdapter);
 
 					core::LOG(core::log_inf,
@@ -469,7 +469,7 @@ namespace RenderCore
 		if (!bDeviceCreated)
 		{
 			// Creating the Direct3D device.
-			VERIFYD3D11RESULT(D3D11CreateDevice(
+			VERIFYD3DRESULT(D3D11CreateDevice(
 				Adapter.get(),
 				DriverType,
 				NULL,
@@ -515,7 +515,7 @@ namespace RenderCore
 		if (DeviceFlags & D3D11_CREATE_DEVICE_DEBUG)
 		{
 			win32::com_ptr<ID3D11InfoQueue> InfoQueue;
-			VERIFYD3D11RESULT(d->Direct3DDevice->QueryInterface(IID_ID3D11InfoQueue, (void**)InfoQueue.get_init_ref()));
+			VERIFYD3DRESULT(d->Direct3DDevice->QueryInterface(IID_ID3D11InfoQueue, (void**)InfoQueue.get_init_ref()));
 			if (InfoQueue)
 			{
 				D3D11_INFO_QUEUE_FILTER NewFilter;

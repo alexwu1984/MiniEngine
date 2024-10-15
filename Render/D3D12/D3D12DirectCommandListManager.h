@@ -1,11 +1,34 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
-#include "win/com_ptr.h"
 #include "d3dx12.h"
 #include "D3D12/MultiGPU.h"
+#include "D3D12/D3D12CommandList.h"
+#include "core/memory_manager.h"
 
 namespace RenderCore
 {
+	struct D3D12CommandListPayload
+	{
+		D3D12CommandListPayload() : NumCommandLists(0)
+		{
+			win32::Memzero(CommandLists);
+		}
+
+		void Reset();
+		void Append(ID3D12CommandList* CL);
+
+		static const uint32_t MaxCommandListsPerPayload = 256;
+		ID3D12CommandList* CommandLists[MaxCommandListsPerPayload];
+		uint32_t NumCommandLists;
+	};
+
+	enum class CommandListState
+	{
+		kOpen,
+		kQueued,
+		kFinished
+	};
+
 	class D3D12FenceCore : public D3D12AdapterChild
 	{
 	public:
@@ -108,4 +131,114 @@ namespace RenderCore
 		//check this when queuing waits to catch GPU hangs on the CPU at command creation time.
 		bool bWriteEnqueued = false;
 	};
+
+	// Fence value must be incremented manually. Useful when you need incrementing and signaling to happen at different times.
+	class D3D12ManualFence : public D3D12Fence
+	{
+	public:
+		explicit D3D12ManualFence(std::weak_ptr<D3D12Adapter> InParent, const std::wstring& InName = L"<unnamed>")
+			: D3D12Fence(InParent, InName)
+		{}
+
+		// Signals the specified fence value.
+		uint64_t Signal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal);
+
+		// Increments the current fence and returns the previous value.
+		inline uint64_t IncrementCurrentFence() { return CurrentFence++; }
+	};
+
+	class D3D12Device;
+	class D3D12CommandAllocator;
+	class D3D12CommandAllocatorManager : public D3D12DeviceChild
+	{
+	public:
+		D3D12CommandAllocatorManager(D3D12Device* InParent, const D3D12_COMMAND_LIST_TYPE& InType);
+		~D3D12CommandAllocatorManager();
+
+		D3D12CommandAllocator* ObtainCommandAllocator();
+		void ReleaseCommandAllocator(D3D12CommandAllocator* CommandAllocator);
+
+	private:
+		std::vector<D3D12CommandAllocator*> CommandAllocators;		// List of all command allocators owned by this manager
+		std::queue<D3D12CommandAllocator*> CommandAllocatorQueue;	// Queue of available allocators. Note they might still be in use by the GPU.
+		std::recursive_mutex CS;	// Must be thread-safe because multiple threads can obtain/release command allocators
+		const D3D12_COMMAND_LIST_TYPE Type;
+	};
+
+	class D3D12CommandListManager : public D3D12DeviceChild
+	{
+	public:
+		struct FResolvedCmdListExecTime
+		{
+			uint64_t StartTimestamp;
+			uint64_t EndTimestamp;
+
+			FResolvedCmdListExecTime() = default;
+
+			FResolvedCmdListExecTime(uint64_t InStart, uint64_t InEnd)
+				: StartTimestamp(InStart)
+				, EndTimestamp(InEnd)
+			{}
+		};
+
+		D3D12CommandListManager(D3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType);
+		virtual ~D3D12CommandListManager();
+
+		void Create(const wchar_t* Name, uint32_t NumCommandLists = 0, uint32_t Priority = 0);
+		void Destroy();
+
+		inline bool IsReady()
+		{
+			return D3DCommandQueue.get() != nullptr;
+		}
+
+		// This use to also take an optional PSO parameter so that we could pass this directly to Create/Reset command lists,
+		// however this was removed as we generally can't actually predict what PSO we'll need until draw due to frequent
+		// state changes. We leave PSOs to always be resolved in ApplyState().
+		D3D12CommandListHandle ObtainCommandList(D3D12CommandAllocator& CommandAllocator);
+		void ReleaseCommandList(D3D12CommandListHandle& hList);
+
+		void ExecuteCommandList(D3D12CommandListHandle& hList, bool WaitForCompletion = false);
+		virtual void ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, bool WaitForCompletion = false);
+
+		uint32_t GetResourceBarrierCommandList(D3D12CommandListHandle& hList, D3D12CommandListHandle& hResourceBarrierList);
+
+		CommandListState GetCommandListState(const D3D12CLSyncPoint& hSyncPoint);
+
+		bool IsComplete(const D3D12CLSyncPoint& hSyncPoint, uint64_t FenceOffset = 0);
+		void WaitForCompletion(const D3D12CLSyncPoint& hSyncPoint)
+		{
+			hSyncPoint.WaitForCompletion();
+		}
+
+		FORCEINLINE HRESULT GetTimestampFrequency(uint64_t* Frequency) { return D3DCommandQueue->GetTimestampFrequency(Frequency); }
+		FORCEINLINE ID3D12CommandQueue* GetD3DCommandQueue() { return D3DCommandQueue.get(); }
+		FORCEINLINE ED3D12CommandQueueType GetQueueType() const { return QueueType; }
+
+		FORCEINLINE D3D12Fence& GetFence() { assert(CommandListFence); return *CommandListFence; }
+
+		void WaitForCommandQueueFlush();
+		void ReleaseResourceBarrierCommandListAllocator();
+
+	private:
+		// Returns signaled Fence
+		uint64_t ExecuteAndIncrementFence(D3D12CommandListPayload& Payload, D3D12Fence& Fence);
+		D3D12CommandListHandle CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator);
+	private:
+		win32::com_ptr<ID3D12CommandQueue>		D3DCommandQueue;
+
+		ThreadsafeQueue<D3D12CommandListHandle> ReadyLists;
+
+		// Command allocators used exclusively for resource barrier command lists.
+		D3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;
+		D3D12CommandAllocator* ResourceBarrierCommandAllocator;
+
+		std::shared_ptr<D3D12Fence> CommandListFence;
+
+		D3D12_COMMAND_LIST_TYPE					CommandListType;
+		ED3D12CommandQueueType					QueueType;
+		std::recursive_mutex					ResourceStateCS;
+		std::recursive_mutex					FenceCS;
+	};
+
 }

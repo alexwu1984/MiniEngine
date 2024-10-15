@@ -17,6 +17,7 @@ namespace RenderCore
 	class RHIIndexBuffer;
 	class RHITextureCube;
 	class RHIComputeShader;
+	class RHIViewPort;
 
 	class RHICommandContext
 	{

@@ -44,7 +44,7 @@ namespace RenderCore
 		{
 #endif // #if GUARDED_TEXTURE_CREATES
 			HRESULT hResult = Direct3DDevice->CreateTexture2D(TextureDesc, SubResourceData, OutTexture2D);
-			VERIFYD3D11RESULT(hResult);
+			VERIFYD3DRESULT(hResult);
 #if GUARDED_TEXTURE_CREATES
 			bDriverCrash = false;
 		}

@@ -376,7 +376,7 @@ namespace RenderCore
 
 			D3D11_MAPPED_SUBRESOURCE MappedSubresource;
 			// Discard previous results since we always do a full update
-			VERIFYD3D11RESULT(DeviceContex->Map(UniformBuffer->GetNativeUniformBuffer(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource));
+			VERIFYD3DRESULT(DeviceContex->Map(UniformBuffer->GetNativeUniformBuffer(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource));
 			Assert(MappedSubresource.RowPitch >= ConstantBufferSize);
 			memcpy(MappedSubresource.pData, Contents, ConstantBufferSize);
 			DeviceContex->Unmap(UniformBuffer->GetNativeUniformBuffer(), 0);

@@ -1,7 +1,8 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
+#include "d3dx12.h"
 
-struct ID3D12Device;
+class D3D12CommandListManager;
 
 namespace RenderCore
 {
@@ -24,5 +25,14 @@ namespace RenderCore
 		virtual void Cleanup();
 
 		ID3D12Device* GetDevice();
+
+		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
+		inline D3D12CommandListManager& GetCommandListManager() { return *CommandListManager; }
+
+	private:
+		/** A pool of command lists we can cycle through for the global D3D device */
+		D3D12CommandListManager* CommandListManager;
+		D3D12CommandListManager* CopyCommandListManager;
+		D3D12CommandListManager* AsyncCommandListManager;
 	};
 }

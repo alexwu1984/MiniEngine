@@ -37,6 +37,8 @@ namespace RenderCore
 	struct D3D12AdapterPrivate;
 	class D3D12DynamicRHI;
 	class FD3D12FenceCorePool;
+	class D3D12ManualFence;
+	class D3D12Device;
 
 	class D3D12Adapter : std::enable_shared_from_this<D3D12Adapter>
 	{
@@ -53,6 +55,12 @@ namespace RenderCore
 		ID3D12Device1* GetD3DDevice1() const;
 		ID3D12Device2* GetD3DDevice2() const;
 		FD3D12FenceCorePool& GetFenceCorePool();
+		D3D12ManualFence& GetFrameFence();
+		D3D12Device* GetDevice(uint32_t GPUIndex);
+		std::shared_ptr<D3D12DynamicRHI> GetOwningRHI();
+	protected:
+		// Creates default root and execute indirect signatures
+		void CreateSignatures();
 	public:
 		const uint32_t GetAdapterIndex() const;
 		const D3D_FEATURE_LEVEL GetFeatureLevel() const;

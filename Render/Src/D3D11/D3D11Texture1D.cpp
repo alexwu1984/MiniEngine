@@ -26,7 +26,7 @@ namespace RenderCore
 		__try
 		{
 #endif // #if GUARDED_TEXTURE_CREATES
-			VERIFYD3D11RESULT(
+			VERIFYD3DRESULT(
 				Direct3DDevice->CreateTexture1D(TextureDesc, SubResourceData, OutTexture2D)
 			);
 #if GUARDED_TEXTURE_CREATES

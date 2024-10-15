@@ -178,7 +178,7 @@ namespace RenderCore
 		SamplerDesc.ComparisonFunc = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
 
 		// D3D11 will return the same pointer if the particular state description was already created
-		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateSamplerState(&SamplerDesc, Impl->SamplerStateHandle.get_init_ref()));
+		VERIFYD3DRESULT(Impl->D3D11RHI->GetDevice()->CreateSamplerState(&SamplerDesc, Impl->SamplerStateHandle.get_init_ref()));
 		return Impl->SamplerStateHandle.is_valid();
 	}
 
@@ -218,7 +218,7 @@ namespace RenderCore
 		RasterizerDesc.MultisampleEnable = Initializer.bAllowMSAA;
 		RasterizerDesc.ScissorEnable = false;
 
-		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateRasterizerState(&RasterizerDesc, Impl->RasterizerState.get_init_ref()));
+		VERIFYD3DRESULT(Impl->D3D11RHI->GetDevice()->CreateRasterizerState(&RasterizerDesc, Impl->RasterizerState.get_init_ref()));
 		return Impl->RasterizerState.is_valid();
 	}
 
@@ -273,7 +273,7 @@ namespace RenderCore
 				| ((RenderTargetInitializer.ColorWriteMask & CW_ALPHA) ? D3D11_COLOR_WRITE_ENABLE_ALPHA : 0);
 		}
 
-		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateBlendState(&BlendDesc, Impl->BlendState.get_init_ref()));
+		VERIFYD3DRESULT(Impl->D3D11RHI->GetDevice()->CreateBlendState(&BlendDesc, Impl->BlendState.get_init_ref()));
 		return Impl->BlendState.is_valid();
 	}
 
@@ -339,7 +339,7 @@ namespace RenderCore
 
 		const bool bMayWriteStencil = Initializer.StencilWriteMask != 0 && !bStencilOpIsKeep;
 
-		VERIFYD3D11RESULT(Impl->D3D11RHI->GetDevice()->CreateDepthStencilState(&DepthStencilDesc, Impl->DepthStencilState.get_init_ref()));
+		VERIFYD3DRESULT(Impl->D3D11RHI->GetDevice()->CreateDepthStencilState(&DepthStencilDesc, Impl->DepthStencilState.get_init_ref()));
 		return Impl->DepthStencilState.is_valid();
 	}
 

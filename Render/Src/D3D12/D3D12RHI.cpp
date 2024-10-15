@@ -1,6 +1,6 @@
 #include "D3D12/D3D12RHI.h"
-#include "win/com_ptr.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
+#include "D3D12/D3D12WindowDevice.h"
 
 namespace RenderCore
 {
@@ -54,6 +54,13 @@ namespace RenderCore
 	std::shared_ptr<RHICommandContext> D3D12DynamicRHI::GetDefaultCommandContext()
 	{
 		return {};
+	}
+
+	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(D3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
+	{
+		win32::com_ptr<ID3D12CommandQueue> pCommandQueue;
+		VERIFYD3DRESULT(Device->GetDevice()->CreateCommandQueue(&Desc, IID_PPV_ARGS(pCommandQueue.get_init_ref())));
+		return pCommandQueue;
 	}
 
 }

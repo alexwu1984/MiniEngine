@@ -114,7 +114,7 @@ namespace RenderCore
 					SwapChainDesc.BufferDesc.Width, SwapChainDesc.BufferDesc.Height, SwapChainDesc.BufferDesc.Format,
 					SwapChainDesc.Windowed, SwapChainDesc.SwapEffect, SwapChainDesc.Flags);
 			}
-			VERIFYD3D11RESULT(CreateSwapChainResult);
+			VERIFYD3DRESULT(CreateSwapChainResult);
 			GetSwapChainSurface();
 		}
 
@@ -207,7 +207,7 @@ namespace RenderCore
 			const DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(d->PixelFormat);
 			
 			// Resize all existing buffers, don't change count
-			VERIFYD3D11RESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
+			VERIFYD3DRESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
 
 			if (bInIsFullscreen)
 			{
@@ -216,7 +216,7 @@ namespace RenderCore
 				if (FAILED(d->SwapChain->ResizeTarget(&BufferDesc)))
 				{
 					//ResetSwapChainInternal(true);
-					VERIFYD3D11RESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
+					VERIFYD3DRESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
 
 				}
 			}
@@ -251,13 +251,13 @@ namespace RenderCore
 	void D3D11ViewPort::GetSwapChainSurface()
 	{
 		C_P(D3D11ViewPort);
-		VERIFYD3D11RESULT(d->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)d->BackBufferResource.get_init_ref()));
+		VERIFYD3DRESULT(d->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)d->BackBufferResource.get_init_ref()));
 
 		D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 		RTVDesc.Format = DXGI_FORMAT_UNKNOWN;
 		RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 		RTVDesc.Texture2D.MipSlice = 0;
-		VERIFYD3D11RESULT(d->D3D11RHI->GetDevice()->CreateRenderTargetView(d->BackBufferResource.get(), &RTVDesc, d->BackBufferRenderTargetView.get_init_ref()));
+		VERIFYD3DRESULT(d->D3D11RHI->GetDevice()->CreateRenderTargetView(d->BackBufferResource.get(), &RTVDesc, d->BackBufferRenderTargetView.get_init_ref()));
 	}
 
 	uint32_t D3D11ViewPort::GetSwapChainFlags() const

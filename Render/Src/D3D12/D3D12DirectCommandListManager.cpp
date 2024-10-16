@@ -128,12 +128,18 @@ namespace RenderCore
 
 	void D3D12Fence::GpuWait(uint32_t DeviceGPUIndex, ED3D12CommandQueueType InQueueType, uint64_t FenceValue, uint32_t FenceGPUIndex)
 	{
+		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice(DeviceGPUIndex)->GetD3DCommandQueue(InQueueType);
+		assert(CommandQueue);
+		D3D12FenceCore* FenceCore = FenceCores[FenceGPUIndex];
+		assert(FenceCore);
 
+		VERIFYD3DRESULT(CommandQueue->Wait(FenceCore->GetFence(), FenceValue));
 	}
 
 	void D3D12Fence::GpuWait(ED3D12CommandQueueType InQueueType, uint64_t FenceValue)
 	{
-
+		constexpr uint32_t GPUIndex = 0;
+		GpuWait(GPUIndex, InQueueType, FenceValue, GPUIndex);
 	}
 
 	bool D3D12Fence::IsFenceComplete(uint64_t FenceValue)
@@ -143,17 +149,50 @@ namespace RenderCore
 
 	void D3D12Fence::WaitForFence(uint64_t FenceValue)
 	{
+		if (!IsFenceComplete(FenceValue))
+		{
+			constexpr uint32_t GPUIndex = 0;
+			D3D12FenceCore* FenceCore = FenceCores[GPUIndex];
+			assert(FenceCore);
 
+			if (FenceValue > FenceCore->GetFence()->GetCompletedValue())
+			{
+				//SCOPE_CYCLE_COUNTER(STAT_D3D12WaitForFenceTime);
+				// Multiple threads can be using the same FD3D12Fence (texture streaming).
+				std::lock_guard<std::recursive_mutex> Lock(WaitForFenceCS);
+
+				// We must wait.  Do so with an event handler so we don't oversleep.
+				VERIFYD3DRESULT(FenceCore->GetFence()->SetEventOnCompletion(FenceValue, FenceCore->GetCompletionEvent()));
+
+				// Wait for the event to complete (the event is automatically reset afterwards)
+				const uint32_t WaitResult = WaitForSingleObject(FenceCore->GetCompletionEvent(), INFINITE);
+				assert(0 == WaitResult);
+			}
+
+			// Refresh the completed fence value
+			UpdateLastCompletedFence();
+		}
 	}
 
 	uint64_t D3D12Fence::PeekLastCompletedFence() const
 	{
-		return 0;
+		uint64_t CompletedFence = MAXUINT64;
+		constexpr uint32_t GPUIndex = 0;
+		CompletedFence = std::min<uint64_t>(FenceCores[GPUIndex]->GetFence()->GetCompletedValue(), CompletedFence);
+		return CompletedFence;
 	}
 
 	uint64_t D3D12Fence::UpdateLastCompletedFence()
 	{
-		return 0;
+		uint64_t CompletedFence = MAXUINT64;
+		constexpr uint32_t GPUIndex = 0;
+		D3D12FenceCore* FenceCore = FenceCores[GPUIndex];
+		assert(FenceCore);
+		LastCompletedFences[GPUIndex] = FenceCore->GetFence()->GetCompletedValue();
+		CompletedFence = std::min<uint64_t>(LastCompletedFences[GPUIndex], CompletedFence);
+		// Must be computed on the stack because the function can be called concurrently.
+		LastCompletedFence = CompletedFence;
+		return CompletedFence;
 	}
 
 	void D3D12Fence::Destroy()
@@ -536,6 +575,34 @@ namespace RenderCore
 		return 0;
 	}
 
+	CommandListState D3D12CommandListManager::GetCommandListState(const D3D12CLSyncPoint& hSyncPoint)
+	{
+		assert(hSyncPoint);
+		if (hSyncPoint.IsComplete())
+		{
+			return CommandListState::kFinished;
+		}
+		else if (hSyncPoint.Generation == hSyncPoint.CommandList.CurrentGeneration())
+		{
+			return CommandListState::kOpen;
+		}
+		else
+		{
+			return CommandListState::kQueued;
+		}
+	}
+
+	bool D3D12CommandListManager::IsComplete(const D3D12CLSyncPoint& hSyncPoint, uint64_t FenceOffset /*= 0*/)
+	{
+		if (!hSyncPoint)
+		{
+			return false;
+		}
+
+		//checkf(FenceOffset == 0, TEXT("This currently doesn't support offsetting fence values."));
+		return hSyncPoint.IsComplete();
+	}
+
 	void D3D12CommandListManager::WaitForCommandQueueFlush()
 	{
 		if (D3DCommandQueue)
@@ -545,8 +612,6 @@ namespace RenderCore
 			CommandListFence->WaitForFence(SignaledFence);
 		}
 	}
-
-
 
 	void D3D12CommandListManager::ReleaseResourceBarrierCommandListAllocator()
 	{

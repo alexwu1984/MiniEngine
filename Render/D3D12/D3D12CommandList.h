@@ -209,8 +209,8 @@ namespace RenderCore
 			std::vector<D3D12PendingResourceBarrier>	PendingResourceBarriers;
 
 			/**
-*	A map of all D3D resources, and their states, that were state transitioned with tracking.
-*/
+			*	A map of all D3D resources, and their states, that were state transitioned with tracking.
+			*/
 			class FCommandListResourceState
 			{
 			private:
@@ -559,7 +559,7 @@ namespace RenderCore
 
 	private:
 
-		friend class FD3D12CommandListManager;
+		friend class D3D12CommandListManager;
 
 		D3D12CommandListHandle CommandList;
 		uint64_t                  Generation;

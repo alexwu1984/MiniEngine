@@ -1,11 +1,9 @@
 #include "D3D12/D3D12Adapter.h"
-#include "win/com_ptr.h"
 #include "D3D12/D3D12RHI.h"
-#include "RHIPrivate/D3D12RHIPrivate.h"
 #include "core/logger.h"
-#include "RHI/RHI.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12Allocation.h"
 
 namespace RenderCore
 {
@@ -138,33 +136,9 @@ namespace RenderCore
 
 		CreateSignatures();
 
-		constexpr int32_t GPUIndex = 0;
+		constexpr uint32_t GPUIndex = 0;
 		d->Devices[GPUIndex] = new D3D12Device(this->shared_from_this());
 		d->Devices[GPUIndex]->Initialize();
-		////Create all of the FD3D12Devices
-		//for (uint32 GPUIndex : FRHIGPUMask::All())
-		//{
-		//	Devices[GPUIndex] = new FD3D12Device(FRHIGPUMask::FromIndex(GPUIndex), this);
-		//	Devices[GPUIndex]->Initialize();
-
-		//	// The redirectors allow to broadcast to any GPU set
-		//	DefaultContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultCommandContext());
-		//	if (GEnableAsyncCompute)
-		//	{
-		//		DefaultAsyncComputeContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultAsyncComputeContext());
-		//	}
-		//}
-
-		//DefaultContextRedirector.SetGPUMask(FRHIGPUMask::All());
-		//DefaultAsyncComputeContextRedirector.SetGPUMask(FRHIGPUMask::All());
-
-		//// Initialize the immediate command list GPU mask now that everything is set.
-		//FRHICommandListExecutor::GetImmediateCommandList().SetGPUMask(FRHIGPUMask::All());
-		//FRHICommandListExecutor::GetImmediateAsyncComputeCommandList().SetGPUMask(FRHIGPUMask::All());
-
-		////GPUProfilingData.Init();
-
-		//const std::basic_string<TCHAR> Name(L"Upload Buffer Allocator");
 
 		//for (uint32 GPUIndex : FRHIGPUMask::All())
 		//{
@@ -211,31 +185,31 @@ namespace RenderCore
 		d->bDeviceRemoved = value;
 	}
 
-	const bool D3D12Adapter::IsDeviceRemoved() const
+	FORCEINLINE const bool D3D12Adapter::IsDeviceRemoved() const
 	{
 		C_P(const D3D12Adapter);
 		return d->bDeviceRemoved;
 	}
 
-	ID3D12Device* D3D12Adapter::GetD3DDevice() const
+	FORCEINLINE ID3D12Device* D3D12Adapter::GetD3DDevice() const
 	{
 		C_P(const D3D12Adapter);
 		return d->RootDevice.get();
 	}
 
-	ID3D12Device1* D3D12Adapter::GetD3DDevice1() const
+	FORCEINLINE ID3D12Device1* D3D12Adapter::GetD3DDevice1() const
 	{
 		C_P(const D3D12Adapter);
 		return d->RootDevice1.get();
 	}
 
-	ID3D12Device2* D3D12Adapter::GetD3DDevice2() const
+	FORCEINLINE ID3D12Device2* D3D12Adapter::GetD3DDevice2() const
 	{
 		C_P(const D3D12Adapter);
 		return d->RootDevice2.get();
 	}
 
-	FD3D12FenceCorePool& D3D12Adapter::GetFenceCorePool()
+	FORCEINLINE FD3D12FenceCorePool& D3D12Adapter::GetFenceCorePool()
 	{
 		C_P(D3D12Adapter);
 		if (!d->FenceCorePool)
@@ -245,11 +219,17 @@ namespace RenderCore
 		return *d->FenceCorePool;
 	}
 
-	D3D12ManualFence& D3D12Adapter::GetFrameFence()
+	FORCEINLINE D3D12ManualFence& D3D12Adapter::GetFrameFence()
 	{
 		C_P(D3D12Adapter);
 		assert(d->FrameFence);
 		return *d->FrameFence;
+	}
+
+	FORCEINLINE D3D12Fence* D3D12Adapter::GetStagingFence()
+	{
+		C_P(D3D12Adapter);
+		return d->StagingFence.get();
 	}
 
 	D3D12Device* D3D12Adapter::GetDevice(uint32_t GPUIndex)
@@ -259,11 +239,35 @@ namespace RenderCore
 		return d->Devices[GPUIndex];
 	}
 
-	std::shared_ptr<D3D12DynamicRHI> D3D12Adapter::GetOwningRHI()
+	FORCEINLINE std::shared_ptr<D3D12DynamicRHI> D3D12Adapter::GetOwningRHI()
 	{
 		C_P(D3D12Adapter);
 		assert(!d->OwningRHI.expired());
 		return d->OwningRHI.lock();
+	}
+
+	FORCEINLINE const D3D12_RESOURCE_HEAP_TIER D3D12Adapter::GetResourceHeapTier() const
+	{
+		C_P(const D3D12Adapter);
+		return d->ResourceHeapTier;
+	}
+
+	FORCEINLINE const D3D12_RESOURCE_BINDING_TIER D3D12Adapter::GetResourceBindingTier() const
+	{
+		C_P(const D3D12Adapter);
+		return d->ResourceBindingTier;
+	}
+
+	FORCEINLINE const D3D_ROOT_SIGNATURE_VERSION D3D12Adapter::GetRootSignatureVersion() const
+	{
+		C_P(const D3D12Adapter);
+		return d->RootSignatureVersion;
+	}
+
+	FORCEINLINE const bool D3D12Adapter::IsDepthBoundsTestSupported() const
+	{
+		C_P(const D3D12Adapter);
+		return d->bDepthBoundsTestSupported;
 	}
 
 	void D3D12Adapter::CreateSignatures()
@@ -307,34 +311,83 @@ namespace RenderCore
 		}
 	}
 
-	const uint32_t D3D12Adapter::GetAdapterIndex() const
+	FORCEINLINE const uint32_t D3D12Adapter::GetAdapterIndex() const
 	{
 		C_P(const D3D12Adapter);
 		return d->Desc.AdapterIndex;
 	}
 
-	const D3D_FEATURE_LEVEL D3D12Adapter::GetFeatureLevel() const
+	FORCEINLINE const D3D_FEATURE_LEVEL D3D12Adapter::GetFeatureLevel() const
 	{
 		C_P(const D3D12Adapter);
 		return d->Desc.MaxSupportedFeatureLevel;
 	}
 
-	const DXGI_ADAPTER_DESC& D3D12Adapter::GetD3DAdapterDesc() const
+	FORCEINLINE const DXGI_ADAPTER_DESC& D3D12Adapter::GetD3DAdapterDesc() const
 	{
 		C_P(const D3D12Adapter);
 		return d->Desc.Desc;
 	}
 
-	IDXGIAdapter* D3D12Adapter::GetAdapter()
+	FORCEINLINE IDXGIAdapter* D3D12Adapter::GetAdapter()
 	{
 		C_P(D3D12Adapter);
 		return d->DxgiAdapter.get();
 	}
 
-	const D3D12AdapterDesc& D3D12Adapter::GetDesc()
+	FORCEINLINE const D3D12AdapterDesc& D3D12Adapter::GetDesc() const
 	{
 		C_P(const D3D12Adapter);
 		return d->Desc;
+	}
+
+	FORCEINLINE ID3D12CommandSignature* D3D12Adapter::GetDrawIndirectCommandSignature()
+	{
+		C_P(const D3D12Adapter);
+		return d->DispatchIndirectCommandSignature.get();
+	}
+
+	FORCEINLINE ID3D12CommandSignature* D3D12Adapter::GetDrawIndexedIndirectCommandSignature()
+	{
+		C_P(const D3D12Adapter);
+		return d->DrawIndexedIndirectCommandSignature.get();
+	}
+
+	FORCEINLINE ID3D12CommandSignature* D3D12Adapter::GetDispatchIndirectCommandSignature()
+	{
+		C_P(const D3D12Adapter);
+		return d->DispatchIndirectCommandSignature.get();
+	}
+
+	void D3D12Adapter::EndFrame()
+	{
+		//GetUploadHeapAllocator(0).CleanUpAllocations();
+	}
+
+	HRESULT D3D12Adapter::CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, 
+												  const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, 
+												  D3D12Resource** ppOutResource, const wchar_t* Name)
+	{
+		return E_FAIL;
+	}
+
+	HRESULT D3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, uint64_t HeapSize, D3D12Resource** ppOutResource, 
+		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
+	{
+		return E_FAIL;
+	}
+
+	HRESULT D3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, D3D12_RESOURCE_STATES InitialState, uint64_t HeapSize, 
+									   D3D12Resource** ppOutResource, const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
+	{
+		return E_FAIL;
+	}
+
+	HRESULT D3D12Adapter::CreateBuffer(const D3D12_HEAP_PROPERTIES& HeapProps, D3D12_RESOURCE_STATES InitialState, 
+								       uint64_t HeapSize, D3D12Resource** ppOutResource, 
+		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
+	{
+		return E_FAIL;
 	}
 
 	bool D3D12Adapter::CreateRootDevice(bool bWithDebug)

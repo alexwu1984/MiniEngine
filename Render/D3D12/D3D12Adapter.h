@@ -39,6 +39,8 @@ namespace RenderCore
 	class FD3D12FenceCorePool;
 	class D3D12ManualFence;
 	class D3D12Device;
+	class D3D12Fence;
+	class D3D12Resource;
 
 	class D3D12Adapter : std::enable_shared_from_this<D3D12Adapter>
 	{
@@ -50,23 +52,76 @@ namespace RenderCore
 		void InitializeDevices();
 		void InitializeRayTracing();
 		void SetDeviceRemoved(bool value);
-		const bool IsDeviceRemoved() const;
-		ID3D12Device* GetD3DDevice() const;
-		ID3D12Device1* GetD3DDevice1() const;
-		ID3D12Device2* GetD3DDevice2() const;
-		FD3D12FenceCorePool& GetFenceCorePool();
-		D3D12ManualFence& GetFrameFence();
-		D3D12Device* GetDevice(uint32_t GPUIndex);
-		std::shared_ptr<D3D12DynamicRHI> GetOwningRHI();
+		FORCEINLINE const bool IsDeviceRemoved() const;
+		FORCEINLINE ID3D12Device* GetD3DDevice() const;
+		FORCEINLINE ID3D12Device1* GetD3DDevice1() const;
+		FORCEINLINE ID3D12Device2* GetD3DDevice2() const;
+		FORCEINLINE FD3D12FenceCorePool& GetFenceCorePool();
+		FORCEINLINE D3D12ManualFence& GetFrameFence();
+		FORCEINLINE D3D12Fence* GetStagingFence();
+		FORCEINLINE D3D12Device* GetDevice(uint32_t GPUIndex);
+		FORCEINLINE std::shared_ptr<D3D12DynamicRHI> GetOwningRHI();
+		FORCEINLINE const D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const;
+		FORCEINLINE const D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() const;
+		FORCEINLINE const D3D_ROOT_SIGNATURE_VERSION GetRootSignatureVersion() const;
+		FORCEINLINE const bool IsDepthBoundsTestSupported() const;
+		FORCEINLINE const uint32_t GetAdapterIndex() const;
+		FORCEINLINE const D3D_FEATURE_LEVEL GetFeatureLevel() const;
+		FORCEINLINE const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const;
+		FORCEINLINE IDXGIAdapter* GetAdapter();
+		FORCEINLINE const D3D12AdapterDesc& GetDesc() const;
+
+		//FORCEINLINE std::vector<FD3D12Viewport*>& GetViewports() { return Viewports; }
+		//FORCEINLINE FD3D12Viewport* GetDrawingViewport() { return DrawingViewport; }
+		//FORCEINLINE void SetDrawingViewport(FD3D12Viewport* InViewport) { DrawingViewport = InViewport; }
+
+		FORCEINLINE ID3D12CommandSignature* GetDrawIndirectCommandSignature();
+		FORCEINLINE ID3D12CommandSignature* GetDrawIndexedIndirectCommandSignature();
+		FORCEINLINE ID3D12CommandSignature* GetDispatchIndirectCommandSignature();
+
+		//FORCEINLINE FD3D12PipelineStateCache& GetPSOCache() { return PipelineStateCache; }
+		//FORCEINLINE FD3D12RootSignature* GetRootSignature(const FD3D12QuantizedBoundShaderState& QBSS)
+		//{
+		//	return RootSignatureManager.GetRootSignature(QBSS);
+		//}
+		//FORCEINLINE FD3D12RootSignatureManager* GetRootSignatureManager()
+		//{
+		//	return &RootSignatureManager;
+		//}
+		void EndFrame();
+
+		// Resource Creation
+		HRESULT CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc,
+			const D3D12_HEAP_PROPERTIES& HeapProps,
+			const D3D12_RESOURCE_STATES& InitialUsage,
+			const D3D12_CLEAR_VALUE* ClearValue,
+			D3D12Resource** ppOutResource,
+			const wchar_t* Name);
+
+		HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
+			uint64_t HeapSize,
+			D3D12Resource** ppOutResource,
+			const wchar_t* Name,
+			D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
+
+		HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
+			D3D12_RESOURCE_STATES InitialState,
+			uint64_t HeapSize,
+			D3D12Resource** ppOutResource,
+			const wchar_t* Name,
+			D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
+
+		HRESULT CreateBuffer(const D3D12_HEAP_PROPERTIES& HeapProps,
+			D3D12_RESOURCE_STATES InitialState,
+			uint64_t HeapSize,
+			D3D12Resource** ppOutResource,
+			const wchar_t* Name,
+			D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
+
 	protected:
 		// Creates default root and execute indirect signatures
 		void CreateSignatures();
-	public:
-		const uint32_t GetAdapterIndex() const;
-		const D3D_FEATURE_LEVEL GetFeatureLevel() const;
-		const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const;
-		IDXGIAdapter* GetAdapter();
-		const D3D12AdapterDesc& GetDesc();
+
 	private:
 		bool CreateRootDevice(bool bWithDebug);
 		bool CreateDXGIFactory();

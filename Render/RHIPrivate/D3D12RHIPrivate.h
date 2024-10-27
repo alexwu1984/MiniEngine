@@ -1,7 +1,9 @@
 #pragma once
 #include "win/win32.h"
+#include "win/com_ptr.h"
 #include "d3dx12.h"
 #include <dxgi1_4.h>
+#include <dxgi1_5.h>
 #include <delayimp.h>
 
 namespace RenderCore
@@ -41,6 +43,15 @@ namespace RenderCore
 			// We suppress warning C6322: Empty _except block. Appropriate checks are made upon returning. 
 		}
 	}
+	/**
+* Returns the minimum D3D feature level required to create based on
+* command line parameters.
+*/
+	static D3D_FEATURE_LEVEL GetRequiredD3DFeatureLevel()
+	{
+		return D3D_FEATURE_LEVEL_11_0;
+	}
+
 
 	/** Find the appropriate depth-stencil typeless DXGI format for the given format. */
 	inline DXGI_FORMAT FindDepthStencilParentDXGIFormat(DXGI_FORMAT InFormat)
@@ -74,6 +85,33 @@ namespace RenderCore
 		default:
 			return 1;
 		}
+	}
+
+	static bool D3D12RHI_ShouldCreateWithWarp()
+	{
+		// Use the warp adapter if specified on the command line.
+		static bool bCreateWithWarp = false;
+		return bCreateWithWarp;
+	}
+
+	static inline int D3D12RHI_PreferAdapterVendor()
+	{
+		//if (FParse::Param(FCommandLine::Get(), TEXT("preferAMD")))
+		//{
+		//	return 0x1002;
+		//}
+
+		//if (FParse::Param(FCommandLine::Get(), TEXT("preferIntel")))
+		//{
+		//	return 0x8086;
+		//}
+
+		//if (FParse::Param(FCommandLine::Get(), TEXT("preferNvidia")))
+		//{
+		//	return 0x10DE;
+		//}
+
+		return 0x10DE;
 	}
 
 	class D3D12Fence;

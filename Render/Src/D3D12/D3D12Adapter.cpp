@@ -341,6 +341,18 @@ namespace RenderCore
 		return d->Desc;
 	}
 
+	FORCEINLINE IDXGIFactory* D3D12Adapter::GetDXGIFactory() const
+	{
+		C_P(const D3D12Adapter);
+		return d->DxgiFactory.get();
+	}
+
+	FORCEINLINE IDXGIFactory2* D3D12Adapter::GetDXGIFactory2() const
+	{
+		C_P(const D3D12Adapter);
+		return d->DxgiFactory2.get();
+	}
+
 	FORCEINLINE ID3D12CommandSignature* D3D12Adapter::GetDrawIndirectCommandSignature()
 	{
 		C_P(const D3D12Adapter);
@@ -388,6 +400,13 @@ namespace RenderCore
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
 		return E_FAIL;
+	}
+
+	void D3D12Adapter::BlockUntilIdle()
+	{
+		C_P(D3D12Adapter);
+		constexpr uint32_t GPUIndex = 0;
+		d->Devices[GPUIndex]->BlockUntilIdle();
 	}
 
 	bool D3D12Adapter::CreateRootDevice(bool bWithDebug)

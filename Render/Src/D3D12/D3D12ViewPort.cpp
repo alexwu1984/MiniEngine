@@ -1,0 +1,140 @@
+#include "D3D12/D3D12ViewPort.h"
+#include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12WindowDevice.h"
+
+namespace RenderCore
+{
+	static const uint32_t WindowsDefaultNumBackBuffers = 3;
+
+	static DXGI_FORMAT GetRenderTargetFormat(EPixelFormat PixelFormat)
+	{
+		DXGI_FORMAT	DXFormat = (DXGI_FORMAT)GPixelFormats[PixelFormat].PlatformFormat;
+		switch (DXFormat)
+		{
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case DXGI_FORMAT_BC1_TYPELESS:			return DXGI_FORMAT_BC1_UNORM;
+		case DXGI_FORMAT_BC2_TYPELESS:			return DXGI_FORMAT_BC2_UNORM;
+		case DXGI_FORMAT_BC3_TYPELESS:			return DXGI_FORMAT_BC3_UNORM;
+		case DXGI_FORMAT_R16_TYPELESS:			return DXGI_FORMAT_R16_UNORM;
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS:		return DXGI_FORMAT_R8G8B8A8_UNORM;
+		default: 								return DXFormat;
+		}
+	}
+
+	D3D12ViewPort::D3D12ViewPort(std::weak_ptr<D3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
+		:D3D12AdapterChild(InAdpater),
+		WindowHandle(InWindowHandle),
+		SizeX(InSizeX),
+		SizeY(InSizeY),
+		bAllowTearing(false),
+		NumBackBuffers(0),
+		Fence(InAdpater)
+	{
+		Init();
+	}
+
+	D3D12ViewPort::~D3D12ViewPort()
+	{
+
+	}
+
+	void D3D12ViewPort::Init()
+	{
+		auto Adapter = GetParentAdapter();
+
+		bAllowTearing = false;
+		IDXGIFactory* Factory = Adapter->GetDXGIFactory2();
+		if (Factory)
+		{
+			win32::com_ptr<IDXGIFactory5> Factory5;
+			Factory->QueryInterface(IID_PPV_ARGS(Factory5.get_init_ref()));
+			if (Factory5.is_valid())
+			{
+				BOOL AllowTearing;
+				if (SUCCEEDED(Factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &AllowTearing, sizeof(AllowTearing))) && AllowTearing)
+				{
+					bAllowTearing = true;
+				}
+			}
+		}
+
+		Fence.CreateFence();
+
+		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
+
+		UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+		if (bAllowTearing)
+		{
+			SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+		}
+		const DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
+		// if stereo was not activated or not enabled in settings
+		if (SwapChain1 == nullptr)
+		{
+			// Create the swapchain.
+			{
+				DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
+				SwapChainDesc.BufferDesc = BufferDesc;
+				// MSAA Sample count
+				SwapChainDesc.SampleDesc.Count = 1;
+				SwapChainDesc.SampleDesc.Quality = 0;
+				SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT;
+				// 1:single buffering, 2:double buffering, 3:triple buffering
+				SwapChainDesc.BufferCount = NumBackBuffers;
+				SwapChainDesc.OutputWindow = WindowHandle;
+				SwapChainDesc.Windowed = !bIsFullscreen;
+				// DXGI_SWAP_EFFECT_DISCARD / DXGI_SWAP_EFFECT_SEQUENTIAL
+				SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+				SwapChainDesc.Flags = SwapChainFlags;
+
+				// The command queue used here is irrelevant in regard to multi-GPU as it gets overriden in the Resize
+				ID3D12CommandQueue* pCommandQueue = Adapter->GetDevice(0)->GetD3DCommandQueue();
+
+				win32::com_ptr<IDXGISwapChain> SwapChain;
+				VERIFYD3DRESULT(Adapter->GetDXGIFactory2()->CreateSwapChain(pCommandQueue, &SwapChainDesc, SwapChain.get_init_ref()));
+				VERIFYD3DRESULT(SwapChain->QueryInterface(IID_PPV_ARGS(SwapChain1.get_init_ref())));
+
+				// Get a SwapChain4 if supported.
+				SwapChain->QueryInterface(IID_PPV_ARGS(SwapChain4.get_init_ref()));
+			}
+
+			// Set the DXGI message hook to not change the window behind our back.
+			Adapter->GetDXGIFactory2()->MakeWindowAssociation(WindowHandle, DXGI_MWA_NO_WINDOW_CHANGES);
+
+			// Resize to setup mGPU correctly.
+			Resize(BufferDesc.Width, BufferDesc.Height, bIsFullscreen);
+		}
+
+		// Tell the window to redraw when they can.
+		// @todo: For Slate viewports, it doesn't make sense to post WM_PAINT messages (we swallow those.)
+		::PostMessage(WindowHandle, WM_PAINT, 0, 0);
+	}
+
+	void D3D12ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
+	{
+
+	}
+
+	void D3D12ViewPort::CalculateSwapChainDepth(int32_t DefaultSwapChainDepth)
+	{
+		NumBackBuffers = DefaultSwapChainDepth;
+	}
+
+	DXGI_MODE_DESC D3D12ViewPort::SetupDXGI_MODE_DESC() const
+	{
+		DXGI_MODE_DESC Ret;
+
+		Ret.Width = SizeX;
+		Ret.Height = SizeY;
+		Ret.RefreshRate.Numerator = 0;	// illamas: use 0 to avoid a potential mismatch with hw
+		Ret.RefreshRate.Denominator = 0;	// illamas: ditto
+		Ret.Format = GetRenderTargetFormat(PixelFormat);
+		Ret.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+		Ret.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+
+		return Ret;
+	}
+
+}

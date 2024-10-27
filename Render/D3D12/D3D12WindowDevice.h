@@ -2,10 +2,9 @@
 #include "D3D12/D3D12RHICommon.h"
 #include "d3dx12.h"
 
-class D3D12CommandListManager;
-
 namespace RenderCore
 {
+	class D3D12CommandListManager;
 	class D3D12Device :public D3D12AdapterChild, public std::enable_shared_from_this<D3D12Device>
 	{
 	public:
@@ -28,6 +27,8 @@ namespace RenderCore
 
 		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		inline D3D12CommandListManager& GetCommandListManager() { return *CommandListManager; }
+
+		void BlockUntilIdle();
 
 	private:
 		/** A pool of command lists we can cycle through for the global D3D device */

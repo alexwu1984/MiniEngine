@@ -1,7 +1,5 @@
 #pragma once
-#include "win/win32.h"
-#include "RHI/RHIDefinitions.h"
-#include "d3dx12.h"
+#include "RHIPrivate/D3D12RHIPrivate.h"
 
 namespace RenderCore
 {
@@ -70,6 +68,8 @@ namespace RenderCore
 		FORCEINLINE const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const;
 		FORCEINLINE IDXGIAdapter* GetAdapter();
 		FORCEINLINE const D3D12AdapterDesc& GetDesc() const;
+		FORCEINLINE IDXGIFactory* GetDXGIFactory() const;
+		FORCEINLINE IDXGIFactory2* GetDXGIFactory2() const;
 
 		//FORCEINLINE std::vector<FD3D12Viewport*>& GetViewports() { return Viewports; }
 		//FORCEINLINE FD3D12Viewport* GetDrawingViewport() { return DrawingViewport; }
@@ -117,6 +117,8 @@ namespace RenderCore
 			D3D12Resource** ppOutResource,
 			const wchar_t* Name,
 			D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
+
+		void BlockUntilIdle();
 
 	protected:
 		// Creates default root and execute indirect signatures

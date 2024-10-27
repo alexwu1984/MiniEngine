@@ -47,4 +47,18 @@ namespace RenderCore
 		return nullptr;
 	}
 
+	void D3D12Device::BlockUntilIdle()
+	{
+		//GetDefaultCommandContext().FlushCommands();
+
+		//if (GEnableAsyncCompute)
+		//{
+		//	GetDefaultAsyncComputeContext().FlushCommands();
+		//}
+
+		GetCommandListManager().WaitForCommandQueueFlush();
+		//GetCopyCommandListManager().WaitForCommandQueueFlush();
+		//GetAsyncCommandListManager().WaitForCommandQueueFlush();
+	}
+
 }

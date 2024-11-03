@@ -22,8 +22,8 @@ namespace RenderCore
 		}
 	}
 
-	D3D12ViewPort::D3D12ViewPort(std::weak_ptr<D3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
-		:D3D12AdapterChild(InAdpater),
+	D3D12ViewPort::D3D12ViewPort(std::weak_ptr<FD3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
+		:FD3D12AdapterChild(InAdpater),
 		WindowHandle(InWindowHandle),
 		SizeX(InSizeX),
 		SizeY(InSizeY),

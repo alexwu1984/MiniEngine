@@ -98,8 +98,8 @@ namespace RenderCore
 		win32::com_ptr<IDXGIAdapter> TempAdapter;
 		const D3D_FEATURE_LEVEL MinRequiredFeatureLevel = GetRequiredD3DFeatureLevel();
 
-		D3D12AdapterDesc FirstWithoutIntegratedAdapter;
-		D3D12AdapterDesc FirstAdapter;
+		FD3D12AdapterDesc FirstWithoutIntegratedAdapter;
+		FD3D12AdapterDesc FirstAdapter;
 
 		bool bIsAnyAMD = false;
 		bool bIsAnyIntel = false;
@@ -152,7 +152,7 @@ namespace RenderCore
 					// PerfHUD is for performance profiling
 					//const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description, TEXT("NVIDIA PerfHUD"));
 					const bool bIsPerfHUD = false;
-					D3D12AdapterDesc CurrentAdapter(AdapterDesc, AdapterIndex, MaxSupportedFeatureLevel, NumNodes);
+					FD3D12AdapterDesc CurrentAdapter(AdapterDesc, AdapterIndex, MaxSupportedFeatureLevel, NumNodes);
 
 					// Requested WARP, reject all other adapters.
 					const bool bSkipRequestedWARP = bRequestedWARP && !bIsWARP;
@@ -192,24 +192,24 @@ namespace RenderCore
 			}
 		}
 
-		std::shared_ptr<D3D12Adapter> NewAdapter;
+		std::shared_ptr<FD3D12Adapter> NewAdapter;
 		if (bFavorNonIntegrated && (bIsAnyAMD || bIsAnyNVIDIA))
 		{
 			// We assume Intel is integrated graphics (slower than discrete) than NVIDIA or AMD cards and rather take a different one
 			if (FirstWithoutIntegratedAdapter.IsValid())
 			{
-				NewAdapter = std::make_shared<D3D12Adapter>(D3D12Adapter(FirstWithoutIntegratedAdapter));
+				NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstWithoutIntegratedAdapter));
 				ChosenAdapters.push_back(NewAdapter);
 			}
 			else
 			{
-				NewAdapter = std::make_shared<D3D12Adapter>(D3D12Adapter(FirstAdapter));
+				NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstAdapter));
 				ChosenAdapters.push_back(NewAdapter);
 			}
 		}
 		else
 		{
-			NewAdapter = std::make_shared<D3D12Adapter>(D3D12Adapter(FirstAdapter));
+			NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstAdapter));
 			ChosenAdapters.push_back(NewAdapter);
 		}
 	}
@@ -239,7 +239,7 @@ namespace RenderCore
 		return {};
 	}
 
-	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(D3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
+	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(FD3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
 	{
 		win32::com_ptr<ID3D12CommandQueue> pCommandQueue;
 		VERIFYD3DRESULT(Device->GetDevice()->CreateCommandQueue(&Desc, IID_PPV_ARGS(pCommandQueue.get_init_ref())));

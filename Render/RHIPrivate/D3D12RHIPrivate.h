@@ -8,6 +8,61 @@
 
 namespace RenderCore
 {
+#define MAX_SRVS		48
+#define MAX_SAMPLERS	16
+#define MAX_UAVS		16
+#define MAX_CBS			16
+#define MAX_ROOT_CBVS	MAX_CBS
+
+#define FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
+#define FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER
+
+	typedef uint16_t CBVSlotMask;
+	static_assert(MAX_ROOT_CBVS <= MAX_CBS, "MAX_ROOT_CBVS must be <= MAX_CBS.");
+	static_assert((8 * sizeof(CBVSlotMask)) >= MAX_CBS, "CBVSlotMask isn't large enough to cover all CBs. Please increase the size.");
+	static_assert((8 * sizeof(CBVSlotMask)) >= MAX_ROOT_CBVS, "CBVSlotMask isn't large enough to cover all CBs. Please increase the size.");
+	static const CBVSlotMask GRootCBVSlotMask = (1 << MAX_ROOT_CBVS) - 1; // Mask for all slots that are used by root descriptors.
+	static const CBVSlotMask GDescriptorTableCBVSlotMask = static_cast<CBVSlotMask>(-1) & ~(GRootCBVSlotMask); // Mask for all slots that are used by a root descriptor table.
+
+	enum EShaderVisibility
+	{
+		SV_Vertex,
+		SV_Pixel,
+		SV_Hull,
+		SV_Domain,
+		SV_Geometry,
+		SV_All,
+		SV_ShaderVisibilityCount
+	};
+
+	enum ERTRootSignatureType
+	{
+		RS_Raster,
+		RS_RayTracingGlobal,
+		RS_RayTracingLocal,
+	};
+
+	struct FShaderRegisterCounts
+	{
+		uint8_t SamplerCount;
+		uint8_t ConstantBufferCount;
+		uint8_t ShaderResourceCount;
+		uint8_t UnorderedAccessCount;
+	};
+
+	// if this changes you need to make sure all D3D11 shaders get invalidated
+	struct FShaderCodePackedResourceCounts
+	{
+		// for FindOptionalData() and AddOptionalData()
+		static const uint8_t Key = 'p';
+
+		bool bGlobalUniformBufferUsed;
+		uint8_t NumSamplers;
+		uint8_t NumSRVs;
+		uint8_t NumCBs;
+		uint8_t NumUAVs;
+	};
+
 	/** This function is used as a SEH filter to catch only delay load exceptions. */
 	inline bool IsDelayLoadException(PEXCEPTION_POINTERS ExceptionPointers)
 	{
@@ -114,7 +169,9 @@ namespace RenderCore
 		return 0x10DE;
 	}
 
-	class D3D12Fence;
+	uint32_t SSE4_CRC32(const void* Data, size_t NumBytes);
+
+	class FD3D12Fence;
 	class D3D12SyncPoint
 	{
 	public:
@@ -124,7 +181,7 @@ namespace RenderCore
 		{
 		}
 
-		explicit D3D12SyncPoint(D3D12Fence* InFence, uint64_t InValue)
+		explicit D3D12SyncPoint(FD3D12Fence* InFence, uint64_t InValue)
 			: Fence(InFence)
 			, Value(InValue)
 		{
@@ -135,7 +192,7 @@ namespace RenderCore
 		void WaitForCompletion() const;
 
 	private:
-		D3D12Fence* Fence;
+		FD3D12Fence* Fence;
 		uint64_t Value;
 	};
 
@@ -350,4 +407,28 @@ namespace RenderCore
 		// The state of each subresources.  Bits are from D3D12_RESOURCE_STATES.
 		std::vector<D3D12_RESOURCE_STATES> m_SubresourceState;
 	};
+
+
+	struct FD3D12QuantizedBoundShaderState
+	{
+		FShaderRegisterCounts RegisterCounts[SV_ShaderVisibilityCount];
+		ERTRootSignatureType RootSignatureType = RS_Raster;
+		bool bAllowIAInputLayout;
+
+		inline bool operator==(const FD3D12QuantizedBoundShaderState& RHS) const
+		{
+
+			return 0 == memcmp(this, &RHS, sizeof(RHS));
+		}
+
+		bool operator()(const FD3D12QuantizedBoundShaderState& _Left, const FD3D12QuantizedBoundShaderState& _Right) const
+		{	// apply operator== to operands
+			return (GetTypeHash(_Left) < GetTypeHash(_Right));
+		}
+
+		static uint32_t GetTypeHash(const FD3D12QuantizedBoundShaderState& Key);
+
+		static void InitShaderRegisterCounts(const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier, const FShaderCodePackedResourceCounts& Counts, FShaderRegisterCounts& Shader, bool bAllowUAVs = false);
+	};
+
 }

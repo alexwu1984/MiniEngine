@@ -6,48 +6,48 @@
 namespace RenderCore
 {
 
-	D3D12Device::D3D12Device(std::weak_ptr<D3D12Adapter> InAdapter)
-		:D3D12AdapterChild(InAdapter)
+	FD3D12Device::FD3D12Device(std::weak_ptr<FD3D12Adapter> InAdapter)
+		:FD3D12AdapterChild(InAdapter)
 	{
 
 	}
 
-	D3D12Device::~D3D12Device()
+	FD3D12Device::~FD3D12Device()
 	{
 
 	}
 
-	void D3D12Device::Initialize()
+	void FD3D12Device::Initialize()
 	{
 
 	}
 
-	void D3D12Device::CreateCommandContexts()
+	void FD3D12Device::CreateCommandContexts()
 	{
 
 	}
 
-	void D3D12Device::InitPlatformSpecific()
+	void FD3D12Device::InitPlatformSpecific()
 	{
 
 	}
 
-	void D3D12Device::Cleanup()
+	void FD3D12Device::Cleanup()
 	{
 
 	}
 
-	ID3D12Device* D3D12Device::GetDevice()
+	ID3D12Device* FD3D12Device::GetDevice()
 	{
 		return GetParentAdapter()->GetD3DDevice();
 	}
 
-	ID3D12CommandQueue* D3D12Device::GetD3DCommandQueue(ED3D12CommandQueueType InQueueType /*= ED3D12CommandQueueType::Default*/) const
+	ID3D12CommandQueue* FD3D12Device::GetD3DCommandQueue(ED3D12CommandQueueType InQueueType /*= ED3D12CommandQueueType::Default*/) const
 	{
 		return nullptr;
 	}
 
-	void D3D12Device::BlockUntilIdle()
+	void FD3D12Device::BlockUntilIdle()
 	{
 		//GetDefaultCommandContext().FlushCommands();
 

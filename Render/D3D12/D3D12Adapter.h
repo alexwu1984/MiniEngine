@@ -3,16 +3,16 @@
 
 namespace RenderCore
 {
-	struct D3D12AdapterDesc
+	struct FD3D12AdapterDesc
 	{
-		D3D12AdapterDesc()
+		FD3D12AdapterDesc()
 			: AdapterIndex(-1)
 			, MaxSupportedFeatureLevel((D3D_FEATURE_LEVEL)0)
 			, NumDeviceNodes(0)
 		{
 		}
 
-		D3D12AdapterDesc(DXGI_ADAPTER_DESC& DescIn, int32_t InAdapterIndex, D3D_FEATURE_LEVEL InMaxSupportedFeatureLevel, uint32_t NumNodes)
+		FD3D12AdapterDesc(DXGI_ADAPTER_DESC& DescIn, int32_t InAdapterIndex, D3D_FEATURE_LEVEL InMaxSupportedFeatureLevel, uint32_t NumNodes)
 			: AdapterIndex(InAdapterIndex)
 			, MaxSupportedFeatureLevel(InMaxSupportedFeatureLevel)
 			, Desc(DescIn)
@@ -32,19 +32,19 @@ namespace RenderCore
 		uint32_t NumDeviceNodes;
 	};
 
-	struct D3D12AdapterPrivate;
+	struct FD3D12AdapterPrivate;
 	class D3D12DynamicRHI;
 	class FD3D12FenceCorePool;
-	class D3D12ManualFence;
-	class D3D12Device;
-	class D3D12Fence;
+	class FD3D12ManualFence;
+	class FD3D12Device;
+	class FD3D12Fence;
 	class D3D12Resource;
 
-	class D3D12Adapter : std::enable_shared_from_this<D3D12Adapter>
+	class FD3D12Adapter : std::enable_shared_from_this<FD3D12Adapter>
 	{
 	public:
-		D3D12Adapter(const D3D12AdapterDesc& desc);
-		~D3D12Adapter();
+		FD3D12Adapter(const FD3D12AdapterDesc& desc);
+		~FD3D12Adapter();
 
 		void Initialize(std::weak_ptr<D3D12DynamicRHI> RHI);
 		void InitializeDevices();
@@ -55,9 +55,9 @@ namespace RenderCore
 		FORCEINLINE ID3D12Device1* GetD3DDevice1() const;
 		FORCEINLINE ID3D12Device2* GetD3DDevice2() const;
 		FORCEINLINE FD3D12FenceCorePool& GetFenceCorePool();
-		FORCEINLINE D3D12ManualFence& GetFrameFence();
-		FORCEINLINE D3D12Fence* GetStagingFence();
-		FORCEINLINE D3D12Device* GetDevice(uint32_t GPUIndex);
+		FORCEINLINE FD3D12ManualFence& GetFrameFence();
+		FORCEINLINE FD3D12Fence* GetStagingFence();
+		FORCEINLINE FD3D12Device* GetDevice(uint32_t GPUIndex);
 		FORCEINLINE std::shared_ptr<D3D12DynamicRHI> GetOwningRHI();
 		FORCEINLINE const D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const;
 		FORCEINLINE const D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() const;
@@ -67,7 +67,7 @@ namespace RenderCore
 		FORCEINLINE const D3D_FEATURE_LEVEL GetFeatureLevel() const;
 		FORCEINLINE const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const;
 		FORCEINLINE IDXGIAdapter* GetAdapter();
-		FORCEINLINE const D3D12AdapterDesc& GetDesc() const;
+		FORCEINLINE const FD3D12AdapterDesc& GetDesc() const;
 		FORCEINLINE IDXGIFactory* GetDXGIFactory() const;
 		FORCEINLINE IDXGIFactory2* GetDXGIFactory2() const;
 
@@ -129,6 +129,6 @@ namespace RenderCore
 		bool CreateDXGIFactory();
 		void Cleanup();
 	private:
-		D3D12AdapterPrivate* d_ptr = nullptr;
+		FD3D12AdapterPrivate* d_ptr = nullptr;
 	};
 }

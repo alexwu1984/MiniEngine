@@ -6,8 +6,8 @@
 namespace RenderCore
 {
 	class D3D12DynamicRHI;
-	class D3D12Adapter;
-	class D3D12Device;
+	class FD3D12Adapter;
+	class FD3D12Device;
 
 	class D3D12DynamicRHIModule : public IDynamicRHIModule
 	{
@@ -18,7 +18,7 @@ namespace RenderCore
 		std::shared_ptr<DynamicRHI> CreateRHI() override;
 	private:
 		std::shared_ptr< D3D12DynamicRHI> DynamicRHI;
-		std::vector<std::shared_ptr<D3D12Adapter>> ChosenAdapters;
+		std::vector<std::shared_ptr<FD3D12Adapter>> ChosenAdapters;
 
 		// set MaxSupportedFeatureLevel and ChosenAdapter
 		void FindAdapter();
@@ -40,6 +40,6 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() override;
 
-		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(D3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
+		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(FD3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
 	};
 }

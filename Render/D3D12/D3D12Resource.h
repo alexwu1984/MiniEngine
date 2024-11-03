@@ -50,7 +50,7 @@ namespace RenderCore
 		mutable std::atomic_int32_t NumRefs;
 	};
 
-	class D3D12Resource : public D3D12RefCount, public D3D12DeviceChild
+	class D3D12Resource : public D3D12RefCount, public FD3D12DeviceChild
 	{
 	private:
 		win32::com_ptr<ID3D12Resource> Resource;
@@ -72,7 +72,7 @@ namespace RenderCore
 		std::wstring DebugName;
 
 	public:
-		explicit D3D12Resource(D3D12Device* ParentDevice,
+		explicit D3D12Resource(FD3D12Device* ParentDevice,
 			ID3D12Resource* InResource,
 			D3D12_RESOURCE_STATES InitialState,
 			D3D12_RESOURCE_DESC const& InDesc,

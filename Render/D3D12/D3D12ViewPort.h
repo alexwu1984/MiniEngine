@@ -5,10 +5,10 @@
 
 namespace RenderCore
 {
-	class D3D12ViewPort : public RHIViewPort, public D3D12AdapterChild
+	class D3D12ViewPort : public RHIViewPort, public FD3D12AdapterChild
 	{
 	public:
-		D3D12ViewPort(std::weak_ptr<D3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY);
+		D3D12ViewPort(std::weak_ptr<FD3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY);
 		virtual ~D3D12ViewPort();
 
 		void Init();
@@ -33,7 +33,7 @@ namespace RenderCore
 		win32::com_ptr<IDXGISwapChain4> SwapChain4;
 
 		/** A fence value used to track the GPU's progress. */
-		D3D12Fence Fence;
+		FD3D12Fence Fence;
 		uint64_t LastSignaledValue;
 		int32_t NumBackBuffers;
 

@@ -4,12 +4,12 @@
 
 namespace RenderCore
 {
-	class D3D12CommandListManager;
-	class D3D12Device :public D3D12AdapterChild, public std::enable_shared_from_this<D3D12Device>
+	class FD3D12CommandListManager;
+	class FD3D12Device :public FD3D12AdapterChild, public std::enable_shared_from_this<FD3D12Device>
 	{
 	public:
-		D3D12Device(std::weak_ptr<D3D12Adapter> InAdapter);
-		virtual ~D3D12Device();
+		FD3D12Device(std::weak_ptr<FD3D12Adapter> InAdapter);
+		virtual ~FD3D12Device();
 
 		/** Initialized members*/
 		void Initialize();
@@ -26,14 +26,14 @@ namespace RenderCore
 		ID3D12Device* GetDevice();
 
 		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
-		inline D3D12CommandListManager& GetCommandListManager() { return *CommandListManager; }
+		inline FD3D12CommandListManager& GetCommandListManager() { return *CommandListManager; }
 
 		void BlockUntilIdle();
 
 	private:
 		/** A pool of command lists we can cycle through for the global D3D device */
-		D3D12CommandListManager* CommandListManager;
-		D3D12CommandListManager* CopyCommandListManager;
-		D3D12CommandListManager* AsyncCommandListManager;
+		FD3D12CommandListManager* CommandListManager;
+		FD3D12CommandListManager* CopyCommandListManager;
+		FD3D12CommandListManager* AsyncCommandListManager;
 	};
 }

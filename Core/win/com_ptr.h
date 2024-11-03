@@ -99,6 +99,22 @@ namespace win32
             return *this;
         }
 
+        com_ptr& operator=(UT* InReference)
+		{
+			// Call AddRef before Release, in case the new reference is the same as the old reference.
+            UT* OldReference = _ptr;
+            _ptr = InReference;
+			if (_ptr)
+			{
+                _ptr->AddRef();
+			}
+			if (OldReference)
+			{
+				OldReference->Release();
+			}
+			return *this;
+		}
+
         void reset()
         {
             if (_ptr)

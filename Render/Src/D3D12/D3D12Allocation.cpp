@@ -4,10 +4,10 @@
 namespace RenderCore
 {
 
-	D3D12ResourceAllocator::D3D12ResourceAllocator(D3D12Device* ParentDevice, 
+	D3D12ResourceAllocator::D3D12ResourceAllocator(FD3D12Device* ParentDevice, 
 												   const std::wstring& Name, 
 												   D3D12_HEAP_TYPE InHeapType, D3D12_RESOURCE_FLAGS Flags, uint32_t MaxSizeForPooling)
-		: D3D12DeviceChild(ParentDevice)
+		: FD3D12DeviceChild(ParentDevice)
 		, MaximumAllocationSizeForPooling(MaxSizeForPooling)
 		, ResourceFlags(Flags)
 		, DebugName(Name)

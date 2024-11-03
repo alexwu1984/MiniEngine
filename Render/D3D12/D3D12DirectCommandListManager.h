@@ -7,9 +7,9 @@
 
 namespace RenderCore
 {
-	struct D3D12CommandListPayload
+	struct FD3D12CommandListPayload
 	{
-		D3D12CommandListPayload() : NumCommandLists(0)
+		FD3D12CommandListPayload() : NumCommandLists(0)
 		{
 			win32::Memzero(CommandLists);
 		}
@@ -29,11 +29,11 @@ namespace RenderCore
 		kFinished
 	};
 
-	class D3D12FenceCore : public D3D12AdapterChild
+	class FD3D12FenceCore : public FD3D12AdapterChild
 	{
 	public:
-		D3D12FenceCore(std::weak_ptr<D3D12Adapter> Parent, uint64_t InitialValue, uint32_t GPUIndex);
-		~D3D12FenceCore();
+		FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue, uint32_t GPUIndex);
+		~FD3D12FenceCore();
 
 		inline ID3D12Fence* GetFence() const { return Fence.get(); }
 		inline HANDLE GetCompletionEvent() const { return hFenceCompleteEvent; }
@@ -49,24 +49,24 @@ namespace RenderCore
 		HANDLE hFenceCompleteEvent;
 	};
 
-	class FD3D12FenceCorePool : public D3D12AdapterChild
+	class FD3D12FenceCorePool : public FD3D12AdapterChild
 	{
 	public:
-		FD3D12FenceCorePool(std::weak_ptr<D3D12Adapter> Parent) : D3D12AdapterChild(Parent) {};
+		FD3D12FenceCorePool(std::weak_ptr<FD3D12Adapter> Parent) : FD3D12AdapterChild(Parent) {};
 
-		D3D12FenceCore* ObtainFenceCore(uint32_t GPUIndex);
-		void ReleaseFenceCore(D3D12FenceCore* Fence, uint64_t CurrentFenceValue);
+		FD3D12FenceCore* ObtainFenceCore(uint32_t GPUIndex);
+		void ReleaseFenceCore(FD3D12FenceCore* Fence, uint64_t CurrentFenceValue);
 		void Destroy();
 	private:
 		std::recursive_mutex CS;
-		std::queue<D3D12FenceCore*> AvailableFences[MAX_NUM_GPUS];
+		std::queue<FD3D12FenceCore*> AvailableFences[MAX_NUM_GPUS];
 	};
 
-	class D3D12Fence : public D3D12AdapterChild
+	class FD3D12Fence : public FD3D12AdapterChild
 	{
 	public:
-		D3D12Fence(std::weak_ptr<D3D12Adapter> InParent, const std::wstring& InName = L"<unnamed>");
-		~D3D12Fence();
+		FD3D12Fence(std::weak_ptr<FD3D12Adapter> InParent, const std::wstring& InName = L"<unnamed>");
+		~FD3D12Fence();
 
 		void CreateFence();
 		uint64_t Signal(ED3D12CommandQueueType InQueueType);
@@ -122,7 +122,7 @@ namespace RenderCore
 
 		//only one for now
 		uint64_t LastCompletedFences[MAX_NUM_GPUS];
-		D3D12FenceCore* FenceCores[MAX_NUM_GPUS];
+		FD3D12FenceCore* FenceCores[MAX_NUM_GPUS];
 
 		//debug name of the label.
 		std::wstring Name;
@@ -133,11 +133,11 @@ namespace RenderCore
 	};
 
 	// Fence value must be incremented manually. Useful when you need incrementing and signaling to happen at different times.
-	class D3D12ManualFence : public D3D12Fence
+	class FD3D12ManualFence : public FD3D12Fence
 	{
 	public:
-		explicit D3D12ManualFence(std::weak_ptr<D3D12Adapter> InParent, const std::wstring& InName = L"<unnamed>")
-			: D3D12Fence(InParent, InName)
+		explicit FD3D12ManualFence(std::weak_ptr<FD3D12Adapter> InParent, const std::wstring& InName = L"<unnamed>")
+			: FD3D12Fence(InParent, InName)
 		{}
 
 		// Signals the specified fence value.
@@ -147,13 +147,13 @@ namespace RenderCore
 		inline uint64_t IncrementCurrentFence() { return CurrentFence++; }
 	};
 
-	class D3D12Device;
+	class FD3D12Device;
 	class D3D12CommandAllocator;
-	class D3D12CommandAllocatorManager : public D3D12DeviceChild
+	class FD3D12CommandAllocatorManager : public FD3D12DeviceChild
 	{
 	public:
-		D3D12CommandAllocatorManager(D3D12Device* InParent, const D3D12_COMMAND_LIST_TYPE& InType);
-		~D3D12CommandAllocatorManager();
+		FD3D12CommandAllocatorManager(FD3D12Device* InParent, const D3D12_COMMAND_LIST_TYPE& InType);
+		~FD3D12CommandAllocatorManager();
 
 		D3D12CommandAllocator* ObtainCommandAllocator();
 		void ReleaseCommandAllocator(D3D12CommandAllocator* CommandAllocator);
@@ -165,7 +165,7 @@ namespace RenderCore
 		const D3D12_COMMAND_LIST_TYPE Type;
 	};
 
-	class D3D12CommandListManager : public D3D12DeviceChild
+	class FD3D12CommandListManager : public FD3D12DeviceChild
 	{
 	public:
 		struct FResolvedCmdListExecTime
@@ -181,8 +181,8 @@ namespace RenderCore
 			{}
 		};
 
-		D3D12CommandListManager(D3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType);
-		virtual ~D3D12CommandListManager();
+		FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType);
+		virtual ~FD3D12CommandListManager();
 
 		void Create(const wchar_t* Name, uint32_t NumCommandLists = 0, uint32_t Priority = 0);
 		void Destroy();
@@ -215,14 +215,14 @@ namespace RenderCore
 		FORCEINLINE ID3D12CommandQueue* GetD3DCommandQueue() { return D3DCommandQueue.get(); }
 		FORCEINLINE ED3D12CommandQueueType GetQueueType() const { return QueueType; }
 
-		FORCEINLINE D3D12Fence& GetFence() { assert(CommandListFence); return *CommandListFence; }
+		FORCEINLINE FD3D12Fence& GetFence() { assert(CommandListFence); return *CommandListFence; }
 
 		void WaitForCommandQueueFlush();
 		void ReleaseResourceBarrierCommandListAllocator();
 
 	private:
 		// Returns signaled Fence
-		uint64_t ExecuteAndIncrementFence(D3D12CommandListPayload& Payload, D3D12Fence& Fence);
+		uint64_t ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence);
 		D3D12CommandListHandle CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator);
 	private:
 		win32::com_ptr<ID3D12CommandQueue>		D3DCommandQueue;
@@ -230,10 +230,10 @@ namespace RenderCore
 		ThreadsafeQueue<D3D12CommandListHandle> ReadyLists;
 
 		// Command allocators used exclusively for resource barrier command lists.
-		D3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;
+		FD3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;
 		D3D12CommandAllocator* ResourceBarrierCommandAllocator;
 
-		std::shared_ptr<D3D12Fence> CommandListFence;
+		std::shared_ptr<FD3D12Fence> CommandListFence;
 
 		D3D12_COMMAND_LIST_TYPE					CommandListType;
 		ED3D12CommandQueueType					QueueType;

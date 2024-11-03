@@ -6,12 +6,12 @@
 namespace RenderCore
 {
 	class D3D12CommandContext;
-	class D3D12Device;
+	class FD3D12Device;
 	// Base class used to define commands that are not device specific, or that broadcast to all devices.
-	class FD3D12CommandContextBase : public RHICommandContext, public D3D12AdapterChild
+	class FD3D12CommandContextBase : public RHICommandContext, public FD3D12AdapterChild
 	{
 	public:
-		FD3D12CommandContextBase(std::weak_ptr<D3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
+		FD3D12CommandContextBase(std::weak_ptr<FD3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 
 	private:
 		virtual D3D12CommandContext* GetContext(uint32_t InGPUIndex) = 0;
@@ -42,7 +42,7 @@ namespace RenderCore
 	class D3D12CommandContext : public FD3D12CommandContextBase
 	{
 	public:
-		D3D12CommandContext(std::weak_ptr<D3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
+		D3D12CommandContext(std::weak_ptr<FD3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 		void SetViewPort(int32_t TopLeftX, int32_t TopLeftY, int32_t SizeX, int32_t SizeY) override {};
 		void SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth) override {};
 		virtual void SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr< RHITexture2D> Depth) {};

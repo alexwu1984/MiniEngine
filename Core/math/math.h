@@ -42,6 +42,12 @@ namespace math
 	const float KINDA_SMALL_NUMBER = 1.e-8f;
 	const float FLOAT_NON_FRACTIONAL = 8388608.f;
 
+	template <typename T>
+	static FORCEINLINE bool IsPowerOfTwo(T Value)
+	{
+		return ((Value & (Value - 1)) == (T)0);
+	}
+
 	/** Multiples value by itself */
 	template< class T >
 	static FORCEINLINE T Square(const T A)

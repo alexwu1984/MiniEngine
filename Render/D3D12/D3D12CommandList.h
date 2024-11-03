@@ -43,8 +43,8 @@ namespace RenderCore
 		std::atomic_int32_t PendingCommandListCount;	// The number of command lists using this allocator but haven't been executed yet.
 	};
 
-	class D3D12Device;
-	class D3D12CommandListManager;
+	class FD3D12Device;
+	class FD3D12CommandListManager;
 	class D3D12CommandContext;
 
 	class D3D12CommandListHandle
@@ -52,10 +52,10 @@ namespace RenderCore
 	private:
 		typedef std::pair<uint64_t, D3D12SyncPoint>	GenerationSyncPointPair;	// Pair of command list generation to a sync point
 
-		class D3D12CommandListData : public D3D12DeviceChild
+		class D3D12CommandListData : public FD3D12DeviceChild
 		{
 		public:
-			D3D12CommandListData(D3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, D3D12CommandListManager* InCommandListManager);
+			D3D12CommandListData(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
 			~D3D12CommandListData();
 
 			void Close();
@@ -197,7 +197,7 @@ namespace RenderCore
 			}
 
 			mutable std::atomic_int32_t	NumRefs;
-			D3D12CommandListManager* CommandListManager;
+			FD3D12CommandListManager* CommandListManager;
 			D3D12CommandContext* CurrentOwningContext;
 			const D3D12_COMMAND_LIST_TYPE			CommandListType;
 			win32::com_ptr<ID3D12GraphicsCommandList>	CommandList;		// Raw D3D command list pointer
@@ -338,7 +338,7 @@ namespace RenderCore
 			return CommandListData->CommandList.get();
 		}
 
-		void Create(D3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, D3D12CommandListManager* InCommandListManager);
+		void Create(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
 
 		void Execute(bool WaitForCompletion = false);
 
@@ -559,7 +559,7 @@ namespace RenderCore
 
 	private:
 
-		friend class D3D12CommandListManager;
+		friend class FD3D12CommandListManager;
 
 		D3D12CommandListHandle CommandList;
 		uint64_t                  Generation;

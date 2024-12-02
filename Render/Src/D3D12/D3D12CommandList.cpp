@@ -21,7 +21,7 @@ namespace RenderCore
 		HRESULT hr = InDevice->CreateCommandAllocator(InType, IID_PPV_ARGS(CommandAllocator.get_init_ref()));
 	}
 
-	D3D12CommandListHandle::D3D12CommandListData::D3D12CommandListData(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
+	D3D12CommandListHandle::D3D12CommandListData::D3D12CommandListData(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
 		:FD3D12DeviceChild(ParentDevice)
 		, CommandListType(InCommandListType)
 		, CurrentCommandAllocator(&CommandAllocator)
@@ -72,7 +72,7 @@ namespace RenderCore
 
 	}
 
-	void D3D12CommandListHandle::Create(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
+	void D3D12CommandListHandle::Create(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
 	{
 		assert(!CommandListData);
 		CommandListData = new D3D12CommandListData(ParentDevice, CommandListType, CommandAllocator, InCommandListManager);

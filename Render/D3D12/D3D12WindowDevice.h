@@ -1,6 +1,6 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
-#include "d3dx12.h"
+#include "D3D12/D3D12DescriptorCache.h"
 
 namespace RenderCore
 {
@@ -31,9 +31,21 @@ namespace RenderCore
 		void BlockUntilIdle();
 
 	private:
+		// shared code for different D3D12  devices (e.g. PC DirectX12 and XboxOne) called
+		// after device creation and GRHISupportsAsyncTextureCreation was set and before resource init
+		void SetupAfterDeviceCreation();
+
+	private:
 		/** A pool of command lists we can cycle through for the global D3D device */
 		FD3D12CommandListManager* CommandListManager;
 		FD3D12CommandListManager* CopyCommandListManager;
 		FD3D12CommandListManager* AsyncCommandListManager;
+
+		// Must be before the StateCache so that destructor ordering is valid
+		FD3D12OfflineDescriptorManager RTVAllocator;
+		FD3D12OfflineDescriptorManager DSVAllocator;
+		FD3D12OfflineDescriptorManager SRVAllocator;
+		FD3D12OfflineDescriptorManager UAVAllocator;
+		FD3D12OfflineDescriptorManager SamplerAllocator;
 	};
 }

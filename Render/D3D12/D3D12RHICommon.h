@@ -41,23 +41,23 @@ namespace RenderCore
 	class FD3D12DeviceChild
 	{
 	protected:
-		FD3D12Device* Parent;
+		std::weak_ptr<FD3D12Device> Parent;
 
 	public:
-		FD3D12DeviceChild(FD3D12Device* InParent = nullptr) : Parent(InParent) {}
+		FD3D12DeviceChild(std::weak_ptr<FD3D12Device> InParent ) : Parent(InParent) {}
 
-		FORCEINLINE FD3D12Device* GetParentDevice() const
+		FORCEINLINE std::shared_ptr<FD3D12Device> GetParentDevice() const
 		{
 			// If this fires an object was likely created with a default constructor i.e in an STL container
 			// and is therefore an orphan
-			assert(Parent != nullptr);
-			return Parent;
+			assert(!Parent.expired());
+			return Parent.lock();
 		}
 
 		// To be used with delayed setup
-		inline void SetParentDevice(FD3D12Device* InParent)
+		inline void SetParentDevice(std::weak_ptr<FD3D12Device> InParent)
 		{
-			assert(Parent == nullptr);
+			assert(Parent.expired());
 			Parent = InParent;
 		}
 	};

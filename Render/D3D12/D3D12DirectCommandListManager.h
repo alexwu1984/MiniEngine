@@ -152,7 +152,7 @@ namespace RenderCore
 	class FD3D12CommandAllocatorManager : public FD3D12DeviceChild
 	{
 	public:
-		FD3D12CommandAllocatorManager(FD3D12Device* InParent, const D3D12_COMMAND_LIST_TYPE& InType);
+		FD3D12CommandAllocatorManager(std::weak_ptr<FD3D12Device> InParent, const D3D12_COMMAND_LIST_TYPE& InType);
 		~FD3D12CommandAllocatorManager();
 
 		D3D12CommandAllocator* ObtainCommandAllocator();
@@ -181,7 +181,7 @@ namespace RenderCore
 			{}
 		};
 
-		FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType);
+		FD3D12CommandListManager(std::weak_ptr<FD3D12Device> InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType);
 		virtual ~FD3D12CommandListManager();
 
 		void Create(const wchar_t* Name, uint32_t NumCommandLists = 0, uint32_t Priority = 0);

@@ -233,7 +233,7 @@ namespace RenderCore
 		return LastSignaledFence;
 	}
 
-	FD3D12CommandAllocatorManager::FD3D12CommandAllocatorManager(FD3D12Device* InParent, const D3D12_COMMAND_LIST_TYPE& InType)
+	FD3D12CommandAllocatorManager::FD3D12CommandAllocatorManager(std::weak_ptr<FD3D12Device> InParent, const D3D12_COMMAND_LIST_TYPE& InType)
 		:FD3D12DeviceChild(InParent)
 		, Type(InType)
 	{
@@ -293,7 +293,7 @@ namespace RenderCore
 		CommandAllocatorQueue.push(CommandAllocator);
 	}
 
-	FD3D12CommandListManager::FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType)
+	FD3D12CommandListManager::FD3D12CommandListManager(std::weak_ptr<FD3D12Device> InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType)
 		:FD3D12DeviceChild(InParent)
 		, ResourceBarrierCommandAllocatorManager(InParent,InCommandListType)
 		, CommandListType(InCommandListType)
@@ -309,7 +309,7 @@ namespace RenderCore
 
 	void FD3D12CommandListManager::Create(const wchar_t* Name, uint32_t NumCommandLists /*= 0*/, uint32_t Priority /*= 0*/)
 	{
-		FD3D12Device* Device = GetParentDevice();
+		auto Device = GetParentDevice();
 		std::shared_ptr<FD3D12Adapter> Adapter = Device->GetParentAdapter();
 
 		CommandListFence = std::make_shared<FD3D12Fence>(Adapter, L"Command List Fence");

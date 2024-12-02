@@ -40,6 +40,6 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() override;
 
-		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(FD3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
+		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
 	};
 }

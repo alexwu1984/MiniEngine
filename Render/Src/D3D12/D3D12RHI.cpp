@@ -239,10 +239,10 @@ namespace RenderCore
 		return {};
 	}
 
-	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(FD3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
+	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
 	{
 		win32::com_ptr<ID3D12CommandQueue> pCommandQueue;
-		VERIFYD3DRESULT(Device->GetDevice()->CreateCommandQueue(&Desc, IID_PPV_ARGS(pCommandQueue.get_init_ref())));
+		VERIFYD3DRESULT(Device.lock()->GetDevice()->CreateCommandQueue(&Desc, IID_PPV_ARGS(pCommandQueue.get_init_ref())));
 		return pCommandQueue;
 	}
 

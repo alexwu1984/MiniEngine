@@ -72,7 +72,7 @@ namespace RenderCore
 		std::wstring DebugName;
 
 	public:
-		explicit D3D12Resource(FD3D12Device* ParentDevice,
+		explicit D3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice,
 			ID3D12Resource* InResource,
 			D3D12_RESOURCE_STATES InitialState,
 			D3D12_RESOURCE_DESC const& InDesc,

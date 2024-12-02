@@ -55,7 +55,7 @@ namespace RenderCore
 		class D3D12CommandListData : public FD3D12DeviceChild
 		{
 		public:
-			D3D12CommandListData(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
+			D3D12CommandListData(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
 			~D3D12CommandListData();
 
 			void Close();
@@ -338,7 +338,7 @@ namespace RenderCore
 			return CommandListData->CommandList.get();
 		}
 
-		void Create(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
+		void Create(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
 
 		void Execute(bool WaitForCompletion = false);
 

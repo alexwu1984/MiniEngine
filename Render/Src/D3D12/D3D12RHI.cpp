@@ -2,6 +2,9 @@
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12CommandContext.h"
+#include "math/math.h"
+#include "core/timer.h"
 
 namespace RenderCore
 {
@@ -58,7 +61,12 @@ namespace RenderCore
 
 	std::shared_ptr<DynamicRHI> D3D12DynamicRHIModule::CreateRHI()
 	{
-		return {};
+		if (_DynamicRHI)
+			return _DynamicRHI;
+		FindAdapter();
+		if (_ChosenAdapters.size())
+			_DynamicRHI = std::make_shared<D3D12DynamicRHI>(_ChosenAdapters[0]);
+		return _DynamicRHI;
 	}
 
 	static uint32_t CountAdapterOutputs(win32::com_ptr<IDXGIAdapter>& Adapter)
@@ -79,7 +87,7 @@ namespace RenderCore
 
 	void D3D12DynamicRHIModule::FindAdapter()
 	{
-		assert(ChosenAdapters.size() == 0);
+		assert(_ChosenAdapters.size() == 0);
 
 		// Try to create the DXGIFactory.  This will fail if we're not running Vista.
 		win32::com_ptr<IDXGIFactory4> DXGIFactory;
@@ -199,22 +207,23 @@ namespace RenderCore
 			if (FirstWithoutIntegratedAdapter.IsValid())
 			{
 				NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstWithoutIntegratedAdapter));
-				ChosenAdapters.push_back(NewAdapter);
+				_ChosenAdapters.push_back(NewAdapter);
 			}
 			else
 			{
 				NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstAdapter));
-				ChosenAdapters.push_back(NewAdapter);
+				_ChosenAdapters.push_back(NewAdapter);
 			}
 		}
 		else
 		{
 			NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstAdapter));
-			ChosenAdapters.push_back(NewAdapter);
+			_ChosenAdapters.push_back(NewAdapter);
 		}
 	}
 
-	D3D12DynamicRHI::D3D12DynamicRHI()
+	D3D12DynamicRHI::D3D12DynamicRHI(std::shared_ptr<FD3D12Adapter> InAdapter)
+		:D3D12Adapter(InAdapter)
 	{
 
 	}
@@ -226,7 +235,14 @@ namespace RenderCore
 
 	void D3D12DynamicRHI::Init()
 	{
+		uint32_t Seed1 = core::Cycles();
+		uint32_t Seed2 = core::Cycles();
 
+		math::RandInit(Seed1);
+		math::SRandInit(Seed2);
+
+		D3D12Adapter->Initialize(this->shared_from_this());
+		D3D12Adapter->InitializeDevices();
 	}
 
 	void D3D12DynamicRHI::Shutdown()
@@ -236,7 +252,11 @@ namespace RenderCore
 
 	std::shared_ptr<RHICommandContext> D3D12DynamicRHI::GetDefaultCommandContext()
 	{
-		return {};
+		if (!D3D12Adapter || !D3D12Adapter->GetDevice(0))
+		{
+			return {};
+		}
+		return D3D12Adapter->GetDevice(0)->GetDefaultCommandContext();
 	}
 
 	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
@@ -244,6 +264,122 @@ namespace RenderCore
 		win32::com_ptr<ID3D12CommandQueue> pCommandQueue;
 		VERIFYD3DRESULT(Device.lock()->GetDevice()->CreateCommandQueue(&Desc, IID_PPV_ARGS(pCommandQueue.get_init_ref())));
 		return pCommandQueue;
+	}
+
+	std::shared_ptr<RHIVertexBuffer> D3D12DynamicRHI::RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)
+	{
+		return {};
+	}
+
+	void D3D12DynamicRHI::RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex)
+	{
+
+	}
+
+	std::shared_ptr<RHIIndexBuffer> D3D12DynamicRHI::RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIIndexBuffer> D3D12DynamicRHI::RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIUniformBuffer> D3D12DynamicRHI::RHICreateUniformBuffer(uint32_t ConstantBufferSize)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIUniformBuffer> D3D12DynamicRHI::RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, uint32_t NumMips, void* pBuffer /*= nullptr*/, int rowBytes /*= 0*/)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(const std::wstring& FileName)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(const core::FLinearColor& Color)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITexture1D> D3D12DynamicRHI::RHICreateTexture1D(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int RowBytes)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITextureCube> D3D12DynamicRHI::RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIUnorderedAccessView> D3D12DynamicRHI::RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIUnorderedAccessView> D3D12DynamicRHI::RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIRenderTarget> D3D12DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIVertexShader> D3D12DynamicRHI::RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, 
+																			const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIPixelShader> D3D12DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIComputeShader> D3D12DynamicRHI::RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHISamplerState> D3D12DynamicRHI::RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIRasterizerState> D3D12DynamicRHI::RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIBlendState> D3D12DynamicRHI::RHICreateBlendState(const BlendStateInitializerRHI& Initializer)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHIDepthStencilState> D3D12DynamicRHI::RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer)
+	{
+		return {};
+	}
+
+	std::shared_ptr<RHITilePool> D3D12DynamicRHI::RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D)
+	{
+		return {};
 	}
 
 }

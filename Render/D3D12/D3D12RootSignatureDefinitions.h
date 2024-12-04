@@ -148,9 +148,9 @@ namespace RenderCore
 				//int32 ParameterIndex = Parameters.AddZeroed();
 				//int32 RangeIndex = DescriptorRanges.AddZeroed();
 				Parameters.push_back({});
-				int32_t ParameterIndex = Parameters.size() - 1;
+				int32_t ParameterIndex = (int32_t)Parameters.size() - 1;
 				DescriptorRanges.push_back({});
-				int32_t RangeIndex = DescriptorRanges.size() - 1;
+				int32_t RangeIndex = (int32_t)DescriptorRanges.size() - 1;
 
 				D3D12_ROOT_PARAMETER1& Parameter = Parameters[ParameterIndex];
 				D3D12_DESCRIPTOR_RANGE1& Range = DescriptorRanges[ParameterIndex];

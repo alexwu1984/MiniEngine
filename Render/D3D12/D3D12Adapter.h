@@ -39,6 +39,7 @@ namespace RenderCore
 	class FD3D12Device;
 	class FD3D12Fence;
 	class D3D12Resource;
+	class FRootSignature;
 
 	class FD3D12Adapter : std::enable_shared_from_this<FD3D12Adapter>
 	{
@@ -71,23 +72,11 @@ namespace RenderCore
 		FORCEINLINE IDXGIFactory* GetDXGIFactory() const;
 		FORCEINLINE IDXGIFactory2* GetDXGIFactory2() const;
 
-		//FORCEINLINE std::vector<FD3D12Viewport*>& GetViewports() { return Viewports; }
-		//FORCEINLINE FD3D12Viewport* GetDrawingViewport() { return DrawingViewport; }
-		//FORCEINLINE void SetDrawingViewport(FD3D12Viewport* InViewport) { DrawingViewport = InViewport; }
-
 		FORCEINLINE ID3D12CommandSignature* GetDrawIndirectCommandSignature();
 		FORCEINLINE ID3D12CommandSignature* GetDrawIndexedIndirectCommandSignature();
 		FORCEINLINE ID3D12CommandSignature* GetDispatchIndirectCommandSignature();
 
-		//FORCEINLINE FD3D12PipelineStateCache& GetPSOCache() { return PipelineStateCache; }
-		//FORCEINLINE FD3D12RootSignature* GetRootSignature(const FD3D12QuantizedBoundShaderState& QBSS)
-		//{
-		//	return RootSignatureManager.GetRootSignature(QBSS);
-		//}
-		//FORCEINLINE FD3D12RootSignatureManager* GetRootSignatureManager()
-		//{
-		//	return &RootSignatureManager;
-		//}
+		std::shared_ptr<FRootSignature> GetRootSignature() const;
 		void EndFrame();
 
 		// Resource Creation

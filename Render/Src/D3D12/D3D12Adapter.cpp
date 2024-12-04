@@ -376,6 +376,12 @@ namespace RenderCore
 		return d->DispatchIndirectCommandSignature.get();
 	}
 
+	std::shared_ptr<FRootSignature> FD3D12Adapter::GetRootSignature() const
+	{
+		C_P(const FD3D12Adapter);
+		return d->RootSignature;
+	}
+
 	void FD3D12Adapter::EndFrame()
 	{
 		//GetUploadHeapAllocator(0).CleanUpAllocations();

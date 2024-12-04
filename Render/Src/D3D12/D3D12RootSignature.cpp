@@ -319,7 +319,6 @@ namespace RenderCore
 			IID_PPV_ARGS(RootSignature.get_init_ref()));
 		if (FAILED(hrCreateRootSignature))
 		{
-			int bufferSize = RootSignatureBlob->GetBufferSize();
 			HRESULT hReason = Device->GetDeviceRemovedReason();
 			//UE_LOG(LogD3D12RHI, Fatal, TEXT("CreateRootSignature failed"));
 			core::err() << "CreateRootSignature failed";

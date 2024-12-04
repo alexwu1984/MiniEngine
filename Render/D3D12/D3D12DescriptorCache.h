@@ -115,7 +115,7 @@ namespace RenderCore
 		static std::queue<std::pair<uint64_t, ID3D12DescriptorHeap*>> ms_RetiredDescriptorHeaps[2];
 		static std::queue<ID3D12DescriptorHeap*> ms_ReadyDescriptorHeaps[2];
 
-		D3D12CommandContext& m_OwningContext;
+		std::shared_ptr<D3D12CommandContext> m_OwningContext;
 		ID3D12DescriptorHeap* m_CurrentHeap;
 		const D3D12_DESCRIPTOR_HEAP_TYPE m_HeapType;
 		FDescriptorHandle m_FirstDescriptor;

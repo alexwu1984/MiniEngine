@@ -117,7 +117,7 @@ namespace RenderCore
 			UnbindAllInvalid();
 		}
 
-		m_OwningContext.SetDescriptorHeap(m_HeapType, GetHeapPointer());
+		m_OwningContext->SetDescriptorHeap(m_HeapType, GetHeapPointer());
 
 		FDescriptorHandle DestHandle = m_FirstDescriptor + m_CurrentOffset * m_DescriptorSize;
 		m_CurrentOffset += 1;
@@ -139,7 +139,7 @@ namespace RenderCore
 			NeededSize = HandleCache.ComputeStagedSize();
 		}
 
-		m_OwningContext.SetDescriptorHeap(m_HeapType, GetHeapPointer());
+		m_OwningContext->SetDescriptorHeap(m_HeapType, GetHeapPointer());
 		HandleCache.CopyAndBindStaleTables(m_HeapType,InDevice, m_DescriptorSize, AllocateDescriptor(NeededSize), CommandList, SetFunc);
 	}
 

@@ -6,300 +6,180 @@
 
 namespace RenderCore
 {
-	struct FD3D12SamplerArrayDesc
-	{
-		uint32_t Count;
-		uint16_t SamplerID[16];
-		inline bool operator==(const FD3D12SamplerArrayDesc& rhs) const
-		{
-			assert(Count <= _ARRAYSIZE(SamplerID));
-			assert(rhs.Count <= _ARRAYSIZE(rhs.SamplerID));
+	class FRootSignature;
 
-			if (Count != rhs.Count)
-			{
-				return false;
-			}
-			else
-			{
-				// It is safe to compare pointers, because samplers are kept alive for the lifetime of the RHI
-				return 0 == memcmp(SamplerID, rhs.SamplerID, sizeof(SamplerID[0]) * Count);
-			}
-		}
-	};
-	uint32_t GetTypeHash(const FD3D12SamplerArrayDesc& Key);
-
-	template< uint32_t CPUTableSize>
-	struct FD3D12UniqueDescriptorTable
-	{
-		FD3D12UniqueDescriptorTable() : GPUHandle({}) {};
-		FD3D12UniqueDescriptorTable(FD3D12SamplerArrayDesc KeyIn, CD3DX12_CPU_DESCRIPTOR_HANDLE* Table) : GPUHandle({})
-		{
-			memcpy(&Key, &KeyIn, sizeof(Key));//Memcpy to avoid alignement issues
-			memcpy(CPUTable, Table, Key.Count * sizeof(CD3DX12_CPU_DESCRIPTOR_HANDLE));
-		}
-
-		FORCEINLINE uint32_t GetTypeHash(const FD3D12UniqueDescriptorTable& Table)
-		{
-			return SSE4_CRC32((void*)Table.Key.SamplerID, Table.Key.Count * sizeof(Table.Key.SamplerID[0]));
-		}
-
-		FD3D12SamplerArrayDesc Key;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE CPUTable[MAX_SAMPLERS];
-
-		// This will point to the table start in the global heap
-		D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle;
-	};
-
-	template<typename FD3D12UniqueDescriptorTable, bool bInAllowDuplicateKeys = false>
-	struct FD3D12UniqueDescriptorTableKeyFuncs /*: BaseKeyFuncs<FD3D12UniqueDescriptorTable, FD3D12UniqueDescriptorTable, bInAllowDuplicateKeys>*/
-	{
-		typedef typename TCallTraits<FD3D12UniqueDescriptorTable>::ParamType KeyInitType;
-		typedef typename TCallTraits<FD3D12UniqueDescriptorTable>::ParamType ElementInitType;
-
-		/**
-		* @return The key used to index the given element.
-		*/
-		static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
-		{
-			return Element;
-		}
-
-		/**
-		* @return True if the keys match.
-		*/
-		static FORCEINLINE bool Matches(KeyInitType A, KeyInitType B)
-		{
-			return A.Key == B.Key;
-		}
-
-		/** Calculates a hash index for a key. */
-		static FORCEINLINE uint32_t GetKeyHash(KeyInitType Key)
-		{
-			return GetTypeHash(Key.Key);
-		}
-
-		constexpr bool operator()(const KeyInitType& _Left, const KeyInitType& _Right) const
-		{	// apply operator< to operands
-			//return (_Left < _Right);
-			uint32_t leftValue = GetKeyHash(_Left);
-			uint32_t rightValue = GetKeyHash(_Right);
-
-			return leftValue < rightValue;
-		}
-	};
-
-	typedef FD3D12UniqueDescriptorTable<MAX_SAMPLERS> FD3D12UniqueSamplerTable;
-	typedef std::set<FD3D12UniqueSamplerTable, FD3D12UniqueDescriptorTableKeyFuncs<FD3D12UniqueSamplerTable>> FD3D12SamplerSet;
-	class FD3D12DescriptorCache;
-
-	class FD3D12OfflineDescriptorManager 
-	{
-	public: // Types
-		typedef D3D12_CPU_DESCRIPTOR_HANDLE HeapOffset;
-		typedef decltype(HeapOffset::ptr) HeapOffsetRaw;
-		typedef uint32_t HeapIndex;
-
-	private: // Types
-		struct SFreeRange { HeapOffsetRaw Start; HeapOffsetRaw End; };
-		struct SHeapEntry
-		{
-			win32::com_ptr<ID3D12DescriptorHeap> m_Heap;
-			std::list<SFreeRange> m_FreeList;
-
-			SHeapEntry() { }
-		};
-		typedef std::vector<SHeapEntry> THeapMap;
-
-		static D3D12_DESCRIPTOR_HEAP_DESC CreateDescriptor(FRHIGPUMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptorsPerHeap)
-		{
-			D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
-			Desc.Type = Type;
-			Desc.NumDescriptors = NumDescriptorsPerHeap;
-			Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;// None as this heap is offline
-			Desc.NodeMask = (uint32_t)Node;
-
-			return Desc;
-		}
-
-	public: // Methods
-		FD3D12OfflineDescriptorManager(FRHIGPUMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptorsPerHeap)
-			: m_Desc(CreateDescriptor(Node, Type, NumDescriptorsPerHeap))
-			, m_DescriptorSize(0)
-			, m_pDevice(nullptr)
-		{}
-
-		void Init(ID3D12Device* pDevice)
-		{
-			m_pDevice = pDevice;
-			m_DescriptorSize = pDevice->GetDescriptorHandleIncrementSize(m_Desc.Type);
-		}
-
-		HeapOffset AllocateHeapSlot(HeapIndex& outIndex)
-		{
-			std::lock_guard<std::recursive_mutex> Lock(CritSect);
-			if (0 == m_FreeHeaps.size())
-			{
-				AllocateHeap();
-			}
-			assert(0 != m_FreeHeaps.size());
-			auto Head = m_FreeHeaps.begin();
-			outIndex = *Head;
-			SHeapEntry& HeapEntry = m_Heaps[outIndex];
-			assert(0 != HeapEntry.m_FreeList.size());
-			SFreeRange& Range = HeapEntry.m_FreeList.front();
-			HeapOffset Ret = { Range.Start };
-			Range.Start += m_DescriptorSize;
-
-			if (Range.Start == Range.End)
-			{
-				HeapEntry.m_FreeList.erase(HeapEntry.m_FreeList.begin());
-				if (0 == HeapEntry.m_FreeList.size())
-				{
-					m_FreeHeaps.erase(Head);
-				}
-			}
-			return Ret;
-		}
-
-		void FreeHeapSlot(HeapOffset Offset, HeapIndex index)
-		{
-			std::lock_guard<std::recursive_mutex> Lock(CritSect);
-			SHeapEntry& HeapEntry = m_Heaps[index];
-
-			SFreeRange NewRange =
-			{
-				Offset.ptr,
-				Offset.ptr + m_DescriptorSize
-			};
-
-			bool bFound = false;
-			for (auto Node = HeapEntry.m_FreeList.begin();
-				Node != HeapEntry.m_FreeList.end() && !bFound;
-				++Node)
-			{
-				SFreeRange& Range = *Node;
-				assert(Range.Start < Range.End);
-				if (Range.Start == Offset.ptr + m_DescriptorSize)
-				{
-					Range.Start = Offset.ptr;
-					bFound = true;
-				}
-				else if (Range.End == Offset.ptr)
-				{
-					Range.End += m_DescriptorSize;
-					bFound = true;
-				}
-				else
-				{
-					assert(Range.End < Offset.ptr || Range.Start > Offset.ptr);
-					if (Range.Start > Offset.ptr)
-					{
-						HeapEntry.m_FreeList.insert(Node, NewRange);
-						bFound = true;
-					}
-				}
-			}
-
-			if (!bFound)
-			{
-				if (0 == HeapEntry.m_FreeList.size())
-				{
-					m_FreeHeaps.push_back(index);
-				}
-				HeapEntry.m_FreeList.push_back(NewRange);
-			}
-		}
-
-	private: // Methods
-		void AllocateHeap()
-		{
-			win32::com_ptr<ID3D12DescriptorHeap> Heap;
-			VERIFYD3DRESULT(m_pDevice->CreateDescriptorHeap(&m_Desc, IID_PPV_ARGS(Heap.get_init_ref())));
-			//SetName(Heap, L"FD3D12OfflineDescriptorManager Descriptor Heap");
-
-			HeapOffset HeapBase = Heap->GetCPUDescriptorHandleForHeapStart();
-			assert(HeapBase.ptr != 0);
-
-			// Allocate and initialize a single new entry in the map
-			m_Heaps.resize(m_Heaps.size() + 1);
-			SHeapEntry& HeapEntry = m_Heaps.back();
-			HeapEntry.m_FreeList.push_back({ HeapBase.ptr,
-				HeapBase.ptr + m_Desc.NumDescriptors * m_DescriptorSize });
-			HeapEntry.m_Heap = Heap;
-			m_FreeHeaps.push_back(m_Heaps.size() - 1);
-		}
-
-	private: // Members
-		const D3D12_DESCRIPTOR_HEAP_DESC m_Desc;
-		uint32_t m_DescriptorSize;
-		ID3D12Device* m_pDevice = nullptr; // weak-ref
-
-		THeapMap m_Heaps;
-		std::list<HeapIndex> m_FreeHeaps;
-		std::recursive_mutex CritSect;
-	};
-
-	class FD3D12OnlineHeap : public FD3D12DeviceChild
+	class FDescriptorHandle
 	{
 	public:
-		FD3D12OnlineHeap(std::weak_ptr<FD3D12Device> Device, FRHIGPUMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent = nullptr);
-		virtual ~FD3D12OnlineHeap() { }
-
-		FORCEINLINE D3D12_CPU_DESCRIPTOR_HANDLE GetCPUSlotHandle(uint32_t Slot) const { return{ CPUBase.ptr + Slot * DescriptorSize }; }
-		FORCEINLINE D3D12_GPU_DESCRIPTOR_HANDLE GetGPUSlotHandle(uint32_t Slot) const { return{ GPUBase.ptr + Slot * DescriptorSize }; }
-
-		inline const uint32_t GetDescriptorSize() const { return DescriptorSize; }
-
-		const D3D12_DESCRIPTOR_HEAP_DESC& GetDesc() const { return Desc; }
-
-		// Call this to reserve descriptor heap slots for use by the command list you are currently recording. This will wait if
-		// necessary until slots are free (if they are currently in use by another command list.) If the reservation can be
-		// fulfilled, the index of the first reserved slot is returned (all reserved slots are consecutive.) If not, it will 
-		// throw an exception.
-		bool CanReserveSlots(uint32_t NumSlots);
-
-		uint32_t ReserveSlots(uint32_t NumSlotsRequested);
-
-		void SetNextSlot(uint32_t NextSlot);
-
-		ID3D12DescriptorHeap* GetHeap() { return Heap.get(); }
-
-		void SetParent(FD3D12DescriptorCache* InParent) { Parent = InParent; }
-
-		// Roll over behavior depends on the heap type
-		virtual bool RollOver() = 0;
-		virtual void NotifyCurrentCommandList(const D3D12CommandListHandle& CommandListHandle);
-
-		virtual uint32_t GetTotalSize()
+		FDescriptorHandle()
 		{
-			return Desc.NumDescriptors;
+			m_CpuHandle.ptr = D3D12_CPU_VIRTUAL_ADDRESS_UNKNOWN;
+			m_GpuHandle.ptr = D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN;
 		}
 
-		static const uint32_t HeapExhaustedValue = uint32_t(-1);
+		FDescriptorHandle(D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle)
+			: m_CpuHandle(CpuHandle)
+		{
+			m_GpuHandle.ptr = D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN;
+		}
 
-	protected:
+		FDescriptorHandle(D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle)
+			: m_CpuHandle(CpuHandle)
+			, m_GpuHandle(GpuHandle)
+		{}
 
-		FD3D12DescriptorCache* Parent;
+		FDescriptorHandle(ID3D12DescriptorHeap* Heap)
+		{
+			m_CpuHandle = Heap->GetCPUDescriptorHandleForHeapStart();
+			m_GpuHandle = Heap->GetGPUDescriptorHandleForHeapStart();
+		}
 
-		D3D12CommandListHandle CurrentCommandList;
+		FDescriptorHandle operator + (INT Offset) const
+		{
+			FDescriptorHandle Result = *this;
+			Result += Offset;
+			return Result;
+		}
 
-		// Handles for manipulation of the heap
-		uint32_t DescriptorSize;
-		D3D12_CPU_DESCRIPTOR_HANDLE CPUBase;
-		D3D12_GPU_DESCRIPTOR_HANDLE GPUBase;
+		void operator += (INT Offset)
+		{
+			if (m_CpuHandle.ptr != D3D12_CPU_VIRTUAL_ADDRESS_UNKNOWN)
+				m_CpuHandle.ptr += Offset;
+			if (m_GpuHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN)
+				m_GpuHandle.ptr += Offset;
+		}
 
-		// This index indicate where the next set of descriptors should be placed *if* there's room
-		uint32_t NextSlotIndex;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetCpuHandle() const { return m_CpuHandle; }
+		D3D12_GPU_DESCRIPTOR_HANDLE GetGpuHandle() const { return m_GpuHandle; }
 
-		// Indicates the last free slot marked by the command list being finished
-		uint32_t FirstUsedSlot;
+		bool IsCpuNull() const { return m_CpuHandle.ptr == D3D12_CPU_VIRTUAL_ADDRESS_UNKNOWN; }
+		bool IsShaderVisible() const { return m_GpuHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN; }
 
-		// Keeping this ptr around is basically just for lifetime management
-		win32::com_ptr<ID3D12DescriptorHeap> Heap;
+	private:
+		D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
+		D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
+	};
 
-		// Desc contains the number of slots and allows for easy recreation
-		D3D12_DESCRIPTOR_HEAP_DESC Desc;
+	class FDynamicDescriptorHeap : public FD3D12DeviceChild
+	{
+	public:
+		FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
 
-		const bool bCanLoopAround;
+		static void DestroyAll()
+		{
+			ms_DescriptorHeapPool[0].clear();
+			ms_DescriptorHeapPool[1].clear();
+		}
+
+		D3D12_GPU_DESCRIPTOR_HANDLE UploadDirect(D3D12_CPU_DESCRIPTOR_HANDLE Handle);
+
+		void ParseGraphicsRootSignature(const FRootSignature& RootSignature)
+		{
+			m_GraphicsHandleCache.ParseRootSignature(m_HeapType, RootSignature);
+		}
+
+		void ParseComputeRootSignature(const FRootSignature& RootSignature)
+		{
+			m_ComputeHandleCache.ParseRootSignature(m_HeapType, RootSignature);
+		}
+
+		void SetGraphicsDescriptorHandles(UINT RootIndex, UINT Offset, UINT Count, const D3D12_CPU_DESCRIPTOR_HANDLE Handles[])
+		{
+			m_GraphicsHandleCache.StageDescriptorHandles(RootIndex, Offset, Count, Handles);
+		}
+
+		void SetComputeDescriptorHandles(UINT RootIndex, UINT Offset, UINT Count, const D3D12_CPU_DESCRIPTOR_HANDLE Handles[])
+		{
+			m_ComputeHandleCache.StageDescriptorHandles(RootIndex, Offset, Count, Handles);
+		}
+
+		void CommitGraphicsRootDescriptorTables(ID3D12GraphicsCommandList* CommandList);
+		void CommitComputeRootDescriptorTables(ID3D12GraphicsCommandList* CommandList);
+
+		void CleanupUsedHeaps(uint64_t FenceValue);
+
+	private:
+		bool HasSpace(uint32_t Count)
+		{
+			return (m_CurrentHeap != nullptr && m_CurrentOffset + Count <= NumDescriptorsPerHeap);
+		}
+		void RetireCurrentHeap();
+		void RetireUsedHeaps(uint64_t FenceValue);
+		void UnbindAllInvalid();
+		ID3D12DescriptorHeap* GetHeapPointer();
+		ID3D12DescriptorHeap* RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
+
+	private:
+		static const uint32_t NumDescriptorsPerHeap = 256;
+		static std::vector<win32::com_ptr<ID3D12DescriptorHeap>> ms_DescriptorHeapPool[2]; //CBV_SRV_UAV, Sampler
+		static std::queue<std::pair<uint64_t, ID3D12DescriptorHeap*>> ms_RetiredDescriptorHeaps[2];
+		static std::queue<ID3D12DescriptorHeap*> ms_ReadyDescriptorHeaps[2];
+
+		D3D12CommandContext& m_OwningContext;
+		ID3D12DescriptorHeap* m_CurrentHeap;
+		const D3D12_DESCRIPTOR_HEAP_TYPE m_HeapType;
+		FDescriptorHandle m_FirstDescriptor;
+		uint32_t m_DescriptorSize;
+		uint32_t m_CurrentOffset;
+		std::vector<ID3D12DescriptorHeap*> m_RetiredHeaps;
+
+
+		struct FDescriptorTableCache
+		{
+			FDescriptorTableCache()
+				: AssignedHandlesBitMap(0)
+				, TableSize(0)
+				, TableStart(nullptr) {}
+
+			uint32_t AssignedHandlesBitMap;
+			uint32_t TableSize;
+			D3D12_CPU_DESCRIPTOR_HANDLE* TableStart;
+		};
+
+		struct FDescriptorHandleCache
+		{
+			FDescriptorHandleCache()
+			{
+				ClearCache();
+			}
+
+			void ClearCache()
+			{
+				m_StaleRootParamsBitMap = 0;
+				m_RootDescriptorTablesBitMap = 0;
+				m_MaxCachedDescriptors = 0;
+				ZeroMemory(m_HandleCache, sizeof(m_HandleCache));
+			}
+
+			void UnbindAllInvalid();
+
+			uint32_t ComputeStagedSize();
+			void ParseRootSignature(D3D12_DESCRIPTOR_HEAP_TYPE Type, const FRootSignature& RootSignature);
+			void StageDescriptorHandles(UINT RootIndex, UINT Offset, UINT Count, const D3D12_CPU_DESCRIPTOR_HANDLE Handles[]);
+			void CopyAndBindStaleTables(D3D12_DESCRIPTOR_HEAP_TYPE Type, ID3D12Device* InDevice, uint32_t DescriptorSize, FDescriptorHandle DestHandleStart, ID3D12GraphicsCommandList* CmdList,
+				void (STDMETHODCALLTYPE ID3D12GraphicsCommandList::* SetFunc)(UINT, D3D12_GPU_DESCRIPTOR_HANDLE));
+
+			uint32_t m_RootDescriptorTablesBitMap = 0;
+			uint32_t m_StaleRootParamsBitMap = 0;
+			uint32_t m_MaxCachedDescriptors = 0;
+
+			static const uint32_t MaxNumDescriptors = 256;
+			static const uint32_t MaxNumDescriptorTables = 16;
+			FDescriptorTableCache m_RootDescriptorTable[MaxNumDescriptorTables] = {};
+			D3D12_CPU_DESCRIPTOR_HANDLE m_HandleCache[MaxNumDescriptors] = {};
+		};
+		FDescriptorHandleCache m_GraphicsHandleCache;
+		FDescriptorHandleCache m_ComputeHandleCache;
+
+		FDescriptorHandle AllocateDescriptor(UINT Count)
+		{
+			Assert(m_CurrentHeap != nullptr);
+			FDescriptorHandle Result = m_FirstDescriptor + m_CurrentOffset * m_DescriptorSize;
+			m_CurrentOffset += Count;
+			return Result;
+		}
+
+		void CopyAndBindStagedTables(FDescriptorHandleCache& HandleCache, ID3D12Device*InDevice,ID3D12GraphicsCommandList* CommandList,
+			void(STDMETHODCALLTYPE ID3D12GraphicsCommandList::* SetFunc)(UINT, D3D12_GPU_DESCRIPTOR_HANDLE));
 	};
 }

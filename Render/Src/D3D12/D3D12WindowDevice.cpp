@@ -1,18 +1,13 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Adapter.h"
-#include "D3D12/D3D12DirectCommandListManager.h"
+#include "D3D12/D3D12CommandContext.h"
 
 namespace RenderCore
 {
 
 	FD3D12Device::FD3D12Device(std::weak_ptr<FD3D12Adapter> InAdapter)
 		:FD3D12AdapterChild(InAdapter)
-		,RTVAllocator(FRHIGPUMask(1), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256)
-		,DSVAllocator(FRHIGPUMask(1),D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256)
-		,SRVAllocator(FRHIGPUMask(1),D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024)
-		,UAVAllocator(FRHIGPUMask(1),D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024)
-		,SamplerAllocator(FRHIGPUMask(1),FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128)
 	{
 
 	}
@@ -24,17 +19,21 @@ namespace RenderCore
 
 	void FD3D12Device::Initialize()
 	{
-		SetupAfterDeviceCreation();
+		InitPlatformSpecific();
+		CreateCommandContexts();
 	}
 
 	void FD3D12Device::CreateCommandContexts()
 	{
-
+		DefaultCommandContext = std::make_shared<D3D12CommandContext>(this->shared_from_this(), true, false);
+		AsyncComputeContext = std::make_shared<D3D12CommandContext>(this->shared_from_this(), false, true);
 	}
 
 	void FD3D12Device::InitPlatformSpecific()
 	{
-
+		CommandListManager = std::make_shared<FD3D12CommandListManager>(this->shared_from_this(), D3D12_COMMAND_LIST_TYPE_DIRECT, ED3D12CommandQueueType::Default);
+		CopyCommandListManager = std::make_shared<FD3D12CommandListManager>(this->shared_from_this(), D3D12_COMMAND_LIST_TYPE_COPY, ED3D12CommandQueueType::Copy);
+		AsyncCommandListManager = std::make_shared<FD3D12CommandListManager>(this->shared_from_this(), D3D12_COMMAND_LIST_TYPE_COMPUTE, ED3D12CommandQueueType::Async);
 	}
 
 	void FD3D12Device::Cleanup()
@@ -64,18 +63,6 @@ namespace RenderCore
 		GetCommandListManager().WaitForCommandQueueFlush();
 		//GetCopyCommandListManager().WaitForCommandQueueFlush();
 		//GetAsyncCommandListManager().WaitForCommandQueueFlush();
-	}
-
-	void FD3D12Device::SetupAfterDeviceCreation()
-	{
-		ID3D12Device* Direct3DDevice = GetParentAdapter()->GetD3DDevice();
-
-		// Init offline descriptor allocators
-		RTVAllocator.Init(Direct3DDevice);
-		DSVAllocator.Init(Direct3DDevice);
-		SRVAllocator.Init(Direct3DDevice);
-		UAVAllocator.Init(Direct3DDevice);
-		SamplerAllocator.Init(Direct3DDevice);
 	}
 
 }

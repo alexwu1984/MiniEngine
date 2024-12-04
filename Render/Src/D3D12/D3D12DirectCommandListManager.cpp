@@ -512,7 +512,7 @@ namespace RenderCore
 	uint32_t FD3D12CommandListManager::GetResourceBarrierCommandList(D3D12CommandListHandle& hList, D3D12CommandListHandle& hResourceBarrierList)
 	{
 		std::vector<D3D12PendingResourceBarrier>& PendingResourceBarriers = hList.PendingResourceBarriers();
-		const uint32_t NumPendingResourceBarriers = PendingResourceBarriers.size();
+		const uint32_t NumPendingResourceBarriers = (uint32_t)PendingResourceBarriers.size();
 		if (NumPendingResourceBarriers)
 		{
 			// Reserve space for the descs
@@ -566,10 +566,10 @@ namespace RenderCore
 				}
 
 				hResourceBarrierList = ObtainCommandList(*ResourceBarrierCommandAllocator);
-				hResourceBarrierList->ResourceBarrier(BarrierDescs.size(), BarrierDescs.data());
+				hResourceBarrierList->ResourceBarrier((uint32_t)BarrierDescs.size(), BarrierDescs.data());
 			}
 
-			return BarrierDescs.size();
+			return (uint32_t)BarrierDescs.size();
 		}
 
 		return 0;

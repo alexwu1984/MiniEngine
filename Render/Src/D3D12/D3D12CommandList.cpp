@@ -1,6 +1,7 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12WindowDevice.h"
 
 namespace RenderCore
 {

@@ -4,6 +4,7 @@
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Allocation.h"
+#include "D3D12/D3D12RootSignature.h"
 
 namespace RenderCore
 {
@@ -34,7 +35,9 @@ namespace RenderCore
 		bool bDeviceRemoved = false;
 		bool bDepthBoundsTestSupported = false;
 
-		FD3D12Device* Devices[MAX_NUM_GPUS]{};
+		std::shared_ptr<FD3D12Device> Devices[MAX_NUM_GPUS]{};
+
+		std::shared_ptr<FRootSignature> RootSignature;
 	};
 
 	FD3D12Adapter::FD3D12Adapter(const FD3D12AdapterDesc& desc)
@@ -134,11 +137,11 @@ namespace RenderCore
 		d->StagingFence = std::make_shared<FD3D12Fence>(this->shared_from_this(), L"Staging Fence");
 		d->StagingFence->CreateFence();
 
-		CreateSignatures();
-
 		constexpr uint32_t GPUIndex = 0;
-		d->Devices[GPUIndex] = new FD3D12Device(this->shared_from_this());
+		d->Devices[GPUIndex] = make_shared<FD3D12Device>(this->shared_from_this());
 		d->Devices[GPUIndex]->Initialize();
+
+		CreateSignatures();
 
 		//for (uint32 GPUIndex : FRHIGPUMask::All())
 		//{
@@ -236,7 +239,7 @@ namespace RenderCore
 	{
 		C_P(FD3D12Adapter);
 		assert(GPUIndex < MAX_NUM_GPUS);
-		return d->Devices[GPUIndex];
+		return d->Devices[GPUIndex].get();
 	}
 
 	FORCEINLINE std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI()
@@ -309,6 +312,8 @@ namespace RenderCore
 			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
 			return;
 		}
+
+		d->RootSignature = std::make_shared<FRootSignature>(d->Devices[0], 0, 0);
 	}
 
 	FORCEINLINE const uint32_t FD3D12Adapter::GetAdapterIndex() const
@@ -554,7 +559,7 @@ namespace RenderCore
 				}
 #endif // D3D12_RHI_RAYTRACING
 
-				NewFilter.DenyList.NumIDs = DenyIds.size();
+				NewFilter.DenyList.NumIDs = (UINT)DenyIds.size();
 				NewFilter.DenyList.pIDList = DenyIds.data();
 
 				pd3dInfoQueue->PushStorageFilter(&NewFilter);
@@ -602,8 +607,7 @@ namespace RenderCore
 		if (d->Devices[GPUIndex])
 		{
 			d->Devices[GPUIndex]->Cleanup();
-			delete d->Devices[GPUIndex];
-			d->Devices[GPUIndex] = nullptr;
+			d->Devices[GPUIndex].reset();
 		}
 
 	}

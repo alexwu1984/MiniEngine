@@ -49,7 +49,7 @@ namespace RenderCore
 		else
 		{
 			// All subresources must be individually checked
-			const uint32_t numSubresourceStates = m_SubresourceState.size();
+			const uint32_t numSubresourceStates = (uint32_t)m_SubresourceState.size();
 			for (uint32_t i = 0; i < numSubresourceStates; i++)
 			{
 				if (m_SubresourceState[i] != State)
@@ -101,7 +101,7 @@ namespace RenderCore
 			// If state was previously tracked on a per-resource level, then transition to per-subresource tracking
 			if (m_AllSubresourcesSame)
 			{
-				const uint32_t numSubresourceStates = m_SubresourceState.size();
+				const uint32_t numSubresourceStates = (uint32_t)m_SubresourceState.size();
 				for (uint32_t i = 0; i < numSubresourceStates; i++)
 				{
 					m_SubresourceState[i] = m_ResourceState;

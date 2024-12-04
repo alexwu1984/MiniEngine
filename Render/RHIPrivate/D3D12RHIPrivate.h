@@ -17,6 +17,10 @@ namespace RenderCore
 #define FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
 #define FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER
 
+#define D3D12_GPU_VIRTUAL_ADDRESS_NULL      ((D3D12_GPU_VIRTUAL_ADDRESS)0)
+#define D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN   ((D3D12_GPU_VIRTUAL_ADDRESS)-1)
+#define D3D12_CPU_VIRTUAL_ADDRESS_UNKNOWN	((SIZE_T)-1)
+
 	typedef uint16_t CBVSlotMask;
 	static_assert(MAX_ROOT_CBVS <= MAX_CBS, "MAX_ROOT_CBVS must be <= MAX_CBS.");
 	static_assert((8 * sizeof(CBVSlotMask)) >= MAX_CBS, "CBVSlotMask isn't large enough to cover all CBs. Please increase the size.");
@@ -355,7 +359,7 @@ namespace RenderCore
 			if (Barriers.size())
 			{
 				assert(pCommandList);
-				pCommandList->ResourceBarrier(Barriers.size(), Barriers.data());
+				pCommandList->ResourceBarrier((UINT)Barriers.size(), Barriers.data());
 				Reset();
 			}
 		}

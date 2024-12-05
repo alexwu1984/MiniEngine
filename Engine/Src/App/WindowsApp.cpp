@@ -42,7 +42,14 @@ namespace Engine
 		{
 			return false;
 		}
-		d->Engine->Init(d->AppWin);
+		RenderCore::RHIAPIType ApiType = RenderCore::RHIAPIType::E_D3D11;
+		std::string apiStr;
+		core::CommandLine::Get().GetString("render_api", apiStr);
+		if (apiStr == "D3D12")
+		{
+			ApiType = RenderCore::RHIAPIType::E_D3D12;
+		}
+		d->Engine->Init(d->AppWin, ApiType);
 		bool bRet =  Init();
 		if (bRet)
 		{

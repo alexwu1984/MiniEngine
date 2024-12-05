@@ -1,5 +1,4 @@
 #include "Engine/Engine.h"
-#include "RHI/DynamicRHI.h"
 #include "core/commandline.h"
 #include "App/AppWindow.h"
 #include "RHI/RHIViewPort.h"
@@ -12,11 +11,10 @@ namespace Engine
 {
 	MainEngine* GEngine = nullptr;
 
-	struct MainEngineP
+	struct MainEnginePrivate
 	{
-		MainEngineP()
+		MainEnginePrivate()
 		{
-			DynamicRHI = RenderCore::PlatformCreateDynamicRHI(RenderCore::RHIAPIType::E_D3D11);
 			Scene = std::make_shared<SceneView>();
 			SeRender = std::make_shared<SceneRender>(Scene);
 		}
@@ -30,100 +28,110 @@ namespace Engine
 	};
 
 	MainEngine::MainEngine()
-		:Impl(std::make_shared<MainEngineP>())
+		:d_ptr(new MainEnginePrivate())
 	{
 		GEngine = this;
 	}
 
 	MainEngine::~MainEngine()
 	{
-
+		delete d_ptr;
 	}
 
-	void MainEngine::Init(std::shared_ptr< AppWindow> AppWin)
+	void MainEngine::Init(std::shared_ptr<AppWindow> AppWin, RenderCore::RHIAPIType ApiType)
 	{
-		Impl->AppWin = AppWin;
-		if (Impl->DynamicRHI)
+		C_P(MainEngine);
+		d->DynamicRHI = RenderCore::PlatformCreateDynamicRHI(ApiType);
+		d->AppWin = AppWin;
+		if (d->DynamicRHI)
 		{
-
-			Impl->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
+			d->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
 			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
-			Impl->DynamicRHI->Init();
-			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = Impl->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
-			Impl->RThread = std::make_unique<RenderThread>(Impl->DynamicRHI.get());
-
-			Impl->Scene->Init();
-			Impl->SeRender->InitResource(ViewPort);
+			d->DynamicRHI->Init();
+			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = d->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
+			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
+			d->Scene->Init();
+			d->SeRender->InitResource(ViewPort);
 		}
 	}
 
 	void MainEngine::StartThread()
 	{
-		Impl->RThread->Start();
-		Impl->GameTick.Start("GameThread", 60, win32::HighPrecisionTick::ThreadPriority::Highest);
+		C_P(MainEngine);
+		d->RThread->Start();
+		d->GameTick.Start("GameThread", 60, win32::HighPrecisionTick::ThreadPriority::Highest);
 	}
 
 	void MainEngine::ShutDown()
 	{
-		Impl->GameTick.Stop();
-		if (Impl->RThread)
+		C_P(MainEngine);
+		d->GameTick.Stop();
+		if (d->RThread)
 		{
-			Impl->RThread->Stop();
+			d->RThread->Stop();
 		}
-		if (Impl->DynamicRHI)
+		if (d->DynamicRHI)
 		{
-			Impl->DynamicRHI->Shutdown();
+			d->DynamicRHI->Shutdown();
 		}
-		Impl->SeRender = {};
-		Impl->Scene = {};
-		Impl->DynamicRHI = {};
-		Impl->RThread = {};
+		d->SeRender = {};
+		d->Scene = {};
+		d->DynamicRHI = {};
+		d->RThread = {};
 		
 	}
 
 	void MainEngine::LoadConfig(const std::wstring& FileName)
 	{
-		if (Impl->SeRender)
+		C_P(MainEngine);
+		if (d->SeRender)
 		{
-			Impl->SeRender->LoadConfig(FileName);
+			d->SeRender->LoadConfig(FileName);
 		}
-		Impl->ModelPath = std::filesystem::path(FileName).parent_path();
+		d->ModelPath = std::filesystem::path(FileName).parent_path();
 	}
 
 	std::wstring MainEngine::GetModelPath() const
 	{
-		return Impl->ModelPath;
+		C_P(const MainEngine);
+		return d->ModelPath;
 	}
 
 	std::shared_ptr<RenderCore::DynamicRHI> MainEngine::GetRHI() const
 	{
-		return Impl->DynamicRHI;
+		C_P(const MainEngine);
+		return d->DynamicRHI;
 	}
 
 	std::shared_ptr<AppWindow> MainEngine::GetAppWindow() const
 	{
-		return Impl->AppWin;
+		C_P(const MainEngine);
+		return d->AppWin;
 	}
 
 	std::shared_ptr<SceneView> MainEngine::GetScene() const
 	{
-		return Impl->Scene;
+		C_P(const MainEngine);
+		return d->Scene;
 	}
 
-	std::shared_ptr<Engine::SceneRender> MainEngine::GetSceneRender() const
+	std::shared_ptr<SceneRender> MainEngine::GetSceneRender() const
 	{
-		return Impl->SeRender;
+		C_P(const MainEngine);
+		return d->SeRender;
 	}
 
 	void MainEngine::Tick(float DeltaTime)
 	{
-		Impl->Scene->Tick(DeltaTime);
-		Impl->SeRender->Render(DeltaTime);
+		C_P(const MainEngine);
+		d->Scene->Tick(DeltaTime);
+		d->SeRender->Render(DeltaTime);
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)
 	{
-		Impl->SeRender->Resize(NewSize.w, NewSize.h, false);
+		C_P(const MainEngine);
+		d->SeRender->Resize(NewSize.w, NewSize.h, false);
 	}
 
 }

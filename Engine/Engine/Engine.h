@@ -1,5 +1,5 @@
 #pragma once
-#include "core/inc.h"
+#include "RHI/DynamicRHI.h"
 
 namespace core
 {
@@ -13,7 +13,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct MainEngineP;
+	struct MainEnginePrivate;
 	class AppWindow;
 	class SceneView;
 	class SceneRender;
@@ -24,7 +24,7 @@ namespace Engine
 		MainEngine();
 		~MainEngine();
 
-		void Init(std::shared_ptr< AppWindow> AppWin);
+		void Init(std::shared_ptr< AppWindow> AppWin,RenderCore::RHIAPIType ApiType);
 		void StartThread();
 		void ShutDown();
 		void LoadConfig(const std::wstring& FileName);
@@ -38,7 +38,7 @@ namespace Engine
 		void Tick(float DeltaTime);
 		void OnSizeChanged(core::vec2i NewSize);
 	private:
-		std::shared_ptr<MainEngineP> Impl;
+		MainEnginePrivate* d_ptr = nullptr;
 	};
 
 	extern MainEngine* GEngine ;

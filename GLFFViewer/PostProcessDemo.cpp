@@ -56,6 +56,11 @@ void PostProcessorDemo::InitResource()
 
 void PostProcessorDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)
 {
+	if (!_Texture1 || !_Texture2)
+	{
+		return;
+	}
+
 	RenderCore::GraphicsPipelineStateInitializer Init;
 	Init.VertexShader = _VertexShader;
 	Init.PixelShader = _PixelShader;

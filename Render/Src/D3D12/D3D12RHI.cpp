@@ -56,7 +56,7 @@ namespace RenderCore
 
 	bool D3D12DynamicRHIModule::IsSupported()
 	{
-		return false;
+		return true;
 	}
 
 	std::shared_ptr<DynamicRHI> D3D12DynamicRHIModule::CreateRHI()
@@ -87,7 +87,7 @@ namespace RenderCore
 
 	void D3D12DynamicRHIModule::FindAdapter()
 	{
-		assert(_ChosenAdapters.size() == 0);
+		Assert(_ChosenAdapters.size() == 0);
 
 		// Try to create the DXGIFactory.  This will fail if we're not running Vista.
 		win32::com_ptr<IDXGIFactory4> DXGIFactory;

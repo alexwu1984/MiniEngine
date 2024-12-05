@@ -1,5 +1,6 @@
 #include "RHI/DynamicRHI.h"
 #include "D3D11/D3D11RHI.h"
+#include "D3D12/D3D12RHI.h"
 
 namespace RenderCore
 {
@@ -9,6 +10,13 @@ namespace RenderCore
 		if (apiType == RHIAPIType::E_D3D11)
 		{
 			GRHIModule = std::make_shared<D3D11DynamicRHIModule>();
+			if (GRHIModule->IsSupported())
+				return GRHIModule->CreateRHI();
+			return {};
+		}
+		else if (apiType == RHIAPIType::E_D3D12)
+		{
+			GRHIModule = std::make_shared<D3D12DynamicRHIModule>();
 			if (GRHIModule->IsSupported())
 				return GRHIModule->CreateRHI();
 			return {};

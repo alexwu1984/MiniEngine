@@ -63,7 +63,7 @@ namespace RenderCore
 		C_P(FD3D12Adapter);
 		if (d->bDeviceRemoved)
 		{
-			assert(d->RootDevice);
+			Assert(d->RootDevice.is_valid());
 
 			HRESULT hRes = d->RootDevice->GetDeviceRemovedReason();
 
@@ -188,31 +188,31 @@ namespace RenderCore
 		d->bDeviceRemoved = value;
 	}
 
-	FORCEINLINE const bool FD3D12Adapter::IsDeviceRemoved() const
+	bool FD3D12Adapter::IsDeviceRemoved() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->bDeviceRemoved;
 	}
 
-	FORCEINLINE ID3D12Device* FD3D12Adapter::GetD3DDevice() const
+	ID3D12Device* FD3D12Adapter::GetD3DDevice() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->RootDevice.get();
 	}
 
-	FORCEINLINE ID3D12Device1* FD3D12Adapter::GetD3DDevice1() const
+	ID3D12Device1* FD3D12Adapter::GetD3DDevice1() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->RootDevice1.get();
 	}
 
-	FORCEINLINE ID3D12Device2* FD3D12Adapter::GetD3DDevice2() const
+	ID3D12Device2* FD3D12Adapter::GetD3DDevice2() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->RootDevice2.get();
 	}
 
-	FORCEINLINE FD3D12FenceCorePool& FD3D12Adapter::GetFenceCorePool()
+	FD3D12FenceCorePool& FD3D12Adapter::GetFenceCorePool()
 	{
 		C_P(FD3D12Adapter);
 		if (!d->FenceCorePool)
@@ -222,14 +222,14 @@ namespace RenderCore
 		return *d->FenceCorePool;
 	}
 
-	FORCEINLINE FD3D12ManualFence& FD3D12Adapter::GetFrameFence()
+	FD3D12ManualFence& FD3D12Adapter::GetFrameFence()
 	{
 		C_P(FD3D12Adapter);
-		assert(d->FrameFence);
+		Assert(d->FrameFence.get());
 		return *d->FrameFence;
 	}
 
-	FORCEINLINE FD3D12Fence* FD3D12Adapter::GetStagingFence()
+	FD3D12Fence* FD3D12Adapter::GetStagingFence()
 	{
 		C_P(FD3D12Adapter);
 		return d->StagingFence.get();
@@ -238,36 +238,36 @@ namespace RenderCore
 	FD3D12Device* FD3D12Adapter::GetDevice(uint32_t GPUIndex)
 	{
 		C_P(FD3D12Adapter);
-		assert(GPUIndex < MAX_NUM_GPUS);
+		Assert(GPUIndex < MAX_NUM_GPUS);
 		return d->Devices[GPUIndex].get();
 	}
 
-	FORCEINLINE std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI()
+	std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI()
 	{
 		C_P(FD3D12Adapter);
-		assert(!d->OwningRHI.expired());
+		Assert(!d->OwningRHI.expired());
 		return d->OwningRHI.lock();
 	}
 
-	FORCEINLINE const D3D12_RESOURCE_HEAP_TIER FD3D12Adapter::GetResourceHeapTier() const
+	D3D12_RESOURCE_HEAP_TIER FD3D12Adapter::GetResourceHeapTier() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->ResourceHeapTier;
 	}
 
-	FORCEINLINE const D3D12_RESOURCE_BINDING_TIER FD3D12Adapter::GetResourceBindingTier() const
+	D3D12_RESOURCE_BINDING_TIER FD3D12Adapter::GetResourceBindingTier() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->ResourceBindingTier;
 	}
 
-	FORCEINLINE const D3D_ROOT_SIGNATURE_VERSION FD3D12Adapter::GetRootSignatureVersion() const
+	D3D_ROOT_SIGNATURE_VERSION FD3D12Adapter::GetRootSignatureVersion() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->RootSignatureVersion;
 	}
 
-	FORCEINLINE const bool FD3D12Adapter::IsDepthBoundsTestSupported() const
+	bool FD3D12Adapter::IsDepthBoundsTestSupported() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->bDepthBoundsTestSupported;
@@ -316,61 +316,61 @@ namespace RenderCore
 		d->RootSignature = std::make_shared<FRootSignature>(d->Devices[0], 0, 0);
 	}
 
-	FORCEINLINE const uint32_t FD3D12Adapter::GetAdapterIndex() const
+	uint32_t FD3D12Adapter::GetAdapterIndex() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->Desc.AdapterIndex;
 	}
 
-	FORCEINLINE const D3D_FEATURE_LEVEL FD3D12Adapter::GetFeatureLevel() const
+	D3D_FEATURE_LEVEL FD3D12Adapter::GetFeatureLevel() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->Desc.MaxSupportedFeatureLevel;
 	}
 
-	FORCEINLINE const DXGI_ADAPTER_DESC& FD3D12Adapter::GetD3DAdapterDesc() const
+	const DXGI_ADAPTER_DESC& FD3D12Adapter::GetD3DAdapterDesc() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->Desc.Desc;
 	}
 
-	FORCEINLINE IDXGIAdapter* FD3D12Adapter::GetAdapter()
+	IDXGIAdapter* FD3D12Adapter::GetAdapter()
 	{
 		C_P(FD3D12Adapter);
 		return d->DxgiAdapter.get();
 	}
 
-	FORCEINLINE const FD3D12AdapterDesc& FD3D12Adapter::GetDesc() const
+	const FD3D12AdapterDesc& FD3D12Adapter::GetDesc() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->Desc;
 	}
 
-	FORCEINLINE IDXGIFactory* FD3D12Adapter::GetDXGIFactory() const
+	IDXGIFactory* FD3D12Adapter::GetDXGIFactory() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->DxgiFactory.get();
 	}
 
-	FORCEINLINE IDXGIFactory2* FD3D12Adapter::GetDXGIFactory2() const
+	IDXGIFactory2* FD3D12Adapter::GetDXGIFactory2() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->DxgiFactory2.get();
 	}
 
-	FORCEINLINE ID3D12CommandSignature* FD3D12Adapter::GetDrawIndirectCommandSignature()
+	ID3D12CommandSignature* FD3D12Adapter::GetDrawIndirectCommandSignature()
 	{
 		C_P(const FD3D12Adapter);
 		return d->DispatchIndirectCommandSignature.get();
 	}
 
-	FORCEINLINE ID3D12CommandSignature* FD3D12Adapter::GetDrawIndexedIndirectCommandSignature()
+	ID3D12CommandSignature* FD3D12Adapter::GetDrawIndexedIndirectCommandSignature()
 	{
 		C_P(const FD3D12Adapter);
 		return d->DrawIndexedIndirectCommandSignature.get();
 	}
 
-	FORCEINLINE ID3D12CommandSignature* FD3D12Adapter::GetDispatchIndirectCommandSignature()
+	ID3D12CommandSignature* FD3D12Adapter::GetDispatchIndirectCommandSignature()
 	{
 		C_P(const FD3D12Adapter);
 		return d->DispatchIndirectCommandSignature.get();

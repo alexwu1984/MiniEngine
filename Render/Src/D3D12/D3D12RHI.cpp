@@ -3,6 +3,7 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12ViewPort.h"
 #include "math/math.h"
 #include "core/timer.h"
 
@@ -206,18 +207,18 @@ namespace RenderCore
 			// We assume Intel is integrated graphics (slower than discrete) than NVIDIA or AMD cards and rather take a different one
 			if (FirstWithoutIntegratedAdapter.IsValid())
 			{
-				NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstWithoutIntegratedAdapter));
+				NewAdapter = std::make_shared<FD3D12Adapter>(FirstWithoutIntegratedAdapter);
 				_ChosenAdapters.push_back(NewAdapter);
 			}
 			else
 			{
-				NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstAdapter));
+				NewAdapter = std::make_shared<FD3D12Adapter>(FirstAdapter);
 				_ChosenAdapters.push_back(NewAdapter);
 			}
 		}
 		else
 		{
-			NewAdapter = std::make_shared<FD3D12Adapter>(FD3D12Adapter(FirstAdapter));
+			NewAdapter = std::make_shared<FD3D12Adapter>(FirstAdapter);
 			_ChosenAdapters.push_back(NewAdapter);
 		}
 	}
@@ -264,6 +265,12 @@ namespace RenderCore
 		win32::com_ptr<ID3D12CommandQueue> pCommandQueue;
 		VERIFYD3DRESULT(Device.lock()->GetDevice()->CreateCommandQueue(&Desc, IID_PPV_ARGS(pCommandQueue.get_init_ref())));
 		return pCommandQueue;
+	}
+
+	std::shared_ptr< RHIViewPort> D3D12DynamicRHI::RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+	{
+		std::shared_ptr<D3D12ViewPort> ViewPort = std::make_shared<D3D12ViewPort>(D3D12Adapter, (HWND)WindowHandle, SizeX, SizeY);
+		return ViewPort;
 	}
 
 	std::shared_ptr<RHIVertexBuffer> D3D12DynamicRHI::RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)

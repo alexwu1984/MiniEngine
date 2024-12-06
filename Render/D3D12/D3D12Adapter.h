@@ -41,13 +41,13 @@ namespace RenderCore
 	class D3D12Resource;
 	class FRootSignature;
 
-	class FD3D12Adapter : std::enable_shared_from_this<FD3D12Adapter>
+	class FD3D12Adapter : public std::enable_shared_from_this<FD3D12Adapter>
 	{
 	public:
 		FD3D12Adapter(const FD3D12AdapterDesc& desc);
 		~FD3D12Adapter();
 
-		void Initialize(std::weak_ptr<D3D12DynamicRHI> RHI);
+		void Initialize(const std::weak_ptr<D3D12DynamicRHI>& RHI);
 		void InitializeDevices();
 		void InitializeRayTracing();
 		void SetDeviceRemoved(bool value);

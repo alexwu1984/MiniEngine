@@ -13,7 +13,7 @@ namespace RenderCore
 
 		void Init();
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
-
+		core::vec2u GetSize() const override;
 	private:
 		// Determine how deep the swapchain should be (based on AFR or not)
 		void CalculateSwapChainDepth(int32_t DefaultSwapChainDepth);

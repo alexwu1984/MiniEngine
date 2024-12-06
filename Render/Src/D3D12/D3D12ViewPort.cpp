@@ -117,6 +117,11 @@ namespace RenderCore
 
 	}
 
+	core::vec2u D3D12ViewPort::GetSize() const
+	{
+		return core::vec2u( SizeX,SizeY );
+	}
+
 	void D3D12ViewPort::CalculateSwapChainDepth(int32_t DefaultSwapChainDepth)
 	{
 		NumBackBuffers = DefaultSwapChainDepth;

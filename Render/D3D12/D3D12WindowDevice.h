@@ -7,7 +7,7 @@ namespace RenderCore
 	class FD3D12CommandListManager;
 	class D3D11CommandContext;
 
-	class FD3D12Device :public FD3D12AdapterChild, public std::enable_shared_from_this<FD3D12Device>
+	class FD3D12Device :public std::enable_shared_from_this<FD3D12Device>,public FD3D12AdapterChild
 	{
 	public:
 		FD3D12Device(std::weak_ptr<FD3D12Adapter> InAdapter);

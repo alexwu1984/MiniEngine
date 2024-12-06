@@ -24,7 +24,7 @@ namespace RenderCore
 		void FindAdapter();
 	};
 
-	class D3D12DynamicRHI : public DynamicRHI,std::enable_shared_from_this<D3D12DynamicRHI>
+	class D3D12DynamicRHI : public std::enable_shared_from_this<D3D12DynamicRHI>, public DynamicRHI
 	{
 	public:
 		D3D12DynamicRHI(std::shared_ptr<FD3D12Adapter> InAdapter);
@@ -42,6 +42,7 @@ namespace RenderCore
 
 		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
 
+		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
 		virtual std::shared_ptr<RHIVertexBuffer> RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count);
 		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex);
 		virtual std::shared_ptr<RHIIndexBuffer> RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount);

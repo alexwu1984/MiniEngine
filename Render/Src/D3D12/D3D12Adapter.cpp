@@ -44,7 +44,7 @@ namespace RenderCore
 		:d_ptr(new FD3D12AdapterPrivate())
 	{
 		C_P(FD3D12Adapter);
-		d_ptr->Desc = desc;
+		d->Desc = desc;
 	}
 
 	FD3D12Adapter::~FD3D12Adapter()
@@ -52,9 +52,10 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	void FD3D12Adapter::Initialize(std::weak_ptr<D3D12DynamicRHI> RHI)
+	void FD3D12Adapter::Initialize(const std::weak_ptr<D3D12DynamicRHI>& RHI)
 	{
 		C_P(FD3D12Adapter);
+		Assert(!RHI.expired());
 		d->OwningRHI = RHI;
 	}
 
@@ -94,7 +95,8 @@ namespace RenderCore
 		// If we don't have a device yet, either because this is the first viewport, or the old device was removed, create a device.
 		if (!d->RootDevice)
 		{
-			CreateRootDevice(bWithD3DDebug);
+			if (!CreateRootDevice(bWithD3DDebug))
+				return;
 
 			if (SUCCEEDED(d->RootDevice->QueryInterface(IID_PPV_ARGS(d->RootDevice1.get_init_ref()))))
 			{
@@ -429,7 +431,11 @@ namespace RenderCore
 		win32::com_ptr<IDXGIAdapter> TempAdapter;
 		d->DxgiFactory->EnumAdapters(d->Desc.AdapterIndex, TempAdapter.get_init_ref());
 		HRESULT hr = TempAdapter->QueryInterface(IID_PPV_ARGS(d->DxgiAdapter.get_init_ref()));
-
+		if (FAILED(hr))
+		{
+			core::logger::err() << __FUNCTION__" TempAdapter->QueryInterface failed:" << std::hex << hr;
+			return false;
+		}
 		// In Direct3D 11, if you are trying to create a hardware or a software device, set pAdapter != NULL which constrains the other inputs to be:
 		//		DriverType must be D3D_DRIVER_TYPE_UNKNOWN 
 		//		Software must be NULL. 
@@ -467,11 +473,16 @@ namespace RenderCore
 		}
 
 		// Creating the Direct3D device.
-		::D3D12CreateDevice(
+		hr = ::D3D12CreateDevice(
 			GetAdapter(),
 			GetFeatureLevel(),
 			IID_PPV_ARGS(d->RootDevice.get_init_ref())
 		);
+		if (FAILED(hr))
+		{
+			core::logger::err() << __FUNCTION__" D3D12CreateDevice failed:" << std::hex << hr;
+			return false;
+		}
 
 		// Detect availability of shader model 6.0 wave operations
 		{

@@ -167,14 +167,14 @@ namespace RenderCore
 
 	uint32_t GetTypeHash(const DepthStencilStateInitializerRHI& Initializer)
 	{
-		uint32_t Hash = GetTypeHash(Initializer.bEnableDepthWrite);
+		uint32_t Hash = Templates::GetTypeHash(Initializer.bEnableDepthWrite);
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.DepthTest));
 		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.bEnableFrontFaceStencil));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFaceStencilTest));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFaceStencilFailStencilOp));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFaceDepthFailStencilOp));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.FrontFacePassStencilOp));
-		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.bEnableBackFaceStencil));
+		Hash = Templates::HashCombine(Hash, Templates::GetTypeHash(Initializer.bEnableBackFaceStencil));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFaceStencilTest));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFaceStencilFailStencilOp));
 		Hash = Templates::HashCombine(Hash, GetTypeHash(Initializer.BackFaceDepthFailStencilOp));

@@ -23,15 +23,16 @@ namespace RenderCore
 	public:
 		D3D12CommandContext(std::weak_ptr<FD3D12Device> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 		virtual ~D3D12CommandContext();
-		void SetViewPort(int32_t TopLeftX, int32_t TopLeftY, int32_t SizeX, int32_t SizeY) override {};
-		void SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth) override {};
-		virtual void SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr< RHITexture2D> Depth) {};
+		void SetViewPort(int32_t TopLeftX, int32_t TopLeftY, int32_t SizeX, int32_t SizeY) override;
+		void SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth) override;
+		void SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr< RHITexture2D> Depth) override;
 		virtual void SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget, int32_t IndexMip = 0) {};
 		virtual void SetRenderTarget(std::shared_ptr< RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip) {};
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
-		virtual void Clear(std::shared_ptr< RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
+		virtual void Clear(std::shared_ptr< RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
 		virtual void Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
 		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
+		void RHIBeing() override;
 		virtual void RHIEndDrawing() {}
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) {};
@@ -56,14 +57,14 @@ namespace RenderCore
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) {};
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) { return false; };
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data) {};
+		uint64_t Finish(bool WaitForCompletion = false) override;
 
-
-		uint32_t numDraws;
-		uint32_t numDispatches;
-		uint32_t numClears;
-		uint32_t numBarriers;
-		uint32_t numCopies;
-		uint32_t otherWorkCounter;
+		uint32_t numDraws = 0;
+		uint32_t numDispatches = 0;
+		uint32_t numClears = 0;
+		uint32_t numBarriers = 0;
+		uint32_t numCopies = 0;
+		uint32_t otherWorkCounter = 0;
 
 		bool HasDoneWork()
 		{
@@ -75,13 +76,14 @@ namespace RenderCore
 		// Cycle to a new command list, but don't execute the current one yet.
 		void OpenCommandList();
 		void CloseCommandList();
+		void TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush = false);
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();
 
 		// Handles to the command list and direct command allocator this context owns (granted by the command list manager/command allocator manager), and a direct pointer to the D3D command list/command allocator.
 		D3D12CommandListHandle CommandListHandle;
-		D3D12CommandAllocator* CommandAllocator;
+		D3D12CommandAllocator* CommandAllocator = nullptr;
 		FD3D12CommandAllocatorManager CommandAllocatorManager;
 	};
 }

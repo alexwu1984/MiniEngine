@@ -1,6 +1,7 @@
 #include "RHI/RHI.h"
 #include "win/win32.h"
 
+
 namespace RenderCore
 {
 	//
@@ -260,5 +261,4 @@ namespace RenderCore
 	{
 		return bCreateWithD3DDebug;
 	}
-
 }

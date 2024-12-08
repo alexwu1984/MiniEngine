@@ -4,7 +4,7 @@
 namespace RenderCore
 {
 
-	D3D12Resource::D3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource,
+	FD3D12Resource::FD3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource,
 								D3D12_RESOURCE_STATES InitialState, 
 								D3D12_RESOURCE_DESC const& InDesc, 
 								D3D12_HEAP_TYPE InHeapType /*= D3D12_HEAP_TYPE_DEFAULT*/)
@@ -31,11 +31,11 @@ namespace RenderCore
 		InitalizeResourceState(InitialState);
 	}
 
-	D3D12Resource::~D3D12Resource()
+	FD3D12Resource::~FD3D12Resource()
 	{
 	}
 
-	void D3D12Resource::DeferDelete()
+	void FD3D12Resource::DeferDelete()
 	{
 
 	}

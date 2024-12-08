@@ -32,7 +32,7 @@ namespace RenderCore
 	class FD3D12FenceCore : public FD3D12AdapterChild
 	{
 	public:
-		FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue, uint32_t GPUIndex);
+		FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue, uint32_t InGPUIndex);
 		~FD3D12FenceCore();
 
 		inline ID3D12Fence* GetFence() const { return Fence.get(); }
@@ -43,10 +43,10 @@ namespace RenderCore
 		uint64_t FenceValueAvailableAt;
 
 	private:
-		uint32_t GPUIndex;
+		uint32_t GPUIndex = 0;
 
 		win32::com_ptr<ID3D12Fence> Fence;
-		HANDLE hFenceCompleteEvent;
+		HANDLE hFenceCompleteEvent = nullptr;
 	};
 
 	class FD3D12FenceCorePool : public FD3D12AdapterChild

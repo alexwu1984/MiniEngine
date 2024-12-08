@@ -12,24 +12,24 @@ namespace RenderCore
 
 	bool D3D12SyncPoint::IsComplete() const
 	{
-		assert(IsValid());
+		Assert(IsValid());
 		return Fence->IsFenceComplete(Value);
 	}
 
 	void D3D12SyncPoint::WaitForCompletion() const
 	{
-		assert(IsValid());
+		Assert(IsValid());
 		Fence->WaitForFence(Value);
 	}
 
 	void CResourceState::Initialize(uint32_t SubresourceCount)
 	{
-		assert(0 == m_SubresourceState.size());
+		Assert(0 == m_SubresourceState.size());
 
 		// Allocate space for per-subresource tracking structures
-		assert(SubresourceCount > 0);
+		Assert(SubresourceCount > 0);
 		m_SubresourceState.resize(SubresourceCount);
-		assert(m_SubresourceState.size() == SubresourceCount);
+		Assert(m_SubresourceState.size() == SubresourceCount);
 
 		// All subresources start out in an unknown state
 		SetResourceState(D3D12_RESOURCE_STATE_TBD);
@@ -96,7 +96,7 @@ namespace RenderCore
 		}
 		else
 		{
-			assert(SubresourceIndex < static_cast<uint32_t>(m_SubresourceState.size()));
+			Assert(SubresourceIndex < static_cast<uint32_t>(m_SubresourceState.size()));
 
 			// If state was previously tracked on a per-resource level, then transition to per-subresource tracking
 			if (m_AllSubresourcesSame)
@@ -137,7 +137,7 @@ namespace RenderCore
 		NumBytes -= RoundingIterations;
 
 		size_t* AlignedData = (size_t*)UnalignedData;
-		assert((NumBytes % Alignment) == 0);
+		Assert((NumBytes % Alignment) == 0);
 		const size_t NumIterations = (NumBytes / Alignment);
 		for (size_t i = 0; i < NumIterations; i++)
 		{

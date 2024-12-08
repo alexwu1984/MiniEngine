@@ -3,31 +3,29 @@
 
 namespace RenderCore
 {
-	class D3D12ResourceAllocator : public FD3D12DeviceChild
+	class FD3D12ResourceAllocator : public FD3D12DeviceChild
 	{
 	public:
+		FD3D12ResourceAllocator(std::weak_ptr<FD3D12Device> ParentDevice,
+			D3D12_DESCRIPTOR_HEAP_TYPE Type);
 
-		D3D12ResourceAllocator(std::weak_ptr<FD3D12Device> ParentDevice,
-			const std::wstring& Name,
-			D3D12_HEAP_TYPE InHeapType,
-			D3D12_RESOURCE_FLAGS Flags,
-			uint32_t MaxSizeForPooling);
+		~FD3D12ResourceAllocator() = default;
 
-		~D3D12ResourceAllocator() = default;
+		D3D12_CPU_DESCRIPTOR_HANDLE Allocate(uint32_t Count);
+		uint32_t GetDescriptorSize() const { return DescriptorSize; }
 
-		// Any allocation larger than this just gets straight up allocated (i.e. not pooled).
-		// These large allocations should be infrequent so the CPU overhead should be minimal
-		const uint32_t MaximumAllocationSizeForPooling;
-		D3D12_RESOURCE_FLAGS ResourceFlags;
+		static void DestroyAll();
 
 	protected:
+		static const uint32_t sm_NumDescriptorsPerHeap = 256;
+		static std::vector<win32::com_ptr<ID3D12DescriptorHeap> > sm_DescriptorPool;
+		static ID3D12DescriptorHeap* RequestNewHeap(std::shared_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE Type);
 
-		const std::wstring DebugName;
-
-		bool Initialized;
-
-		const D3D12_HEAP_TYPE HeapType;
-
-		std::recursive_mutex CS;
+	protected:
+		D3D12_DESCRIPTOR_HEAP_TYPE HeapType;
+		ID3D12DescriptorHeap* CurrentHeap;
+		D3D12_CPU_DESCRIPTOR_HANDLE CurrentCpuAddress;
+		uint32_t DescriptorSize;
+		uint32_t RemainingFreeHandles;
 	};
 }

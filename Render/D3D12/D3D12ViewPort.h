@@ -5,6 +5,8 @@
 
 namespace RenderCore
 {
+	class D3D12Texture2D;
+
 	class D3D12ViewPort : public RHIViewPort, public FD3D12AdapterChild
 	{
 	public:
@@ -14,6 +16,9 @@ namespace RenderCore
 		void Init();
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
 		core::vec2u GetSize() const override;
+		void Clear(const core::FLinearColor& Color) override;
+		void SetRenderTarget() override;
+		void Present() override;
 	private:
 		// Determine how deep the swapchain should be (based on AFR or not)
 		void CalculateSwapChainDepth(int32_t DefaultSwapChainDepth);
@@ -36,7 +41,7 @@ namespace RenderCore
 		FD3D12Fence Fence;
 		uint64_t LastSignaledValue;
 		int32_t NumBackBuffers;
-
-		//std::vector<TRefCountPtr<FD3D12Texture2D>> BackBuffers;
+		uint32_t FrameIndex;
+		std::vector<std::shared_ptr<D3D12Texture2D>> BackBuffers;
 	};
 }

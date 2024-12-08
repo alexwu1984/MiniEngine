@@ -214,11 +214,11 @@ namespace RenderCore
 			class FCommandListResourceState
 			{
 			private:
-				std::map<D3D12Resource*, CResourceState> ResourceStates;
-				void inline ConditionalInitalize(D3D12Resource* pResource, CResourceState& ResourceState);
+				std::map<FD3D12Resource*, CResourceState> ResourceStates;
+				void inline ConditionalInitalize(FD3D12Resource* pResource, CResourceState& ResourceState);
 
 			public:
-				CResourceState& GetResourceState(D3D12Resource* pResource);
+				CResourceState& GetResourceState(FD3D12Resource* pResource);
 
 				// Empty the command list's resource state map after the command list is executed
 				void Empty();
@@ -425,13 +425,13 @@ namespace RenderCore
 
 		// Get the state of a resource on this command lists.
 // This is only used for resources that require state tracking.
-		CResourceState& GetResourceState(D3D12Resource* pResource)
+		CResourceState& GetResourceState(FD3D12Resource* pResource)
 		{
 			assert(CommandListData);
 			return CommandListData->TrackedResourceState.GetResourceState(pResource);
 		}
 
-		void AddPendingResourceBarrier(D3D12Resource* Resource, D3D12_RESOURCE_STATES State, uint32_t SubResource)
+		void AddPendingResourceBarrier(FD3D12Resource* Resource, D3D12_RESOURCE_STATES State, uint32_t SubResource)
 		{
 			assert(CommandListData);
 
@@ -469,12 +469,12 @@ namespace RenderCore
 		}
 
 		// Adds a transition barrier to the barrier batch
-		void AddTransitionBarrier(D3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource);
+		void AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource);
 
 		// Adds a UAV barrier to the barrier batch
 		void AddUAVBarrier();
 
-		void AddAliasingBarrier(D3D12Resource* pResource);
+		void AddAliasingBarrier(FD3D12Resource* pResource);
 
 		// Flushes the batched resource barriers to the current command list
 		void FlushResourceBarriers()

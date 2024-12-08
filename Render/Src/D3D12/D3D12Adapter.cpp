@@ -237,11 +237,11 @@ namespace RenderCore
 		return d->StagingFence.get();
 	}
 
-	FD3D12Device* FD3D12Adapter::GetDevice(uint32_t GPUIndex)
+	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice(uint32_t GPUIndex)
 	{
 		C_P(FD3D12Adapter);
 		Assert(GPUIndex < MAX_NUM_GPUS);
-		return d->Devices[GPUIndex].get();
+		return d->Devices[GPUIndex];
 	}
 
 	std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI()
@@ -391,25 +391,25 @@ namespace RenderCore
 
 	HRESULT FD3D12Adapter::CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, 
 												  const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, 
-												  D3D12Resource** ppOutResource, const wchar_t* Name)
+												  FD3D12Resource** ppOutResource, const wchar_t* Name)
 	{
 		return E_FAIL;
 	}
 
-	HRESULT FD3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, uint64_t HeapSize, D3D12Resource** ppOutResource, 
+	HRESULT FD3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, uint64_t HeapSize, FD3D12Resource** ppOutResource, 
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
 		return E_FAIL;
 	}
 
 	HRESULT FD3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, D3D12_RESOURCE_STATES InitialState, uint64_t HeapSize, 
-									   D3D12Resource** ppOutResource, const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
+									   FD3D12Resource** ppOutResource, const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
 		return E_FAIL;
 	}
 
 	HRESULT FD3D12Adapter::CreateBuffer(const D3D12_HEAP_PROPERTIES& HeapProps, D3D12_RESOURCE_STATES InitialState, 
-								       uint64_t HeapSize, D3D12Resource** ppOutResource, 
+								       uint64_t HeapSize, FD3D12Resource** ppOutResource, 
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
 		return E_FAIL;
@@ -620,6 +620,7 @@ namespace RenderCore
 	void FD3D12Adapter::Cleanup()
 	{
 		C_P(FD3D12Adapter);
+	
 		constexpr int32_t GPUIndex = 0;
 		if (d->Devices[GPUIndex])
 		{
@@ -627,6 +628,8 @@ namespace RenderCore
 			d->Devices[GPUIndex].reset();
 		}
 
+		d->FenceCorePool->Destroy();
+		
 	}
 
 }

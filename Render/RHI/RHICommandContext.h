@@ -34,6 +34,7 @@ namespace RenderCore
 		virtual void Clear(std::shared_ptr< RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
 		virtual void Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
 		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) = 0;
+		virtual void RHIBeing() {};
 		virtual void RHIEndDrawing() = 0;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) = 0;
@@ -58,5 +59,6 @@ namespace RenderCore
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) = 0;
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool,std::shared_ptr< RHITexture2D> TexRHI) = 0;
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) = 0;
+		virtual uint64_t Finish(bool WaitForCompletion = false) { return 0; }
 	};
 }

@@ -2,25 +2,12 @@
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12Texture2D.h"
+#include "D3D12/D3D12CommandContext.h"
 
 namespace RenderCore
 {
 	static const uint32_t WindowsDefaultNumBackBuffers = 3;
-
-	static DXGI_FORMAT GetRenderTargetFormat(EPixelFormat PixelFormat)
-	{
-		DXGI_FORMAT	DXFormat = (DXGI_FORMAT)GPixelFormats[PixelFormat].PlatformFormat;
-		switch (DXFormat)
-		{
-		case DXGI_FORMAT_B8G8R8A8_TYPELESS:		return DXGI_FORMAT_B8G8R8A8_UNORM;
-		case DXGI_FORMAT_BC1_TYPELESS:			return DXGI_FORMAT_BC1_UNORM;
-		case DXGI_FORMAT_BC2_TYPELESS:			return DXGI_FORMAT_BC2_UNORM;
-		case DXGI_FORMAT_BC3_TYPELESS:			return DXGI_FORMAT_BC3_UNORM;
-		case DXGI_FORMAT_R16_TYPELESS:			return DXGI_FORMAT_R16_UNORM;
-		case DXGI_FORMAT_R8G8B8A8_TYPELESS:		return DXGI_FORMAT_R8G8B8A8_UNORM;
-		default: 								return DXFormat;
-		}
-	}
 
 	D3D12ViewPort::D3D12ViewPort(std::weak_ptr<FD3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
 		:FD3D12AdapterChild(InAdpater),
@@ -29,14 +16,17 @@ namespace RenderCore
 		SizeY(InSizeY),
 		bAllowTearing(false),
 		NumBackBuffers(0),
-		Fence(InAdpater)
+		Fence(InAdpater),
+		bIsFullscreen(false),
+		PixelFormat(PF_B8G8R8A8),
+		FrameIndex(0)
 	{
 		Init();
 	}
 
 	D3D12ViewPort::~D3D12ViewPort()
 	{
-
+		BackBuffers.clear();
 	}
 
 	void D3D12ViewPort::Init()
@@ -93,7 +83,8 @@ namespace RenderCore
 				ID3D12CommandQueue* pCommandQueue = Adapter->GetDevice(0)->GetD3DCommandQueue();
 
 				win32::com_ptr<IDXGISwapChain> SwapChain;
-				VERIFYD3DRESULT(Adapter->GetDXGIFactory2()->CreateSwapChain(pCommandQueue, &SwapChainDesc, SwapChain.get_init_ref()));
+				HRESULT hrCreate = Adapter->GetDXGIFactory2()->CreateSwapChain(pCommandQueue, &SwapChainDesc, SwapChain.get_init_ref());
+				VERIFYD3DRESULT(hrCreate);
 				VERIFYD3DRESULT(SwapChain->QueryInterface(IID_PPV_ARGS(SwapChain1.get_init_ref())));
 
 				// Get a SwapChain4 if supported.
@@ -110,6 +101,15 @@ namespace RenderCore
 		// Tell the window to redraw when they can.
 		// @todo: For Slate viewports, it doesn't make sense to post WM_PAINT messages (we swallow those.)
 		::PostMessage(WindowHandle, WM_PAINT, 0, 0);
+
+		for (int i = 0; i < NumBackBuffers; ++i)
+		{
+			win32::com_ptr<ID3D12Resource> BackBufferrRes;
+			VERIFYD3DRESULT(SwapChain4->GetBuffer(i, IID_PPV_ARGS(BackBufferrRes.get_init_ref())));
+			std::shared_ptr<D3D12Texture2D> BackBufTex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter()->GetDevice(0));
+			BackBufTex2D->CreateFromSwapChain(L"BackBuffer", BackBufferrRes.get());
+			BackBuffers.emplace_back(BackBufTex2D);
+		}
 	}
 
 	void D3D12ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
@@ -122,9 +122,33 @@ namespace RenderCore
 		return core::vec2u( SizeX,SizeY );
 	}
 
+	void D3D12ViewPort::Clear(const core::FLinearColor& Color)
+	{
+		Assert(GetParentAdapter()->GetDevice(0).get());
+		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
+		GetParentAdapter()->GetDevice(0)->GetDefaultCommandContext()->Clear(BackBufTex2D, nullptr, Color);
+
+	}
+
+	void D3D12ViewPort::SetRenderTarget()
+	{
+		Assert(GetParentAdapter()->GetDevice(0).get());
+		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
+		GetParentAdapter()->GetDevice(0)->GetDefaultCommandContext()->SetRenderTarget(BackBufTex2D, {});
+	}
+
+	void D3D12ViewPort::Present()
+	{
+		if (!SwapChain4)
+			return;
+		SwapChain4->Present(1, 0);
+		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+	}
+
 	void D3D12ViewPort::CalculateSwapChainDepth(int32_t DefaultSwapChainDepth)
 	{
 		NumBackBuffers = DefaultSwapChainDepth;
+
 	}
 
 	DXGI_MODE_DESC D3D12ViewPort::SetupDXGI_MODE_DESC() const

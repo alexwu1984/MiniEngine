@@ -55,7 +55,8 @@ namespace win32
 
         explicit com_ptr(UT * ptr) :_ptr(ptr)
         {
-            
+            if (_ptr)
+                _ptr->AddRef();
         }
         ~com_ptr()
         {

@@ -5,11 +5,11 @@
 
 namespace RenderCore
 {
-	class D3D12Resource;
+	class FD3D12Resource;
 	class D3D12PendingResourceBarrier
 	{
 	public:
-		D3D12Resource*			Resource;
+		FD3D12Resource*			Resource;
 		D3D12_RESOURCE_STATES	State;
 		uint32_t                SubResource;
 	};
@@ -50,7 +50,7 @@ namespace RenderCore
 		mutable std::atomic_int32_t NumRefs;
 	};
 
-	class D3D12Resource : public D3D12RefCount, public FD3D12DeviceChild
+	class FD3D12Resource : public D3D12RefCount,public FD3D12DeviceChild
 	{
 	private:
 		win32::com_ptr<ID3D12Resource> Resource;
@@ -72,13 +72,13 @@ namespace RenderCore
 		std::wstring DebugName;
 
 	public:
-		explicit D3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice,
+		explicit FD3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice,
 			ID3D12Resource* InResource,
 			D3D12_RESOURCE_STATES InitialState,
 			D3D12_RESOURCE_DESC const& InDesc,
 			D3D12_HEAP_TYPE InHeapType = D3D12_HEAP_TYPE_DEFAULT);
 
-		virtual ~D3D12Resource();
+		virtual ~FD3D12Resource();
 
 		operator ID3D12Resource& () { return *Resource.get(); }
 		ID3D12Resource* GetResource() const { return Resource.get(); }

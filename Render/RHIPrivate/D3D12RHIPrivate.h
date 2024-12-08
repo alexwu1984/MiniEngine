@@ -5,6 +5,7 @@
 #include <dxgi1_4.h>
 #include <dxgi1_5.h>
 #include <delayimp.h>
+#include "RHI/RHIDefinitions.h"
 
 namespace RenderCore
 {
@@ -130,6 +131,21 @@ namespace RenderCore
 			return DXGI_FORMAT_R16_TYPELESS;
 		};
 		return InFormat;
+	}
+
+	inline DXGI_FORMAT GetRenderTargetFormat(EPixelFormat PixelFormat)
+	{
+		DXGI_FORMAT	DXFormat = (DXGI_FORMAT)GPixelFormats[PixelFormat].PlatformFormat;
+		switch (DXFormat)
+		{
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case DXGI_FORMAT_BC1_TYPELESS:			return DXGI_FORMAT_BC1_UNORM;
+		case DXGI_FORMAT_BC2_TYPELESS:			return DXGI_FORMAT_BC2_UNORM;
+		case DXGI_FORMAT_BC3_TYPELESS:			return DXGI_FORMAT_BC3_UNORM;
+		case DXGI_FORMAT_R16_TYPELESS:			return DXGI_FORMAT_R16_UNORM;
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS:		return DXGI_FORMAT_R8G8B8A8_UNORM;
+		default: 								return DXFormat;
+		}
 	}
 
 	inline uint8_t GetPlaneCount(DXGI_FORMAT Format)

@@ -33,7 +33,10 @@ namespace RenderCore
 		, bShouldTrackStartEndTime(false)
 
 	{
-
+		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommandList(0, CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.get_init_ref())));
+		CommandList->QueryInterface(IID_PPV_ARGS(CommandList1.get_init_ref()));
+		Close();
+		PendingResourceBarriers.reserve(256);
 	}
 
 	void D3D12CommandListHandle::D3D12CommandListData::Close()
@@ -86,7 +89,7 @@ namespace RenderCore
 		CommandListData->CommandListManager->ExecuteCommandList(*this, WaitForCompletion);
 	}
 
-	void D3D12CommandListHandle::AddTransitionBarrier(D3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)
+	void D3D12CommandListHandle::AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)
 	{
 		assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddTransition(pResource->GetResource(), Before, After, Subresource);
@@ -100,14 +103,14 @@ namespace RenderCore
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
-	void D3D12CommandListHandle::AddAliasingBarrier(D3D12Resource* pResource)
+	void D3D12CommandListHandle::AddAliasingBarrier(FD3D12Resource* pResource)
 	{
 		assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddAliasingBarrier(pResource->GetResource());
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
-	void inline D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::ConditionalInitalize(D3D12Resource* pResource, CResourceState& ResourceState)
+	void inline D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::ConditionalInitalize(FD3D12Resource* pResource, CResourceState& ResourceState)
 	{
 		// If there is no entry, all subresources should be in the resource's TBD state.
 		// This means we need to have pending resource barrier(s).
@@ -120,7 +123,7 @@ namespace RenderCore
 		assert(ResourceState.CheckResourceStateInitalized());
 	}
 
-	CResourceState& D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::GetResourceState(D3D12Resource* pResource)
+	CResourceState& D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::GetResourceState(FD3D12Resource* pResource)
 	{
 		// Only certain resources should use this
 		assert(pResource->RequiresResourceStateTracking());

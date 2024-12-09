@@ -126,7 +126,6 @@ namespace RenderCore
 	{
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->Clear(BackBufTex2D, nullptr, Color);
-
 	}
 
 	void D3D12ViewPort::SetRenderTarget()

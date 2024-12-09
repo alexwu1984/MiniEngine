@@ -54,7 +54,7 @@ namespace RenderCore
 			auto RenderTargetRHI = RHIResourceCast(Target.get());
 			if (RenderTargetRHI && RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			{
-				TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+				TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
 				D3D12TargetViews.emplace_back(RenderTargetRHI->GetRTV());
 			}
 		}
@@ -62,10 +62,11 @@ namespace RenderCore
 		if (DepthRHI)
 		{
 			DSV = DepthRHI->GetRTV();
-			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
 		}
-		if (D3D12TargetViews.empty())
+		if (D3D12TargetViews.empty() && DSV.ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			return;
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
 	}
 
@@ -81,10 +82,16 @@ namespace RenderCore
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto TexRHI = RHIResourceCast(RenderTarget.get());
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
-		if(RenderTarget)
+		if (RenderTarget)
+		{
+			TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
 			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TexRHI->GetRTV(), &Color.R, 0, nullptr);
-		if(DepthRHI)
-			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetRTV(), D3D12_CLEAR_FLAG_DEPTH,Depth,Stencil,0,nullptr);
+		}
+		if (DepthRHI)
+		{
+			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetRTV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+		}
 	}
 
 	void D3D12CommandContext::RHIBeing()

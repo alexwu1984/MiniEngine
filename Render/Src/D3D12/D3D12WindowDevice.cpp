@@ -109,17 +109,4 @@ namespace RenderCore
 		return DescriptorAllocator[Type]->GetDescriptorSize();
 	}
 
-	void FD3D12Device::BlockUntilIdle()
-	{
-		//GetDefaultCommandContext().FlushCommands();
-
-		//if (GEnableAsyncCompute)
-		//{
-		//	GetDefaultAsyncComputeContext().FlushCommands();
-		//}
-
-		GetCommandListManager().WaitForCommandQueueFlush();
-		GetAsyncCommandListManager().WaitForCommandQueueFlush();
-	}
-
 }

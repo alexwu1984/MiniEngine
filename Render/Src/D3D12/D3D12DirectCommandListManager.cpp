@@ -177,7 +177,7 @@ namespace RenderCore
 
 				// Wait for the event to complete (the event is automatically reset afterwards)
 				const uint32_t WaitResult = WaitForSingleObject(FenceCore->GetCompletionEvent(), INFINITE);
-				assert(0 == WaitResult);
+				Assert(0 == WaitResult);
 			}
 
 			// Refresh the completed fence value
@@ -326,8 +326,8 @@ namespace RenderCore
 		CommandListFence = std::make_shared<FD3D12Fence>(Adapter, L"Command List Fence");
 		CommandListFence->CreateFence();
 
-		assert(D3DCommandQueue.get() == nullptr);
-		assert(ReadyLists.IsEmpty());
+		Assert(D3DCommandQueue.get() == nullptr);
+		Assert(ReadyLists.IsEmpty());
 		//checkf(NumCommandLists <= 0xffff, TEXT("Exceeded maximum supported command lists"));
 
 		D3D12_COMMAND_QUEUE_DESC CommandQueueDesc = {};
@@ -378,15 +378,15 @@ namespace RenderCore
 			List = CreateCommandListHandle(CommandAllocator);
 		}
 
-		assert(List.GetCommandListType() == CommandListType);
+		Assert(List.GetCommandListType() == CommandListType);
 		List.Reset(CommandAllocator);
 		return List;
 	}
 
 	void FD3D12CommandListManager::ReleaseCommandList(D3D12CommandListHandle& hList)
 	{
-		assert(hList.IsClosed());
-		assert(hList.GetCommandListType() == CommandListType);
+		Assert(hList.IsClosed());
+		Assert(hList.GetCommandListType() == CommandListType);
 
 		// Indicate that a command list using this allocator has either been executed or discarded.
 		hList.CurrentCommandAllocator()->DecrementPendingCommandLists();
@@ -404,7 +404,7 @@ namespace RenderCore
 
 	void FD3D12CommandListManager::ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, bool WaitForCompletion /*= false*/)
 	{
-		assert(CommandListFence);
+		Assert(CommandListFence.get());
 
 		bool NeedsResourceBarriers = false;
 		for (int32_t i = 0; i < Lists.size(); i++)
@@ -434,7 +434,7 @@ namespace RenderCore
 		FD3D12CommandListPayload CurrentCommandListPayload;
 		FD3D12CommandListPayload ComputeBarrierPayload;
 
-		assert(Lists.size() <= FD3D12CommandListPayload::MaxCommandListsPerPayload);
+		Assert(Lists.size() <= FD3D12CommandListPayload::MaxCommandListsPerPayload);
 		D3D12CommandListHandle BarrierCommandList[128];
 		if (NeedsResourceBarriers)
 		{
@@ -516,7 +516,7 @@ namespace RenderCore
 		if (WaitForCompletion)
 		{
 			CommandListFence->WaitForFence(SignaledFenceValue);
-			assert(SyncPoint.IsComplete());
+			Assert(SyncPoint.IsComplete());
 		}
 	}
 
@@ -539,7 +539,7 @@ namespace RenderCore
 				const D3D12PendingResourceBarrier& PRB = PendingResourceBarriers[i];
 
 				// Should only be doing this for the few resources that need state tracking
-				assert(PRB.Resource->RequiresResourceStateTracking());
+				Assert(PRB.Resource->RequiresResourceStateTracking());
 
 				CResourceState& ResourceState = PRB.Resource->GetResourceState();
 
@@ -547,7 +547,7 @@ namespace RenderCore
 				const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(Desc.Transition.Subresource);
 				const D3D12_RESOURCE_STATES After = PRB.State;
 
-				assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
+				Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
 				if (Before != After)
 				{
 					Desc.Transition.pResource = PRB.Resource->GetResource();
@@ -618,7 +618,7 @@ namespace RenderCore
 	{
 		if (D3DCommandQueue)
 		{
-			assert(CommandListFence);
+			Assert(CommandListFence.get());
 			const uint64_t SignaledFence = CommandListFence->Signal(QueueType);
 			CommandListFence->WaitForFence(SignaledFence);
 		}

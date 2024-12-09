@@ -72,12 +72,7 @@ namespace RenderCore
 		IDXGIFactory* GetDXGIFactory() const;
 		IDXGIFactory2* GetDXGIFactory2() const;
 
-		ID3D12CommandSignature* GetDrawIndirectCommandSignature();
-		ID3D12CommandSignature* GetDrawIndexedIndirectCommandSignature();
-		ID3D12CommandSignature* GetDispatchIndirectCommandSignature();
-
 		std::shared_ptr<FRootSignature> GetRootSignature() const;
-		void EndFrame();
 
 		// Resource Creation
 		HRESULT CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc,
@@ -107,7 +102,6 @@ namespace RenderCore
 			const wchar_t* Name,
 			D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
 
-		void BlockUntilIdle();
 		void Cleanup();
 	protected:
 		// Creates default root and execute indirect signatures

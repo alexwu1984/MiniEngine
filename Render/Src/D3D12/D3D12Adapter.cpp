@@ -27,10 +27,6 @@ namespace RenderCore
 		std::shared_ptr<FD3D12ManualFence> FrameFence;
 		std::shared_ptr<FD3D12Fence> StagingFence;
 
-		win32::com_ptr<ID3D12CommandSignature> DrawIndirectCommandSignature;
-		win32::com_ptr<ID3D12CommandSignature> DrawIndexedIndirectCommandSignature;
-		win32::com_ptr<ID3D12CommandSignature> DispatchIndirectCommandSignature;
-
 		FD3D12AdapterDesc Desc;
 		bool bDeviceRemoved = false;
 		bool bDepthBoundsTestSupported = false;
@@ -279,42 +275,6 @@ namespace RenderCore
 	{
 		C_P(FD3D12Adapter);
 		ID3D12Device* Device = GetD3DDevice();
-
-		D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
-		commandSignatureDesc.NumArgumentDescs = 1;
-		commandSignatureDesc.ByteStride = 20;
-		commandSignatureDesc.NodeMask = 1;
-
-		D3D12_INDIRECT_ARGUMENT_DESC indirectParameterDesc[1] = {};
-		commandSignatureDesc.pArgumentDescs = indirectParameterDesc;
-
-		indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
-		commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS);
-		HRESULT hr = Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(d->DrawIndirectCommandSignature.get_init_ref()));
-		if (FAILED(hr))
-		{
-			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
-			return;
-		}
-
-		indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-		commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-		hr = Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(d->DrawIndexedIndirectCommandSignature.get_init_ref()));
-		if (FAILED(hr))
-		{
-			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
-			return;
-		}
-
-		indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
-		commandSignatureDesc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
-		hr = Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(d->DispatchIndirectCommandSignature.get_init_ref()));
-		if (FAILED(hr))
-		{
-			core::logger::err() << __FUNCTION__" CreateCommandSignature failed:" << std::hex << hr;
-			return;
-		}
-
 		d->RootSignature = std::make_shared<FRootSignature>(d->Devices[0], 0, 0);
 	}
 
@@ -360,34 +320,12 @@ namespace RenderCore
 		return d->DxgiFactory2.get();
 	}
 
-	ID3D12CommandSignature* FD3D12Adapter::GetDrawIndirectCommandSignature()
-	{
-		C_P(const FD3D12Adapter);
-		return d->DispatchIndirectCommandSignature.get();
-	}
-
-	ID3D12CommandSignature* FD3D12Adapter::GetDrawIndexedIndirectCommandSignature()
-	{
-		C_P(const FD3D12Adapter);
-		return d->DrawIndexedIndirectCommandSignature.get();
-	}
-
-	ID3D12CommandSignature* FD3D12Adapter::GetDispatchIndirectCommandSignature()
-	{
-		C_P(const FD3D12Adapter);
-		return d->DispatchIndirectCommandSignature.get();
-	}
-
 	std::shared_ptr<FRootSignature> FD3D12Adapter::GetRootSignature() const
 	{
 		C_P(const FD3D12Adapter);
 		return d->RootSignature;
 	}
 
-	void FD3D12Adapter::EndFrame()
-	{
-		//GetUploadHeapAllocator(0).CleanUpAllocations();
-	}
 
 	HRESULT FD3D12Adapter::CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, 
 												  const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, 
@@ -413,13 +351,6 @@ namespace RenderCore
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
 		return E_FAIL;
-	}
-
-	void FD3D12Adapter::BlockUntilIdle()
-	{
-		C_P(FD3D12Adapter);
-		constexpr uint32_t GPUIndex = 0;
-		d->Devices[GPUIndex]->BlockUntilIdle();
 	}
 
 	bool FD3D12Adapter::CreateRootDevice(bool bWithDebug)

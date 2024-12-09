@@ -321,7 +321,7 @@ namespace RenderCore
 	{
 		if (D3D12Adapter)
 		{
-			D3D12Adapter->BlockUntilIdle();
+			//D3D12Adapter->BlockUntilIdle();
 			D3D12Adapter->Cleanup();
 		}
 	}

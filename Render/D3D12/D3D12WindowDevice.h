@@ -35,9 +35,7 @@ namespace RenderCore
 		D3D12CommandContext& GetDefaultAsyncComputeContext() const { return *AsyncComputeContext; }
 
 		D3D12_CPU_DESCRIPTOR_HANDLE AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
-		uint32_t GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type);
-
-		void BlockUntilIdle();
+		uint32_t GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type);;
 
 	private:
 		void CreateCommandContexts();

@@ -25,14 +25,14 @@ namespace RenderCore
 		{
 			// If this fires an object was likely created with a default constructor i.e in an STL container
 			// and is therefore an orphan
-			assert(!ParentAdapter.expired());
+			Assert(!ParentAdapter.expired());
 			return ParentAdapter.lock();
 		}
 
 		// To be used with delayed setup
 		inline void SetParentAdapter(std::weak_ptr<FD3D12Adapter> InParent)
 		{
-			assert(ParentAdapter.expired());
+			Assert(ParentAdapter.expired());
 			ParentAdapter = InParent;
 		}
 	};
@@ -50,14 +50,14 @@ namespace RenderCore
 		{
 			// If this fires an object was likely created with a default constructor i.e in an STL container
 			// and is therefore an orphan
-			assert(!Parent.expired());
+			Assert(!Parent.expired());
 			return Parent.lock();
 		}
 
 		// To be used with delayed setup
 		inline void SetParentDevice(std::weak_ptr<FD3D12Device> InParent)
 		{
-			assert(Parent.expired());
+			Assert(Parent.expired());
 			Parent = InParent;
 		}
 	};

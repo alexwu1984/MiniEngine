@@ -124,23 +124,24 @@ namespace RenderCore
 
 	void D3D12ViewPort::Clear(const core::FLinearColor& Color)
 	{
-		Assert(GetParentAdapter()->GetDevice(0).get());
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
-		GetParentAdapter()->GetDevice(0)->GetDefaultCommandContext()->Clear(BackBufTex2D, nullptr, Color);
+		GetDefaultCommandContext()->Clear(BackBufTex2D, nullptr, Color);
 
 	}
 
 	void D3D12ViewPort::SetRenderTarget()
 	{
-		Assert(GetParentAdapter()->GetDevice(0).get());
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
-		GetParentAdapter()->GetDevice(0)->GetDefaultCommandContext()->SetRenderTarget(BackBufTex2D, {});
+		GetDefaultCommandContext()->SetRenderTarget(BackBufTex2D, {});
 	}
 
 	void D3D12ViewPort::Present()
 	{
 		if (!SwapChain4)
 			return;
+		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
+		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
+		GetDefaultCommandContext()->FlushCommands(true);
 		SwapChain4->Present(1, 0);
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 	}
@@ -148,7 +149,6 @@ namespace RenderCore
 	void D3D12ViewPort::CalculateSwapChainDepth(int32_t DefaultSwapChainDepth)
 	{
 		NumBackBuffers = DefaultSwapChainDepth;
-
 	}
 
 	DXGI_MODE_DESC D3D12ViewPort::SetupDXGI_MODE_DESC() const
@@ -164,6 +164,12 @@ namespace RenderCore
 		Ret.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
 		return Ret;
+	}
+
+	std::shared_ptr<RenderCore::D3D12CommandContext> D3D12ViewPort::GetDefaultCommandContext()
+	{
+		Assert(GetParentAdapter()->GetDevice(0).get());
+		return GetParentAdapter()->GetDevice(0)->GetDefaultCommandContext();
 	}
 
 }

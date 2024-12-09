@@ -57,7 +57,7 @@ namespace RenderCore
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) {};
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) { return false; };
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data) {};
-		uint64_t Finish(bool WaitForCompletion = false) override;
+		D3D12CommandListHandle FlushCommands(bool WaitForCompletion = false);
 
 		uint32_t numDraws = 0;
 		uint32_t numDispatches = 0;

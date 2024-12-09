@@ -183,8 +183,8 @@ namespace Engine
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
-			d->MainViewPort->Clear(core::FLinearColor::Blue);
 			d->MainViewPort->SetRenderTarget();
+			d->MainViewPort->Clear(core::FLinearColor::Blue);
 			d->MainViewPort->Prepare();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
@@ -193,7 +193,6 @@ namespace Engine
 			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),d->TargetBuffer->GetEmissiveBuffer() };
 			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-			RHI->GetDefaultCommandContext()->Finish();
 			});
 
 		if (d->SimplePostProc)
@@ -245,7 +244,6 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
 			sigGuiEvent();
-			RHI->GetDefaultCommandContext()->Finish(true);
 			d->MainViewPort->Present();
 		});
 

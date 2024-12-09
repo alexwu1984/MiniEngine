@@ -85,7 +85,7 @@ namespace RenderCore
 
 		inline void* Map(const D3D12_RANGE* ReadRange = nullptr)
 		{
-			assert(Resource);
+			Assert(Resource);
 			VERIFYD3DRESULT(Resource->Map(0, ReadRange, &ResourceBaseAddress));
 
 			return ResourceBaseAddress;
@@ -93,8 +93,8 @@ namespace RenderCore
 
 		inline void Unmap()
 		{
-			assert(Resource);
-			assert(ResourceBaseAddress);
+			Assert(Resource);
+			Assert(ResourceBaseAddress);
 			Resource->Unmap(0, nullptr);
 
 			ResourceBaseAddress = nullptr;
@@ -103,19 +103,19 @@ namespace RenderCore
 		D3D12_RESOURCE_DESC const& GetDesc() const { return Desc; }
 		D3D12_HEAP_TYPE GetHeapType() const { return HeapType; }
 		D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const { return GPUVirtualAddress; }
-		void* GetResourceBaseAddress() const { assert(ResourceBaseAddress); return ResourceBaseAddress; }
+		void* GetResourceBaseAddress() const { Assert(ResourceBaseAddress); return ResourceBaseAddress; }
 		uint16_t GetMipLevels() const { return Desc.MipLevels; }
 		uint16_t GetArraySize() const { return (Desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D) ? 1 : Desc.DepthOrArraySize; }
 		uint8_t GetPlaneCount() const { return PlaneCount; }
 		uint16_t GetSubresourceCount() const { return SubresourceCount; }
 		CResourceState& GetResourceState()
 		{
-			assert(bRequiresResourceStateTracking);
+			Assert(bRequiresResourceStateTracking);
 			// This state is used as the resource's "global" state between command lists. It's only needed for resources that
 			// require state tracking.
 			return ResourceState;
 		}
-		D3D12_RESOURCE_STATES GetDefaultResourceState() const { assert(!bRequiresResourceStateTracking); return DefaultResourceState; }
+		D3D12_RESOURCE_STATES GetDefaultResourceState() const { Assert(!bRequiresResourceStateTracking); return DefaultResourceState; }
 		D3D12_RESOURCE_STATES GetWritableState() const { return WritableState; }
 		D3D12_RESOURCE_STATES GetReadableState() const { return ReadableState; }
 		bool RequiresResourceStateTracking() const { return bRequiresResourceStateTracking; }
@@ -239,19 +239,19 @@ namespace RenderCore
 					if (Type.bRTV)
 					{
 						// Note: The resource could also be used as a UAV however we don't store that writable state. UAV's are handled in a separate RHITransitionResources() specially for UAVs so we know the writeable state in that case should be UAV.
-						assert(!Type.bDSV && !Type.bBuffer);
+						Assert(!Type.bDSV && !Type.bBuffer);
 						WritableState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 						ReadableState = Type.bSRV ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_CORRUPT;
 					}
 					else if (Type.bDSV)
 					{
-						assert(!Type.bRTV && !Type.bUAV && !Type.bBuffer);
+						Assert(!Type.bRTV && !Type.bUAV && !Type.bBuffer);
 						WritableState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 						ReadableState = Type.bSRV ? D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_DEPTH_READ;
 					}
 					else
 					{
-						assert(Type.bUAV && !Type.bRTV && !Type.bDSV);
+						Assert(Type.bUAV && !Type.bRTV && !Type.bDSV);
 						WritableState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 						ReadableState = Type.bSRV ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_CORRUPT;
 					}

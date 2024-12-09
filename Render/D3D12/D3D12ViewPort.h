@@ -6,6 +6,7 @@
 namespace RenderCore
 {
 	class D3D12Texture2D;
+	class D3D12CommandContext;
 
 	class D3D12ViewPort : public RHIViewPort, public FD3D12AdapterChild
 	{
@@ -23,6 +24,7 @@ namespace RenderCore
 		// Determine how deep the swapchain should be (based on AFR or not)
 		void CalculateSwapChainDepth(int32_t DefaultSwapChainDepth);
 		DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
+		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext();
 
 	private:
 		HWND WindowHandle;

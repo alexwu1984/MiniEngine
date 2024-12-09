@@ -346,7 +346,7 @@ namespace RenderCore
 		// Add a transition resource barrier to the batch.
 		void AddTransition(ID3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)
 		{
-			assert(Before != After);
+			Assert(Before != After);
 			//Barriers.AddUninitialized();
 			Barriers.push_back({});
 			D3D12_RESOURCE_BARRIER& Barrier = Barriers.back();
@@ -374,7 +374,7 @@ namespace RenderCore
 		{
 			if (Barriers.size())
 			{
-				assert(pCommandList);
+				Assert(pCommandList);
 				pCommandList->ResourceBarrier((UINT)Barriers.size(), Barriers.data());
 				Reset();
 			}

@@ -15,22 +15,22 @@ namespace RenderCore
 		// The command allocator is ready to be reset when all command lists have been executed (or discarded) AND the GPU not using it.
 		inline bool IsReady() const { return (PendingCommandListCount.load() == 0) && SyncPoint.IsComplete(); }
 		inline bool HasValidSyncPoint() const { return SyncPoint.IsValid(); }
-		inline void SetSyncPoint(const D3D12SyncPoint& InSyncPoint) { assert(InSyncPoint.IsValid()); SyncPoint = InSyncPoint; }
-		inline void Reset() { assert(IsReady()); CommandAllocator->Reset(); }
+		inline void SetSyncPoint(const D3D12SyncPoint& InSyncPoint) { Assert(InSyncPoint.IsValid()); SyncPoint = InSyncPoint; }
+		inline void Reset() { Assert(IsReady()); CommandAllocator->Reset(); }
 
 		operator ID3D12CommandAllocator* () { return CommandAllocator.get(); }
 
 		// Called to indicate a command list is using this command alloctor
 		inline void IncrementPendingCommandLists()
 		{
-			assert(PendingCommandListCount.load() >= 0);
+			Assert(PendingCommandListCount.load() >= 0);
 			++PendingCommandListCount;
 		}
 
 		// Called to indicate a command list using this allocator has been executed OR discarded (closed with no intention to execute it).
 		inline void DecrementPendingCommandLists()
 		{
-			assert(PendingCommandListCount.load() > 0);
+			Assert(PendingCommandListCount.load() > 0);
 			--PendingCommandListCount;
 		}
 
@@ -117,7 +117,7 @@ namespace RenderCore
 						while (!ActiveGenerations.empty() && (Generation > LastCompleteGeneration))
 						{
 							GenerationSyncPoint = ActiveGenerations.front();
-							assert(Generation >= GenerationSyncPoint.first);
+							Assert(Generation >= GenerationSyncPoint.first);
 							ActiveGenerations.pop();
 
 							// Unblock other threads while we wait for the command list to complete
@@ -150,7 +150,7 @@ namespace RenderCore
 					// The GPU is done with the work associated with this generation, remove it from the queue.
 					ActiveGenerations.pop();
 
-					assert(GenerationSyncPoint.first > LastCompleteGeneration);
+					Assert(GenerationSyncPoint.first > LastCompleteGeneration);
 					LastCompleteGeneration = GenerationSyncPoint.first;
 				}
 			}
@@ -161,7 +161,7 @@ namespace RenderCore
 					std::unique_lock<std::recursive_mutex> Lock(ActiveGenerationsCS);
 
 					// Only valid sync points should be set otherwise we might not wait on the GPU correctly.
-					assert(SyncPoint.IsValid());
+					Assert(SyncPoint.IsValid());
 
 					// Track when this command list generation is completed on the GPU.
 					GenerationSyncPointPair CurrentGenerationSyncPoint;
@@ -185,14 +185,14 @@ namespace RenderCore
 			uint32_t AddRef() const
 			{
 				int32_t NewValue = ++NumRefs;
-				assert(NewValue > 0);
+				Assert(NewValue > 0);
 				return uint32_t(NewValue);
 			}
 
 			uint32_t Release() const
 			{
 				int32_t NewValue = --NumRefs;
-				assert(NewValue >= 0);
+				Assert(NewValue >= 0);
 				return uint32_t(NewValue);
 			}
 
@@ -333,7 +333,7 @@ namespace RenderCore
 
 		FORCEINLINE ID3D12GraphicsCommandList* operator->() const
 		{
-			assert(CommandListData && !CommandListData->IsClosed);
+			Assert(CommandListData && !CommandListData->IsClosed);
 
 			return CommandListData->CommandList.get();
 		}
@@ -352,25 +352,25 @@ namespace RenderCore
 		// Note: Command lists can be reset immediately after they are submitted for execution.
 		void Reset(D3D12CommandAllocator& CommandAllocator)
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			CommandListData->Reset(CommandAllocator);
 		}
 
 		ID3D12CommandList* CommandList() const
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->CommandList.get();
 		}
 
 		ID3D12GraphicsCommandList* GraphicsCommandList() const
 		{
-			assert(CommandListData && (CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE));
+			Assert(CommandListData && (CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE));
 			return reinterpret_cast<ID3D12GraphicsCommandList*>(CommandListData->CommandList.get());
 		}
 
 		ID3D12GraphicsCommandList1* GraphicsCommandList1() const
 		{
-			assert(CommandListData && (CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE));
+			Assert(CommandListData && (CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE));
 			return CommandListData->CommandList1.get();
 		}
 
@@ -383,25 +383,25 @@ namespace RenderCore
 #endif // D3D12_RHI_RAYTRACING
 		uint64_t CurrentGeneration() const
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->CurrentGeneration;
 		}
 
 		D3D12CommandAllocator* CurrentCommandAllocator()
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->CurrentCommandAllocator;
 		}
 
 		void SetSyncPoint(const D3D12SyncPoint& SyncPoint)
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			CommandListData->SetSyncPoint(SyncPoint);
 		}
 
 		bool IsClosed() const
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->IsClosed;
 		}
 
@@ -419,7 +419,7 @@ namespace RenderCore
 
 		void WaitForCompletion(uint64_t Generation) const
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->WaitForCompletion(Generation);
 		}
 
@@ -427,13 +427,13 @@ namespace RenderCore
 // This is only used for resources that require state tracking.
 		CResourceState& GetResourceState(FD3D12Resource* pResource)
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->TrackedResourceState.GetResourceState(pResource);
 		}
 
 		void AddPendingResourceBarrier(FD3D12Resource* Resource, D3D12_RESOURCE_STATES State, uint32_t SubResource)
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 
 			D3D12PendingResourceBarrier PRB = { Resource, State, SubResource };
 			CommandListData->PendingResourceBarriers.push_back(PRB);
@@ -441,14 +441,14 @@ namespace RenderCore
 
 		std::vector<D3D12PendingResourceBarrier>& PendingResourceBarriers()
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->PendingResourceBarriers;
 		}
 
 		// Empty all the resource states being tracked on this command list
 		void EmptyTrackedResourceState()
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			CommandListData->TrackedResourceState.Empty();
 		}
 
@@ -464,7 +464,7 @@ namespace RenderCore
 
 		D3D12_COMMAND_LIST_TYPE GetCommandListType() const
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			return CommandListData->CommandListType;
 		}
 
@@ -479,7 +479,7 @@ namespace RenderCore
 		// Flushes the batched resource barriers to the current command list
 		void FlushResourceBarriers()
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			CommandListData->FlushResourceBarriers();
 		}
 

@@ -32,12 +32,12 @@ namespace RenderCore
 	{
 		Assert(CommandListHandle.GraphicsCommandList());
 		D3D12_VIEWPORT vp;
-		vp.Width = SizeX;
-		vp.Height = SizeY;
+		vp.Width = (float)SizeX;
+		vp.Height = (float)SizeY;
 		vp.MinDepth = 0;
 		vp.MaxDepth = 1;
-		vp.TopLeftX = TopLeftX;
-		vp.TopLeftY = TopLeftY;
+		vp.TopLeftX = (float)TopLeftX;
+		vp.TopLeftY = (float)TopLeftY;
 		CommandListHandle.GraphicsCommandList()->RSSetViewports(1, &vp);
 
 		CD3DX12_RECT ScissorRect(TopLeftX, TopLeftY, SizeX, SizeY);
@@ -64,6 +64,8 @@ namespace RenderCore
 			DSV = DepthRHI->GetRTV();
 			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
 		}
+		if (D3D12TargetViews.empty())
+			return;
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
 	}
 
@@ -93,10 +95,27 @@ namespace RenderCore
 		
 	}
 
-	uint64_t D3D12CommandContext::Finish(bool WaitForCompletion /*= false*/)
+	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
-		CommandListHandle.Execute(WaitForCompletion);
-		return CommandListHandle.CurrentGeneration();
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		const bool bHasDoneWork = HasDoneWork() ;
+		const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork;
+
+		// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
+		if (bOpenNewCmdList)
+		{
+			// Close the current command list
+			CloseCommandList();
+
+			// Just submit the current command list
+			CommandListHandle.Execute(WaitForCompletion);
+
+			// Get a new command list to replace the one we submitted for execution. 
+			// Restore the state from the previous command list.
+			OpenCommandList();
+		}
+
+		return CommandListHandle;
 	}
 
 	FD3D12CommandListManager& D3D12CommandContext::GetCommandListManager()
@@ -152,12 +171,10 @@ namespace RenderCore
 
 		if (NeedTransition)
 		{
-			CommandListHandle.AddTransitionBarrier(Resource, Resource->GetResourceState().GetSubresourceState(0), NewState,0);
-		}
-
-		if (Flush )
-		{
-			CommandListHandle.FlushResourceBarriers();
+			CommandListHandle.AddTransitionBarrier(Resource, Resource->GetResourceState().GetSubresourceState(0), NewState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+			if (Flush)
+				CommandListHandle.FlushResourceBarriers();
+			Resource->GetResourceState().SetResourceState(NewState);
 		}
 
 	}

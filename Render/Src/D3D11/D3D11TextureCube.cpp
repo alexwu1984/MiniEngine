@@ -24,13 +24,13 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	bool D3D11TextureCube::CreateD3D11TextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
+	bool D3D11TextureCube::CreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
 	{
 		C_P(D3D11TextureCube);
-		bool Ret =  d->Tex2D->CreateD3D11Texture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_GenerateMipCapable, SizeX, SizeY, 6,true, NumMips,nullptr,0);
+		bool Ret =  d->Tex2D->CreateTexture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_GenerateMipCapable, SizeX, SizeY, 6,true, NumMips,nullptr,0);
 		if (CreateDepth)
 		{
-			Ret &= d->DepthTex->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
+			Ret &= d->DepthTex->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
 		}
 		
 		return Ret;

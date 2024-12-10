@@ -54,4 +54,18 @@ namespace RenderCore
 		sm_DescriptorPool.emplace_back(descriptorHeap);
 		return descriptorHeap.get();
 	}
+
+	LinearAllocationPage::LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource, 
+												D3D12_RESOURCE_STATES InitialState, D3D12_RESOURCE_DESC const& InDesc, 
+												D3D12_HEAP_TYPE InHeapType /*= D3D12_HEAP_TYPE_DEFAULT*/)
+		:FD3D12Resource(ParentDevice,InResource,InitialState,InDesc,InHeapType)
+	{
+		Map();
+	}
+
+	LinearAllocationPage::~LinearAllocationPage()
+	{
+		Unmap();
+	}
+
 }

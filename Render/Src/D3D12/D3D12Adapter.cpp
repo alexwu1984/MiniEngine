@@ -25,7 +25,6 @@ namespace RenderCore
 
 		std::shared_ptr<FD3D12FenceCorePool> FenceCorePool;
 		std::shared_ptr<FD3D12ManualFence> FrameFence;
-		std::shared_ptr<FD3D12Fence> StagingFence;
 
 		FD3D12AdapterDesc Desc;
 		bool bDeviceRemoved = false;
@@ -132,47 +131,11 @@ namespace RenderCore
 		d->FrameFence = std::make_shared<FD3D12ManualFence>(this->shared_from_this(), L"Adapter Frame Fence");
 		d->FrameFence->CreateFence();
 
-		d->StagingFence = std::make_shared<FD3D12Fence>(this->shared_from_this(), L"Staging Fence");
-		d->StagingFence->CreateFence();
-
 		constexpr uint32_t GPUIndex = 0;
 		d->Devices[GPUIndex] = make_shared<FD3D12Device>(this->shared_from_this());
 		d->Devices[GPUIndex]->Initialize();
 
 		CreateSignatures();
-
-		//for (uint32 GPUIndex : FRHIGPUMask::All())
-		//{
-		//	// Safe to init as we have a device;
-		//	UploadHeapAllocator[GPUIndex] = new FD3D12DynamicHeapAllocator(this,
-		//		Devices[GPUIndex],
-		//		Name,
-		//		kManualSubAllocationStrategy,
-		//		DEFAULT_CONTEXT_UPLOAD_POOL_MAX_ALLOC_SIZE,
-		//		DEFAULT_CONTEXT_UPLOAD_POOL_SIZE,
-		//		DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT);
-
-		//	UploadHeapAllocator[GPUIndex]->Init();
-		//}
-
-
-		//// ID3D12Device1::CreatePipelineLibrary() requires each blob to be specific to the given adapter. To do this we create a unique file name with from the adpater desc. 
-		//// Note that : "The uniqueness of an LUID is guaranteed only until the system is restarted" according to windows doc and thus can not be reused.
-		//const std::basic_string<TCHAR> UniqueDeviceCachePath = core::formatw(L"V", Desc.Desc.VendorId, L"_D", Desc.Desc.DeviceId, L"_S", Desc.Desc.SubSysId, L"_R", Desc.Desc.Revision);
-
-		////const FString UniqueDeviceCachePath = FString::Printf(TEXT("V%d_D%d_S%d_R%d.ushaderprecache"), Desc.Desc.VendorId, Desc.Desc.DeviceId, Desc.Desc.SubSysId, Desc.Desc.Revision);
-		//const std::wstring GraphicsCacheFile = PIPELINE_STATE_FILE_LOCATION + core::formatw(TEXT("D3DGraphics_"), UniqueDeviceCachePath);
-		//const std::wstring ComputeCacheFile = PIPELINE_STATE_FILE_LOCATION + core::formatw(TEXT("D3DCompute_%s"), UniqueDeviceCachePath);
-		//const std::wstring DriverBlobFilename = PIPELINE_STATE_FILE_LOCATION + core::formatw(TEXT("D3DDriverByteCodeBlob_%s"), UniqueDeviceCachePath);
-
-		//PipelineStateCache.Init(GraphicsCacheFile, ComputeCacheFile, DriverBlobFilename);
-
-		//ID3D12RootSignature* StaticGraphicsRS = (GetStaticGraphicsRootSignature()) ? GetStaticGraphicsRootSignature()->GetRootSignature() : nullptr;
-		//ID3D12RootSignature* StaticComputeRS = (GetStaticComputeRootSignature()) ? GetStaticComputeRootSignature()->GetRootSignature() : nullptr;
-
-		//// #dxr_todo: verify that disk cache works correctly with DXR
-		//PipelineStateCache.RebuildFromDiskCache(StaticGraphicsRS, StaticComputeRS);
-
 	}
 
 	void FD3D12Adapter::InitializeRayTracing()
@@ -225,12 +188,6 @@ namespace RenderCore
 		C_P(FD3D12Adapter);
 		Assert(d->FrameFence.get());
 		return *d->FrameFence;
-	}
-
-	FD3D12Fence* FD3D12Adapter::GetStagingFence()
-	{
-		C_P(FD3D12Adapter);
-		return d->StagingFence.get();
 	}
 
 	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice(uint32_t GPUIndex)
@@ -327,17 +284,39 @@ namespace RenderCore
 	}
 
 
-	HRESULT FD3D12Adapter::CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, 
+	HRESULT FD3D12Adapter::CreateCommittedResource(const D3D12_RESOURCE_DESC& InDesc, const D3D12_HEAP_PROPERTIES& HeapProps,
 												  const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, 
 												  FD3D12Resource** ppOutResource, const wchar_t* Name)
 	{
-		return E_FAIL;
+		C_P(FD3D12Adapter);
+		if (!ppOutResource)
+		{
+			return E_POINTER;
+		}
+
+		//LLM_PLATFORM_SCOPE(ELLMTag::GraphicsPlatform);
+
+		win32::com_ptr<ID3D12Resource> pResource;
+		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));
+
+		if (SUCCEEDED(hr))
+		{
+			// Set a default name (can override later).
+			pResource->SetName(Name);
+			// Set the output pointer
+			*ppOutResource = new FD3D12Resource(GetDevice(0), pResource.get(), InitialUsage, InDesc, HeapProps.Type);
+			(*ppOutResource)->AddRef();
+		}
+
+		return hr;
 	}
 
 	HRESULT FD3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, uint64_t HeapSize, FD3D12Resource** ppOutResource, 
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
-		return E_FAIL;
+		const D3D12_HEAP_PROPERTIES HeapProps = CD3DX12_HEAP_PROPERTIES(HeapType);
+		const D3D12_RESOURCE_STATES InitialState = DetermineInitialResourceState(HeapProps.Type, &HeapProps);
+		return CreateBuffer(HeapProps, InitialState, HeapSize, ppOutResource, Name, Flags);
 	}
 
 	HRESULT FD3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, D3D12_RESOURCE_STATES InitialState, uint64_t HeapSize, 
@@ -350,7 +329,17 @@ namespace RenderCore
 								       uint64_t HeapSize, FD3D12Resource** ppOutResource, 
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{
-		return E_FAIL;
+		if (!ppOutResource)
+		{
+			return E_POINTER;
+		}
+
+		const D3D12_RESOURCE_DESC BufDesc = CD3DX12_RESOURCE_DESC::Buffer(HeapSize, Flags);
+		return CreateCommittedResource(BufDesc,
+			HeapProps,
+			InitialState,
+			nullptr,
+			ppOutResource, Name);
 	}
 
 	bool FD3D12Adapter::CreateRootDevice(bool bWithDebug)
@@ -379,7 +368,6 @@ namespace RenderCore
 				DebugController->EnableDebugLayer();
 
 				bool bD3d12gpuvalidation = false;
-				//if (FParse::Param(FCommandLine::Get(), TEXT("d3d12gpuvalidation")) || FParse::Param(FCommandLine::Get(), TEXT("gpuvalidation")))
 				{
 					win32::com_ptr<ID3D12Debug1> DebugController1;
 					DebugController->QueryInterface(IID_PPV_ARGS(DebugController1.get_init_ref()));
@@ -387,14 +375,11 @@ namespace RenderCore
 						DebugController1->SetEnableGPUBasedValidation(true);
 					bD3d12gpuvalidation = true;
 				}
-
-				//UE_LOG(LogD3D12RHI, Log, TEXT("InitD3DDevice: -D3DDebug = %s -D3D12GPUValidation = %s"), bWithDebug ? TEXT("on") : TEXT("off"), bD3d12gpuvalidation ? TEXT("on") : TEXT("off"));
 			}
-			//else
-			//{
-			//	bWithDebug = false;
-			//	UE_LOG(LogD3D12RHI, Fatal, TEXT("The debug interface requires the D3D12 SDK Layers. Please install the Graphics Tools for Windows. See: https://docs.microsoft.com/en-us/windows/uwp/gaming/use-the-directx-runtime-and-visual-studio-graphics-diagnostic-features"));
-			//}
+			else
+			{
+				bWithDebug = false;
+			}
 		}
 
 		const bool bIsPerfHUD = false;

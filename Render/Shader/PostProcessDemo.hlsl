@@ -81,6 +81,5 @@ float4 transition1(float2 uv)
 
 float4 PS_Transition1(in VertexOutput Input) : SV_Target0
 {
-   // return transition1(Input.Tex).bgra;
-    return FromColor.Sample(LinearSampler, Input.Tex);
+    return transition1(Input.Tex).bgra;
 }

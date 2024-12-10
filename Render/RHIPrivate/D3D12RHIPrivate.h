@@ -6,6 +6,7 @@
 #include <dxgi1_5.h>
 #include <delayimp.h>
 #include "RHI/RHIDefinitions.h"
+#include "D3D12/D3D12RHICommon.h"
 
 namespace RenderCore
 {
@@ -450,5 +451,93 @@ namespace RenderCore
 
 		static void InitShaderRegisterCounts(const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier, const FShaderCodePackedResourceCounts& Counts, FShaderRegisterCounts& Shader, bool bAllowUAVs = false);
 	};
+
+	inline bool IsCPUWritable(D3D12_HEAP_TYPE HeapType, const D3D12_HEAP_PROPERTIES* pCustomHeapProperties = nullptr)
+	{
+		assert(HeapType == D3D12_HEAP_TYPE_CUSTOM ? pCustomHeapProperties != nullptr : true);
+		return HeapType == D3D12_HEAP_TYPE_UPLOAD ||
+			(HeapType == D3D12_HEAP_TYPE_CUSTOM &&
+				(pCustomHeapProperties->CPUPageProperty == D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE || pCustomHeapProperties->CPUPageProperty == D3D12_CPU_PAGE_PROPERTY_WRITE_BACK));
+	}
+
+	inline bool IsCPUInaccessible(D3D12_HEAP_TYPE HeapType, const D3D12_HEAP_PROPERTIES* pCustomHeapProperties = nullptr)
+	{
+		assert(HeapType == D3D12_HEAP_TYPE_CUSTOM ? pCustomHeapProperties != nullptr : true);
+		return HeapType == D3D12_HEAP_TYPE_DEFAULT ||
+			(HeapType == D3D12_HEAP_TYPE_CUSTOM &&
+				(pCustomHeapProperties->CPUPageProperty == D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE));
+	}
+
+	inline D3D12_RESOURCE_STATES DetermineInitialResourceState(D3D12_HEAP_TYPE HeapType, const D3D12_HEAP_PROPERTIES* pCustomHeapProperties = nullptr)
+	{
+		if (HeapType == D3D12_HEAP_TYPE_DEFAULT || IsCPUWritable(HeapType, pCustomHeapProperties))
+		{
+			return D3D12_RESOURCE_STATE_GENERIC_READ;
+		}
+		else
+		{
+			assert(HeapType == D3D12_HEAP_TYPE_READBACK);
+			return D3D12_RESOURCE_STATE_COPY_DEST;
+		}
+	}
+
+	inline D3D12_RESOURCE_FLAGS CombineResourceFlags(int32_t TexFlags)
+	{
+		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE;
+
+		if (TexFlags & TexCreate_DepthStencilTargetable)
+		{
+			Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+		}
+
+		if (TexFlags & TexCreate_UAV)
+		{
+			Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		}
+
+		if (TexFlags & TexCreate_RenderTargetable)
+		{
+			Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+		}			
+
+		return Flags;
+	}
+
+	inline D3D12_RESOURCE_DESC DescribeTex2D(uint32_t Width, uint32_t Height, uint32_t DepthOrArraySize, uint32_t NumMips, DXGI_FORMAT Format, UINT Flags)
+	{
+		D3D12_RESOURCE_DESC Desc = {};
+		Desc.Alignment = 0;
+		Desc.DepthOrArraySize = (UINT16)DepthOrArraySize;
+		Desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		Desc.Flags = (D3D12_RESOURCE_FLAGS)Flags;
+		Desc.Format = Format;
+		Desc.Width = (UINT)Width;
+		Desc.Height = (UINT)Height;
+		Desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		Desc.MipLevels = (UINT16)NumMips;
+		Desc.SampleDesc.Count = 1;
+		Desc.SampleDesc.Quality = 0;
+
+		return Desc;
+	}
+
+	inline uint32_t ComputeNumMips(uint32_t Width, uint32_t Height)
+	{
+		uint32_t HighBit;
+		_BitScanReverse((unsigned long*)&HighBit, Width | Height);
+		return HighBit + 1;
+	}
+
+#define GET_QUEUE_TYPE(f) ((D3D12_COMMAND_LIST_TYPE)(f >> 56))
+
+	inline ED3D12CommandQueueType GetCommandQueueType(D3D12_COMMAND_LIST_TYPE Type /*= D3D12_COMMAND_LIST_TYPE_DIRECT*/)
+	{
+		switch (Type)
+		{
+		case D3D12_COMMAND_LIST_TYPE_COMPUTE: return ED3D12CommandQueueType::Async;
+		case D3D12_COMMAND_LIST_TYPE_COPY: return ED3D12CommandQueueType::Copy;
+		default: return ED3D12CommandQueueType::Default;
+		}
+	}
 
 }

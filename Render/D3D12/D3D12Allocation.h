@@ -3,6 +3,26 @@
 
 namespace RenderCore
 {
+	const static uint32_t DEFAULT_ALIGN = 256;
+	const static uint32_t GpuAllocatorPageSize = 0x10000;	// 64k
+	const static uint32_t CpuAllocatorPageSize = 0x200000;	// 2MB
+
+	enum ELinearAllocatorType
+	{
+		InvalidAllocator = -1,
+		GpuExclusive = 0,
+		CpuWritable = 1,
+		NumAllocatorTypes,
+	};
+
+	struct FAllocation
+	{
+		ID3D12Resource* D3d12Resource;
+		size_t Offset;
+		void* CPU;
+		D3D12_GPU_VIRTUAL_ADDRESS GpuAddress;
+	};
+
 	class FD3D12ResourceAllocator : public FD3D12DeviceChild
 	{
 	public:
@@ -27,5 +47,24 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE CurrentCpuAddress;
 		uint32_t DescriptorSize;
 		uint32_t RemainingFreeHandles;
+	};
+
+	class LinearAllocationPage : public FD3D12Resource
+	{
+		friend class LinearAllocator;
+
+	public:
+		LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice,
+			ID3D12Resource* InResource,
+			D3D12_RESOURCE_STATES InitialState,
+			D3D12_RESOURCE_DESC const& InDesc,
+			D3D12_HEAP_TYPE InHeapType = D3D12_HEAP_TYPE_DEFAULT);
+		~LinearAllocationPage();
+
+		uint64_t GetFenceValue() const { return FenceValue; }
+		void SetFenceValue(uint64_t InFenceValue) { FenceValue = InFenceValue; }
+
+	private:
+		uint64_t FenceValue = 0;
 	};
 }

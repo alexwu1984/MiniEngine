@@ -16,7 +16,7 @@ namespace RenderCore
 		D3D11TextureCube(D3D11DynamicRHI* D3D11RHI);
 		virtual ~D3D11TextureCube();
 
-		virtual bool CreateD3D11TextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips,bool CreateDepth) override;
+		virtual bool CreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips,bool CreateDepth) override;
 		virtual core::vec2i GetSize() const override;
 		virtual uint32_t GetNumMips() const override;
 

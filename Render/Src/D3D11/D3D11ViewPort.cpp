@@ -104,7 +104,7 @@ namespace RenderCore
 		}
 
 		d->DepthSRV = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
-		d->DepthSRV->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable , InSizeX, InSizeY);
+		d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable , InSizeX, InSizeY);
 
 		::ImGui_ImplWin32_Init(InWindowHandle);
 	}
@@ -207,7 +207,7 @@ namespace RenderCore
 			}
 			GetSwapChainSurface();
 			d->DepthSRV = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
-			d->DepthSRV->CreateD3D11Texture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, InSizeX, InSizeY);
+			d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, InSizeX, InSizeY);
 		}
 	}
 

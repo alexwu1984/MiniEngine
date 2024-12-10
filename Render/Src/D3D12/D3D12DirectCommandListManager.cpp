@@ -15,7 +15,7 @@ namespace RenderCore
 
 	void FD3D12CommandListPayload::Append(ID3D12CommandList* CL)
 	{
-		assert(NumCommandLists < FD3D12CommandListPayload::MaxCommandListsPerPayload);
+		Assert(NumCommandLists < FD3D12CommandListPayload::MaxCommandListsPerPayload);
 
 		CommandLists[NumCommandLists] = CL;
 		NumCommandLists++;
@@ -25,12 +25,12 @@ namespace RenderCore
 		:FD3D12AdapterChild(Parent)
 		,GPUIndex(InGPUIndex)
 	{
-		assert(!Parent.expired());
+		Assert(!Parent.expired());
 		hFenceCompleteEvent = CreateEvent(nullptr, false, false, nullptr);
-		assert(INVALID_HANDLE_VALUE != hFenceCompleteEvent);
+		Assert(INVALID_HANDLE_VALUE != hFenceCompleteEvent);
 
 		HRESULT hr = Parent.lock()->GetD3DDevice()->CreateFence(InitialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(Fence.get_init_ref()));
-		assert(SUCCEEDED(hr));
+		Assert(SUCCEEDED(hr));
 	}
 
 	FD3D12FenceCore::~FD3D12FenceCore()

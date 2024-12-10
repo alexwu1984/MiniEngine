@@ -77,6 +77,7 @@ namespace RenderCore
 		void OpenCommandList();
 		void CloseCommandList();
 		void TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush = false);
+		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();

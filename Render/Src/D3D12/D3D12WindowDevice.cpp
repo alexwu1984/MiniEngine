@@ -97,6 +97,24 @@ namespace RenderCore
 		}
 	}
 
+	FD3D12CommandListManager& FD3D12Device::GetCommandListManager(ED3D12CommandQueueType InQueueType /*= ED3D12CommandQueueType::Default*/) const
+	{
+		switch (InQueueType)
+		{
+		case ED3D12CommandQueueType::Default:
+			Assert(CommandListManager->GetQueueType() == InQueueType);
+			return *CommandListManager;
+		case ED3D12CommandQueueType::Async:
+			Assert(AsyncCommandListManager->GetQueueType() == InQueueType);
+			return *AsyncCommandListManager;
+		case ED3D12CommandQueueType::Copy:
+			Assert(CopyCommandListManager->GetQueueType() == InQueueType);
+			return *CopyCommandListManager;
+		default:
+			return *CommandListManager;
+		}
+	}
+
 	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12Device::AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count /*= 1*/)
 	{
 		Assert(DescriptorAllocator[Type].get());

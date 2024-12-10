@@ -25,7 +25,7 @@ namespace RenderCore
 		EPixelFormat Format;
 	};
 
-	std::shared_ptr<uint8_t> GetImageData(const std::wstring& path, int32_t& SizeX, int32_t& SizeY)
+	static std::shared_ptr<uint8_t> GetImageData(const std::wstring& path, int32_t& SizeX, int32_t& SizeY)
 	{
 		std::string Utf8FileName = core::ucs2_u8(path);
 		int32_t ImageChannel = 0;
@@ -81,15 +81,15 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
-	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, uint32_t NumMips, 
+	bool D3D11Texture2D::CreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, uint32_t NumMips, 
 		void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{
 		C_P(D3D11Texture2D);
 		
-		return CreateD3D11Texture2D(Format,Flags,SizeX,SizeY,SizeZ,false, NumMips, InBuffer,RowBytes);
+		return CreateTexture2D(Format,Flags,SizeX,SizeY,SizeZ,false, NumMips, InBuffer,RowBytes);
 	}
 
-	bool D3D11Texture2D::CreateD3D11Texture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, 
+	bool D3D11Texture2D::CreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, 
 		bool bCubeTexture, uint32_t NumMips, void* InBuffer, size_t RowBytes)
 	{
 		C_P(D3D11Texture2D);
@@ -397,7 +397,7 @@ namespace RenderCore
 		std::shared_ptr<uint8_t> ImageBuffer = GetImageData(FileName,SizeX,SizeY);
 		if (ImageBuffer)
 		{
-			return CreateD3D11Texture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
+			return CreateTexture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
 		}
 		return false;
 	}

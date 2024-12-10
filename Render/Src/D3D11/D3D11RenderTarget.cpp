@@ -47,7 +47,7 @@ namespace RenderCore
 			Flags |= ETextureCreateFlags::TexCreate_MSAA;
 		}
 
-		if (!d->Tex2D->CreateD3D11Texture2D(Format, Flags,SizeX,SizeY,1, NumMips))
+		if (!d->Tex2D->CreateTexture2D(Format, Flags,SizeX,SizeY,1, NumMips))
 		{
 			return false;
 		}
@@ -60,7 +60,7 @@ namespace RenderCore
 				Flags |= ETextureCreateFlags::TexCreate_MSAA;
 			}
 
-			return d->DepthTex->CreateD3D11Texture2D(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
+			return d->DepthTex->CreateTexture2D(EPixelFormat::PF_DepthStencil, Flags, SizeX, SizeY);
 		}
 		return true;
 	}

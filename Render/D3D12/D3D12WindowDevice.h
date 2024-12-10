@@ -25,12 +25,7 @@ namespace RenderCore
 		ID3D12Device* GetDevice();
 
 		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
-		FD3D12CommandListManager& GetCommandListManager() const { 
-			return *CommandListManager; 
-		}
-		FD3D12CommandListManager& GetAsyncCommandListManager() const { 
-			return *AsyncCommandListManager; 
-		}
+		FD3D12CommandListManager& GetCommandListManager(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext() const { return DefaultCommandContext;}
 		D3D12CommandContext& GetDefaultAsyncComputeContext() const { return *AsyncComputeContext; }
 

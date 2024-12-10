@@ -57,7 +57,6 @@ namespace RenderCore
 		ID3D12Device2* GetD3DDevice2() const;
 		FD3D12FenceCorePool& GetFenceCorePool();
 		FD3D12ManualFence& GetFrameFence();
-		FD3D12Fence* GetStagingFence();
 		std::shared_ptr<FD3D12Device> GetDevice(uint32_t GPUIndex);
 		std::shared_ptr<D3D12DynamicRHI> GetOwningRHI();
 		D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const;

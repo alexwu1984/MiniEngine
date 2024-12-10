@@ -106,7 +106,7 @@ namespace RenderCore
 		{
 			win32::com_ptr<ID3D12Resource> BackBufferrRes;
 			VERIFYD3DRESULT(SwapChain4->GetBuffer(i, IID_PPV_ARGS(BackBufferrRes.get_init_ref())));
-			std::shared_ptr<D3D12Texture2D> BackBufTex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter()->GetDevice(0));
+			std::shared_ptr<D3D12Texture2D> BackBufTex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter());
 			BackBufTex2D->CreateFromSwapChain(L"BackBuffer", BackBufferrRes.get());
 			BackBuffers.emplace_back(BackBufTex2D);
 		}

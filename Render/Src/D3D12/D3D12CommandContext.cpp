@@ -127,7 +127,7 @@ namespace RenderCore
 
 	FD3D12CommandListManager& D3D12CommandContext::GetCommandListManager()
 	{
-		return bIsAsyncComputeContext ? GetParentDevice()->GetAsyncCommandListManager() : GetParentDevice()->GetCommandListManager();
+		return bIsAsyncComputeContext ? GetParentDevice()->GetCommandListManager(ED3D12CommandQueueType::Async) : GetParentDevice()->GetCommandListManager(ED3D12CommandQueueType::Default);
 	}
 
 	void D3D12CommandContext::ConditionalObtainCommandAllocator()
@@ -184,6 +184,19 @@ namespace RenderCore
 			Resource->GetResourceState().SetResourceState(NewState);
 		}
 
+	}
+
+	void D3D12CommandContext::InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[])
+	{
+		ConditionalObtainCommandAllocator();
+
+		// Get a new command list
+		auto CommandList = GetCommandListManager().ObtainCommandList(*CommandAllocator);
+		CommandList.SetCurrentOwningContext(this);
+
+		CommandList.Close();
+		CommandList.Execute(true);
+		GetCommandListManager().ReleaseCommandList(CommandList);
 	}
 
 }

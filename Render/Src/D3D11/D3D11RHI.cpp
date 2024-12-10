@@ -210,7 +210,7 @@ namespace RenderCore
 	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, uint32_t NumMips, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
-		if (Tex2DRHI->CreateD3D11Texture2D(Format, Flags, SizeX, SizeY,1, NumMips, InBuffer, RowBytes))
+		if (Tex2DRHI->CreateTexture2D(Format, Flags, SizeX, SizeY,1, NumMips, InBuffer, RowBytes))
 		{
 			return Tex2DRHI;
 		}
@@ -237,7 +237,7 @@ namespace RenderCore
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
 		uint8_t tmp[] = { (uint8_t)(Color.R * 255),(uint8_t)(Color.G * 255),(uint8_t)(Color.B * 255),(uint8_t)(Color.A * 255) };
-		if (Tex2DRHI->CreateD3D11Texture2D(EPixelFormat::PF_B8G8R8A8,ETextureCreateFlags::TexCreate_ShaderResource,1,1,1,1,tmp,4))
+		if (Tex2DRHI->CreateTexture2D(EPixelFormat::PF_B8G8R8A8,ETextureCreateFlags::TexCreate_ShaderResource,1,1,1,1,tmp,4))
 		{
 			return Tex2DRHI;
 		}
@@ -276,7 +276,7 @@ namespace RenderCore
 	std::shared_ptr<RHITextureCube> D3D11DynamicRHI::RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
 	{
 		std::shared_ptr<D3D11TextureCube> TexCubeRHI = std::make_shared<D3D11TextureCube>(this);
-		if (TexCubeRHI->CreateD3D11TextureCube(Format,SizeX,SizeY,NumMips,CreateDepth))
+		if (TexCubeRHI->CreateTextureCube(Format,SizeX,SizeY,NumMips,CreateDepth))
 		{
 			return TexCubeRHI;
 		}

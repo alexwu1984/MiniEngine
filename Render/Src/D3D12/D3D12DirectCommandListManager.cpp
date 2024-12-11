@@ -130,7 +130,8 @@ namespace RenderCore
 
 	void FD3D12Fence::GpuWait(uint32_t DeviceGPUIndex, ED3D12CommandQueueType InQueueType, uint64_t FenceValue, uint32_t FenceGPUIndex)
 	{
-		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice(DeviceGPUIndex)->GetD3DCommandQueue(InQueueType);
+		Assert(DeviceGPUIndex == 0);
+		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
 		Assert(CommandQueue);
 		FD3D12FenceCore* FenceCore = FenceCores[FenceGPUIndex];
 		Assert(FenceCore);
@@ -222,7 +223,7 @@ namespace RenderCore
 	void FD3D12Fence::InternalSignal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal)
 	{
 		const uint32_t GPUIndex = 0;
-		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice(GPUIndex)->GetD3DCommandQueue(InQueueType);
+		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
 		Assert(CommandQueue);
 		FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
 		Assert(FenceCore);
@@ -394,15 +395,17 @@ namespace RenderCore
 		ReadyLists.Enqueue(hList);
 	}
 
-	void FD3D12CommandListManager::ExecuteCommandList(D3D12CommandListHandle& hList, bool WaitForCompletion /*= false*/)
+	uint64_t FD3D12CommandListManager::ExecuteCommandList(D3D12CommandListHandle& hList, 
+														 const std::function<void(uint64_t FenceID)>& OnClearResource, bool WaitForCompletion /*= false*/)
 	{
 		std::vector<D3D12CommandListHandle> Lists;
 		Lists.push_back(hList);
 
-		ExecuteCommandLists(Lists, WaitForCompletion);
+		return ExecuteCommandLists(Lists, OnClearResource, WaitForCompletion);
 	}
 
-	void FD3D12CommandListManager::ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, bool WaitForCompletion /*= false*/)
+	uint64_t FD3D12CommandListManager::ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, 
+		                                                  const std::function<void(uint64_t FenceID)>& OnClearResource, bool WaitForCompletion /*= false*/)
 	{
 		Assert(CommandListFence.get());
 
@@ -513,11 +516,17 @@ namespace RenderCore
 			DirectCommandListManager.ReleaseCommandList(commandList);
 		}
 
+		if (OnClearResource)
+		{
+			OnClearResource(SignaledFenceValue);
+		}
+
 		if (WaitForCompletion)
 		{
 			CommandListFence->WaitForFence(SignaledFenceValue);
 			Assert(SyncPoint.IsComplete());
 		}
+		return SignaledFenceValue;
 	}
 
 	uint32_t FD3D12CommandListManager::GetResourceBarrierCommandList(D3D12CommandListHandle& hList, D3D12CommandListHandle& hResourceBarrierList)

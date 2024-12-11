@@ -19,7 +19,9 @@ namespace RenderCore
 		:FD3D12CommandContextBase(InParent.lock()->GetParentAdapter(),InIsDefaultContext,InIsAsyncComputeContext),
 		FD3D12DeviceChild(InParent),
 		CommandAllocator(nullptr),
-		CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT)
+		CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
+		CpuLinearAllocator(ELinearAllocatorType::CpuWritable, InParent),
+		GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, InParent)
 	{
 
 	}
@@ -188,15 +190,35 @@ namespace RenderCore
 
 	void D3D12CommandContext::InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[])
 	{
+		Assert(Dest);
 		ConditionalObtainCommandAllocator();
-
+		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
 		// Get a new command list
-		auto CommandList = GetCommandListManager().ObtainCommandList(*CommandAllocator);
+		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);
+
+		size_t UploadBufferSize = (size_t)GetRequiredIntermediateSize(Dest->GetResource(), 0, NumSubResources);
+		FAllocation Allocation = CpuLinearAllocator.Allocate(UploadBufferSize);
+		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.D3d12Resource, 0, 0, NumSubResources, SubData);
+		CommandList.AddTransitionBarrier(Dest, Dest->GetResourceState().GetSubresourceState(0), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
 		CommandList.Close();
 		CommandList.Execute(true);
 		GetCommandListManager().ReleaseCommandList(CommandList);
+		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
+	}
+
+	LinearAllocator& D3D12CommandContext::GetLinerAllocator(ELinearAllocatorType type)
+	{
+		Assert(type == CpuWritable || type == GpuExclusive);
+		if (type == CpuWritable)
+		{
+			return CpuLinearAllocator;
+		}
+		else
+		{
+			return GpuLinearAllocator;
+		}
 	}
 
 }

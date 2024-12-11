@@ -45,6 +45,9 @@ namespace RenderCore
 		CommandListManager->Create(L"3D Queue");
 		CopyCommandListManager->Create(L"Copy Queue");
 		AsyncCommandListManager->Create(L"Async Compute Queue", 0, 0);
+
+		PageManager[0] = std::make_shared<LinearAllocationPageManager>(this->shared_from_this());
+		PageManager[1] = std::make_shared<LinearAllocationPageManager>(this->shared_from_this());
 	}
 
 	void FD3D12Device::InitDescriptorAllocator()
@@ -112,6 +115,22 @@ namespace RenderCore
 			return *CopyCommandListManager;
 		default:
 			return *CommandListManager;
+		}
+	}
+
+	LinearAllocationPageManager& FD3D12Device::GetLinearPageManager(ELinearAllocatorType InType) const
+	{
+		Assert(PageManager[0].get() && PageManager[1].get());
+		switch (InType)
+		{
+		case ELinearAllocatorType::GpuExclusive:
+			Assert(PageManager[0]->GetAllocatorType() == InType);
+			return *PageManager[0];
+		case ELinearAllocatorType::CpuWritable:
+			Assert(PageManager[1]->GetAllocatorType() == InType);
+			return *PageManager[1];
+		default:
+			return *PageManager[0];
 		}
 	}
 

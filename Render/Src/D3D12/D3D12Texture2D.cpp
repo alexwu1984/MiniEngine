@@ -2,6 +2,7 @@
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12CommandContext.h"
 #include "DirectXTex/DirectXTex.h"
 #define STBI_FAILURE_USERMSG
 #include "tinygltf/stb_image.h"
@@ -89,10 +90,14 @@ namespace RenderCore
 			return false;
 		}
 
-		D3D12_SUBRESOURCE_DATA TexData;
-		TexData.pData = InBuffer;
-		TexData.RowPitch = RowPitch;
-		TexData.SlicePitch = SlicePitch;
+		if (InBuffer)
+		{
+			D3D12_SUBRESOURCE_DATA TexData;
+			TexData.pData = InBuffer;
+			TexData.RowPitch = RowPitch;
+			TexData.SlicePitch = SlicePitch;
+			GetParentDevice()->GetDefaultCommandContext()->InitializeTexture(d->Resource, d->NumMipMaps, &TexData);
+		}
 
 		CreateDerivedViews(PlatformResourceFormat, 1, d->NumMipMaps);
 		return d->SRVHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
@@ -179,7 +184,7 @@ namespace RenderCore
 
 	std::shared_ptr<FD3D12Device> D3D12Texture2D::GetParentDevice() const
 	{
-		return GetParentAdapter()->GetDevice(0);
+		return GetParentAdapter()->GetDevice();
 	}
 
 	void D3D12Texture2D::CreateDerivedViews(DXGI_FORMAT Format, uint32_t ArraySize, uint32_t NumMips /*= 1*/)

@@ -1,7 +1,7 @@
 #pragma once
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
-#include "core/memory_manager.h"
+#include "D3D12/D3D12Allocation.h"
 
 namespace RenderCore
 {
@@ -78,6 +78,7 @@ namespace RenderCore
 		void CloseCommandList();
 		void TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush = false);
 		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
+		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();
@@ -86,5 +87,8 @@ namespace RenderCore
 		D3D12CommandListHandle CommandListHandle;
 		D3D12CommandAllocator* CommandAllocator = nullptr;
 		FD3D12CommandAllocatorManager CommandAllocatorManager;
+
+		LinearAllocator CpuLinearAllocator;
+		LinearAllocator GpuLinearAllocator;
 	};
 }

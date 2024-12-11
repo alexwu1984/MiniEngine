@@ -7,14 +7,6 @@ namespace RenderCore
 	const static uint32_t GpuAllocatorPageSize = 0x10000;	// 64k
 	const static uint32_t CpuAllocatorPageSize = 0x200000;	// 2MB
 
-	enum ELinearAllocatorType
-	{
-		InvalidAllocator = -1,
-		GpuExclusive = 0,
-		CpuWritable = 1,
-		NumAllocatorTypes,
-	};
-
 	struct FAllocation
 	{
 		ID3D12Resource* D3d12Resource;
@@ -66,5 +58,47 @@ namespace RenderCore
 
 	private:
 		uint64_t FenceValue = 0;
+	};
+
+	class LinearAllocationPageManager : public FD3D12DeviceChild
+	{
+	public:
+		LinearAllocationPageManager(std::weak_ptr<FD3D12Device> ParentDevice);
+		LinearAllocationPage* RequestPage();
+		void DiscardStandardPages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages);
+		void DiscardLargePages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages);
+		LinearAllocationPage* CreateNewPage(size_t SizeInBytes = 0);
+		void Destroy();
+		ELinearAllocatorType GetAllocatorType() const;
+
+	private:
+		using PagePool = std::queue<LinearAllocationPage* >;
+
+		PagePool RetiredPages;
+		PagePool LargePagePool;
+		PagePool StandardPagePool;
+
+		static ELinearAllocatorType ms_TypeCounter;
+		ELinearAllocatorType AllocatorType;
+	};
+
+	class LinearAllocator : public FD3D12DeviceChild
+	{
+	public:
+		LinearAllocator(ELinearAllocatorType Type, std::weak_ptr<FD3D12Device> ParentDevice);
+		FAllocation Allocate(size_t SizeInBytes, size_t Alignment = DEFAULT_ALIGN);
+		void CleanupUsedPages(uint64_t FenceID);
+
+	private:
+		FAllocation AllocateLargePage(size_t SizeInBytes);
+
+		ELinearAllocatorType m_AllocatorType;
+		size_t m_PageSize;
+		size_t m_CurrentOffset;
+
+		std::vector<LinearAllocationPage*> m_StandardPages;
+		std::vector<LinearAllocationPage*> m_LargePages;
+
+		LinearAllocationPage* m_CurrentPage;
 	};
 }

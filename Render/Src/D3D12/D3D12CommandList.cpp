@@ -86,7 +86,10 @@ namespace RenderCore
 	void D3D12CommandListHandle::Execute(bool WaitForCompletion /*= false*/)
 	{
 		assert(CommandListData);
-		CommandListData->CommandListManager->ExecuteCommandList(*this, WaitForCompletion);
+		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
+			GetCurrentOwningContext()->GetLinerAllocator(CpuWritable).CleanupUsedPages(FenceID);
+			GetCurrentOwningContext()->GetLinerAllocator(GpuExclusive).CleanupUsedPages(FenceID);
+			}, WaitForCompletion);
 	}
 
 	void D3D12CommandListHandle::AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)

@@ -190,11 +190,10 @@ namespace RenderCore
 		return *d->FrameFence;
 	}
 
-	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice(uint32_t GPUIndex)
+	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice()
 	{
 		C_P(FD3D12Adapter);
-		Assert(GPUIndex < MAX_NUM_GPUS);
-		return d->Devices[GPUIndex];
+		return d->Devices[0];
 	}
 
 	std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI()
@@ -304,7 +303,7 @@ namespace RenderCore
 			// Set a default name (can override later).
 			pResource->SetName(Name);
 			// Set the output pointer
-			*ppOutResource = new FD3D12Resource(GetDevice(0), pResource.get(), InitialUsage, InDesc, HeapProps.Type);
+			*ppOutResource = new FD3D12Resource(GetDevice(), pResource.get(), InitialUsage, InDesc, HeapProps.Type);
 			(*ppOutResource)->AddRef();
 		}
 

@@ -13,6 +13,14 @@ namespace RenderCore
 		Async
 	};
 
+	enum ELinearAllocatorType
+	{
+		InvalidAllocator = -1,
+		GpuExclusive = 0,
+		CpuWritable = 1,
+		NumAllocatorTypes,
+	};
+
 	class FD3D12AdapterChild
 	{
 	protected:

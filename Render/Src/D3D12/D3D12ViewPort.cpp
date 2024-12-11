@@ -80,7 +80,7 @@ namespace RenderCore
 				SwapChainDesc.Flags = SwapChainFlags;
 
 				// The command queue used here is irrelevant in regard to multi-GPU as it gets overriden in the Resize
-				ID3D12CommandQueue* pCommandQueue = Adapter->GetDevice(0)->GetD3DCommandQueue();
+				ID3D12CommandQueue* pCommandQueue = Adapter->GetDevice()->GetD3DCommandQueue();
 
 				win32::com_ptr<IDXGISwapChain> SwapChain;
 				HRESULT hrCreate = Adapter->GetDXGIFactory2()->CreateSwapChain(pCommandQueue, &SwapChainDesc, SwapChain.get_init_ref());
@@ -167,8 +167,8 @@ namespace RenderCore
 
 	std::shared_ptr<RenderCore::D3D12CommandContext> D3D12ViewPort::GetDefaultCommandContext()
 	{
-		Assert(GetParentAdapter()->GetDevice(0).get());
-		return GetParentAdapter()->GetDevice(0)->GetDefaultCommandContext();
+		Assert(GetParentAdapter()->GetDevice().get());
+		return GetParentAdapter()->GetDevice()->GetDefaultCommandContext();
 	}
 
 }

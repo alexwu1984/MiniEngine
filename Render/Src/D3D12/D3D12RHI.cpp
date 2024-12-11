@@ -4,6 +4,7 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12ViewPort.h"
+#include "D3D12/D3D12Texture2D.h"
 #include "math/math.h"
 #include "core/timer.h"
 
@@ -244,7 +245,7 @@ namespace RenderCore
 		GPixelFormats[PF_X24_G8].BlockBytes = 4;
 		GPixelFormats[PF_DepthStencil].Supported = true;
 		GPixelFormats[PF_X24_G8].Supported = true;
-		GPixelFormats[PF_ShadowDepth].PlatformFormat = DXGI_FORMAT_R32_TYPELESS;
+		GPixelFormats[PF_ShadowDepth].PlatformFormat = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
 		GPixelFormats[PF_ShadowDepth].BlockBytes = 4;
 		GPixelFormats[PF_ShadowDepth].Supported = true;
 		GPixelFormats[PF_R32_FLOAT].PlatformFormat = DXGI_FORMAT_R32_FLOAT;
@@ -328,11 +329,11 @@ namespace RenderCore
 
 	std::shared_ptr<RHICommandContext> D3D12DynamicRHI::GetDefaultCommandContext()
 	{
-		if (!D3D12Adapter || !D3D12Adapter->GetDevice(0))
+		if (!D3D12Adapter || !D3D12Adapter->GetDevice())
 		{
 			return {};
 		}
-		return D3D12Adapter->GetDevice(0)->GetDefaultCommandContext();
+		return D3D12Adapter->GetDevice()->GetDefaultCommandContext();
 	}
 
 	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
@@ -380,11 +381,21 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, uint32_t NumMips, void* pBuffer /*= nullptr*/, int rowBytes /*= 0*/)
 	{
+		std::shared_ptr<D3D12Texture2D> TexRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
+		if (TexRHI->CreateTexture2D(format,Flags,width,height,1,NumMips, pBuffer,rowBytes))
+		{
+			return TexRHI;
+		}
 		return {};
 	}
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(const std::wstring& FileName)
 	{
+		std::shared_ptr<D3D12Texture2D> TexRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
+		if (TexRHI->CreateFromFile(FileName))
+		{
+			return TexRHI;
+		}
 		return {};
 	}
 
@@ -395,6 +406,11 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
 	{
+		std::shared_ptr<D3D12Texture2D> TexRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
+		if (TexRHI->CreateHDRFromFile(FileName))
+		{
+			return TexRHI;
+		}
 		return {};
 	}
 

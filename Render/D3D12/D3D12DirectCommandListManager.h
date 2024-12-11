@@ -198,8 +198,8 @@ namespace RenderCore
 		D3D12CommandListHandle ObtainCommandList(D3D12CommandAllocator& CommandAllocator);
 		void ReleaseCommandList(D3D12CommandListHandle& hList);
 
-		void ExecuteCommandList(D3D12CommandListHandle& hList, bool WaitForCompletion = false);
-		virtual void ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, bool WaitForCompletion = false);
+		uint64_t ExecuteCommandList(D3D12CommandListHandle& hList, const std::function<void(uint64_t FenceID)> &OnClearResource, bool WaitForCompletion = false);
+		uint64_t ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, const std::function<void(uint64_t FenceID)>& OnClearResource,bool WaitForCompletion = false);
 
 		uint32_t GetResourceBarrierCommandList(D3D12CommandListHandle& hList, D3D12CommandListHandle& hResourceBarrierList);
 

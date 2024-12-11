@@ -637,4 +637,34 @@ namespace math
 	{
 		return radians * static_cast<float>(57.295779513082320876798154814105);
 	}
+
+	template <typename T>
+	inline T AlignUpWithMask(T Value, size_t Mask)
+	{
+		return (T)(((size_t)Value + Mask) & (~Mask));
+	}
+
+	template <typename T>
+	inline T AlignUp(T Value, size_t Alignment)
+	{
+		return AlignUpWithMask(Value, Alignment - 1);
+	}
+
+	template <typename T>
+	inline T AlignDownWithMask(T value, size_t mask)
+	{
+		return (T)((size_t)value & ~mask);
+	}
+
+	template <typename T>
+	inline T AlignDown(T value, size_t alignment)
+	{
+		return AlignDownWithMask(value, alignment - 1);
+	}
+
+	template <typename T>
+	inline bool IsAligned(T value, size_t alignment)
+	{
+		return 0 == ((size_t)value & (alignment - 1));
+	}
 }

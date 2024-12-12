@@ -83,13 +83,15 @@ namespace RenderCore
 	{
 		LinearAllocationPage* Page = nullptr;
 
-		auto QueueType = GetCommandQueueType(GET_QUEUE_TYPE(RetiredPages.front()->GetFenceValue()));
-		auto& CommandListManager = GetParentDevice()->GetCommandListManager(QueueType);
-
-		if (!RetiredPages.empty() && CommandListManager.GetFence().IsFenceComplete(RetiredPages.front()->GetFenceValue()))
+		if (!RetiredPages.empty() )
 		{
-			Page = RetiredPages.front();
-			RetiredPages.pop();
+			auto QueueType = GetCommandQueueType(GET_QUEUE_TYPE(RetiredPages.front()->GetFenceValue()));
+			auto& CommandListManager = GetParentDevice()->GetCommandListManager(QueueType);
+			if (CommandListManager.GetFence().IsFenceComplete(RetiredPages.front()->GetFenceValue()))
+			{
+				Page = RetiredPages.front();
+				RetiredPages.pop();
+			}
 		}
 		else
 		{
@@ -110,14 +112,19 @@ namespace RenderCore
 
 	void LinearAllocationPageManager::DiscardLargePages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages)
 	{
-		auto QueueType = GetCommandQueueType(GET_QUEUE_TYPE(RetiredPages.front()->GetFenceValue()));
-		auto& CommandListManager = GetParentDevice()->GetCommandListManager(QueueType);
-
-		while (!LargePagePool.empty() && CommandListManager.GetFence().IsFenceComplete(LargePagePool.front()->GetFenceValue()))
+		if (!LargePagePool.empty())
 		{
-			delete LargePagePool.front();
-			LargePagePool.pop();
+			auto QueueType = GetCommandQueueType(GET_QUEUE_TYPE(LargePagePool.front()->GetFenceValue()));
+			auto& CommandListManager = GetParentDevice()->GetCommandListManager(QueueType);
+
+			while (!LargePagePool.empty() && CommandListManager.GetFence().IsFenceComplete(LargePagePool.front()->GetFenceValue()))
+			{
+				LinearAllocationPage* Page = LargePagePool.front();
+				Page->Release();
+				LargePagePool.pop();
+			}
 		}
+
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
 			(*Iter)->SetFenceValue(FenceID);

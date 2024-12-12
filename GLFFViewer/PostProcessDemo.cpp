@@ -39,8 +39,8 @@ void PostProcessorDemo::InitResource()
 	_PixelShader = _RHI->RHICreatePixelShader(ShaderPath, "PS_Transition1", {});
 
 	std::wstring TexPath = core::process_directory().wstring() + L"/GLTFModel/";
-	_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.jpg");
-	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.jpg");
+	_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.png");
+	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.png");
 
 }
 

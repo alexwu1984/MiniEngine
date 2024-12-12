@@ -2,6 +2,11 @@
 #include "RHI/RHITexture2D.h"
 #include "D3D12/D3D12CommandList.h"
 
+namespace DirectX
+{
+	class ScratchImage;
+}
+
 namespace RenderCore
 {
 	struct D3D12Texture2DPrivate;
@@ -26,7 +31,9 @@ namespace RenderCore
 		FD3D12Resource* GetResource() const;
 	private:
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;
-		void CreateDerivedViews(DXGI_FORMAT Format, uint32_t ArraySize, uint32_t NumMips = 1);
+		void CreateDerivedViews(DXGI_FORMAT Format, uint32_t NumMips);
+		void CreateDerivedViewsForDepthRes(DXGI_FORMAT Format);
+		bool CreateFromImage(const DirectX::ScratchImage& Image, const std::wstring& Name);
 	private:
 		D3D12Texture2DPrivate* d_ptr = nullptr;
 	};

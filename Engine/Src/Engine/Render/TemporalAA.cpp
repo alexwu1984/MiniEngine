@@ -66,6 +66,11 @@ namespace Engine
 			d->TAAOutUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
 		}
 
+		if (!d->HistoryUAV || !d->TAAOutUAV)
+		{
+			return;
+		}
+
 		uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
 		uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
 

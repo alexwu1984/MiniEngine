@@ -70,6 +70,9 @@ namespace Engine
 			}
 		}
 
+		if (!d->BloomBuffers[0])
+			return;
+
 		//ExtractBloom
 		//{
 		//	RenderCore::ComputePipelineStateInitializer Init;
@@ -136,7 +139,10 @@ namespace Engine
 	std::shared_ptr< RenderCore::RHITexture2D> Bloom::GetResult() const
 	{
 		C_P(const Bloom);
-		assert(d->BloomBuffers[0].get());
+		if (!d->BloomBuffers[0])
+		{
+			return {};
+		}
 		return d->BloomBuffers[0]->GetTexture2D();
 	}
 

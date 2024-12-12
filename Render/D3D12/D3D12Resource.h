@@ -216,7 +216,7 @@ namespace RenderCore
 				else
 #endif // D3D12_RHI_RAYTRACING
 				{
-					DetermineResourceStates();
+					//DetermineResourceStates();
 				}
 
 				if (bRequiresResourceStateTracking)

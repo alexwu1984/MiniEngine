@@ -28,6 +28,7 @@ namespace RenderCore
 
 		void CreateFromSwapChain(const std::wstring& Name, ID3D12Resource* BaseResource);
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetRTV(void) const;
+		const D3D12_CPU_DESCRIPTOR_HANDLE& GetDSV(void) const;
 		FD3D12Resource* GetResource() const;
 	private:
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;

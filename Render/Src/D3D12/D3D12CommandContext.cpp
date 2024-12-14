@@ -63,8 +63,8 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE DSV{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		if (DepthRHI)
 		{
-			DSV = DepthRHI->GetRTV();
-			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			DSV = DepthRHI->GetDSV();
+			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		}
 		if (D3D12TargetViews.empty() && DSV.ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			return;

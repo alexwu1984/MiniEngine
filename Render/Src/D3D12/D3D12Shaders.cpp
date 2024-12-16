@@ -18,11 +18,42 @@ namespace RenderCore
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
 		Code = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), VSMain, "vs_5_0");
-		if (!Code.empty())
+		if (Code.empty())
 		{
 			return false;
 		}
 		
+		uint32_t NumSamplers = 0;
+		uint32_t NumSRVs = 0;
+		uint32_t NumCBs = 0;
+		uint32_t NumUAVs = 0;
+		FShaderCompilerOutput Output;
+
+		ShaderUtil::ExtractParameterMapFromD3DShader(0, Code, NumSamplers, NumSRVs, NumCBs, NumUAVs, Output);
+
+		ResourceCounts.NumCBs = NumCBs;
+		ResourceCounts.NumSRVs = NumSRVs;
+		ResourceCounts.NumUAVs = NumUAVs;
+		ResourceCounts.NumSamplers = NumSamplers;
+		return true;
+	}
+
+	FD3D12PixelShader::FD3D12PixelShader()
+		:RHIPixelShader(SF_Pixel)
+	{
+
+	}
+
+	bool FD3D12PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+		Code = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, "ps_5_0");
+		if (Code.empty())
+		{
+			return false;
+		}
+
 		uint32_t NumSamplers = 0;
 		uint32_t NumSRVs = 0;
 		uint32_t NumCBs = 0;

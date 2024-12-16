@@ -5,6 +5,7 @@
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12ViewPort.h"
 #include "D3D12/D3D12Texture2D.h"
+#include "D3D12/D3D12Shaders.h"
 #include "math/math.h"
 #include "core/timer.h"
 
@@ -442,11 +443,17 @@ namespace RenderCore
 	std::shared_ptr<RHIVertexShader> D3D12DynamicRHI::RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, 
 																			const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		std::shared_ptr<FD3D12VertexShader>  VertexShaderRHI = std::make_shared<FD3D12VertexShader>();
+		if (VertexShaderRHI->CreateShader(FileName, VSMain, VertexDeclare, MacroDefines))
+			return VertexShaderRHI;
 		return {};
 	}
 
 	std::shared_ptr<RHIPixelShader> D3D12DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		std::shared_ptr<FD3D12PixelShader>  PixelShaderRHI = std::make_shared<FD3D12PixelShader>();
+		if (PixelShaderRHI->CreateShader(FileName, PSMain,MacroDefines))
+			return PixelShaderRHI;
 		return {};
 	}
 

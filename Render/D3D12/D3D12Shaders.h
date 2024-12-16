@@ -23,4 +23,21 @@ namespace RenderCore
 
 		FShaderCodePackedResourceCounts ResourceCounts;
 	};
+
+	class FD3D12PixelShader : public RHIPixelShader
+	{
+	public:
+		FD3D12PixelShader();
+		virtual ~FD3D12PixelShader() = default;
+
+		bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
+		
+		enum { StaticFrequency = SF_Pixel };
+
+		/** The shader's bytecode, with custom data in the last byte. */
+		std::vector<uint8_t> Code;
+
+		FShaderCodePackedResourceCounts ResourceCounts;
+
+	};
 }

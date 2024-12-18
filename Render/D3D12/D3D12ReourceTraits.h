@@ -1,5 +1,6 @@
 #pragma once
 #include "D3D12/D3D12Texture2D.h"
+#include "D3D12/D3D12State.h"
 
 namespace RenderCore
 {
@@ -12,6 +13,18 @@ namespace RenderCore
 	struct TD3D12ResourceTraits<RHITexture2D>
 	{
 		typedef D3D12Texture2D TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHISamplerState>
+	{
+		typedef D3D12SamplerState TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHIRasterizerState>
+	{
+		typedef D3D12RasterizerState TConcreteType;
 	};
 
 	template<typename TRHIType>

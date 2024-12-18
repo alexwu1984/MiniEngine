@@ -7,7 +7,7 @@ namespace RenderCore
 	class D3D11DynamicRHI;
 	struct D3D11SamplerStateP;
 	
-	class D3D11SamplerState final : public RHISamplerState
+	class D3D11SamplerState : public RHISamplerState
 	{
 	public:
 		D3D11SamplerState(D3D11DynamicRHI *D3D11RHI);

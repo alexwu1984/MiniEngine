@@ -67,8 +67,8 @@ namespace RenderCore
 		virtual std::shared_ptr<RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines);
 		virtual std::shared_ptr<RHIComputeShader> RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines);
 
-		virtual std::shared_ptr<RHISamplerState> RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer);
-		virtual std::shared_ptr<RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer);
+		virtual std::shared_ptr<RHISamplerState> RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer) override;
+		virtual std::shared_ptr<RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr<RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer);
 		virtual std::shared_ptr<RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer);
 		virtual std::shared_ptr<RHITilePool> RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D);

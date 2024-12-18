@@ -6,6 +6,7 @@
 #include "D3D12/D3D12ViewPort.h"
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Shaders.h"
+#include "D3D12/D3D12State.h"
 #include "math/math.h"
 #include "core/timer.h"
 
@@ -464,12 +465,16 @@ namespace RenderCore
 
 	std::shared_ptr<RHISamplerState> D3D12DynamicRHI::RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer)
 	{
-		return {};
+		std::shared_ptr<D3D12SamplerState> SamplerStateRHI = std::make_shared<D3D12SamplerState>();
+		SamplerStateRHI->CreateSamplerState(Initializer);
+		return SamplerStateRHI;
 	}
 
 	std::shared_ptr<RHIRasterizerState> D3D12DynamicRHI::RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer)
 	{
-		return {};
+		std::shared_ptr<D3D12RasterizerState> RasterizerStateRHI = std::make_shared<D3D12RasterizerState>();
+		RasterizerStateRHI->CreateRasterizerState(Initializer);
+		return RasterizerStateRHI;
 	}
 
 	std::shared_ptr<RHIBlendState> D3D12DynamicRHI::RHICreateBlendState(const BlendStateInitializerRHI& Initializer)

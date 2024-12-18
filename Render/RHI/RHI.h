@@ -65,6 +65,7 @@ namespace RenderCore
 		float SlopeScaleDepthBias{ 0.f };
 		bool bAllowMSAA{ false };
 		bool bEnableLineAA{ false };
+		bool bFrontCounterClockwise{false};
 
 		friend uint32_t GetTypeHash(const RasterizerStateInitializerRHI& Initializer);
 	    friend bool operator== (const RasterizerStateInitializerRHI& A, const RasterizerStateInitializerRHI& B);

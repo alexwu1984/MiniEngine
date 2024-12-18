@@ -3,6 +3,7 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12StateCache.h"
 
 namespace RenderCore
 {
@@ -23,7 +24,7 @@ namespace RenderCore
 		CpuLinearAllocator(ELinearAllocatorType::CpuWritable, InParent),
 		GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, InParent)
 	{
-
+		StateCache = std::make_shared<FD3D12StateCache>(InParent);
 	}
 
 	D3D12CommandContext::~D3D12CommandContext()
@@ -102,6 +103,78 @@ namespace RenderCore
 		if (CommandAllocator)
 			CommandListHandle.Reset(*CommandAllocator);
 		
+	}
+
+	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)
+	{
+		auto SampleState = RHIResourceCast(NewState.get());
+
+		switch (ShaderType)
+		{
+		case SF_Vertex:
+			StateCache->SetSamplerState<SF_Vertex>(SampleState->GetSampleDesc(), SamplerIndex);
+			break;
+		case SF_Hull:
+			StateCache->SetSamplerState<SF_Hull>(SampleState->GetSampleDesc(), SamplerIndex);
+			break;
+		case SF_Domain:
+			StateCache->SetSamplerState<SF_Domain>(SampleState->GetSampleDesc(), SamplerIndex);
+			break;
+		case SF_Pixel:
+			StateCache->SetSamplerState<SF_Pixel>(SampleState->GetSampleDesc(), SamplerIndex);
+			break;
+		case SF_Geometry:
+			StateCache->SetSamplerState<SF_Geometry>(SampleState->GetSampleDesc(), SamplerIndex);
+			break;
+		case SF_Compute:
+			StateCache->SetSamplerState<SF_Compute>(SampleState->GetSampleDesc(), SamplerIndex);
+			break;
+		default:
+			Assert(false);
+			break;
+		}
+	}
+
+	void D3D12CommandContext::RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI)
+	{
+
+	}
+
+	void D3D12CommandContext::RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor)
+	{
+
+	}
+
+	void D3D12CommandContext::RHISetBlendFactor(const core::FLinearColor& BlendFactor)
+	{
+
+	}
+
+	void D3D12CommandContext::RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef)
+	{
+
+	}
+
+	void D3D12CommandContext::RHISetStencilRef(uint32_t StencilRef)
+	{
+
+	}
+
+	void D3D12CommandContext::RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer)
+	{
+		if (Initializer.BlendState)
+		{
+			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+		}
+		if (Initializer.DepthStencilState)
+		{
+			RHISetDepthStencilState(Initializer.DepthStencilState, 0);
+		}
+
+		if (Initializer.RasterizerState)
+		{
+			RHISetRasterizerState(Initializer.RasterizerState);
+		}
 	}
 
 	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)

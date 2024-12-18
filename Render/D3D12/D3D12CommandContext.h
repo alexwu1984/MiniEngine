@@ -7,6 +7,7 @@ namespace RenderCore
 {
 	class D3D12CommandContext;
 	class FD3D12Device;
+	class FD3D12StateCache;
 	// Base class used to define commands that are not device specific, or that broadcast to all devices.
 	class FD3D12CommandContextBase : public RHICommandContext, public FD3D12AdapterChild
 	{
@@ -35,13 +36,13 @@ namespace RenderCore
 		void RHIBeing() override;
 		virtual void RHIEndDrawing() {}
 
-		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) {};
-		virtual void RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI) {};
-		virtual void RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor) {};
-		virtual void RHISetBlendFactor(const core::FLinearColor& BlendFactor) {};
-		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) {};
-		virtual void RHISetStencilRef(uint32_t StencilRef) {};
-		virtual void RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer) {};
+		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) override;
+		virtual void RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI) override;
+		virtual void RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor) override;
+		virtual void RHISetBlendFactor(const core::FLinearColor& BlendFactor) override;
+		virtual void RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef) override;
+		virtual void RHISetStencilRef(uint32_t StencilRef) override;
+		virtual void RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer) override;
 		virtual void RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents) {};
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI) {};
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI) {};
@@ -90,5 +91,7 @@ namespace RenderCore
 
 		LinearAllocator CpuLinearAllocator;
 		LinearAllocator GpuLinearAllocator;
+
+		std::shared_ptr<FD3D12StateCache> StateCache;
 	};
 }

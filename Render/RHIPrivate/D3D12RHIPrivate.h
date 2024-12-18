@@ -30,6 +30,19 @@ namespace RenderCore
 	static const CBVSlotMask GRootCBVSlotMask = (1 << MAX_ROOT_CBVS) - 1; // Mask for all slots that are used by root descriptors.
 	static const CBVSlotMask GDescriptorTableCBVSlotMask = static_cast<CBVSlotMask>(-1) & ~(GRootCBVSlotMask); // Mask for all slots that are used by a root descriptor table.
 
+#if MAX_SRVS > 32
+	typedef uint64_t SRVSlotMask;
+#else
+	typedef uint32_t SRVSlotMask;
+#endif
+	static_assert((8 * sizeof(SRVSlotMask)) >= MAX_SRVS, "SRVSlotMask isn't large enough to cover all SRVs. Please increase the size.");
+
+	typedef uint16_t SamplerSlotMask;
+	static_assert((8 * sizeof(SamplerSlotMask)) >= MAX_SAMPLERS, "SamplerSlotMask isn't large enough to cover all Samplers. Please increase the size.");
+
+	typedef uint16_t UAVSlotMask;
+	static_assert((8 * sizeof(UAVSlotMask)) >= MAX_UAVS, "UAVSlotMask isn't large enough to cover all UAVs. Please increase the size.");
+
 	enum EShaderVisibility
 	{
 		SV_Vertex,

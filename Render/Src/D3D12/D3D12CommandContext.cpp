@@ -107,7 +107,15 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)
 	{
+		if (!StateCache)
+		{
+			return;
+		}
 		auto SampleState = RHIResourceCast(NewState.get());
+		if (!SampleState)
+		{
+			return;
+		}
 
 		switch (ShaderType)
 		{
@@ -137,31 +145,71 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI)
 	{
-
+		if (!StateCache)
+		{
+			return;
+		}
+		auto RasterizerState = RHIResourceCast(NewStateRHI.get());
+		if (!RasterizerState)
+		{
+			return;
+		}
+		StateCache->SetRasterizerState(RasterizerState->GetRasterizerDesc());
 	}
 
 	void D3D12CommandContext::RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor)
 	{
-
+		if (!StateCache)
+		{
+			return;
+		}
+		auto BlendState = RHIResourceCast(NewState.get());
+		if (BlendState)
+		{
+			StateCache->SetBlendState(BlendState->GetBlendDesc());
+		}
+		StateCache->SetBlendFactor(&BlendFactor.R);
 	}
 
 	void D3D12CommandContext::RHISetBlendFactor(const core::FLinearColor& BlendFactor)
 	{
-
+		if (!StateCache)
+		{
+			return;
+		}
+		StateCache->SetBlendFactor(&BlendFactor.R);
 	}
 
 	void D3D12CommandContext::RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef)
 	{
-
+		if (!StateCache)
+		{
+			return;
+		}
+		auto DepthStencilState = RHIResourceCast(NewState.get());
+		if (DepthStencilState)
+		{
+			StateCache->SetDepthStencilState(DepthStencilState->GetDepthStencilDesc());
+		}
+		StateCache->SetStencilRef(StencilRef);
 	}
 
 	void D3D12CommandContext::RHISetStencilRef(uint32_t StencilRef)
 	{
-
+		if (!StateCache)
+		{
+			return;
+		}
+		StateCache->SetStencilRef(StencilRef);
 	}
 
 	void D3D12CommandContext::RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer)
 	{
+		if (!StateCache)
+		{
+			return;
+		}
+
 		if (Initializer.BlendState)
 		{
 			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
@@ -174,6 +222,31 @@ namespace RenderCore
 		if (Initializer.RasterizerState)
 		{
 			RHISetRasterizerState(Initializer.RasterizerState);
+		}
+
+		if (Initializer.VertexShader)
+		{
+			FD3D12VertexShader* VertexShaderRHI = RHIResourceCast(Initializer.VertexShader.get());
+			//StateCache.SetInputLayout(VertexShaderRHI->GetNativeInputLayout());
+			if (VertexShaderRHI)
+			{
+				StateCache->SetVertexShader(std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader));
+			}
+			
+		}
+		else
+		{
+			StateCache->SetVertexShader(nullptr);
+		}
+
+		if (Initializer.PixelShader)
+		{
+			FD3D12PixelShader* PixelShaderRHI = RHIResourceCast(Initializer.PixelShader.get());
+			//StateCache.SetPixelShader(PixelShaderRHI->GetNativePixelShader());
+		}
+		else
+		{
+			//StateCache->SetPixelShader(nullptr);
 		}
 	}
 

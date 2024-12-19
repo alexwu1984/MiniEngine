@@ -5,7 +5,7 @@
 namespace RenderCore
 {
 	/** This represents a vertex shader that hasn't been combined with a specific declaration to create a bound shader. */
-	class FD3D12VertexShader : public RHIVertexShader
+	class FD3D12VertexShader : public RHIVertexShader,std::enable_shared_from_this<FD3D12VertexShader>
 	{
 	public:
 		FD3D12VertexShader();
@@ -20,11 +20,12 @@ namespace RenderCore
 
 		// TEMP remove with removal of bound shader state
 		int32_t Offset = 0;
-
+		std::vector<VertexElementDesc> ElementDescs;
+		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
 	};
 
-	class FD3D12PixelShader : public RHIPixelShader
+	class FD3D12PixelShader : public RHIPixelShader, std::enable_shared_from_this<FD3D12PixelShader>
 	{
 	public:
 		FD3D12PixelShader();
@@ -36,7 +37,7 @@ namespace RenderCore
 
 		/** The shader's bytecode, with custom data in the last byte. */
 		std::vector<uint8_t> Code;
-
+		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
 
 	};

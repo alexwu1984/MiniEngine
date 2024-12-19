@@ -37,7 +37,7 @@ namespace RenderCore
  * settings.
  * Should only be used from the rendering thread.
  */
-	template<ERasterizerFillMode FillMode = FM_Solid, ERasterizerCullMode CullMode = CM_None, bool bEnableLineAA = false, bool bEnableMSAA = true>
+	template<ERasterizerFillMode FillMode = FM_Solid, ERasterizerCullMode CullMode = CM_None, bool bEnableLineAA = false, bool bEnableMSAA = false>
 	class TStaticRasterizerState 
 	{
 	public:

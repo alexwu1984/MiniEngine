@@ -9,6 +9,7 @@
 #include "D3D12/D3D12State.h"
 #include "math/math.h"
 #include "core/timer.h"
+#include "RHI/RHICachedStates.h"
 
 namespace RenderCore
 {
@@ -318,10 +319,13 @@ namespace RenderCore
 
 		D3D12Adapter->Initialize(this->shared_from_this());
 		D3D12Adapter->InitializeDevices();
+
+		RHICachedStates::Initialize(this);
 	}
 
 	void D3D12DynamicRHI::Shutdown()
 	{
+		RHICachedStates::DestroyAll();
 		if (D3D12Adapter)
 		{
 			//D3D12Adapter->BlockUntilIdle();
@@ -479,12 +483,16 @@ namespace RenderCore
 
 	std::shared_ptr<RHIBlendState> D3D12DynamicRHI::RHICreateBlendState(const BlendStateInitializerRHI& Initializer)
 	{
-		return {};
+		std::shared_ptr<D3D12BlendState> BlendStateRHI = std::make_shared<D3D12BlendState>();
+		BlendStateRHI->CreateBlendState(Initializer);
+		return BlendStateRHI;
 	}
 
 	std::shared_ptr<RHIDepthStencilState> D3D12DynamicRHI::RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer)
 	{
-		return {};
+		std::shared_ptr<D3D12DepthStencilState> DepthStencilStateRHI = std::make_shared<D3D12DepthStencilState>();
+		DepthStencilStateRHI->CreateDepthStencilState(Initializer);
+		return DepthStencilStateRHI;
 	}
 
 	std::shared_ptr<RHITilePool> D3D12DynamicRHI::RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D)

@@ -40,7 +40,7 @@ void PostProcessorDemo::InitResource()
 
 	std::wstring TexPath = core::process_directory().wstring() + L"/GLTFModel/";
 	_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.png");
-	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.png");
+	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.jpg");
 
 }
 

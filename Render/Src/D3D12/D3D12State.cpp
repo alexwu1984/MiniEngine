@@ -253,9 +253,81 @@ namespace RenderCore
 		return true;
 	}
 
-	const D3D12_RASTERIZER_DESC& D3D12RasterizerState::GetRasterizerState() const
+	const D3D12_RASTERIZER_DESC& D3D12RasterizerState::GetRasterizerDesc() const
 	{
 		return RasterizerDesc;
+	}
+
+	bool D3D12BlendState::CreateBlendState(const BlendStateInitializerRHI& Initializer)
+	{
+		ZeroMemory(&BlendDesc, sizeof(D3D12_BLEND_DESC));
+
+		BlendDesc.AlphaToCoverageEnable = false;
+		BlendDesc.IndependentBlendEnable = Initializer.bUseIndependentRenderTargetBlendStates;
+
+		static_assert(MaxSimultaneousRenderTargets <= D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT, "Too many MRTs.");
+		for (uint32_t RenderTargetIndex = 0; RenderTargetIndex < MaxSimultaneousRenderTargets; ++RenderTargetIndex)
+		{
+			const BlendStateInitializerRHI::FRenderTarget& RenderTargetInitializer = Initializer.RenderTargets[RenderTargetIndex];
+			D3D12_RENDER_TARGET_BLEND_DESC& RenderTarget = BlendDesc.RenderTarget[RenderTargetIndex];
+			RenderTarget.BlendEnable =
+				RenderTargetInitializer.ColorBlendOp != BO_Add || RenderTargetInitializer.ColorDestBlend != BF_Zero || RenderTargetInitializer.ColorSrcBlend != BF_One ||
+				RenderTargetInitializer.AlphaBlendOp != BO_Add || RenderTargetInitializer.AlphaDestBlend != BF_Zero || RenderTargetInitializer.AlphaSrcBlend != BF_One;
+			RenderTarget.BlendOp = TranslateBlendOp(RenderTargetInitializer.ColorBlendOp);
+			RenderTarget.SrcBlend = TranslateBlendFactor(RenderTargetInitializer.ColorSrcBlend);
+			RenderTarget.DestBlend = TranslateBlendFactor(RenderTargetInitializer.ColorDestBlend);
+			RenderTarget.BlendOpAlpha = TranslateBlendOp(RenderTargetInitializer.AlphaBlendOp);
+			RenderTarget.SrcBlendAlpha = TranslateBlendFactor(RenderTargetInitializer.AlphaSrcBlend);
+			RenderTarget.DestBlendAlpha = TranslateBlendFactor(RenderTargetInitializer.AlphaDestBlend);
+			RenderTarget.RenderTargetWriteMask =
+				((RenderTargetInitializer.ColorWriteMask & CW_RED) ? D3D12_COLOR_WRITE_ENABLE_RED : 0)
+				| ((RenderTargetInitializer.ColorWriteMask & CW_GREEN) ? D3D12_COLOR_WRITE_ENABLE_GREEN : 0)
+				| ((RenderTargetInitializer.ColorWriteMask & CW_BLUE) ? D3D12_COLOR_WRITE_ENABLE_BLUE : 0)
+				| ((RenderTargetInitializer.ColorWriteMask & CW_ALPHA) ? D3D12_COLOR_WRITE_ENABLE_ALPHA : 0);
+		}
+
+		return true;
+	}
+
+	const D3D12_BLEND_DESC& D3D12BlendState::GetBlendDesc() const
+	{
+		return BlendDesc;
+	}
+
+	bool D3D12DepthStencilState::CreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer)
+	{
+		ZeroMemory(&DepthStencilDesc, sizeof(D3D12_DEPTH_STENCIL_DESC));
+
+		// depth part
+		DepthStencilDesc.DepthEnable = Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite;
+		DepthStencilDesc.DepthWriteMask = Initializer.bEnableDepthWrite ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+		DepthStencilDesc.DepthFunc = TranslateCompareFunction(Initializer.DepthTest);
+
+		// stencil part
+		DepthStencilDesc.StencilEnable = Initializer.bEnableFrontFaceStencil || Initializer.bEnableBackFaceStencil;
+		DepthStencilDesc.StencilReadMask = Initializer.StencilReadMask;
+		DepthStencilDesc.StencilWriteMask = Initializer.StencilWriteMask;
+		DepthStencilDesc.FrontFace.StencilFunc = TranslateCompareFunction(Initializer.FrontFaceStencilTest);
+		DepthStencilDesc.FrontFace.StencilFailOp = TranslateStencilOp(Initializer.FrontFaceStencilFailStencilOp);
+		DepthStencilDesc.FrontFace.StencilDepthFailOp = TranslateStencilOp(Initializer.FrontFaceDepthFailStencilOp);
+		DepthStencilDesc.FrontFace.StencilPassOp = TranslateStencilOp(Initializer.FrontFacePassStencilOp);
+		if (Initializer.bEnableBackFaceStencil)
+		{
+			DepthStencilDesc.BackFace.StencilFunc = TranslateCompareFunction(Initializer.BackFaceStencilTest);
+			DepthStencilDesc.BackFace.StencilFailOp = TranslateStencilOp(Initializer.BackFaceStencilFailStencilOp);
+			DepthStencilDesc.BackFace.StencilDepthFailOp = TranslateStencilOp(Initializer.BackFaceDepthFailStencilOp);
+			DepthStencilDesc.BackFace.StencilPassOp = TranslateStencilOp(Initializer.BackFacePassStencilOp);
+		}
+		else
+		{
+			DepthStencilDesc.BackFace = DepthStencilDesc.FrontFace;
+		}
+		return true;
+	}
+
+	const D3D12_DEPTH_STENCIL_DESC& D3D12DepthStencilState::GetDepthStencilDesc() const
+	{
+		return DepthStencilDesc;
 	}
 
 }

@@ -3,6 +3,8 @@
 
 namespace RenderCore
 {
+	class FRootSignature;
+
 	template<typename ResourceSlotMask>
 	struct FD3D12ResourceCache
 	{
@@ -138,6 +140,10 @@ namespace RenderCore
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);
 		void SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader);
 
+		void BuildFootSignature();
+
+
+
 		FD3D12SamplerStateCache SamplerCache;
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC m_PSDesc;
 		// Blend State Cache
@@ -147,5 +153,8 @@ namespace RenderCore
 		bool bNeedSetStencilRef = false;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12VertexShader>> VertexShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12PixelShader>> PixelShaders;
+		std::unordered_map<uint32_t, std::shared_ptr<FRootSignature>> RootSignatures;
+		uint32_t CurrentVertexHash = 0;
+		uint32_t CurrentPixelHash = 0;
 	};
 }

@@ -218,7 +218,6 @@ namespace RenderCore
 		{
 			RHISetDepthStencilState(Initializer.DepthStencilState, 0);
 		}
-
 		if (Initializer.RasterizerState)
 		{
 			RHISetRasterizerState(Initializer.RasterizerState);
@@ -227,12 +226,10 @@ namespace RenderCore
 		if (Initializer.VertexShader)
 		{
 			FD3D12VertexShader* VertexShaderRHI = RHIResourceCast(Initializer.VertexShader.get());
-			//StateCache.SetInputLayout(VertexShaderRHI->GetNativeInputLayout());
 			if (VertexShaderRHI)
 			{
 				StateCache->SetVertexShader(std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader));
 			}
-			
 		}
 		else
 		{
@@ -241,13 +238,14 @@ namespace RenderCore
 
 		if (Initializer.PixelShader)
 		{
-			FD3D12PixelShader* PixelShaderRHI = RHIResourceCast(Initializer.PixelShader.get());
-			//StateCache.SetPixelShader(PixelShaderRHI->GetNativePixelShader());
+			StateCache->SetPixelShader(std::static_pointer_cast<FD3D12PixelShader>(Initializer.PixelShader));
 		}
 		else
 		{
-			//StateCache->SetPixelShader(nullptr);
+			StateCache->SetPixelShader(nullptr);
 		}
+
+		StateCache->BuildFootSignature();
 	}
 
 	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)

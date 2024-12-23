@@ -38,7 +38,7 @@ namespace RenderCore
 		ResourceCounts.NumSamplers = NumSamplers;
 		ElementDescs = VertexDeclare.GetDeclareDesc();
 
-		std::string KeyName = core::ucs2_u8(FileName) + VSMain;
+		KeyName = core::ucs2_u8(FileName) + VSMain;
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		return true;
 	}
@@ -72,9 +72,8 @@ namespace RenderCore
 		ResourceCounts.NumUAVs = NumUAVs;
 		ResourceCounts.NumSamplers = NumSamplers;
 
-		std::string KeyName = core::ucs2_u8(FileName) + PSMain;
+		KeyName = core::ucs2_u8(FileName) + PSMain;
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
-
 		return true;
 	}
 

@@ -533,7 +533,7 @@ namespace RenderCore
 		}
 	}
 
-	void FRootSignature::InitStaticSampler(UINT Register, const D3D12_SAMPLER_DESC& SamplerDesc, D3D12_SHADER_VISIBILITY Visibility /*= D3D12_SHADER_VISIBILITY_ALL*/)
+	void FRootSignature::InitStaticSampler(uint32_t Register, const D3D12_STATIC_SAMPLER_DESC& SamplerDesc, D3D12_SHADER_VISIBILITY Visibility /*= D3D12_SHADER_VISIBILITY_ALL*/)
 	{
 		Assert(m_StaticSamplerArray.size() < m_NumStaticSamplers);
 
@@ -545,24 +545,13 @@ namespace RenderCore
 		StaticSamplerDesc.MipLODBias = SamplerDesc.MipLODBias;
 		StaticSamplerDesc.MaxAnisotropy = SamplerDesc.MaxAnisotropy;
 		StaticSamplerDesc.ComparisonFunc = SamplerDesc.ComparisonFunc;
-		StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+		StaticSamplerDesc.BorderColor = SamplerDesc.BorderColor;
 		StaticSamplerDesc.MinLOD = SamplerDesc.MinLOD;
 		StaticSamplerDesc.MaxLOD = SamplerDesc.MaxLOD;
 		StaticSamplerDesc.ShaderRegister = Register;
 		StaticSamplerDesc.RegisterSpace = 0;
 		StaticSamplerDesc.ShaderVisibility = Visibility;
 
-		if (SamplerDesc.BorderColor[3] == 1.0f)
-		{
-			if (SamplerDesc.BorderColor[0] == 1.0f)
-				StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
-			else
-				StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
-		}
-		else
-		{
-			StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-		}
 		m_StaticSamplerArray.emplace_back(StaticSamplerDesc);
 	}
 
@@ -610,9 +599,9 @@ namespace RenderCore
 		}
 
 		win32::com_ptr<ID3DBlob> pOutBlob, pErrorBlob;
-
-		VERIFYD3DRESULT(D3D12SerializeRootSignature(&RootDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-			pOutBlob.get_init_ref(), pErrorBlob.get_init_ref()));
+		HRESULT h = D3D12SerializeRootSignature(&RootDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+			pOutBlob.get_init_ref(), pErrorBlob.get_init_ref());
+		VERIFYD3DRESULT(h);
 
 		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateRootSignature(1, pOutBlob->GetBufferPointer(), pOutBlob->GetBufferSize(), IID_PPV_ARGS(&m_D3DRootSignature)));
 

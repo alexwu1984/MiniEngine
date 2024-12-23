@@ -545,14 +545,7 @@ namespace RenderCore
 			Reset(NumRootParams, NumStaticSamplers);
 		}
 
-		~FRootSignature()
-		{
-			if (m_D3DRootSignature)
-			{
-				m_D3DRootSignature->Release();
-				m_D3DRootSignature = nullptr;
-			}
-		}
+		~FRootSignature() = default;
 
 		void Reset(uint32_t NumRootParams, uint32_t NumStaticSamplers)
 		{
@@ -575,13 +568,13 @@ namespace RenderCore
 			return m_ParamArray[EntryIndex];
 		}
 
-		void InitStaticSampler(UINT Register, const D3D12_SAMPLER_DESC& SamplerDesc, D3D12_SHADER_VISIBILITY Visibility = D3D12_SHADER_VISIBILITY_ALL);
+		void InitStaticSampler(uint32_t Register, const D3D12_STATIC_SAMPLER_DESC& SamplerDesc, D3D12_SHADER_VISIBILITY Visibility = D3D12_SHADER_VISIBILITY_ALL);
 
 		void Finalize(const std::wstring& name, D3D12_ROOT_SIGNATURE_FLAGS Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE);
 
-		ID3D12RootSignature* GetSignature() const { return m_D3DRootSignature; }
+		ID3D12RootSignature* GetSignature() const { return m_D3DRootSignature.get(); }
 
-		UINT GetNumParameters() const { return m_NumParameters; }
+		uint32_t GetNumParameters() const { return m_NumParameters; }
 
 		uint32_t GetSamplerTableBitMap() const { return m_SamplerTableBitMap; }
 		uint32_t GetDescriptorTableBitMap() const { return m_DescriptorTableBitMap; }
@@ -590,8 +583,8 @@ namespace RenderCore
 
 	protected:
 		bool m_Finalized = false;
-		UINT m_NumParameters = 0;
-		UINT m_NumStaticSamplers = 0;
+		uint32_t m_NumParameters = 0;
+		uint32_t m_NumStaticSamplers = 0;
 
 		uint32_t m_DescriptorTableBitMap = 0;
 		uint32_t m_SamplerTableBitMap = 0;
@@ -599,6 +592,6 @@ namespace RenderCore
 
 		std::vector<FRootParameter> m_ParamArray;
 		std::vector< D3D12_STATIC_SAMPLER_DESC> m_StaticSamplerArray;
-		ID3D12RootSignature* m_D3DRootSignature = nullptr;
+		win32::com_ptr<ID3D12RootSignature> m_D3DRootSignature;
 	};
 }

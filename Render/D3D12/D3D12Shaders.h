@@ -14,7 +14,7 @@ namespace RenderCore
 		bool CreateShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines) override;
 
 		enum { StaticFrequency = SF_Vertex };
-
+		std::string KeyName;
 		/** The vertex shader's bytecode, with custom data in the last byte. */
 		std::vector<uint8_t> Code;
 
@@ -34,7 +34,7 @@ namespace RenderCore
 		bool CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
 		
 		enum { StaticFrequency = SF_Pixel };
-
+		std::string KeyName;
 		/** The shader's bytecode, with custom data in the last byte. */
 		std::vector<uint8_t> Code;
 		uint32_t Hash = 0;

@@ -140,9 +140,7 @@ namespace RenderCore
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);
 		void SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader);
 
-		void BuildFootSignature();
-
-
+		bool BuildFootSignature();
 
 		FD3D12SamplerStateCache SamplerCache;
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC m_PSDesc;

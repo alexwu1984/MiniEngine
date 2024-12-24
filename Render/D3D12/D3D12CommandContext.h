@@ -51,7 +51,7 @@ namespace RenderCore
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) {};
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) {};
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) {};
-		virtual void Draw(uint32_t VertexCount, uint32_t VertexStartOffset = 0) {};
+		virtual void Draw(uint32_t VertexCount, uint32_t VertexStartOffset = 0);
 		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) {};
 		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) {};
 		virtual void RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) {};

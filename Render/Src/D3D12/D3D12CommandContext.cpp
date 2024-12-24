@@ -70,7 +70,7 @@ namespace RenderCore
 		if (D3D12TargetViews.empty() && DSV.ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			return;
 		CommandListHandle.FlushResourceBarriers();
-		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
+		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth)
@@ -108,14 +108,10 @@ namespace RenderCore
 	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 		auto SampleState = RHIResourceCast(NewState.get());
 		if (!SampleState)
-		{
 			return;
-		}
 
 		switch (ShaderType)
 		{
@@ -146,23 +142,17 @@ namespace RenderCore
 	void D3D12CommandContext::RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 		auto RasterizerState = RHIResourceCast(NewStateRHI.get());
 		if (!RasterizerState)
-		{
 			return;
-		}
 		StateCache->SetRasterizerState(RasterizerState->GetRasterizerDesc());
 	}
 
 	void D3D12CommandContext::RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 		auto BlendState = RHIResourceCast(NewState.get());
 		if (BlendState)
 		{
@@ -174,18 +164,14 @@ namespace RenderCore
 	void D3D12CommandContext::RHISetBlendFactor(const core::FLinearColor& BlendFactor)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 		StateCache->SetBlendFactor(&BlendFactor.R);
 	}
 
 	void D3D12CommandContext::RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 		auto DepthStencilState = RHIResourceCast(NewState.get());
 		if (DepthStencilState)
 		{
@@ -197,18 +183,14 @@ namespace RenderCore
 	void D3D12CommandContext::RHISetStencilRef(uint32_t StencilRef)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 		StateCache->SetStencilRef(StencilRef);
 	}
 
 	void D3D12CommandContext::RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer)
 	{
 		if (!StateCache)
-		{
 			return;
-		}
 
 		if (Initializer.BlendState)
 		{
@@ -244,8 +226,12 @@ namespace RenderCore
 		{
 			StateCache->SetPixelShader(nullptr);
 		}
+	}
 
-		StateCache->BuildFootSignature();
+	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
+	{
+		if (!StateCache->BuildFootSignature())
+			return;
 	}
 
 	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
@@ -312,7 +298,7 @@ namespace RenderCore
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
 		bool NeedTransition = false;
-		for (size_t i = 0; i < Resource->GetSubresourceCount(); ++i)
+		for (uint16_t i = 0; i < Resource->GetSubresourceCount(); ++i)
 		{
 			D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(i);
 			if (NewState != OldState)

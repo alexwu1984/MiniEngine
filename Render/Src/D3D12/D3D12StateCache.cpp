@@ -40,7 +40,7 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12StateCache::BuildFootSignature()
+	bool FD3D12StateCache::BuildFootSignature()
 	{
 		std::shared_ptr<FD3D12VertexShader> VertexShader;
 		FShaderCodePackedResourceCounts VertexResCount{};
@@ -68,7 +68,7 @@ namespace RenderCore
 		std::shared_ptr<FRootSignature> RootSignature;
 		auto ItRootSignature = RootSignatures.find(Hash);
 		if (ItRootSignature != RootSignatures.end())
-			return;
+			return true;
 		RootSignature = std::make_shared<FRootSignature>(GetParentDevice());
 
 		int32_t NumRootParams = 0;
@@ -103,15 +103,20 @@ namespace RenderCore
 			for (uint32_t index = 0; index < VertexResCount.NumSamplers; ++index)
 				RootSignature->InitStaticSampler(index, Samplers[index], D3D12_SHADER_VISIBILITY_VERTEX);
 		}
-		
+
 		if (PixelResCount.NumSamplers > 0)
 		{
 			auto& Samplers = SamplerCache.States[SF_Pixel];
 			for (uint32_t index = 0; index < PixelResCount.NumSamplers; ++index)
 				RootSignature->InitStaticSampler(index, Samplers[index], D3D12_SHADER_VISIBILITY_PIXEL);
 		}
-		RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-		RootSignatures.insert({ Hash,RootSignature });
+		if (RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))\
+		{
+			RootSignatures.insert({ Hash,RootSignature });
+			return true;
+		}
+		else
+			return false;
 	}
 
 }

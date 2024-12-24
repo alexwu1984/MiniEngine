@@ -255,7 +255,7 @@ namespace RenderCore
 
 			D3D11_SUBRESOURCE_DATA SubRes{};
 			SubRes.pSysMem = InBuffer;
-			SubRes.SysMemPitch = RowBytes;
+			SubRes.SysMemPitch = (uint32_t)RowBytes;
 			SubRes.SysMemSlicePitch = SizeY * (uint32_t)RowBytes;
 
 			if (!SafeCreateTexture2D(Device, Format, &TextureDesc, InBuffer ? &SubRes : nullptr, d->Tex2D.get_init_ref()))

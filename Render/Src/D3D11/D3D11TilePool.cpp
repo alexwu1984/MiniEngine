@@ -161,7 +161,7 @@ namespace RenderCore
 		Data.resize(128 * 128 * 4);
 		memset(Data.data(), 0, Data.size());
 		uint8_t* DestBuf = Data.data();
-		for (int32_t index = 0; index < TileHeight; ++index)
+		for (uint32_t index = 0; index < TileHeight; ++index)
 		{
 			memcpy(DestBuf, StartCopy, TileWidth * 4);
 			DestBuf += 128 * 4;
@@ -202,8 +202,8 @@ namespace RenderCore
 		memset(TileBuf.data(), 0, TileBuf.size());
 		uint8_t* DestTileBuf = TileBuf.data();
 
-		int32_t wCount = std::floor((double)TexDesc.Width / d->TileShape.WidthInTexels);
-		int32_t hCount = std::floor((double)TexDesc.Height / d->TileShape.HeightInTexels);
+		int32_t wCount = (int32_t)std::floor((double)TexDesc.Width / d->TileShape.WidthInTexels);
+		int32_t hCount = (int32_t)std::floor((double)TexDesc.Height / d->TileShape.HeightInTexels);
 
 
 		uint8_t* ReadBuf = Data.get();
@@ -214,12 +214,12 @@ namespace RenderCore
 			uint8_t* LineWrite = DestTileBuf;
 			for (int32_t wIndex = 0; wIndex < wCount; ++wIndex)
 			{
-				int width = 128;
-				if ((wIndex + 1) * 128 > TexDesc.Width)
+				int32_t width = 128;
+				if ((wIndex + 1) * 128 > (int32_t)TexDesc.Width)
 					width = (wIndex + 1) * 128 - TexDesc.Width;
-				int height = 128;
-				if ((hIndex + 1) * 128 > TexDesc.Height)
-					height = (hIndex + 1) * 128 - TexDesc.Height;
+				int32_t height = 128;
+				if ((hIndex + 1) * 128 > (int32_t)TexDesc.Height)
+					height = (hIndex + 1) * 128 - (int32_t)TexDesc.Height;
 				auto Buf = GetTileData(LineReadBuf, TexDesc.Width, width, height);
 				memcpy(LineWrite, Buf.data(), Buf.size());
 				LineWrite += Buf.size();

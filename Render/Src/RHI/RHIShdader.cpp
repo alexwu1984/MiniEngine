@@ -55,7 +55,7 @@ namespace RenderCore
 		};
 		strcpy_s(D3DElement.SemanticName, "ATTRIBUTE");
 		D3DElement.SemanticIndex = DeclareInput.InAttributeIndex;
-		D3DElement.InputSlot = Data->Decs.size();
+		D3DElement.InputSlot = (uint32_t)Data->Decs.size();
 		//DeclareInput.bUseInstanceIndex ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
 		D3DElement.InputSlotClass = DeclareInput.bUseInstanceIndex ? 1 : 0;
 

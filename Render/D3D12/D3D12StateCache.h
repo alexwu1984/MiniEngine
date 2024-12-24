@@ -4,6 +4,7 @@
 namespace RenderCore
 {
 	class FRootSignature;
+	class D3D12CommandListHandle;
 
 	template<typename ResourceSlotMask>
 	struct FD3D12ResourceCache
@@ -106,12 +107,12 @@ namespace RenderCore
 
 		void SetRasterizerState(const D3D12_RASTERIZER_DESC& RasterizerDesc)
 		{
-			m_PSDesc.RasterizerState = RasterizerDesc;
+			PSDesc.RasterizerState = RasterizerDesc;
 		}
 
 		void SetBlendState(const D3D12_BLEND_DESC& BlendDesc)
 		{
-			memcpy(&m_PSDesc.BlendState, &BlendDesc, sizeof(BlendDesc));
+			memcpy(&PSDesc.BlendState, &BlendDesc, sizeof(BlendDesc));
 		}
 
 		void SetBlendFactor(const float BlendFactor[4])
@@ -125,7 +126,7 @@ namespace RenderCore
 
 		void SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& DepthStencilState)
 		{
-			memcpy(&m_PSDesc.DepthStencilState, &DepthStencilState, sizeof(DepthStencilState));
+			memcpy(&PSDesc.DepthStencilState, &DepthStencilState, sizeof(DepthStencilState));
 		}
 
 		void SetStencilRef(uint32_t StencilRef)
@@ -139,20 +140,29 @@ namespace RenderCore
 
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);
 		void SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader);
+		void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology);
 
-		bool BuildFootSignature();
+		std::shared_ptr<FRootSignature> BuildRootSignature();
+		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);
+		void ClearState();
 
 		FD3D12SamplerStateCache SamplerCache;
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC m_PSDesc;
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC PSDesc;
 		// Blend State Cache
 		float CurrentBlendFactor[4]{};
 		bool bNeedSetBlendFactor = false;
 		uint32_t CurrentReferenceStencil = 0;
 		bool bNeedSetStencilRef = false;
+		D3D12_PRIMITIVE_TOPOLOGY CurrentPrimitiveTopology{ D3D_PRIMITIVE_TOPOLOGY_UNDEFINED };
+		bool bNeedSetPrimitiveTopology = false;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12VertexShader>> VertexShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12PixelShader>> PixelShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FRootSignature>> RootSignatures;
 		uint32_t CurrentVertexHash = 0;
 		uint32_t CurrentPixelHash = 0;
+		uint32_t CurrentRootHash = 0;
+		win32::com_ptr<ID3D12PipelineState> PipelineState;
+		std::map<size_t, win32::com_ptr<ID3D12PipelineState>> GraphicsPSHashMap;
+		D3D12_INPUT_ELEMENT_DESC* m_InputLayouts = nullptr;
 	};
 }

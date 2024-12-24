@@ -226,12 +226,17 @@ namespace RenderCore
 		{
 			StateCache->SetPixelShader(nullptr);
 		}
+
+		StateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType,false));
 	}
 
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
-		if (!StateCache->BuildFootSignature())
+		return;
+		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
+		CommandListHandle.FlushResourceBarriers();
+		CommandListHandle.GraphicsCommandList()->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 	}
 
 	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)

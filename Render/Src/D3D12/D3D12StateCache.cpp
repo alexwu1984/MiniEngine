@@ -2,6 +2,8 @@
 #include "D3D12/D3D12Shaders.h"
 #include "common/crc.h"
 #include "D3D12/D3D12RootSignature.h"
+#include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12WindowDevice.h"
 
 namespace RenderCore
 {
@@ -40,7 +42,16 @@ namespace RenderCore
 		}
 	}
 
-	bool FD3D12StateCache::BuildFootSignature()
+	void FD3D12StateCache::SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology)
+	{
+		if (CurrentPrimitiveTopology != PrimitiveTopology)
+		{
+			CurrentPrimitiveTopology = PrimitiveTopology;
+			bNeedSetPrimitiveTopology = true;
+		}
+	}
+
+	std::shared_ptr<FRootSignature> FD3D12StateCache::BuildRootSignature()
 	{
 		std::shared_ptr<FD3D12VertexShader> VertexShader;
 		FShaderCodePackedResourceCounts VertexResCount{};
@@ -63,12 +74,12 @@ namespace RenderCore
 			KeyName += itFindPixelShader->second->KeyName;
 		}
 		
-		uint32_t Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
+		CurrentRootHash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 
 		std::shared_ptr<FRootSignature> RootSignature;
-		auto ItRootSignature = RootSignatures.find(Hash);
+		auto ItRootSignature = RootSignatures.find(CurrentRootHash);
 		if (ItRootSignature != RootSignatures.end())
-			return true;
+			return ItRootSignature->second;
 		RootSignature = std::make_shared<FRootSignature>(GetParentDevice());
 
 		int32_t NumRootParams = 0;
@@ -112,11 +123,70 @@ namespace RenderCore
 		}
 		if (RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))\
 		{
-			RootSignatures.insert({ Hash,RootSignature });
-			return true;
+			RootSignatures.insert({ CurrentRootHash,RootSignature });
+			return RootSignature;
 		}
 		else
+			return {};
+	}
+
+	bool FD3D12StateCache::ApplyGraphicState(D3D12CommandListHandle& CommandList)
+	{
+		auto RootSignature = BuildRootSignature();
+		if (!RootSignature)
 			return false;
+
+		if (bNeedSetBlendFactor)
+		{
+			CommandList->OMSetBlendFactor(CurrentBlendFactor);
+			bNeedSetBlendFactor = false;
+		}
+		if (bNeedSetStencilRef)
+		{
+			CommandList->OMSetStencilRef(CurrentReferenceStencil);
+			bNeedSetStencilRef = false;
+		}
+
+		if (bNeedSetPrimitiveTopology)
+		{
+			CommandList->IASetPrimitiveTopology(CurrentPrimitiveTopology);
+			bNeedSetPrimitiveTopology = false;
+		}
+
+		PSDesc.pRootSignature = RootSignature->GetSignature();
+		Assert(PSDesc.pRootSignature != nullptr);
+
+		PSDesc.InputLayout.pInputElementDescs = nullptr;
+		size_t HashCode = core::Crc::HashState(&PSDesc);
+		HashCode = core::Crc::HashState(m_InputLayouts, PSDesc.InputLayout.NumElements, HashCode);
+		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts;
+
+		{
+			auto iter = GraphicsPSHashMap.find(HashCode);
+			if (iter == GraphicsPSHashMap.end())
+			{
+				VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateGraphicsPipelineState(&PSDesc, IID_PPV_ARGS(&PipelineState)));
+				GraphicsPSHashMap[HashCode] = PipelineState;
+			}
+			else
+			{
+				PipelineState = GraphicsPSHashMap[HashCode];
+			}
+		}
+
+		return true;
+	}
+
+	void FD3D12StateCache::ClearState()
+	{
+		// Blend State Cache
+		CurrentBlendFactor[0] = D3D12_DEFAULT_BLEND_FACTOR_RED;
+		CurrentBlendFactor[1] = D3D12_DEFAULT_BLEND_FACTOR_GREEN;
+		CurrentBlendFactor[2] = D3D12_DEFAULT_BLEND_FACTOR_BLUE;
+		CurrentBlendFactor[3] = D3D12_DEFAULT_BLEND_FACTOR_ALPHA;
+
+		CurrentReferenceStencil = 0;
+		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 	}
 
 }

@@ -7,6 +7,7 @@
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Shaders.h"
 #include "D3D12/D3D12State.h"
+#include "D3D12/D3D12UniformBuffer.h"
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
@@ -377,12 +378,20 @@ namespace RenderCore
 
 	std::shared_ptr<RHIUniformBuffer> D3D12DynamicRHI::RHICreateUniformBuffer(uint32_t ConstantBufferSize)
 	{
-		return {};
+		return RHICreateUniformBuffer(nullptr, ConstantBufferSize);
 	}
 
 	std::shared_ptr<RHIUniformBuffer> D3D12DynamicRHI::RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize)
 	{
-		return {};
+		std::shared_ptr<D3D12UniformBuffer> UniformBufferRHI = std::make_shared<D3D12UniformBuffer>(D3D12Adapter);
+		if (UniformBufferRHI->CreateUniformBuffer(Contents, ConstantBufferSize))
+		{
+			return UniformBufferRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
 	}
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, uint32_t NumMips, void* pBuffer /*= nullptr*/, int rowBytes /*= 0*/)

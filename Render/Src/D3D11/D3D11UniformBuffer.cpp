@@ -4,7 +4,7 @@
 
 namespace RenderCore
 {
-	struct D3D11UniformBufferP
+	struct D3D11UniformBufferPrivate
 	{
 		D3D11DynamicRHI* D3D11RHI{ nullptr };
 		win32::com_ptr<ID3D11Buffer> UniformBuffer;
@@ -12,13 +12,20 @@ namespace RenderCore
 	};
 
 	D3D11UniformBuffer::D3D11UniformBuffer(D3D11DynamicRHI* D3D11RHI)
-		:Impl(std::make_shared<D3D11UniformBufferP>())
+		:d_ptr(new D3D11UniformBufferPrivate())
 	{
-		Impl->D3D11RHI = D3D11RHI;
+		C_P(D3D11UniformBuffer);
+		d->D3D11RHI = D3D11RHI;
+	}
+
+	D3D11UniformBuffer::~D3D11UniformBuffer()
+	{
+		delete d_ptr;
 	}
 
 	bool D3D11UniformBuffer::CreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize)
 	{
+		C_P(D3D11UniformBuffer);
 		Assert(win32::Align(ConstantBufferSize, 16) == ConstantBufferSize);
 
 		D3D11_BUFFER_DESC Desc{};
@@ -33,20 +40,22 @@ namespace RenderCore
 		ImmutableData.pSysMem = Contents;
 		ImmutableData.SysMemPitch = ImmutableData.SysMemSlicePitch = 0;
 
-		Impl->ConstantBufferSize = ConstantBufferSize;
+		d->ConstantBufferSize = ConstantBufferSize;
 
-		VERIFYD3DRESULT(Impl->D3D11RHI->GetDevice()->CreateBuffer(&Desc, Contents ? &ImmutableData : nullptr, Impl->UniformBuffer.get_init_ref()));
-		return Impl->UniformBuffer.is_valid();
+		VERIFYD3DRESULT(d->D3D11RHI->GetDevice()->CreateBuffer(&Desc, Contents ? &ImmutableData : nullptr, d->UniformBuffer.get_init_ref()));
+		return d->UniformBuffer.is_valid();
 	}
 
 	uint32_t D3D11UniformBuffer::GetConstantBufferSize() const
 	{
-		return Impl->ConstantBufferSize;
+		C_P(const D3D11UniformBuffer);
+		return d->ConstantBufferSize;
 	}
 
 	ID3D11Buffer* D3D11UniformBuffer::GetNativeUniformBuffer() const
 	{
-		return Impl->UniformBuffer.get();
+		C_P(const D3D11UniformBuffer);
+		return d->UniformBuffer.get();
 	}
 
 }

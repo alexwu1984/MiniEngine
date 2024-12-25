@@ -2,6 +2,7 @@
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12State.h"
 #include "D3D12/D3D12Shaders.h"
+#include "D3D12/D3D12UniformBuffer.h"
 
 namespace RenderCore
 {
@@ -50,6 +51,12 @@ namespace RenderCore
 	struct TD3D12ResourceTraits<RHIPixelShader>
 	{
 		typedef FD3D12PixelShader TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHIUniformBuffer>
+	{
+		typedef D3D12UniformBuffer TConcreteType;
 	};
 
 	template<typename TRHIType>

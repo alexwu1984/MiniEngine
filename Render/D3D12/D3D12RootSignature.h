@@ -4,37 +4,6 @@
 
 namespace RenderCore
 {
-	enum ERootParameterKeys
-	{
-		PS_SRVs,
-		PS_CBVs,
-		PS_RootCBVs,
-		PS_Samplers,
-		VS_SRVs,
-		VS_CBVs,
-		VS_RootCBVs,
-		VS_Samplers,
-		GS_SRVs,
-		GS_CBVs,
-		GS_RootCBVs,
-		GS_Samplers,
-		HS_SRVs,
-		HS_CBVs,
-		HS_RootCBVs,
-		HS_Samplers,
-		DS_SRVs,
-		DS_CBVs,
-		DS_RootCBVs,
-		DS_Samplers,
-		ALL_SRVs,
-		ALL_CBVs,
-		ALL_RootCBVs,
-		ALL_Samplers,
-		ALL_UAVs,
-		RPK_RootParameterKeyCount,
-	};
-
-
 	class FRootParameter
 	{
 		friend class FRootSignature;

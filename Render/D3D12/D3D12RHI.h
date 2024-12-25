@@ -42,36 +42,36 @@ namespace RenderCore
 
 		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
 
-		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
-		virtual std::shared_ptr<RHIVertexBuffer> RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count);
-		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex);
-		virtual std::shared_ptr<RHIIndexBuffer> RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount);
-		virtual std::shared_ptr<RHIIndexBuffer> RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount);
+		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) override;
+		virtual std::shared_ptr<RHIVertexBuffer> RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count) override;
+		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex) override;
+		virtual std::shared_ptr<RHIIndexBuffer> RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) override;
+		virtual std::shared_ptr<RHIIndexBuffer> RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount) override;
 
-		virtual std::shared_ptr<RHIUniformBuffer> RHICreateUniformBuffer(uint32_t ConstantBufferSize);
-		virtual std::shared_ptr<RHIUniformBuffer> RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize);
+		virtual std::shared_ptr<RHIUniformBuffer> RHICreateUniformBuffer(uint32_t ConstantBufferSize) override;
+		virtual std::shared_ptr<RHIUniformBuffer> RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize) override;
 
-		virtual std::shared_ptr<RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, uint32_t NumMips, void* pBuffer = nullptr, int rowBytes = 0);
-		virtual std::shared_ptr<RHITexture2D> RHICreateTexture2D(const std::wstring& FileName);
-		virtual std::shared_ptr<RHITexture2D> RHICreateTexture2D(const core::FLinearColor& Color);
-		virtual std::shared_ptr<RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName);
-		virtual std::shared_ptr<RHITexture1D> RHICreateTexture1D(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int RowBytes);
-		virtual std::shared_ptr<RHITextureCube> RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth);
-		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY);
-		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D);
+		virtual std::shared_ptr<RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, uint32_t NumMips, void* pBuffer = nullptr, int rowBytes = 0) override;
+		virtual std::shared_ptr<RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) override;
+		virtual std::shared_ptr<RHITexture2D> RHICreateTexture2D(const core::FLinearColor& Color) override;
+		virtual std::shared_ptr<RHITexture2D> RHICreateHDRTexture2D(const std::wstring& FileName) override;
+		virtual std::shared_ptr<RHITexture1D> RHICreateTexture1D(EPixelFormat Format, int32_t Flags, int32_t SizeX, void* InBuffer, int RowBytes) override;
+		virtual std::shared_ptr<RHITextureCube> RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth) override;
+		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY) override;
+		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D) override;
 
-		virtual std::shared_ptr<RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth);
+		virtual std::shared_ptr<RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth) override;
 
 		virtual std::shared_ptr<RHIVertexShader> RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, 
-																	   const std::vector<RHIShaderMacro>& MacroDefines);
-		virtual std::shared_ptr<RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines);
-		virtual std::shared_ptr<RHIComputeShader> RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines);
+																	   const std::vector<RHIShaderMacro>& MacroDefines) override;
+		virtual std::shared_ptr<RHIPixelShader> RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
+		virtual std::shared_ptr<RHIComputeShader> RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
 
 		virtual std::shared_ptr<RHISamplerState> RHICreateSamplerState(const SamplerStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr<RHIRasterizerState> RHICreateRasterizerState(const RasterizerStateInitializerRHI& Initializer) override;
-		virtual std::shared_ptr<RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer);
-		virtual std::shared_ptr<RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer);
-		virtual std::shared_ptr<RHITilePool> RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D);
+		virtual std::shared_ptr<RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) override;
+		virtual std::shared_ptr<RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) override;
+		virtual std::shared_ptr<RHITilePool> RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D) override;
 
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;

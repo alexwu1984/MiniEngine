@@ -105,6 +105,13 @@ namespace RenderCore
 		
 	}
 
+	void D3D12CommandContext::RHIEndDrawing()
+	{
+		if (!StateCache)
+			return;
+		StateCache->ClearState();
+	}
+
 	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)
 	{
 		if (!StateCache)
@@ -230,9 +237,35 @@ namespace RenderCore
 		StateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType,false));
 	}
 
+	void D3D12CommandContext::RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents)
+	{
+		if (!Contents)
+			return;
+		D3D12UniformBuffer* UniformBuffer = RHIResourceCast(UniformBufferRHI.get());
+		if (UniformBuffer)
+			UniformBuffer->UpdateUniformBuffer(Contents);
+	}
+
+	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI)
+	{
+		if (!StateCache)
+			return;
+	}
+
+	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
+	{
+		if (!StateCache)
+			return;
+
+		D3D12UniformBuffer* UniformBuffer = RHIResourceCast(UniformBufferRHI.get());
+		if (UniformBuffer)
+		{
+
+		}
+	}
+
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
-		return;
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle.FlushResourceBarriers();

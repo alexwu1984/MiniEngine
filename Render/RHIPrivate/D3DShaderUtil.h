@@ -20,6 +20,8 @@ namespace RenderCore
 			uint32_t& NumSamplers, uint32_t& NumSRVs, uint32_t& NumCBs, uint32_t& NumUAVs, FShaderCompilerOutput& Output);
 		static std::vector<uint8_t> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,
 			const std::string& entrypoint, const std::string& target);
+		static bool CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,
+			const std::string& entrypoint, const std::string& target, ID3DBlob** ppShader);
 	};
 	
 }

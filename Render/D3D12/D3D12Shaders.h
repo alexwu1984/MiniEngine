@@ -16,7 +16,7 @@ namespace RenderCore
 		enum { StaticFrequency = SF_Vertex };
 		std::string KeyName;
 		/** The vertex shader's bytecode, with custom data in the last byte. */
-		std::vector<uint8_t> Code;
+		win32::com_ptr<ID3DBlob> Code;
 
 		// TEMP remove with removal of bound shader state
 		int32_t Offset = 0;
@@ -36,7 +36,7 @@ namespace RenderCore
 		enum { StaticFrequency = SF_Pixel };
 		std::string KeyName;
 		/** The shader's bytecode, with custom data in the last byte. */
-		std::vector<uint8_t> Code;
+		win32::com_ptr<ID3DBlob> Code;
 		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
 

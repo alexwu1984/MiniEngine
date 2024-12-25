@@ -189,13 +189,19 @@ namespace RenderCore
 	{
 		while (!LargePagePool.empty())
 		{
-			delete LargePagePool.front();
+			LargePagePool.front()->Release();
 			LargePagePool.pop();
 		}
 		while (!StandardPagePool.empty())
 		{
-			delete StandardPagePool.front();
+			StandardPagePool.front()->Release();
 			StandardPagePool.pop();
+		}
+
+		while (!RetiredPages.empty())
+		{
+			RetiredPages.front()->Release();
+			RetiredPages.pop();
 		}
 	}
 

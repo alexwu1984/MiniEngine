@@ -4,6 +4,7 @@
 #include "D3D12/D3D12RootSignature.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12UniformBuffer.h"
 
 namespace RenderCore
 {
@@ -21,10 +22,12 @@ namespace RenderCore
 			if (VertexShaders.count(InVertexShader->Hash)== 0)
 				VertexShaders.insert({ InVertexShader->Hash, InVertexShader });
 			CurrentVertexHash = InVertexShader->Hash;
+			PSDesc.VS = CD3DX12_SHADER_BYTECODE(InVertexShader->Code.get());
 		}
 		else
 		{
 			CurrentVertexHash = 0;
+			PSDesc.VS = CD3DX12_SHADER_BYTECODE();
 		}
 	}
 
@@ -35,10 +38,12 @@ namespace RenderCore
 			if(PixelShaders.count(InPixelShader->Hash) == 0)
 				PixelShaders.insert({ InPixelShader->Hash, InPixelShader });
 			CurrentPixelHash = InPixelShader->Hash;
+			PSDesc.PS = CD3DX12_SHADER_BYTECODE(InPixelShader->Code.get());
 		}
 		else
 		{
 			CurrentPixelHash = 0;
+			PSDesc.PS = CD3DX12_SHADER_BYTECODE();
 		}
 	}
 
@@ -47,8 +52,14 @@ namespace RenderCore
 		if (CurrentPrimitiveTopology != PrimitiveTopology)
 		{
 			CurrentPrimitiveTopology = PrimitiveTopology;
+			PSDesc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(PrimitiveTopology);
 			bNeedSetPrimitiveTopology = true;
 		}
+	}
+
+	void FD3D12StateCache::SetDynamicConstantBuffer(uint32_t RootIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
+	{
+		DynamicConstantBuffers[RootIndex] = UniformBuffer;
 	}
 
 	std::shared_ptr<FRootSignature> FD3D12StateCache::BuildRootSignature()
@@ -156,22 +167,57 @@ namespace RenderCore
 		PSDesc.pRootSignature = RootSignature->GetSignature();
 		Assert(PSDesc.pRootSignature != nullptr);
 
-		PSDesc.InputLayout.pInputElementDescs = nullptr;
-		size_t HashCode = core::Crc::HashState(&PSDesc);
-		HashCode = core::Crc::HashState(m_InputLayouts, PSDesc.InputLayout.NumElements, HashCode);
-		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts;
+		auto itVertexShader = VertexShaders.find(CurrentVertexHash);
+		if (itVertexShader == VertexShaders.end())
+		{
+			Assert(false);
+			return false;
+		}
+		auto &ElementDescs  = itVertexShader->second->ElementDescs;
 
+		m_InputLayouts.resize(ElementDescs.size());
+
+		int32_t Index = 0;
+		for (const auto& Item : ElementDescs)
+		{
+			D3D12_INPUT_ELEMENT_DESC& ElementDesc = m_InputLayouts[Index++];
+			ElementDesc.SemanticName = Item.SemanticName;
+			ElementDesc.SemanticIndex = Item.SemanticIndex;
+			ElementDesc.Format = static_cast<DXGI_FORMAT>(Item.Format);
+			ElementDesc.InputSlot = Item.InputSlot;
+			ElementDesc.AlignedByteOffset = Item.AlignedByteOffset;
+			ElementDesc.InputSlotClass = static_cast<D3D12_INPUT_CLASSIFICATION>(Item.InputSlotClass);
+			ElementDesc.InstanceDataStepRate = Item.InstanceDataStepRate;
+		}
+		PSDesc.InputLayout.NumElements = ElementDescs.size();
+		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts.data();
+
+		size_t HashCode = core::Crc::HashState(&PSDesc);
+		HashCode = core::Crc::HashState(m_InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
+		
 		{
 			auto iter = GraphicsPSHashMap.find(HashCode);
 			if (iter == GraphicsPSHashMap.end())
 			{
-				VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateGraphicsPipelineState(&PSDesc, IID_PPV_ARGS(&PipelineState)));
+				HRESULT hr = GetParentDevice()->GetDevice()->CreateGraphicsPipelineState(&PSDesc, IID_PPV_ARGS(&PipelineState));
+				if (FAILED(hr))
+				{
+					Assert(false);
+					return false;
+				}
 				GraphicsPSHashMap[HashCode] = PipelineState;
 			}
 			else
 			{
 				PipelineState = GraphicsPSHashMap[HashCode];
 			}
+		}
+		CommandList->SetGraphicsRootSignature(PSDesc.pRootSignature);
+		CommandList->SetPipelineState(PipelineState.get());
+
+		for (auto it = DynamicConstantBuffers.begin(); it != DynamicConstantBuffers.end(); ++it)
+		{
+			CommandList->SetGraphicsRootConstantBufferView(it->first, it->second->GetGPUVirtualAddress());
 		}
 
 		return true;
@@ -187,6 +233,9 @@ namespace RenderCore
 
 		CurrentReferenceStencil = 0;
 		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+
+		PSDesc = {};
+		DynamicConstantBuffers.clear();
 	}
 
 }

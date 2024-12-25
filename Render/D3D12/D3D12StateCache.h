@@ -87,6 +87,7 @@ namespace RenderCore
 
 	class FD3D12VertexShader;
 	class FD3D12PixelShader;
+	class D3D12UniformBuffer;
 
 	class FD3D12StateCache : public FD3D12DeviceChild
 	{
@@ -141,13 +142,14 @@ namespace RenderCore
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);
 		void SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader);
 		void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology);
+		void SetDynamicConstantBuffer(uint32_t RootIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
 
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);
 		void ClearState();
 
 		FD3D12SamplerStateCache SamplerCache;
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC PSDesc;
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC PSDesc{};
 		// Blend State Cache
 		float CurrentBlendFactor[4]{};
 		bool bNeedSetBlendFactor = false;
@@ -158,11 +160,12 @@ namespace RenderCore
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12VertexShader>> VertexShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12PixelShader>> PixelShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FRootSignature>> RootSignatures;
+		std::map<uint32_t, std::shared_ptr<D3D12UniformBuffer>> DynamicConstantBuffers;
 		uint32_t CurrentVertexHash = 0;
 		uint32_t CurrentPixelHash = 0;
 		uint32_t CurrentRootHash = 0;
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		std::map<size_t, win32::com_ptr<ID3D12PipelineState>> GraphicsPSHashMap;
-		D3D12_INPUT_ELEMENT_DESC* m_InputLayouts = nullptr;
+		std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
 	};
 }

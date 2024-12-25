@@ -37,8 +37,10 @@ namespace RenderCore
 
 		d->ConstantBufferSize = ConstantBufferSize;
 
+		const size_t AlignedSize = math::AlignUpWithMask(ConstantBufferSize, DEFAULT_ALIGN);
+
 		LinearAllocationPageManager& PageManager = GetParentAdapter()->GetDevice()->GetLinearPageManager(ELinearAllocatorType::CpuWritable);
-		d->AllocationPage = PageManager.CreateNewPage(ConstantBufferSize);
+		d->AllocationPage = PageManager.CreateNewPage(AlignedSize);
 		memcpy(d->AllocationPage->GetResourceBaseAddress(), Contents, ConstantBufferSize);
 		return true;
 	}

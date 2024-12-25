@@ -2,6 +2,7 @@
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Allocation.h"
+#include "D3D12/D3D12DescriptorCache.h"
 
 namespace RenderCore
 {
@@ -91,6 +92,8 @@ namespace RenderCore
 
 		LinearAllocator CpuLinearAllocator;
 		LinearAllocator GpuLinearAllocator;
+
+		FDynamicDescriptorHeap DynamicViewDescriptorHeap;
 
 		std::shared_ptr<FD3D12StateCache> StateCache;
 	};

@@ -22,7 +22,8 @@ namespace RenderCore
 		CommandAllocator(nullptr),
 		CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
 		CpuLinearAllocator(ELinearAllocatorType::CpuWritable, InParent),
-		GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, InParent)
+		GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, InParent),
+		DynamicViewDescriptorHeap(InParent, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
 	{
 		StateCache = std::make_shared<FD3D12StateCache>(InParent);
 	}

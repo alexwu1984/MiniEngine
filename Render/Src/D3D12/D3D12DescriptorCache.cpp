@@ -69,18 +69,18 @@ namespace RenderCore
 		m_ComputeHandleCache.UnbindAllInvalid();
 	}
 
-	ID3D12DescriptorHeap* FDynamicDescriptorHeap::GetHeapPointer()
+	win32::com_ptr<ID3D12DescriptorHeap> FDynamicDescriptorHeap::GetHeapPointer()
 	{
 		if (m_CurrentHeap == nullptr)
 		{
 			Assert(m_CurrentOffset == 0);
 			m_CurrentHeap = RequestDescriptorHeap(m_HeapType);
-			m_FirstDescriptor = FDescriptorHandle(m_CurrentHeap);
+			m_FirstDescriptor = FDescriptorHandle(m_CurrentHeap.get());
 		}
 		return m_CurrentHeap;
 	}
 
-	ID3D12DescriptorHeap* FDynamicDescriptorHeap::RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE HeapType)
+	win32::com_ptr<ID3D12DescriptorHeap> FDynamicDescriptorHeap::RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE HeapType)
 	{
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
 		auto& CommandListMgr = GetParentDevice()->GetCommandListManager();
@@ -91,7 +91,7 @@ namespace RenderCore
 		}
 		if (!ms_ReadyDescriptorHeaps[idx].empty())
 		{
-			ID3D12DescriptorHeap* Heap = ms_ReadyDescriptorHeaps[idx].front();
+			win32::com_ptr<ID3D12DescriptorHeap> Heap = ms_ReadyDescriptorHeaps[idx].front();
 			ms_ReadyDescriptorHeaps[idx].pop();
 			return Heap;
 		}
@@ -105,7 +105,7 @@ namespace RenderCore
 			win32::com_ptr<ID3D12DescriptorHeap> Heap;
 			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Heap)));
 			ms_DescriptorHeapPool[idx].emplace_back(Heap);
-			return Heap.get();
+			return Heap;
 		}
 	}
 

@@ -5,12 +5,13 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12UniformBuffer.h"
+#include "D3D12/D3D12Texture2D.h"
 
 namespace RenderCore
 {
-
 	FD3D12StateCache::FD3D12StateCache(std::weak_ptr<FD3D12Device> InParent)
 		:FD3D12DeviceChild(InParent)
+		,DynamicViewDescriptorHeap(InParent,D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
 	{
 
 	}
@@ -57,9 +58,48 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12StateCache::SetDynamicConstantBuffer(uint32_t RootIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
+	void FD3D12StateCache::SetDynamicConstantBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
 	{
-		DynamicConstantBuffers[RootIndex] = UniformBuffer;
+		Assert(BufferIndex < MAX_CBS);
+		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex].get() != UniformBuffer.get())
+		{
+			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = UniformBuffer;
+		}
+	}
+
+	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D)
+	{
+		Assert(TextureIndex < MAX_SRVS);
+		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].get() != Texture2D.get())
+		{
+			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Texture2D;
+		}
+	}
+
+	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
+	{
+		if (CurrentDescriptorHeaps[Type] != HeapPtr)
+		{
+			CurrentDescriptorHeaps[Type] = HeapPtr;
+			BindDescriptorHeaps(CommandList);
+		}
+	}
+
+	void FD3D12StateCache::BindDescriptorHeaps(D3D12CommandListHandle& CommandList)
+	{
+		uint32_t NonNullHeaps = 0;
+		ID3D12DescriptorHeap* HeapsToBind[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES]{};
+		for (uint32_t i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
+		{
+			if (CurrentDescriptorHeaps[i] != nullptr)
+			{
+				HeapsToBind[NonNullHeaps++] = CurrentDescriptorHeaps[i].get();
+			}
+		}
+		if (NonNullHeaps > 0)
+		{
+			CommandList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind);
+		}
 	}
 
 	std::shared_ptr<FRootSignature> FD3D12StateCache::BuildRootSignature()
@@ -108,16 +148,32 @@ namespace RenderCore
 
 		int32_t RootIndex = 0;
 		if (VertexResCount.NumCBs > 0)
-			(*RootSignature)[RootIndex++].InitAsBufferCBV(0, D3D12_SHADER_VISIBILITY_VERTEX);
-
+		{
+			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, VertexResCount.NumCBs, D3D12_SHADER_VISIBILITY_VERTEX);
+			ConstantBufferCache.RootIndex[SF_Vertex] = RootIndex;
+			++RootIndex;
+		}
+	
 		if (PixelResCount.NumCBs > 0)
-			(*RootSignature)[RootIndex++].InitAsBufferCBV(0, D3D12_SHADER_VISIBILITY_PIXEL);
+		{
+			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, PixelResCount.NumCBs, D3D12_SHADER_VISIBILITY_PIXEL);
+			ConstantBufferCache.RootIndex[SF_Pixel] = RootIndex;
+			++RootIndex;
+		}
 
-		if (PixelResCount.NumSRVs > 0 )
-			(*RootSignature)[RootIndex++].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, PixelResCount.NumSRVs);
+		if (PixelResCount.NumSRVs > 0)
+		{
+			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, PixelResCount.NumSRVs);
+			ShaderResourceViewCache.RootIndex[SF_Pixel] = RootIndex;
+			++RootIndex;
+		}
 
 		if (PixelResCount.NumUAVs > 0)
-			(*RootSignature)[RootIndex++].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, PixelResCount.NumUAVs);
+		{
+			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, PixelResCount.NumUAVs);
+			//ShaderResourceViewCache.RootIndex[SF_Pixel] = RootIndex;
+			++RootIndex;
+		}
 
 		if (VertexResCount.NumSamplers > 0)
 		{
@@ -147,6 +203,30 @@ namespace RenderCore
 		if (!RootSignature)
 			return false;
 
+		PSDesc.pRootSignature = RootSignature->GetSignature();
+		Assert(PSDesc.pRootSignature != nullptr);
+
+		auto itVertexShader = VertexShaders.find(CurrentVertexHash);
+		if (itVertexShader == VertexShaders.end())
+		{
+			Assert(false);
+			return false;
+		}
+
+		auto itPixelShader = PixelShaders.find(CurrentPixelHash);
+		if (itPixelShader == PixelShaders.end())
+		{
+			Assert(false);
+			return false;
+		}
+
+		FShaderCodePackedResourceCounts VertexResCount{};
+		VertexResCount = itVertexShader->second->ResourceCounts;
+		FShaderCodePackedResourceCounts PixelResCount{};
+		PixelResCount = itPixelShader->second->ResourceCounts;
+
+		CommandList.FlushResourceBarriers();
+
 		if (bNeedSetBlendFactor)
 		{
 			CommandList->OMSetBlendFactor(CurrentBlendFactor);
@@ -164,17 +244,7 @@ namespace RenderCore
 			bNeedSetPrimitiveTopology = false;
 		}
 
-		PSDesc.pRootSignature = RootSignature->GetSignature();
-		Assert(PSDesc.pRootSignature != nullptr);
-
-		auto itVertexShader = VertexShaders.find(CurrentVertexHash);
-		if (itVertexShader == VertexShaders.end())
-		{
-			Assert(false);
-			return false;
-		}
 		auto &ElementDescs  = itVertexShader->second->ElementDescs;
-
 		m_InputLayouts.resize(ElementDescs.size());
 
 		int32_t Index = 0;
@@ -213,13 +283,46 @@ namespace RenderCore
 			}
 		}
 		CommandList->SetGraphicsRootSignature(PSDesc.pRootSignature);
+		DynamicViewDescriptorHeap.ParseGraphicsRootSignature(*RootSignature);
 		CommandList->SetPipelineState(PipelineState.get());
 
-		for (auto it = DynamicConstantBuffers.begin(); it != DynamicConstantBuffers.end(); ++it)
+		if (ConstantBufferCache.RootIndex[SF_Vertex] > -1)
 		{
-			CommandList->SetGraphicsRootConstantBufferView(it->first, it->second->GetGPUVirtualAddress());
+			for (uint32_t Index = 0; Index < VertexResCount.NumCBs; ++Index)
+			{
+				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Vertex][Index]->GetCPUHandle();
+				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ConstantBufferCache.RootIndex[SF_Vertex], Index, 1, &Handle);
+			}
 		}
 
+		if (ConstantBufferCache.RootIndex[SF_Pixel] > -1)
+		{
+			for (uint32_t Index = 0; Index < PixelResCount.NumCBs; ++Index)
+			{
+				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Pixel][Index]->GetCPUHandle();
+				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ConstantBufferCache.RootIndex[SF_Pixel], Index, 1, &Handle);
+			}
+		}
+
+		if (ShaderResourceViewCache.RootIndex[SF_Vertex] > -1)
+		{
+			for (uint32_t Index = 0; Index < VertexResCount.NumSRVs; ++Index)
+			{
+				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Vertex][Index]->GetSRV();
+				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ShaderResourceViewCache.RootIndex[SF_Vertex], Index, 1, &Handle);
+			}
+		}
+
+		if (ShaderResourceViewCache.RootIndex[SF_Pixel] > -1)
+		{
+			for (uint32_t Index = 0; Index < PixelResCount.NumSRVs; ++Index)
+			{
+				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Pixel][Index]->GetSRV();
+				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ShaderResourceViewCache.RootIndex[SF_Pixel], Index, 1, &Handle);
+			}
+		}
+
+		DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
 		return true;
 	}
 
@@ -235,7 +338,9 @@ namespace RenderCore
 		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 		PSDesc = {};
-		DynamicConstantBuffers.clear();
+		ConstantBufferCache.Clear();
+		SamplerCache.Clear();
+		ShaderResourceViewCache.Clear();
 	}
 
 }

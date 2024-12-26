@@ -2,7 +2,6 @@
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Allocation.h"
-#include "D3D12/D3D12DescriptorCache.h"
 
 namespace RenderCore
 {
@@ -73,7 +72,7 @@ namespace RenderCore
 			return (numDraws + numDispatches + numClears + numBarriers + numCopies + otherWorkCounter) > 0;
 		}
 		FD3D12CommandListManager& GetCommandListManager();
-		void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE Type, ID3D12DescriptorHeap* HeapPtr) {}
+		void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 
 		// Cycle to a new command list, but don't execute the current one yet.
 		void OpenCommandList();
@@ -81,6 +80,7 @@ namespace RenderCore
 		void TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush = false);
 		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
 		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
+		void Initialize(void);
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();
@@ -92,8 +92,6 @@ namespace RenderCore
 
 		LinearAllocator CpuLinearAllocator;
 		LinearAllocator GpuLinearAllocator;
-
-		FDynamicDescriptorHeap DynamicViewDescriptorHeap;
 
 		std::shared_ptr<FD3D12StateCache> StateCache;
 	};

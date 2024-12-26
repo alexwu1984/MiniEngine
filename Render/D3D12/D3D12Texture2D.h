@@ -27,6 +27,7 @@ namespace RenderCore
 		virtual EPixelFormat GetPixelFormat() const;
 
 		void CreateFromSwapChain(const std::wstring& Name, ID3D12Resource* BaseResource);
+		const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetRTV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetDSV(void) const;
 		FD3D12Resource* GetResource() const;

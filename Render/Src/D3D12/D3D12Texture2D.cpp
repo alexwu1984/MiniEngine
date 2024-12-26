@@ -163,6 +163,12 @@ namespace RenderCore
 		GetParentDevice()->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), nullptr, d->RTVHandle);
 	}
 
+	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12Texture2D::GetSRV(void) const
+	{
+		C_P(const D3D12Texture2D);
+		return d->SRVHandle;
+	}
+
 	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12Texture2D::GetRTV(void) const
 	{
 		C_P(const D3D12Texture2D);

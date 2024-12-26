@@ -17,6 +17,7 @@ namespace RenderCore
 		virtual uint32_t GetConstantBufferSize() const ;
 		void* GetResourceBaseAddress() const;
 		D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetCPUHandle() const;
 		void UpdateUniformBuffer(const void* Contents);
 
 	private:

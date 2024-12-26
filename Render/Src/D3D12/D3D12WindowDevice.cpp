@@ -33,7 +33,9 @@ namespace RenderCore
 	void FD3D12Device::CreateCommandContexts()
 	{
 		DefaultCommandContext = std::make_shared<D3D12CommandContext>(this->shared_from_this(), true, false);
+		DefaultCommandContext->Initialize();
 		AsyncComputeContext = std::make_shared<D3D12CommandContext>(this->shared_from_this(), false, true);
+		AsyncComputeContext->Initialize();
 	}
 
 	void FD3D12Device::InitPlatformSpecific()

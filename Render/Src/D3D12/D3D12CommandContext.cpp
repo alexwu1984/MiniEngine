@@ -22,10 +22,9 @@ namespace RenderCore
 		CommandAllocator(nullptr),
 		CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
 		CpuLinearAllocator(ELinearAllocatorType::CpuWritable, InParent),
-		GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, InParent),
-		DynamicViewDescriptorHeap(InParent, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
+		GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, InParent)
 	{
-		StateCache = std::make_shared<FD3D12StateCache>(InParent);
+		
 	}
 
 	D3D12CommandContext::~D3D12CommandContext()
@@ -215,11 +214,7 @@ namespace RenderCore
 
 		if (Initializer.VertexShader)
 		{
-			FD3D12VertexShader* VertexShaderRHI = RHIResourceCast(Initializer.VertexShader.get());
-			if (VertexShaderRHI)
-			{
-				StateCache->SetVertexShader(std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader));
-			}
+			StateCache->SetVertexShader(std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader));
 		}
 		else
 		{
@@ -251,6 +246,10 @@ namespace RenderCore
 	{
 		if (!StateCache)
 			return;
+
+		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
+		if (Texture2D)
+			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 	}
 
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
@@ -260,16 +259,13 @@ namespace RenderCore
 
 		D3D12UniformBuffer* UniformBuffer = RHIResourceCast(UniformBufferRHI.get());
 		if (UniformBuffer)
-		{
-
-		}
+			StateCache->SetDynamicConstantBuffer(ShaderType,BufferIndex, std::static_pointer_cast<D3D12UniformBuffer>(UniformBufferRHI));
 	}
 
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
-		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle.GraphicsCommandList()->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 	}
 
@@ -299,6 +295,13 @@ namespace RenderCore
 	FD3D12CommandListManager& D3D12CommandContext::GetCommandListManager()
 	{
 		return bIsAsyncComputeContext ? GetParentDevice()->GetCommandListManager(ED3D12CommandQueueType::Async) : GetParentDevice()->GetCommandListManager(ED3D12CommandQueueType::Default);
+	}
+
+	void D3D12CommandContext::SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
+	{
+		if (!StateCache)
+			return;
+		StateCache->SetDescriptorHeap(CommandListHandle, Type, HeapPtr);
 	}
 
 	void D3D12CommandContext::ConditionalObtainCommandAllocator()
@@ -387,6 +390,11 @@ namespace RenderCore
 		{
 			return GpuLinearAllocator;
 		}
+	}
+
+	void D3D12CommandContext::Initialize(void)
+	{
+		StateCache = std::make_shared<FD3D12StateCache>(GetParentDevice());
 	}
 
 }

@@ -1,63 +1,14 @@
 #pragma once
-#include "RHIPrivate/D3D12RHIPrivate.h"
+#include "D3D12/D3D12DescriptorCache.h"
 
 namespace RenderCore
 {
 	class FRootSignature;
 	class D3D12CommandListHandle;
+	class D3D12UniformBuffer;
+	class D3D12Texture2D;
 
-	template<typename ResourceSlotMask>
-	struct FD3D12ResourceCache
-	{
-		static inline void CleanSlot(ResourceSlotMask& SlotMask, uint32_t SlotIndex)
-		{
-			SlotMask &= ~((ResourceSlotMask)1 << SlotIndex);
-		}
-
-		static inline void DirtySlot(ResourceSlotMask& SlotMask, uint32_t SlotIndex)
-		{
-			SlotMask |= ((ResourceSlotMask)1 << SlotIndex);
-		}
-
-		static inline bool IsSlotDirty(const ResourceSlotMask& SlotMask, uint32_t SlotIndex)
-		{
-			return (SlotMask & ((ResourceSlotMask)1 << SlotIndex)) != 0;
-		}
-
-		// Mark a specific shader stage as dirty.
-		inline void Dirty(EShaderFrequency ShaderFrequency, const ResourceSlotMask& SlotMask = -1)
-		{
-			Assert(ShaderFrequency < _ARRAYSIZE(DirtySlotMask));
-			DirtySlotMask[ShaderFrequency] |= SlotMask;
-		}
-
-		// Mark specified bind slots, on all graphics stages, as dirty.
-		inline void DirtyGraphics(const ResourceSlotMask& SlotMask = -1)
-		{
-			Dirty(SF_Vertex, SlotMask);
-			Dirty(SF_Hull, SlotMask);
-			Dirty(SF_Domain, SlotMask);
-			Dirty(SF_Pixel, SlotMask);
-			Dirty(SF_Geometry, SlotMask);
-		}
-
-		// Mark specified bind slots on compute as dirty.
-		inline void DirtyCompute(const ResourceSlotMask& SlotMask = -1)
-		{
-			Dirty(SF_Compute, SlotMask);
-		}
-
-		// Mark specified bind slots on graphics and compute as dirty.
-		inline void DirtyAll(const ResourceSlotMask& SlotMask = -1)
-		{
-			DirtyGraphics(SlotMask);
-			DirtyCompute(SlotMask);
-		}
-
-		ResourceSlotMask DirtySlotMask[SF_NumStandardFrequencies];
-	};
-
-	struct FD3D12SamplerStateCache : public FD3D12ResourceCache<SamplerSlotMask>
+	struct FD3D12SamplerStateCache 
 	{
 		FD3D12SamplerStateCache()
 		{
@@ -66,7 +17,6 @@ namespace RenderCore
 
 		inline void Clear()
 		{
-			DirtyAll();
 
 			win32::Memzero(States);
 		}
@@ -84,6 +34,78 @@ namespace RenderCore
 	{
 		return !(lhs == rhs);
 	}
+
+	struct FD3D12ConstantBufferCache
+	{
+		FD3D12ConstantBufferCache()
+		{
+			Clear();
+		}
+
+		inline void Clear()
+		{
+
+			for (int32_t FrequencyIdx = 0; FrequencyIdx < SF_NumStandardFrequencies; ++FrequencyIdx)
+			{
+				for (int32_t SRVIdx = 0; SRVIdx < MAX_CBS; ++SRVIdx)
+				{
+					Buffers[FrequencyIdx][SRVIdx] = {};
+				}
+				RootIndex[FrequencyIdx] = -1;
+			}
+		}
+
+		std::shared_ptr<D3D12UniformBuffer> Buffers[SF_NumStandardFrequencies][MAX_CBS];
+		int32_t RootIndex[SF_NumStandardFrequencies]{};
+	};
+
+	struct FD3D12ShaderResourceViewCache 
+	{
+		FD3D12ShaderResourceViewCache()
+		{
+			Clear();
+		}
+
+		inline void Clear()
+		{
+			for (int32_t FrequencyIdx = 0; FrequencyIdx < SF_NumStandardFrequencies; ++FrequencyIdx)
+			{
+				for (int32_t SRVIdx = 0; SRVIdx < MAX_SRVS; ++SRVIdx)
+				{
+					Views[FrequencyIdx][SRVIdx] = {};
+				}
+				RootIndex[FrequencyIdx] = -1;
+			}
+		}
+
+		std::shared_ptr<D3D12Texture2D> Views[SF_NumStandardFrequencies][MAX_SRVS];
+		int32_t RootIndex[SF_NumStandardFrequencies]{};
+	};
+
+	struct FD3D12UnorderedAccessViewCache 
+	{
+		FD3D12UnorderedAccessViewCache()
+		{
+			Clear();
+		}
+
+		inline void Clear()
+		{
+			//DirtyAll();
+
+			//FMemory::Memzero(Views);
+			//FMemory::Memzero(ResidencyHandles);
+
+			//for (uint32& Index : StartSlot)
+			//{
+			//	Index = INDEX_NONE;
+			//}
+		}
+
+		//FD3D12UnorderedAccessView* Views[SF_NumStandardFrequencies][MAX_UAVS];
+		//FD3D12ResidencyHandle* ResidencyHandles[SF_NumStandardFrequencies][MAX_UAVS];
+		//uint32 StartSlot[SF_NumStandardFrequencies];
+	};
 
 	class FD3D12VertexShader;
 	class FD3D12PixelShader;
@@ -142,13 +164,18 @@ namespace RenderCore
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);
 		void SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader);
 		void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology);
-		void SetDynamicConstantBuffer(uint32_t RootIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
+		void SetDynamicConstantBuffer(EShaderFrequency ShaderType,uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
+		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
+		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
+		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
 
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);
 		void ClearState();
 
 		FD3D12SamplerStateCache SamplerCache;
+		FD3D12ConstantBufferCache ConstantBufferCache;
+		FD3D12ShaderResourceViewCache ShaderResourceViewCache;
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC PSDesc{};
 		// Blend State Cache
 		float CurrentBlendFactor[4]{};
@@ -160,12 +187,14 @@ namespace RenderCore
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12VertexShader>> VertexShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12PixelShader>> PixelShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FRootSignature>> RootSignatures;
-		std::map<uint32_t, std::shared_ptr<D3D12UniformBuffer>> DynamicConstantBuffers;
+
 		uint32_t CurrentVertexHash = 0;
 		uint32_t CurrentPixelHash = 0;
 		uint32_t CurrentRootHash = 0;
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		std::map<size_t, win32::com_ptr<ID3D12PipelineState>> GraphicsPSHashMap;
 		std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
+		FDynamicDescriptorHeap DynamicViewDescriptorHeap;
+		win32::com_ptr<ID3D12DescriptorHeap> CurrentDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	};
 }

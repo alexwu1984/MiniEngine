@@ -110,6 +110,7 @@ namespace RenderCore
 	class FD3D12VertexShader;
 	class FD3D12PixelShader;
 	class D3D12UniformBuffer;
+	class RHITexture2D;
 
 	class FD3D12StateCache : public FD3D12DeviceChild
 	{
@@ -168,6 +169,7 @@ namespace RenderCore
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
 		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
+		void SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth);
 
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);
@@ -191,7 +193,7 @@ namespace RenderCore
 		uint32_t CurrentVertexHash = 0;
 		uint32_t CurrentPixelHash = 0;
 		uint32_t CurrentRootHash = 0;
-		win32::com_ptr<ID3D12PipelineState> PipelineState;
+		
 		std::map<size_t, win32::com_ptr<ID3D12PipelineState>> GraphicsPSHashMap;
 		std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
 		FDynamicDescriptorHeap DynamicViewDescriptorHeap;

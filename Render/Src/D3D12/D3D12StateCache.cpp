@@ -5,7 +5,7 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12UniformBuffer.h"
-#include "D3D12/D3D12Texture2D.h"
+#include "D3D12/D3D12ReourceTraits.h"
 
 namespace RenderCore
 {
@@ -100,6 +100,22 @@ namespace RenderCore
 		{
 			CommandList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind);
 		}
+	}
+
+	void FD3D12StateCache::SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
+	{
+		for (uint32_t i = 0; i < Targets.size(); ++i)
+		{
+			D3D12Texture2D* Tex2D = RHIResourceCast(Targets[i].get());
+			PSDesc.RTVFormats[i] = Tex2D->GetPlatformResourceFormat();
+		}
+		for (uint32_t i = Targets.size(); i < MaxSimultaneousRenderTargets; ++i)
+			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+		PSDesc.NumRenderTargets = Targets.size();
+		D3D12Texture2D* DepthTex = RHIResourceCast(Depth.get());
+		PSDesc.DSVFormat = DepthTex ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
+		PSDesc.SampleDesc.Count = 1;
+		PSDesc.SampleDesc.Quality = 0;
 	}
 
 	std::shared_ptr<FRootSignature> FD3D12StateCache::BuildRootSignature()
@@ -265,6 +281,7 @@ namespace RenderCore
 		size_t HashCode = core::Crc::HashState(&PSDesc);
 		HashCode = core::Crc::HashState(m_InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
 		
+		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
 			auto iter = GraphicsPSHashMap.find(HashCode);
 			if (iter == GraphicsPSHashMap.end())

@@ -148,6 +148,12 @@ namespace RenderCore
 		return d->PixFormat;
 	}
 
+	DXGI_FORMAT D3D12Texture2D::GetPlatformResourceFormat() const
+	{
+		C_P(const D3D12Texture2D);
+		return d->PlatformResourceFormat;
+	}
+
 	void D3D12Texture2D::CreateFromSwapChain(const std::wstring& Name, ID3D12Resource* BaseResource)
 	{
 		Assert(BaseResource);
@@ -158,6 +164,7 @@ namespace RenderCore
 		d->Resource = new FD3D12Resource(GetParentDevice(), BaseResource, D3D12_RESOURCE_STATE_PRESENT, Desc);
 		d->Resource->SetName(Name.c_str());
 		d->Resource->AddRef();
+		d->PlatformResourceFormat = Desc.Format;
 
 		d->RTVHandle = GetParentDevice()->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		GetParentDevice()->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), nullptr, d->RTVHandle);

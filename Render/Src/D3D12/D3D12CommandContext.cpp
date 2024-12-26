@@ -47,8 +47,10 @@ namespace RenderCore
 		CommandListHandle.GraphicsCommandList()->RSSetScissorRects(1, &ScissorRect);
 	}
 
-	void D3D12CommandContext::SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr< RHITexture2D> Depth)
+	void D3D12CommandContext::SetRenderTarget(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
 	{
+		if (!StateCache)
+			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto DepthRHI = RHIResourceCast(Depth.get());
 		std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> D3D12TargetViews;
@@ -71,6 +73,7 @@ namespace RenderCore
 			return;
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
+		StateCache->SetRenderTargetFormats(Targets, Depth);	
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth)

@@ -25,6 +25,7 @@ namespace RenderCore
 		core::vec2i GetSize()const override;
 		virtual uint32_t GetNumMips() const { return 0; }
 		virtual EPixelFormat GetPixelFormat() const;
+		DXGI_FORMAT GetPlatformResourceFormat() const;
 
 		void CreateFromSwapChain(const std::wstring& Name, ID3D12Resource* BaseResource);
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV(void) const;

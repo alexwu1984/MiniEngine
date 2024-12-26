@@ -158,7 +158,7 @@ namespace RenderCore
 		}
 	}
 
-	void D3D11CommandContext::SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr< RHITexture2D> Depth)
+	void D3D11CommandContext::SetRenderTarget(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
 	{
 		auto DepthRHI = RHIResourceCast(Depth.get());
 		std::vector<ID3D11RenderTargetView*> D3D11TargetViews;

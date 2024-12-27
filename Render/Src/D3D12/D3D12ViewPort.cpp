@@ -18,7 +18,7 @@ namespace RenderCore
 		NumBackBuffers(0),
 		Fence(InAdpater),
 		bIsFullscreen(false),
-		PixelFormat(PF_B8G8R8A8),
+		PixelFormat(PF_R8G8B8A8),
 		FrameIndex(0)
 	{
 		Init();

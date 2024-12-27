@@ -64,7 +64,7 @@ namespace RenderCore
 	{
 	public:
 		FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
-
+		~FDynamicDescriptorHeap() = default;
 		D3D12_GPU_DESCRIPTOR_HANDLE UploadDirect(D3D12_CPU_DESCRIPTOR_HANDLE Handle);
 
 		void ParseGraphicsRootSignature(const FRootSignature& RootSignature)

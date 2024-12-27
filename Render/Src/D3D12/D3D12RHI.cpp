@@ -332,6 +332,7 @@ namespace RenderCore
 			//D3D12Adapter->BlockUntilIdle();
 			D3D12Adapter->Cleanup();
 		}
+		
 	}
 
 	std::shared_ptr<RHICommandContext> D3D12DynamicRHI::GetDefaultCommandContext()

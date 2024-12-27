@@ -275,6 +275,7 @@ namespace RenderCore
 			ElementDesc.InputSlotClass = static_cast<D3D12_INPUT_CLASSIFICATION>(Item.InputSlotClass);
 			ElementDesc.InstanceDataStepRate = Item.InstanceDataStepRate;
 		}
+		PSDesc.NodeMask = 1;
 		PSDesc.InputLayout.NumElements = ElementDescs.size();
 		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts.data();
 
@@ -358,6 +359,9 @@ namespace RenderCore
 		ConstantBufferCache.Clear();
 		SamplerCache.Clear();
 		ShaderResourceViewCache.Clear();
+
+		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
+			CurrentDescriptorHeaps[index] = {};
 	}
 
 }

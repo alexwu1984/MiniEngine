@@ -51,7 +51,6 @@ namespace RenderCore
 				{
 					Buffers[FrequencyIdx][SRVIdx] = {};
 				}
-				RootIndex[FrequencyIdx] = -1;
 			}
 		}
 
@@ -74,7 +73,6 @@ namespace RenderCore
 				{
 					Views[FrequencyIdx][SRVIdx] = {};
 				}
-				RootIndex[FrequencyIdx] = -1;
 			}
 		}
 

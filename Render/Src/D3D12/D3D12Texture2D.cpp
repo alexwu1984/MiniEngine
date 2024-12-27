@@ -81,7 +81,7 @@ namespace RenderCore
 
 		D3D12_CLEAR_VALUE ClearValue = {};
 		ClearValue.Format = d->PlatformResourceFormat;
-		std::wstring Name = core::formatw("SizeX:", SizeX, "SizeY:", SizeY,++gCounter);
+		std::wstring Name = core::formatw("SizeX:", SizeX, "SizeY:", SizeY,"_", ++gCounter);
 		HRESULT hr = GetParentAdapter()->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_COPY_DEST, FillClearValue ? &ClearValue : nullptr, &d->Resource, Name.c_str());
 		if (FAILED(hr))
 		{

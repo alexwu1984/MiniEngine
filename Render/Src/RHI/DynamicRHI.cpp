@@ -28,6 +28,11 @@ namespace RenderCore
 	}
 
 
+	void ReleasePlatformModule()
+	{
+		GRHIModule = {};
+	}
+
 	std::wstring GRHIAdapterName;
 	uint32_t GRHIVendorId = 0;
 	uint32_t GRHIDeviceId = 0;

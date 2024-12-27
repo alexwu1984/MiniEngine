@@ -36,6 +36,7 @@ namespace Engine
 	MainEngine::~MainEngine()
 	{
 		delete d_ptr;
+		RenderCore::ReleasePlatformModule();
 	}
 
 	void MainEngine::Init(std::shared_ptr<AppWindow> AppWin, RenderCore::RHIAPIType ApiType)

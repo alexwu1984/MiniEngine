@@ -56,8 +56,12 @@ namespace RenderCore
 		RasterizerStateCullFront = {};
 
 		BlendDisable = {};
+		BlendTraditional = {};
 		BlendOnAlphaOff = {};
 		BlendOnAlphaOn = {};
+
+		DepthStateDisable = {};
+		DepthStateEnable = {};
 	}
 
 }

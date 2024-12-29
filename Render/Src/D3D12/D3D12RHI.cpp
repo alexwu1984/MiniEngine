@@ -307,7 +307,6 @@ namespace RenderCore
 
 	D3D12DynamicRHI::~D3D12DynamicRHI()
 	{
-
 	}
 
 	void D3D12DynamicRHI::Init()

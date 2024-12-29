@@ -566,7 +566,7 @@ namespace RenderCore
 				InfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
 
 				// Enable this to break on a specific id in order to quickly get a callstack
-				//InfoQueue->SetBreakOnID(D3D11_MESSAGE_ID_DEVICE_DRAW_CONSTANT_BUFFER_TOO_SMALL, true);
+				InfoQueue->SetBreakOnID(D3D11_MESSAGE_ID_DEVICE_DRAW_CONSTANT_BUFFER_TOO_SMALL, true);
 
 				if (core::CommandLine::Get().GetName("d3dbreakonwarning"))
 				{

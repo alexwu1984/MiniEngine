@@ -5,6 +5,7 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12RootSignature.h"
+#include <dxgidebug.h>
 
 namespace RenderCore
 {
@@ -18,6 +19,7 @@ namespace RenderCore
 		win32::com_ptr<IDXGIFactory> DxgiFactory;
 		win32::com_ptr<IDXGIFactory2> DxgiFactory2;
 		win32::com_ptr<IDXGIAdapter> DxgiAdapter;
+		win32::com_ptr<IDXGIDebug> DxgiDebug;
 
 		D3D12_RESOURCE_HEAP_TIER ResourceHeapTier;
 		D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
@@ -31,8 +33,26 @@ namespace RenderCore
 		bool bDepthBoundsTestSupported = false;
 
 		std::shared_ptr<FD3D12Device> Devices[MAX_NUM_GPUS]{};
-
 		std::shared_ptr<FRootSignature> RootSignature;
+
+		~FD3D12AdapterPrivate()
+		{
+			RootDevice = {};
+			RootDevice1 = {};
+			RootDevice2 = {};
+			DxgiFactory = {};
+			DxgiFactory2 = {};
+			DxgiAdapter = {};
+			RootSignature = {};
+			FenceCorePool = {};
+			FrameFence = {};
+			Devices[0] = {};
+
+			if(DxgiDebug)
+				DxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+			DxgiDebug = {};
+		}
+		
 	};
 
 	FD3D12Adapter::FD3D12Adapter(const FD3D12AdapterDesc& desc)
@@ -364,6 +384,7 @@ namespace RenderCore
 			win32::com_ptr<ID3D12Debug> DebugController;
 			if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(DebugController.get_init_ref()))))
 			{
+				DXGIGetDebugInterface1(0, IID_PPV_ARGS(d->DxgiDebug.get_init_ref()));
 				DebugController->EnableDebugLayer();
 
 				bool bD3d12gpuvalidation = false;
@@ -405,21 +426,10 @@ namespace RenderCore
 			d->RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &Features, sizeof(Features));
 		}
 
-		win32::com_ptr<ID3D12Debug> d3dDebug;
-		if (SUCCEEDED(d->RootDevice->QueryInterface(__uuidof(ID3D12Debug), (void**)d3dDebug.get_init_ref())))
-		{
-			win32::com_ptr<ID3D12InfoQueue> d3dInfoQueue;
-			if (SUCCEEDED(d3dDebug->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)d3dInfoQueue.get_init_ref())))
-			{
-				d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
-				d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
-				//d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
-			}
-		}
-
 		// Add some filter outs for known debug spew messages (that we don't care about)
 		if (bWithDebug)
 		{
+
 			ID3D12InfoQueue* pd3dInfoQueue = nullptr;
 			d->RootDevice->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)&pd3dInfoQueue);
 			if (pd3dInfoQueue)
@@ -502,11 +512,6 @@ namespace RenderCore
 				// Enable this to break on a specific id in order to quickly get a callstack
 				//pd3dInfoQueue->SetBreakOnID(D3D12_MESSAGE_ID_DEVICE_DRAW_CONSTANT_BUFFER_TOO_SMALL, true);
 
-				//if (FParse::Param(FCommandLine::Get(), TEXT("d3dbreakonwarning")))
-				//{
-				//	pd3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
-				//}
-
 				pd3dInfoQueue->Release();
 			}
 		}
@@ -542,9 +547,12 @@ namespace RenderCore
 			d->Devices[GPUIndex]->Cleanup();
 			d->Devices[GPUIndex].reset();
 		}
-
-		d->FenceCorePool->Destroy();
-		
+		if (d->FrameFence)
+			d->FrameFence->Destroy();
+		d->FrameFence = {};
+		if(d->FenceCorePool)
+			d->FenceCorePool->Destroy();
+		d->FenceCorePool = {};
 	}
 
 }

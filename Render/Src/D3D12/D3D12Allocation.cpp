@@ -169,7 +169,7 @@ namespace RenderCore
 			DefaultUsage = D3D12_RESOURCE_STATE_GENERIC_READ;
 		}
 
-		ID3D12Resource* pBuffer = nullptr;
+		win32::com_ptr<ID3D12Resource> pBuffer;
 		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(
 			&HeapProps,
 			D3D12_HEAP_FLAG_NONE,
@@ -180,7 +180,7 @@ namespace RenderCore
 
 		pBuffer->SetName(L"LinearAllocatorPage");
 
-		LinearAllocationPage * AllocationPage =  new LinearAllocationPage(GetParentDevice(),pBuffer, DefaultUsage,ResourceDesc, HeapProps.Type);
+		LinearAllocationPage * AllocationPage =  new LinearAllocationPage(GetParentDevice(),pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.Type);
 		AllocationPage->AddRef();
 		return AllocationPage;
 	}

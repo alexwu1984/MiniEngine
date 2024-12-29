@@ -32,7 +32,7 @@ namespace RenderCore
 		bool bDeviceRemoved = false;
 		bool bDepthBoundsTestSupported = false;
 
-		std::shared_ptr<FD3D12Device> Devices[MAX_NUM_GPUS]{};
+		std::shared_ptr<FD3D12Device> Device;
 		std::shared_ptr<FRootSignature> RootSignature;
 
 		~FD3D12AdapterPrivate()
@@ -46,7 +46,7 @@ namespace RenderCore
 			RootSignature = {};
 			FenceCorePool = {};
 			FrameFence = {};
-			Devices[0] = {};
+			Device = {};
 
 			if(DxgiDebug)
 				DxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
@@ -151,9 +151,8 @@ namespace RenderCore
 		d->FrameFence = std::make_shared<FD3D12ManualFence>(this->shared_from_this(), L"Adapter Frame Fence");
 		d->FrameFence->CreateFence();
 
-		constexpr uint32_t GPUIndex = 0;
-		d->Devices[GPUIndex] = make_shared<FD3D12Device>(this->shared_from_this());
-		d->Devices[GPUIndex]->Initialize();
+		d->Device = make_shared<FD3D12Device>(this->shared_from_this());
+		d->Device->Initialize();
 
 		CreateSignatures();
 	}
@@ -210,13 +209,13 @@ namespace RenderCore
 		return *d->FrameFence;
 	}
 
-	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice()
+	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice() const
 	{
-		C_P(FD3D12Adapter);
-		return d->Devices[0];
+		C_P(const FD3D12Adapter);
+		return d->Device;
 	}
 
-	std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI()
+	std::shared_ptr<D3D12DynamicRHI> FD3D12Adapter::GetOwningRHI() const
 	{
 		C_P(FD3D12Adapter);
 		Assert(!d->OwningRHI.expired());
@@ -251,7 +250,7 @@ namespace RenderCore
 	{
 		C_P(FD3D12Adapter);
 		ID3D12Device* Device = GetD3DDevice();
-		d->RootSignature = std::make_shared<FRootSignature>(d->Devices[0], 0, 0);
+		d->RootSignature = std::make_shared<FRootSignature>(d->Device, 0, 0);
 	}
 
 	uint32_t FD3D12Adapter::GetAdapterIndex() const
@@ -542,10 +541,10 @@ namespace RenderCore
 		C_P(FD3D12Adapter);
 	
 		constexpr int32_t GPUIndex = 0;
-		if (d->Devices[GPUIndex])
+		if (d->Device)
 		{
-			d->Devices[GPUIndex]->Cleanup();
-			d->Devices[GPUIndex].reset();
+			d->Device->Cleanup();
+			d->Device = {};
 		}
 		if (d->FrameFence)
 			d->FrameFence->Destroy();

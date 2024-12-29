@@ -32,19 +32,16 @@ namespace RenderCore
 	class FD3D12FenceCore : public FD3D12AdapterChild
 	{
 	public:
-		FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue, uint32_t InGPUIndex);
+		FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue);
 		~FD3D12FenceCore();
 
 		inline ID3D12Fence* GetFence() const { return Fence.get(); }
 		inline HANDLE GetCompletionEvent() const { return hFenceCompleteEvent; }
 		inline bool IsAvailable() const { return FenceValueAvailableAt <= Fence->GetCompletedValue(); }
-		inline uint32_t GetGPUIndex() const { return GPUIndex; }
 
 		uint64_t FenceValueAvailableAt;
 
 	private:
-		uint32_t GPUIndex = 0;
-
 		win32::com_ptr<ID3D12Fence> Fence;
 		HANDLE hFenceCompleteEvent = nullptr;
 	};
@@ -54,12 +51,12 @@ namespace RenderCore
 	public:
 		FD3D12FenceCorePool(std::weak_ptr<FD3D12Adapter> Parent) : FD3D12AdapterChild(Parent) {};
 
-		FD3D12FenceCore* ObtainFenceCore(uint32_t GPUIndex);
+		FD3D12FenceCore* ObtainFenceCore();
 		void ReleaseFenceCore(FD3D12FenceCore* Fence, uint64_t CurrentFenceValue);
 		void Destroy();
 	private:
 		std::recursive_mutex CS;
-		std::queue<FD3D12FenceCore*> AvailableFences[MAX_NUM_GPUS];
+		std::queue<FD3D12FenceCore*> AvailableFences;
 	};
 
 	class FD3D12Fence : public FD3D12AdapterChild
@@ -70,7 +67,6 @@ namespace RenderCore
 
 		void CreateFence();
 		uint64_t Signal(ED3D12CommandQueueType InQueueType);
-		void GpuWait(uint32_t DeviceGPUIndex, ED3D12CommandQueueType InQueueType, uint64_t FenceValue, uint32_t FenceGPUIndex);
 		void GpuWait(ED3D12CommandQueueType InQueueType, uint64_t FenceValue);
 		bool IsFenceComplete(uint64_t FenceValue);
 		void WaitForFence(uint64_t FenceValue);
@@ -114,19 +110,15 @@ namespace RenderCore
 		void InternalSignal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal);
 
 	protected:
-
 		uint64_t CurrentFence;
 		uint64_t LastSignaledFence; // 0 when not yet issued, otherwise the last value signaled to all GPU
 		uint64_t LastCompletedFence; // The min value completed between all LastCompletedFences.
 		std::recursive_mutex WaitForFenceCS;
-
 		//only one for now
-		uint64_t LastCompletedFences[MAX_NUM_GPUS];
-		FD3D12FenceCore* FenceCores[MAX_NUM_GPUS];
-
+		uint64_t LastCompletedFenceCache = 0;
+		FD3D12FenceCore* FenceCoreCache = nullptr;
 		//debug name of the label.
 		std::wstring Name;
-
 		//has the label been written to since being created.
 		//check this when queuing waits to catch GPU hangs on the CPU at command creation time.
 		bool bWriteEnqueued = false;
@@ -226,12 +218,11 @@ namespace RenderCore
 		D3D12CommandListHandle CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator);
 	private:
 		win32::com_ptr<ID3D12CommandQueue>		D3DCommandQueue;
-
 		ThreadsafeQueue<D3D12CommandListHandle> ReadyLists;
 
 		// Command allocators used exclusively for resource barrier command lists.
 		FD3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;
-		D3D12CommandAllocator* ResourceBarrierCommandAllocator;
+		D3D12CommandAllocator* ResourceBarrierCommandAllocator = nullptr;
 
 		std::shared_ptr<FD3D12Fence> CommandListFence;
 

@@ -18,7 +18,7 @@ namespace RenderCore
 
 	void D3D12CommandAllocator::Init(ID3D12Device* InDevice, const D3D12_COMMAND_LIST_TYPE& InType)
 	{
-		assert(CommandAllocator.get() == nullptr);
+		Assert(CommandAllocator.get() == nullptr);
 		HRESULT hr = InDevice->CreateCommandAllocator(InType, IID_PPV_ARGS(CommandAllocator.get_init_ref()));
 	}
 
@@ -67,7 +67,7 @@ namespace RenderCore
 
 
 		// If this fails then some previous resource barriers were never submitted.
-		assert(ResourceBarrierBatcher.GetBarriers().size() == 0);
+		Assert(ResourceBarrierBatcher.GetBarriers().size() == 0);
 
 	}
 
@@ -78,14 +78,14 @@ namespace RenderCore
 
 	void D3D12CommandListHandle::Create(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
 	{
-		assert(!CommandListData);
+		Assert(!CommandListData);
 		CommandListData = new D3D12CommandListData(ParentDevice, CommandListType, CommandAllocator, InCommandListManager);
 		CommandListData->AddRef();
 	}
 
 	void D3D12CommandListHandle::Execute(bool WaitForCompletion /*= false*/)
 	{
-		assert(CommandListData);
+		Assert(CommandListData);
 		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 			GetCurrentOwningContext()->GetLinerAllocator(CpuWritable).CleanupUsedPages(FenceID);
 			GetCurrentOwningContext()->GetLinerAllocator(GpuExclusive).CleanupUsedPages(FenceID);
@@ -94,21 +94,21 @@ namespace RenderCore
 
 	void D3D12CommandListHandle::AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)
 	{
-		assert(CommandListData);
+		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddTransition(pResource->GetResource(), Before, After, Subresource);
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
 	void D3D12CommandListHandle::AddUAVBarrier()
 	{
-		assert(CommandListData);
+		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddUAV();
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
 	void D3D12CommandListHandle::AddAliasingBarrier(FD3D12Resource* pResource)
 	{
-		assert(CommandListData);
+		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddAliasingBarrier(pResource->GetResource());
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
@@ -120,16 +120,16 @@ namespace RenderCore
 		if (!ResourceState.CheckResourceStateInitalized())
 		{
 			ResourceState.Initialize(pResource->GetSubresourceCount());
-			assert(ResourceState.CheckResourceState(D3D12_RESOURCE_STATE_TBD));
+			Assert(ResourceState.CheckResourceState(D3D12_RESOURCE_STATE_TBD));
 		}
 
-		assert(ResourceState.CheckResourceStateInitalized());
+		Assert(ResourceState.CheckResourceStateInitalized());
 	}
 
 	CResourceState& D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::GetResourceState(FD3D12Resource* pResource)
 	{
 		// Only certain resources should use this
-		assert(pResource->RequiresResourceStateTracking());
+		Assert(pResource->RequiresResourceStateTracking());
 
 		//CResourceState& ResourceState = ResourceStates.FindOrAdd(pResource);
 		CResourceState& ResourceState = ResourceStates[pResource];

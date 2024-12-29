@@ -52,7 +52,7 @@ namespace RenderCore
 	private:
 		typedef std::pair<uint64_t, D3D12SyncPoint>	GenerationSyncPointPair;	// Pair of command list generation to a sync point
 
-		class D3D12CommandListData : public FD3D12DeviceChild
+		class D3D12CommandListData : public FD3D12DeviceChild, public D3D12RefCount
 		{
 		public:
 			D3D12CommandListData(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
@@ -182,21 +182,7 @@ namespace RenderCore
 				ResourceBarrierBatcher.Flush(CommandList.get());
 			}
 
-			uint32_t AddRef() const
-			{
-				int32_t NewValue = ++NumRefs;
-				Assert(NewValue > 0);
-				return uint32_t(NewValue);
-			}
 
-			uint32_t Release() const
-			{
-				int32_t NewValue = --NumRefs;
-				Assert(NewValue >= 0);
-				return uint32_t(NewValue);
-			}
-
-			mutable std::atomic_int32_t	NumRefs;
 			FD3D12CommandListManager* CommandListManager;
 			D3D12CommandContext* CurrentOwningContext;
 			const D3D12_COMMAND_LIST_TYPE			CommandListType;
@@ -260,10 +246,8 @@ namespace RenderCore
 
 		virtual ~D3D12CommandListHandle()
 		{
-			if (CommandListData && CommandListData->Release() == 0)
-			{
-				delete CommandListData;
-			}
+			if (CommandListData)
+				CommandListData->Release();
 		}
 
 		D3D12CommandListHandle& operator = (const D3D12CommandListHandle& CL)

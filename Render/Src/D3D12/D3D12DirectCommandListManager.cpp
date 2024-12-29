@@ -21,9 +21,8 @@ namespace RenderCore
 		NumCommandLists++;
 	}
 
-	FD3D12FenceCore::FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue, uint32_t InGPUIndex)
+	FD3D12FenceCore::FD3D12FenceCore(std::weak_ptr<FD3D12Adapter> Parent, uint64_t InitialValue)
 		:FD3D12AdapterChild(Parent)
-		,GPUIndex(InGPUIndex)
 	{
 		Assert(!Parent.expired());
 		hFenceCompleteEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -42,41 +41,37 @@ namespace RenderCore
 		}
 	}
 
-	FD3D12FenceCore* FD3D12FenceCorePool::ObtainFenceCore(uint32_t GPUIndex)
+	FD3D12FenceCore* FD3D12FenceCorePool::ObtainFenceCore()
 	{
 		{
 			std::lock_guard<std::recursive_mutex> lock(CS);
 			FD3D12FenceCore* Fence = nullptr;
-			if (!AvailableFences[GPUIndex].empty() && Fence->IsAvailable())
+			if (!AvailableFences.empty() && Fence->IsAvailable())
 			{
-				Fence = AvailableFences[GPUIndex].front();
-				AvailableFences[GPUIndex].pop();
+				Fence = AvailableFences.front();
+				AvailableFences.pop();
 				return Fence;
 			}
 		}
 
-		return new FD3D12FenceCore(GetParentAdapter(), 0, GPUIndex);
+		return new FD3D12FenceCore(GetParentAdapter(), 0);
 	}
 
 	void FD3D12FenceCorePool::ReleaseFenceCore(FD3D12FenceCore* Fence, uint64_t CurrentFenceValue)
 	{
 		std::lock_guard<std::recursive_mutex> lock(CS);
 		Fence->FenceValueAvailableAt = CurrentFenceValue;
-		int32_t index = Fence->GetGPUIndex();
-		AvailableFences[index].push(Fence);
+		AvailableFences.push(Fence);
 	}
 
 	void FD3D12FenceCorePool::Destroy()
 	{
-		for (uint32_t GPUIndex = 0; GPUIndex < MAX_NUM_GPUS; ++GPUIndex)
+		FD3D12FenceCore* Fence = nullptr;
+		while (!AvailableFences.empty())
 		{
-			FD3D12FenceCore* Fence = nullptr;
-			while (!AvailableFences[GPUIndex].empty())
-			{
-				Fence = AvailableFences[GPUIndex].front();
-				delete Fence;
-				AvailableFences[GPUIndex].pop();
-			}
+			Fence = AvailableFences.front();
+			delete Fence;
+			AvailableFences.pop();
 		}
 	}
 
@@ -87,8 +82,6 @@ namespace RenderCore
 		, LastSignaledFence(0)
 		, LastCompletedFence(0)
 	{
-		ZeroMemory(FenceCores, sizeof(FenceCores));
-		ZeroMemory(LastCompletedFences, sizeof(LastCompletedFences));
 	}
 
 	FD3D12Fence::~FD3D12Fence()
@@ -101,17 +94,17 @@ namespace RenderCore
 		// Can't set the last signaled fence per GPU before a common signal is sent.
 		LastSignaledFence = 0;
 		const uint32_t GPUIndex = 0;
-		Assert(!FenceCores[GPUIndex]);
+		Assert(!FenceCoreCache);
 
 		// Get a fence from the pool
-		FD3D12FenceCore* FenceCore = GetParentAdapter()->GetFenceCorePool().ObtainFenceCore(GPUIndex);
+		FD3D12FenceCore* FenceCore = GetParentAdapter()->GetFenceCorePool().ObtainFenceCore();
 		Assert(FenceCore);
-		FenceCores[GPUIndex] = FenceCore;
+		FenceCoreCache = FenceCore;
 
-		LastCompletedFences[GPUIndex] = FenceCore->FenceValueAvailableAt;
+		LastCompletedFenceCache = FenceCore->FenceValueAvailableAt;
 
-		LastCompletedFence = LastCompletedFences[GPUIndex];
-		CurrentFence = LastCompletedFences[GPUIndex] + 1;
+		LastCompletedFence = LastCompletedFenceCache;
+		CurrentFence = LastCompletedFenceCache + 1;
 	}
 
 	uint64_t FD3D12Fence::Signal(ED3D12CommandQueueType InQueueType)
@@ -128,21 +121,13 @@ namespace RenderCore
 		return LastSignaledFence;
 	}
 
-	void FD3D12Fence::GpuWait(uint32_t DeviceGPUIndex, ED3D12CommandQueueType InQueueType, uint64_t FenceValue, uint32_t FenceGPUIndex)
-	{
-		Assert(DeviceGPUIndex == 0);
-		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
-		Assert(CommandQueue);
-		FD3D12FenceCore* FenceCore = FenceCores[FenceGPUIndex];
-		Assert(FenceCore);
-
-		VERIFYD3DRESULT(CommandQueue->Wait(FenceCore->GetFence(), FenceValue));
-	}
-
 	void FD3D12Fence::GpuWait(ED3D12CommandQueueType InQueueType, uint64_t FenceValue)
 	{
-		constexpr uint32_t GPUIndex = 0;
-		GpuWait(GPUIndex, InQueueType, FenceValue, GPUIndex);
+		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
+		Assert(CommandQueue);
+		Assert(FenceCoreCache);
+
+		VERIFYD3DRESULT(CommandQueue->Wait(FenceCoreCache->GetFence(), FenceValue));
 	}
 
 	bool FD3D12Fence::IsFenceComplete(uint64_t FenceValue)
@@ -163,21 +148,19 @@ namespace RenderCore
 	{
 		if (!IsFenceComplete(FenceValue))
 		{
-			constexpr uint32_t GPUIndex = 0;
-			FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
-			Assert(FenceCore);
+			Assert(FenceCoreCache);
 
-			if (FenceValue > FenceCore->GetFence()->GetCompletedValue())
+			if (FenceValue > FenceCoreCache->GetFence()->GetCompletedValue())
 			{
 				//SCOPE_CYCLE_COUNTER(STAT_D3D12WaitForFenceTime);
 				// Multiple threads can be using the same FD3D12Fence (texture streaming).
 				std::lock_guard<std::recursive_mutex> Lock(WaitForFenceCS);
 
 				// We must wait.  Do so with an event handler so we don't oversleep.
-				VERIFYD3DRESULT(FenceCore->GetFence()->SetEventOnCompletion(FenceValue, FenceCore->GetCompletionEvent()));
+				VERIFYD3DRESULT(FenceCoreCache->GetFence()->SetEventOnCompletion(FenceValue, FenceCoreCache->GetCompletionEvent()));
 
 				// Wait for the event to complete (the event is automatically reset afterwards)
-				const uint32_t WaitResult = WaitForSingleObject(FenceCore->GetCompletionEvent(), INFINITE);
+				const uint32_t WaitResult = WaitForSingleObject(FenceCoreCache->GetCompletionEvent(), INFINITE);
 				Assert(0 == WaitResult);
 			}
 
@@ -188,20 +171,18 @@ namespace RenderCore
 
 	uint64_t FD3D12Fence::PeekLastCompletedFence() const
 	{
+		Assert(FenceCoreCache);
 		uint64_t CompletedFence = MAXUINT64;
-		constexpr uint32_t GPUIndex = 0;
-		CompletedFence = std::min<uint64_t>(FenceCores[GPUIndex]->GetFence()->GetCompletedValue(), CompletedFence);
+		CompletedFence = std::min<uint64_t>(FenceCoreCache->GetFence()->GetCompletedValue(), CompletedFence);
 		return CompletedFence;
 	}
 
 	uint64_t FD3D12Fence::UpdateLastCompletedFence()
 	{
 		uint64_t CompletedFence = MAXUINT64;
-		constexpr uint32_t GPUIndex = 0;
-		FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
-		Assert(FenceCore);
-		LastCompletedFences[GPUIndex] = FenceCore->GetFence()->GetCompletedValue();
-		CompletedFence = std::min<uint64_t>(LastCompletedFences[GPUIndex], CompletedFence);
+		Assert(FenceCoreCache);
+		LastCompletedFenceCache = FenceCoreCache->GetFence()->GetCompletedValue();
+		CompletedFence = std::min<uint64_t>(LastCompletedFenceCache, CompletedFence);
 		// Must be computed on the stack because the function can be called concurrently.
 		LastCompletedFence = CompletedFence;
 		return CompletedFence;
@@ -210,25 +191,23 @@ namespace RenderCore
 	void FD3D12Fence::Destroy()
 	{
 		constexpr int32_t GPUIndex = 0;
-		if (FenceCores[GPUIndex])
+		if (FenceCoreCache)
 		{
 			// Return the underlying fence to the pool, store the last value signaled on this fence. 
 			// If not fence was signaled since CreateFence() was called, then the last completed value is the last signaled value for this GPU.
-			GetParentAdapter()->GetFenceCorePool().ReleaseFenceCore(FenceCores[GPUIndex], LastSignaledFence > 0 ? LastSignaledFence : LastCompletedFences[GPUIndex]);
+			GetParentAdapter()->GetFenceCorePool().ReleaseFenceCore(FenceCoreCache, LastSignaledFence > 0 ? LastSignaledFence : LastCompletedFenceCache);
 
-			FenceCores[GPUIndex] = nullptr;
+			FenceCoreCache = nullptr;
 		}
 	}
 
 	void FD3D12Fence::InternalSignal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal)
 	{
-		const uint32_t GPUIndex = 0;
 		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
 		Assert(CommandQueue);
-		FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
-		Assert(FenceCore);
+		Assert(FenceCoreCache);
 
-		HRESULT hr = CommandQueue->Signal(FenceCore->GetFence(), FenceToSignal);
+		HRESULT hr = CommandQueue->Signal(FenceCoreCache->GetFence(), FenceToSignal);
 		Assert(SUCCEEDED(hr));
 		LastSignaledFence = FenceToSignal;
 	}

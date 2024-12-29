@@ -2,6 +2,8 @@
 #include "RHIPrivate/D3DShaderUtil.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "common/crc.h"
+#include <filesystem>
+#include "core/strings.h"
 
 namespace RenderCore
 {
@@ -43,7 +45,8 @@ namespace RenderCore
 		ResourceCounts.NumSamplers = NumSamplers;
 		ElementDescs = VertexDeclare.GetDeclareDesc();
 
-		KeyName = core::ucs2_u8(FileName) + VSMain;
+		std::filesystem::path Path(core::ucs2_u8(FileName));
+		KeyName = core::format(Path.filename().string(),"_", VSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		return true;
 	}
@@ -83,7 +86,8 @@ namespace RenderCore
 		ResourceCounts.NumUAVs = NumUAVs;
 		ResourceCounts.NumSamplers = NumSamplers;
 
-		KeyName = core::ucs2_u8(FileName) + PSMain;
+		std::filesystem::path Path(core::ucs2_u8(FileName));
+		KeyName = core::format(Path.filename().string(), "_", PSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		return true;
 	}

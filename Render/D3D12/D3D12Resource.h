@@ -123,6 +123,8 @@ namespace RenderCore
 		void SetName(const wchar_t* Name)
 		{
 			DebugName = Name;
+			if (Resource)
+				Resource->SetName(Name);
 		}
 
 		std::wstring GetName() const

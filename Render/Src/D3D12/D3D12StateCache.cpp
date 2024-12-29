@@ -276,6 +276,7 @@ namespace RenderCore
 			ElementDesc.InstanceDataStepRate = Item.InstanceDataStepRate;
 		}
 		PSDesc.NodeMask = 1;
+		PSDesc.SampleMask = (UINT)-1;
 		PSDesc.InputLayout.NumElements = ElementDescs.size();
 		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts.data();
 

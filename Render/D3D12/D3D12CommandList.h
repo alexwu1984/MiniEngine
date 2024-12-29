@@ -71,7 +71,7 @@ namespace RenderCore
 					return false;
 				}
 
-				assert(Generation < CurrentGeneration);
+				Assert(Generation < CurrentGeneration);
 				if (Generation > LastCompleteGeneration)
 				{
 					std::lock_guard<std::recursive_mutex> Lock(ActiveGenerationsCS);
@@ -254,10 +254,8 @@ namespace RenderCore
 		{
 			if (this != &CL)
 			{
-				if (CommandListData && CommandListData->Release() == 0)
-				{
-					delete CommandListData;
-				}
+				if (CommandListData)
+					CommandListData->Release();
 
 				CommandListData = nullptr;
 
@@ -275,10 +273,8 @@ namespace RenderCore
 		{
 			if (CommandListData != CL.CommandListData)
 			{
-				if (CommandListData && CommandListData->Release() == 0)
-				{
-					delete CommandListData;
-				}
+				if (CommandListData)
+					CommandListData->Release();
 				CommandListData = CL.CommandListData;
 				CL.CommandListData = nullptr;
 			}
@@ -318,7 +314,6 @@ namespace RenderCore
 		FORCEINLINE ID3D12GraphicsCommandList* operator->() const
 		{
 			Assert(CommandListData && !CommandListData->IsClosed);
-
 			return CommandListData->CommandList.get();
 		}
 
@@ -328,7 +323,7 @@ namespace RenderCore
 
 		void Close()
 		{
-			assert(CommandListData);
+			Assert(CommandListData);
 			CommandListData->Close();
 		}
 
@@ -479,13 +474,9 @@ namespace RenderCore
 	class D3D12CLSyncPoint
 	{
 	public:
-
 		D3D12CLSyncPoint() : Generation(0) {}
-
 		D3D12CLSyncPoint(D3D12CommandListHandle& CL) : CommandList(CL), Generation(CL.CommandList() ? CL.CurrentGeneration() : 0) {}
-
 		D3D12CLSyncPoint(D3D12CommandListHandle&& CL) : CommandList(std::move(CL)), Generation(CommandList.CommandList() ? CommandList.CurrentGeneration() : 0) {}
-
 		D3D12CLSyncPoint(const D3D12CLSyncPoint& SyncPoint) : CommandList(SyncPoint.CommandList), Generation(SyncPoint.Generation) {}
 
 		D3D12CLSyncPoint& operator = (D3D12CommandListHandle& CL)

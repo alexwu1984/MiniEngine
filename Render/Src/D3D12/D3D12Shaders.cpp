@@ -68,7 +68,7 @@ namespace RenderCore
 			Assert(false);
 			return false;
 		}
-
+		PSEntryPoint = PSMain;
 		std::vector<uint8_t> shaderCode;
 		shaderCode.resize(Code->GetBufferSize());
 		std::memcpy(&shaderCode[0], Code->GetBufferPointer(), Code->GetBufferSize());

@@ -149,7 +149,7 @@ namespace RenderCore
 		{
 			PixelShader = itFindPixelShader->second;
 			PixelResCount = PixelShader->ResourceCounts;
-			KeyName += itFindPixelShader->second->KeyName;
+			KeyName += itFindPixelShader->second->PSEntryPoint;
 		}
 		
 		CurrentRootHash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());

@@ -35,6 +35,7 @@ namespace RenderCore
 		
 		enum { StaticFrequency = SF_Pixel };
 		std::string KeyName;
+		std::string PSEntryPoint;
 		/** The shader's bytecode, with custom data in the last byte. */
 		win32::com_ptr<ID3DBlob> Code;
 		uint32_t Hash = 0;

@@ -16,7 +16,6 @@ namespace RenderCore
 		SizeY(InSizeY),
 		bAllowTearing(false),
 		NumBackBuffers(0),
-		Fence(InAdpater),
 		bIsFullscreen(false),
 		PixelFormat(PF_R8G8B8A8),
 		FrameIndex(0)
@@ -48,8 +47,6 @@ namespace RenderCore
 				}
 			}
 		}
-
-		Fence.CreateFence();
 
 		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 

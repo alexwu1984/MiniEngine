@@ -114,7 +114,7 @@ namespace RenderCore
 	{
 	public:
 		FD3D12StateCache(std::weak_ptr<FD3D12Device> InParent);
-		~FD3D12StateCache() = default;
+		~FD3D12StateCache();
 
 		template <EShaderFrequency ShaderFrequency>
 		void SetSamplerState(const D3D12_STATIC_SAMPLER_DESC& SamplerState, uint32_t SamplerIndex)

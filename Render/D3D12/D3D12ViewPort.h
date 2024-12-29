@@ -39,8 +39,6 @@ namespace RenderCore
 		DXGI_COLOR_SPACE_TYPE ColorSpace;
 		win32::com_ptr<IDXGISwapChain4> SwapChain4;
 
-		/** A fence value used to track the GPU's progress. */
-		FD3D12Fence Fence;
 		uint64_t LastSignaledValue;
 		int32_t NumBackBuffers;
 		uint32_t FrameIndex;

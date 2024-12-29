@@ -29,6 +29,8 @@ namespace RenderCore
 
 	D3D12CommandContext::~D3D12CommandContext()
 	{
+		StateCache = {};
+		
 	}
 
 	void D3D12CommandContext::SetViewPort(int32_t TopLeftX, int32_t TopLeftY, int32_t SizeX, int32_t SizeY)
@@ -398,6 +400,14 @@ namespace RenderCore
 	void D3D12CommandContext::Initialize(void)
 	{
 		StateCache = std::make_shared<FD3D12StateCache>(GetParentDevice());
+	}
+
+	void D3D12CommandContext::Destroy()
+	{
+		StateCache = {};
+		if(CommandAllocator)
+			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
+		CommandAllocator = nullptr;
 	}
 
 }

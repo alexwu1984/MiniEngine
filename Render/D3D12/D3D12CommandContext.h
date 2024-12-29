@@ -81,6 +81,7 @@ namespace RenderCore
 		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
 		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
 		void Initialize(void);
+		void Destroy();
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();

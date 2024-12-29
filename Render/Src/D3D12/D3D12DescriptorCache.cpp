@@ -6,6 +6,9 @@
 
 namespace RenderCore
 {
+	std::queue<win32::com_ptr<ID3D12DescriptorHeap>> FDynamicDescriptorHeap::ms_ReadyDescriptorHeaps[2];
+	std::queue<std::pair<uint64_t, win32::com_ptr<ID3D12DescriptorHeap>>> FDynamicDescriptorHeap::ms_RetiredDescriptorHeaps[2];
+	std::vector<win32::com_ptr<ID3D12DescriptorHeap>> FDynamicDescriptorHeap::ms_DescriptorHeapPool[2];
 
 	FDynamicDescriptorHeap::FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE HeapType)
 		:FD3D12DeviceChild(InDevice),

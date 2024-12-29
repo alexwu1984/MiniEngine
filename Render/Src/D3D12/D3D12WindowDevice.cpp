@@ -3,6 +3,7 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12Allocation.h"
+#include "D3D12/D3D12DescriptorCache.h"
 
 namespace RenderCore
 {
@@ -69,13 +70,34 @@ namespace RenderCore
 		if (AsyncCommandListManager)
 			AsyncCommandListManager->Destroy();
 
+		if (DefaultCommandContext)
+			DefaultCommandContext->Destroy();
+		if (AsyncComputeContext)
+			AsyncComputeContext->Destroy();
 		DefaultCommandContext = {};
 		AsyncComputeContext = {};
 		CommandListManager = {};
 		CopyCommandListManager = {};
 		AsyncCommandListManager = {};
 
+		if (PageManager[0])
+		{
+			PageManager[0]->Destroy();
+			PageManager[0] = {};
+		}
+		if (PageManager[1])
+		{
+			PageManager[1]->Destroy();
+			PageManager[1] = {};
+		}
+
+		DescriptorAllocator[0] = {};
+		DescriptorAllocator[1] = {};
+		DescriptorAllocator[2] = {};
+		DescriptorAllocator[3] = {};
+
 		FD3D12ResourceAllocator::DestroyAll();
+		FDynamicDescriptorHeap::DestroyAll();
 	}
 
 	ID3D12Device* FD3D12Device::GetDevice()

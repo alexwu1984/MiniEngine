@@ -357,9 +357,9 @@ namespace RenderCore
 
 		D3DCommandQueue.reset();
 
-		D3D12CommandListHandle hList;
 		while (!ReadyLists.IsEmpty())
 		{
+			D3D12CommandListHandle hList;
 			ReadyLists.Dequeue(hList);
 		}
 

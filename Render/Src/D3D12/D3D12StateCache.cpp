@@ -16,6 +16,17 @@ namespace RenderCore
 
 	}
 
+	FD3D12StateCache::~FD3D12StateCache()
+	{
+		VertexShaders.clear();
+		PixelShaders.clear();
+		RootSignatures.clear();
+		GraphicsPSHashMap.clear();
+		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
+			CurrentDescriptorHeaps[index] = {};
+
+	}
+
 	void FD3D12StateCache::SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader)
 	{
 		if (InVertexShader)
@@ -288,7 +299,7 @@ namespace RenderCore
 			auto iter = GraphicsPSHashMap.find(HashCode);
 			if (iter == GraphicsPSHashMap.end())
 			{
-				HRESULT hr = GetParentDevice()->GetDevice()->CreateGraphicsPipelineState(&PSDesc, IID_PPV_ARGS(&PipelineState));
+				HRESULT hr = GetParentDevice()->GetDevice()->CreateGraphicsPipelineState(&PSDesc, IID_PPV_ARGS(PipelineState.get_init_ref()));
 				if (FAILED(hr))
 				{
 					Assert(false);

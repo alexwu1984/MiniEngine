@@ -90,9 +90,6 @@ namespace RenderCore
 
 			// Set the DXGI message hook to not change the window behind our back.
 			Adapter->GetDXGIFactory2()->MakeWindowAssociation(WindowHandle, DXGI_MWA_NO_WINDOW_CHANGES);
-
-			// Resize to setup mGPU correctly.
-			Resize(BufferDesc.Width, BufferDesc.Height, bIsFullscreen);
 		}
 
 		// Tell the window to redraw when they can.
@@ -111,6 +108,41 @@ namespace RenderCore
 
 	void D3D12ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
 	{
+		auto Adapter = GetParentAdapter();
+		auto Device = Adapter->GetDevice();
+		if (!Device)
+			return;
+
+		if (SizeX != InSizeX || SizeY != InSizeY)
+		{
+			SizeX = InSizeX;
+			SizeY = InSizeY;
+			Adapter->BlockUntilIdle();
+			Device->GetDefaultCommandContext()->ClearState();
+			Device->GetDefaultAsyncComputeContext()->ClearState();
+
+			BackBuffers.clear();
+
+			CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
+
+			uint32_t SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+			if (bAllowTearing)
+				SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+
+			HRESULT hr = SwapChain4->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags);
+			if (FAILED(hr))
+				return;
+
+			for (int i = 0; i < NumBackBuffers; ++i)
+			{
+				win32::com_ptr<ID3D12Resource> BackBufferrRes;
+				VERIFYD3DRESULT(SwapChain4->GetBuffer(i, IID_PPV_ARGS(BackBufferrRes.get_init_ref())));
+				std::shared_ptr<D3D12Texture2D> BackBufTex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter());
+				BackBufTex2D->CreateFromSwapChain(L"BackBuffer", BackBufferrRes.get());
+				BackBuffers.emplace_back(BackBufTex2D);
+			}
+			FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+		}
 
 	}
 
@@ -140,6 +172,7 @@ namespace RenderCore
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 		GetDefaultCommandContext()->FlushCommands(true);
 		SwapChain4->Present(1, 0);
+
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 	}
 

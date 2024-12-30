@@ -410,4 +410,10 @@ namespace RenderCore
 		CommandAllocator = nullptr;
 	}
 
+	void D3D12CommandContext::ClearState()
+	{
+		if (StateCache)
+			StateCache->ClearState();
+	}
+
 }

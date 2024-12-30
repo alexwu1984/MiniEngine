@@ -28,11 +28,12 @@ namespace RenderCore
 		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		FD3D12CommandListManager& GetCommandListManager(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext() const { return DefaultCommandContext;}
-		D3D12CommandContext& GetDefaultAsyncComputeContext() const { return *AsyncComputeContext; }
+		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext() const { return AsyncComputeContext; }
 		LinearAllocationPageManager& GetLinearPageManager(ELinearAllocatorType Type) const;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
 		uint32_t GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type);;
+		void BlockUntilIdle();
 
 	private:
 		void CreateCommandContexts();

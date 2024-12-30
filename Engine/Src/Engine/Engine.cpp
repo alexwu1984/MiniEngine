@@ -25,6 +25,9 @@ namespace Engine
 		std::shared_ptr<SceneRender> SeRender;
 		win32::HighPrecisionTick GameTick;
 		std::wstring ModelPath;
+		std::atomic_bool NeedResize = false;
+		core::vec2i NewSize;
+
 	};
 
 	MainEngine::MainEngine()
@@ -124,15 +127,22 @@ namespace Engine
 
 	void MainEngine::Tick(float DeltaTime)
 	{
-		C_P(const MainEngine);
+		C_P(MainEngine);
 		d->Scene->Tick(DeltaTime);
 		d->SeRender->Render(DeltaTime);
+		if (d->NeedResize)
+		{
+			d->SeRender->Resize(d->NewSize.w, d->NewSize.h, false);
+			d->NewSize = {};
+			d->NeedResize = false;
+		}
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)
 	{
-		C_P(const MainEngine);
-		d->SeRender->Resize(NewSize.w, NewSize.h, false);
+		C_P(MainEngine);
+		d->NeedResize = true;
+		d->NewSize = NewSize;
 	}
 
 }

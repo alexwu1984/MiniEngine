@@ -540,7 +540,6 @@ namespace RenderCore
 	{
 		C_P(FD3D12Adapter);
 	
-		constexpr int32_t GPUIndex = 0;
 		if (d->Device)
 		{
 			d->Device->Cleanup();
@@ -552,6 +551,13 @@ namespace RenderCore
 		if(d->FenceCorePool)
 			d->FenceCorePool->Destroy();
 		d->FenceCorePool = {};
+	}
+
+	void FD3D12Adapter::BlockUntilIdle()
+	{
+		C_P(FD3D12Adapter);
+		if (d->Device)
+			d->Device->BlockUntilIdle();
 	}
 
 }

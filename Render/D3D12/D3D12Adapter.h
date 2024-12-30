@@ -102,6 +102,7 @@ namespace RenderCore
 			D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
 
 		void Cleanup();
+		void BlockUntilIdle();
 	protected:
 		// Creates default root and execute indirect signatures
 		void CreateSignatures();

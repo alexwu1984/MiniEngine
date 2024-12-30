@@ -82,6 +82,7 @@ namespace RenderCore
 		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
 		void Initialize(void);
 		void Destroy();
+		void ClearState();
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();

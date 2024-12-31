@@ -1,15 +1,32 @@
 {
-    "Gltf":{
-        "Model":"Model2.glb",
-        "Hdr":"venice_sunset_1k.hdr",
-        "AmbientStrength":1.48,
-        "LightDir":"0.0,0.0,1.0",
-        "LightStrength":3.7,
-        "RotateIBL":"0,0"
+    "Evn": {
+      "Hdr": "venice_sunset_1k.hdr",
+      "AmbientStrength": 1.48,
+      "Light": [
+        {
+          "LightColor": "1.0,1.0,1.0",
+          "LightDir": "0.0,0.49,0.833",
+          "LightStrength": 1.0,
+          "LightType": 0
+        }
+      ],
+      
+      "RotateIBL": "0,0"
     },
-    "Tonemapping":{
-        "Type":1,
-        "Contrast":1.74,
-        "Saturation":1.23
+    "Modles": [
+      {
+        "Model": "Model2.glb",
+        "Scale": 1.0,
+        "Material": {
+          "Metallic": 1.0
+        },
+        "MainCamera": true,
+        "ProjShadow": true
+      }
+    ],
+    "Tonemapping": {
+      "Type": 1,
+      "Contrast": 1.74,
+      "Saturation": 1.23
     }
-}
+  }

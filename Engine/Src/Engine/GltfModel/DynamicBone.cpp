@@ -3,7 +3,7 @@
 
 namespace Engine
 {
-	struct DynamicBonePrivate
+	struct FDynamicBonePrivate
 	{
 		FDyTransformNode* RootNode = nullptr;
 		math::Vector3 Gravity;
@@ -12,75 +12,72 @@ namespace Engine
 		math::Vector3 EndOffset;
 
 		float BoneTotalLength{ 0 };
-		float ObjectScale{ 1.f };
 		float Time{ 0.f };
 		float Weight{ 0.f };
 		float EndLength{ 0.f };
 
 		FDynamicBoneInfo Info;
 		std::string DBName;
-
 		std::vector <std::shared_ptr<FDynamicBone::DynamicParticle>> VecDynameicParticle;
 	};
 
 	FDynamicBone::FDynamicBone()
-		:Impl(new DynamicBonePrivate())
+		:d_ptr(new FDynamicBonePrivate())
 	{
 
 	}
 
 	FDynamicBone::~FDynamicBone()
 	{
-		delete Impl;
+		delete d_ptr;
 	}
 
 	void FDynamicBone::Update()
 	{
-		if (Impl->RootNode == nullptr)
-		{
+		C_P(FDynamicBone)
+		if (!d->RootNode)
 			return;
-		}
 			
-		double UpdateDelta = 1.0;
-		UpdateParticle1(UpdateDelta);
-		UpdateParticle2(UpdateDelta);
+		UpdateParticle1();
+		UpdateParticle2();
 
 		ApplyParticlesToTransforms();
 	}
 
 	void FDynamicBone::Init(FDynamicBoneInfo& BoneInfo)
 	{
-		Impl->Info.Damping = BoneInfo.Damping;
-		Impl->Info.Elasticity = BoneInfo.Elasticity;
-		Impl->Info.Stiffness = BoneInfo.Stiffness;
-		Impl->Info.Inert = BoneInfo.Inert;
-		Impl->Info.Gravity = BoneInfo.Gravity;
-		Impl->Info.EndLength = BoneInfo.EndLength;
-		Impl->Info.Radius = BoneInfo.Radius;
-		Impl->Info.Force = BoneInfo.Force;
-		Impl->Info.EndOffset = BoneInfo.EndOffset;
-
-		Impl->EndOffset = BoneInfo.EndOffset;
-
-		Impl->Gravity = Impl->Info.Gravity;
+		C_P(FDynamicBone)
+		d->Info.Damping = BoneInfo.Damping;
+		d->Info.Elasticity = BoneInfo.Elasticity;
+		d->Info.Stiffness = BoneInfo.Stiffness;
+		d->Info.Inert = BoneInfo.Inert;
+		d->Info.Gravity = BoneInfo.Gravity;
+		d->Info.EndLength = BoneInfo.EndLength;
+		d->Info.Radius = BoneInfo.Radius;
+		d->Info.Force = BoneInfo.Force;
+		d->Info.EndOffset = BoneInfo.EndOffset;
+		d->Info.UpdateScale = BoneInfo.UpdateScale;
+		d->EndOffset = BoneInfo.EndOffset;
+		d->Gravity = d->Info.Gravity;
 	}
 
 	void FDynamicBone::InitParticle(FDyTransformNode* RootTransform)
 	{
-		Impl->VecDynameicParticle.clear();
-		Impl->DBName = RootTransform->GetID();
-		Impl->RootNode = RootTransform;
+		C_P(FDynamicBone)
+		d->VecDynameicParticle.clear();
+		d->DBName = RootTransform->GetID();
+		d->RootNode = RootTransform;
 
-
-		AppendParticles(Impl->RootNode, -1, 0.0f);
+		AppendParticles(d->RootNode, -1, 0.0f);
 		UpdateParticleParam();
 	}
 
 	void FDynamicBone::InitTransform()
 	{
-		for (int i = 0; i < Impl->VecDynameicParticle.size(); ++i)
+		C_P(FDynamicBone)
+		for (int i = 0; i < d->VecDynameicParticle.size(); ++i)
 		{
-			auto p = Impl->VecDynameicParticle[i];
+			auto p = d->VecDynameicParticle[i];
 			if (p->GPTransform != nullptr)
 			{
 				p->GPTransform->SetLocalPosition(p->LocalPosition);
@@ -92,10 +89,8 @@ namespace Engine
 	void FDynamicBone::AppendParticles(FDyTransformNode* TransformNode, int ParentIndex, float BoneLength)
 	{
 		if (!TransformNode)
-		{
 			return;
-		}
-
+		C_P(FDynamicBone)
 		std::shared_ptr<DynamicParticle> particle = std::make_shared<DynamicParticle>();
 		particle->Position = particle->PrevPosition = TransformNode->GetWorldPosition();
 		particle->GPTransform = TransformNode;
@@ -106,39 +101,40 @@ namespace Engine
 
 		if (ParentIndex >= 0)
 		{
-			BoneLength += (Impl->VecDynameicParticle[ParentIndex]->GPTransform->GetWorldPosition() - particle->Position).GetLength();
+			BoneLength += (d->VecDynameicParticle[ParentIndex]->GPTransform->GetWorldPosition() - particle->Position).GetLength();
 			particle->BoneLength = BoneLength;
-			Impl->BoneTotalLength = (std::max)(Impl->BoneTotalLength, BoneLength);
+			d->BoneTotalLength = (std::max)(d->BoneTotalLength, BoneLength);
 		}
 
 
-		int32_t index = (int32_t)Impl->VecDynameicParticle.size();
-		Impl->VecDynameicParticle.push_back(particle);
+		int32_t index = (int32_t)d->VecDynameicParticle.size();
+		d->VecDynameicParticle.push_back(particle);
 		FDyTransformNode* ChildNode = TransformNode->GetFirstChild();
-		if (ChildNode != nullptr) {
+		if (ChildNode) 
+		{
 			for (int i = 0; i < TransformNode->GetChildCount(); ++i)
-			{
 				AppendParticles(ChildNode, index, BoneLength);
-			}
 		}
 
 	}
 
 	void FDynamicBone::UpdateParticleParam()
 	{
-		if (Impl->RootNode == nullptr)
+		C_P(FDynamicBone)
+		if (!d->RootNode)
 			return;
-		auto Gravity = math::Vector4(Impl->Info.Gravity, 0.0f) * Impl->RootNode->GetWorldToLocal() ;
-		Impl->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
+		auto Gravity = math::Vector4(d->Info.Gravity, 0.0f) * d->RootNode->GetWorldToLocal() ;
+		d->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
 
-		for (int Index = 0; Index < Impl->VecDynameicParticle.size(); ++Index)
+		for (int Index = 0; Index < d->VecDynameicParticle.size(); ++Index)
 		{
-			auto p = Impl->VecDynameicParticle[Index];
-			p->Damping = Impl->Info.Damping;
-			p->Elasticity = Impl->Info.Elasticity;
-			p->Stiffness = Impl->Info.Stiffness;
-			p->Inert = Impl->Info.Inert;
-			p->Radius = Impl->Info.Radius;
+			auto p = d->VecDynameicParticle[Index];
+			p->Damping = d->Info.Damping;
+			p->Elasticity = d->Info.Elasticity;
+			p->Stiffness = d->Info.Stiffness;
+			p->Inert = d->Info.Inert;
+			p->Radius = d->Info.Radius;
+			p->UpdateScale = d->Info.UpdateScale;
 
 			p->Damping = (std::min)((std::max)(p->Damping, 0.0f), 1.0f);
 			p->Elasticity = (std::min)((std::max)(p->Elasticity, 0.0f), 1.0f);
@@ -150,20 +146,22 @@ namespace Engine
 
 	void FDynamicBone::UpdateParticleParam(FDynamicBoneInfo& Info)
 	{
-		Impl->Gravity = Info.Gravity;
-		Impl->Info.Gravity = Info.Gravity;
+		C_P(FDynamicBone)
+		d->Gravity = Info.Gravity;
+		d->Info.Gravity = Info.Gravity;
 
-		auto Gravity = math::Vector4(Impl->Info.Gravity, 0.0f) * Impl->RootNode->GetWorldToLocal();
-		Impl->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
+		auto Gravity = math::Vector4(d->Info.Gravity, 0.0f) * d->RootNode->GetWorldToLocal();
+		d->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
 
-		for (int Index = 0; Index < Impl->VecDynameicParticle.size(); ++Index)
+		for (int Index = 0; Index < d->VecDynameicParticle.size(); ++Index)
 		{
-			auto p = Impl->VecDynameicParticle[Index];
+			auto p = d->VecDynameicParticle[Index];
 			p->Damping = Info.Damping;
 			p->Elasticity = Info.Elasticity;
 			p->Stiffness = Info.Stiffness;
 			p->Inert = Info.Inert;
 			p->Radius = Info.Radius;
+			p->UpdateScale = Info.UpdateScale;
 
 			p->Damping = (std::min)((std::max)(p->Damping, 0.0f), 1.0f);
 			p->Elasticity = (std::min)((std::max)(p->Elasticity, 0.0f), 1.0f);
@@ -175,29 +173,31 @@ namespace Engine
 
 	std::string FDynamicBone::GetID() const
 	{
-		return Impl->DBName;
+		C_P(const FDynamicBone)
+		return d->DBName;
 	}
 
-	void FDynamicBone::UpdateParticle1(float UpdateDelta)
+	void FDynamicBone::UpdateParticle1()
 	{
-		math::Vector3 Force = Impl->Gravity;
-		math::Vector3 Dir = Impl->Gravity.Normalize();
+		C_P(FDynamicBone)
+		math::Vector3 Force = d->Gravity;
+		math::Vector3 Dir = d->Gravity.Normalize();
 
-		auto TmpGravity = math::Vector4(Impl->LocalGravity, 0.0f) * Impl->RootNode->GetLocalToWorld();
+		auto TmpGravity = math::Vector4(d->LocalGravity, 0.0f) * d->RootNode->GetLocalToWorld();
 		math::Vector3 Gravity3 = math::Vector3(TmpGravity.x, TmpGravity.y, TmpGravity.z);
 
 		math::Vector3 GravityF = Dir * (std::max)(Gravity3.Dot(Dir), 0.0f);
 		Force -= GravityF;
-		Force = (Force + Impl->Info.Force) * (Impl->ObjectScale * UpdateDelta);
+		Force = (Force + d->Info.Force) * d->Info.UpdateScale;
 
-		for (int32_t Index = 0; Index < Impl->VecDynameicParticle.size(); ++Index)
+		for (int32_t Index = 0; Index < d->VecDynameicParticle.size(); ++Index)
 		{
-			auto Dp = Impl->VecDynameicParticle[Index];
+			auto Dp = d->VecDynameicParticle[Index];
 			if (Dp->ParentIndex >= 0)
 			{
 				// verlet integration
 				math::Vector3 v = Dp->Position - Dp->PrevPosition;
-				math::Vector3 rmove =  Impl->ObjectMove * Dp->Inert;
+				math::Vector3 rmove =  d->ObjectMove * Dp->Inert;
 				Dp->PrevPosition = Dp->Position + rmove;
 				float damping = Dp->Damping;
 
@@ -211,12 +211,13 @@ namespace Engine
 		}
 	}
 
-	void FDynamicBone::UpdateParticle2(float UpdateDelta)
+	void FDynamicBone::UpdateParticle2()
 	{
-		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
+		C_P(FDynamicBone)
+		for (int i = 1; i < d->VecDynameicParticle.size(); ++i)
 		{
-			std::shared_ptr<DynamicParticle> p = Impl->VecDynameicParticle[i]; 
-			std::shared_ptr<DynamicParticle> p0 = Impl->VecDynameicParticle[p->ParentIndex];
+			std::shared_ptr<DynamicParticle> p = d->VecDynameicParticle[i]; 
+			std::shared_ptr<DynamicParticle> p0 = d->VecDynameicParticle[p->ParentIndex];
 
 			float restLen;
 			if (p->GPTransform != nullptr)
@@ -249,28 +250,28 @@ namespace Engine
 					RestPos = math::Vector3(TmpResult.x, TmpResult.y, TmpResult.z);
 				}
 
-				math::Vector3 d = RestPos - p->Position;
-				p->Position += d * (p->Elasticity * UpdateDelta);
+				math::Vector3 Distance = RestPos - p->Position;
+				p->Position += Distance * (p->Elasticity * d->Info.UpdateScale);
 
 				if (Stiffness > 0.0f)
 				{
-					d = RestPos - p->Position;
-					float len = d.GetLength();
-					float maxlen = restLen * (1.0f - Stiffness) * 2.0f;
-					if (len > maxlen)
+					Distance = RestPos - p->Position;
+					float Len = Distance.GetLength();
+					float Maxlen = restLen * (1.0f - Stiffness) * 2.0f;
+					if (Len > Maxlen)
 					{
-						p->Position += d * ((len - maxlen) / len);
+						p->Position += Distance * ((Len - Maxlen) / Len);
 					}
 						
 				}
 			}
 
 			// keep length
-			math::Vector3 dd = p0->Position - p->Position;
-			float leng = dd.GetLength();
-			if (leng > 0)
+			math::Vector3 Distance = p0->Position - p->Position;
+			float Len = Distance.GetLength();
+			if (Len > 0)
 			{
-				p->Position += dd * ((leng - restLen) / leng);
+				p->Position += Distance * ((Len - restLen) / Len);
 			}
 				
 		}
@@ -278,10 +279,11 @@ namespace Engine
 
 	void FDynamicBone::ApplyParticlesToTransforms()
 	{
-		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
+		C_P(FDynamicBone)
+		for (int i = 1; i < d->VecDynameicParticle.size(); ++i)
 		{
-			std::shared_ptr<DynamicParticle> p = Impl->VecDynameicParticle[i];
-			std::shared_ptr<DynamicParticle> p0 = Impl->VecDynameicParticle[p->ParentIndex];
+			std::shared_ptr<DynamicParticle> p = d->VecDynameicParticle[i];
+			std::shared_ptr<DynamicParticle> p0 = d->VecDynameicParticle[p->ParentIndex];
 
 			if (p0->GPTransform->GetChildCount() <= 1)
 			{

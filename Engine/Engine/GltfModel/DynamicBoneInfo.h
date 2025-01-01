@@ -77,11 +77,11 @@ namespace Engine
 		float Stiffness{ 0.01f };		
 		float Inert{ 0.14f };			
 		float Radius{ 0.0f };			
-		float EndLength{ 0.0f };		
+		float EndLength{ 0.0f };
+		float UpdateScale{ 1.0f }; //for Force and Elasticity
 		math::Vector3 EndOffset;
 		math::Vector3 Gravity ;
 		math::Vector3 Force ;
-		float RadiusScale = 1.0f;
 	};
 
 	struct BoneSkinInfo

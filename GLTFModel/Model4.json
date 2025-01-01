@@ -41,14 +41,16 @@
           "Damping": 0.2,
           "Elasticity": 0.05,
           "Stiffness": 0.5,
-          "Inert": 0.5
+          "Inert": 0.5,
+          "UpdateScale": 1.0
         },
         {
           "Name": "joint15",
           "Damping": 0.2,
           "Elasticity": 0.05,
           "Stiffness": 0.5,
-          "Inert": 0.5
+          "Inert": 0.5,
+          "UpdateScale": 1.0
         }
       ]
     }

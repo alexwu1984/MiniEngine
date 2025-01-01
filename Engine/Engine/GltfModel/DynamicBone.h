@@ -7,7 +7,7 @@ namespace Engine
 {
 	class FDyTransformNode;
 
-	struct DynamicBonePrivate;
+	struct FDynamicBonePrivate;
 
 	class FDynamicBone
 	{
@@ -23,6 +23,7 @@ namespace Engine
 			float  Inert{0.f};
 			float  Radius{0.f};
 			float  BoneLength{0.f};
+			float  UpdateScale{ 1.f };
 
 			math::Vector3 Position;
 			math::Vector3 PrevPosition;
@@ -44,11 +45,11 @@ namespace Engine
 	private:
 		void AppendParticles(FDyTransformNode* TransformNode, int ParentIndex, float BoneLength);
 		void UpdateParticleParam();
-		void UpdateParticle1(float UpdateDelta);
-		void UpdateParticle2(float UpdateDelta);
+		void UpdateParticle1();
+		void UpdateParticle2();
 		void ApplyParticlesToTransforms();
 
 	private:
-		DynamicBonePrivate* Impl = nullptr;
+		FDynamicBonePrivate* d_ptr = nullptr;
 	};
 }

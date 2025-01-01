@@ -47,6 +47,7 @@ namespace Engine
 					BoneInfo.Elasticity = Item["Elasticity"].get<float>();
 					BoneInfo.Stiffness = Item["Stiffness"].get<float>();
 					BoneInfo.Inert = Item["Inert"].get<float>();
+					BoneInfo.UpdateScale = Item["UpdateScale"].get<float>();
 					d->DyBonelist.push_back(BoneInfo);
 				}
 			}

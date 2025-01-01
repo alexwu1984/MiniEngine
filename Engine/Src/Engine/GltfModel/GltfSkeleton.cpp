@@ -62,7 +62,7 @@ namespace Engine
 				continue;;
 			}
 			BoneSkinInfo SkinInfo;
-			for (int i = 0; i < nCount; i++)
+			for (uint32_t i = 0; i < nCount; i++)
 			{
 				auto& InverseBindMat = Matrices[i];
 				auto NodeID = joints[i];
@@ -76,7 +76,7 @@ namespace Engine
 			}
 		}
 
-		for (int i = 0; i < Impl->_BoneNode.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_BoneNode.size(); i++)
 		{
 			if (Impl->_BoneNode[i]->ParentNode.expired())
 			{
@@ -87,7 +87,7 @@ namespace Engine
 		UseInitPos();
 		UpdateBone();
 
-		for (int i = 0; i < Impl->_BoneNode.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_BoneNode.size(); i++)
 		{
 			Impl->_BoneNode[i]->TPosMat = Impl->_BoneNode[i]->FinalTransformation;
 		}
@@ -100,7 +100,7 @@ namespace Engine
 			return;
 		}
 
-		for (int i = 0; i < Impl->_RootNode.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_RootNode.size(); i++)
 		{
 			int NodeID = Impl->_RootNode[i]->NodeID;
 			auto ParentNode = Impl->_ModelNode->GetAllNodes()[NodeID]->ParentNode;
@@ -116,9 +116,9 @@ namespace Engine
 		}
 
 
-		for (int i = 0; i < Impl->_BoneNodeArray.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_BoneNodeArray.size(); i++)
 		{
-			for (int j = 0; j < Impl->_BoneNodeArray[i].size(); j++)
+			for (uint32_t j = 0; j < (uint32_t)Impl->_BoneNodeArray[i].size(); j++)
 			{
 				Impl->_BoneNodeArray[i][j].FinalMat = Impl->_BoneNodeArray[i][j].InverseBindMat* Impl->_BoneNodeArray[i][j].Node->FinalTransformation ;
 			}
@@ -127,7 +127,7 @@ namespace Engine
 
 	void GltfSkeleton::UseInitPos()
 	{
-		for (int i = 0; i < Impl->_BoneNode.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_BoneNode.size(); i++)
 		{
 			auto NodeInfo = Impl->_BoneNode[i];
 			NodeInfo->TargetRotation = NodeInfo->Rotation;
@@ -140,7 +140,7 @@ namespace Engine
 	void GltfSkeleton::AddDynamicBone(const std::vector<FDynamicBoneInfo>& BoneInfoArray)
 	{
 		Impl->_DynamicBoneMgr->ResetDynamicBone();
-		for (int i = 0; i < BoneInfoArray.size(); ++i)
+		for (uint32_t i = 0; (uint32_t)i < BoneInfoArray.size(); ++i)
 		{
 			Impl->_DynamicBoneMgr->AddBoneParam(BoneInfoArray[i]);
 		}
@@ -187,7 +187,7 @@ namespace Engine
 
 		auto& Nodes = _GltfModel->nodes;
 
-		if (NodeID < Nodes.size())
+		if (NodeID < (int32_t)Nodes.size())
 		{
 			std::shared_ptr<GltfBoneNodeInfo> BoneNodeInfo = std::make_shared<GltfBoneNodeInfo>();
 			auto& node = Nodes[NodeID];
@@ -201,36 +201,36 @@ namespace Engine
 				float mat16[16]{};
 				for (int m = 0; m < 16; m++)
 				{
-					mat16[m] = node.matrix[m];
+					mat16[m] = (float)node.matrix[m];
 				}
 				MatToTRS(mat16, BoneNodeInfo);
 			}
 
 			if (node.scale.size() == 3)
 			{
-				BoneNodeInfo->Scale.x = node.scale[0];
-				BoneNodeInfo->Scale.y = node.scale[1];
-				BoneNodeInfo->Scale.z = node.scale[2];
+				BoneNodeInfo->Scale.x = (float)node.scale[0];
+				BoneNodeInfo->Scale.y = (float)node.scale[1];
+				BoneNodeInfo->Scale.z = (float)node.scale[2];
 			}
 			if (node.translation.size() == 3)
 			{
-				BoneNodeInfo->Translate.x = node.translation[0];
-				BoneNodeInfo->Translate.y = node.translation[1];
-				BoneNodeInfo->Translate.z = node.translation[2];
+				BoneNodeInfo->Translate.x = (float)node.translation[0];
+				BoneNodeInfo->Translate.y = (float)node.translation[1];
+				BoneNodeInfo->Translate.z = (float)node.translation[2];
 			}
 			if (node.rotation.size() == 4)
 			{
-				BoneNodeInfo->Rotation.x = node.rotation[0];
-				BoneNodeInfo->Rotation.y = node.rotation[1];
-				BoneNodeInfo->Rotation.z = node.rotation[2];
-				BoneNodeInfo->Rotation.w = node.rotation[3];
+				BoneNodeInfo->Rotation.x = (float)node.rotation[0];
+				BoneNodeInfo->Rotation.y = (float)node.rotation[1];
+				BoneNodeInfo->Rotation.z = (float)node.rotation[2];
+				BoneNodeInfo->Rotation.w = (float)node.rotation[3];
 			}
 			Impl->_BoneNode.push_back(BoneNodeInfo);
 
 			Impl->_BoneIndex++;
 
 			auto& child = _GltfModel->nodes[NodeID].children;
-			for (int i = 0; i < child.size(); i++)
+			for (uint32_t i = 0; (uint32_t)i < child.size(); i++)
 			{
 				int ChildNodeID = child[i];
 				CreateModelBoneTree(ChildNodeID);
@@ -285,14 +285,14 @@ namespace Engine
 			return;
 		}
 
-		for (int i = 0; i < Impl->_RootNode.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_RootNode.size(); i++)
 		{
 			math::Matrix4x4 BoneTransformation;
 			BoneTransformation.Identity();
 			Impl->_DynamicBoneMgr->DFSInitDynamicBoneNode(Impl->_RootNode[i], BoneTransformation);
 		}
 
-		for (int i = 0; i < Impl->_BoneNode.size(); i++)
+		for (uint32_t i = 0; i < (uint32_t)Impl->_BoneNode.size(); i++)
 		{
 			auto NodeInfo = Impl->_BoneNode[i];
 

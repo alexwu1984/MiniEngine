@@ -71,8 +71,8 @@ namespace Engine
 			Quaternion Rot;
 			RotMat.GetRotation(Rot);
 
-			auto cf_boneNameParam = Impl->DyBoneInfoArray[i];
-			if (cf_boneNameParam.BoneName == NodeInfo->BoneName)
+			const auto& BoneInfoParam = Impl->DyBoneInfoArray[i];
+			if (BoneInfoParam.BoneName == NodeInfo->BoneName)
 			{
 				std::shared_ptr<FDyTransformNode> TransformNode = std::make_shared<FDyTransformNode>(NodeInfo->BoneName.c_str());
 				TransformNode->SetLocalPosition(NodeInfo->TargetTranslate);
@@ -83,20 +83,21 @@ namespace Engine
 				TransformNode->SetLocalToWorld(RotMat);
 				TransformNode->SetWorldToLocal(RotMat.Inverse());
 
-				auto dmc_bone = std::make_shared<FDynamicBone>();
-				Impl->DyBoneArray.push_back(dmc_bone);
+				auto DyBone = std::make_shared<FDynamicBone>();
+				Impl->DyBoneArray.push_back(DyBone);
 				NodeInfo->BoneIndex = Impl->DyBoneArray.size() - 1;
 
-				FDynamicBoneInfo boneInfo;
-				boneInfo.Damping = cf_boneNameParam.Damping;
-				boneInfo.Elasticity = cf_boneNameParam.Elasticity;
-				boneInfo.Stiffness = cf_boneNameParam.Stiffness;
-				boneInfo.Inert = cf_boneNameParam.Inert;
-				boneInfo.Radius = cf_boneNameParam.Radius;
-				boneInfo.EndLength = cf_boneNameParam.EndLength;
-				boneInfo.EndOffset = cf_boneNameParam.EndOffset;
-				boneInfo.Gravity = cf_boneNameParam.Gravity;
-				dmc_bone->Init(boneInfo);
+				FDynamicBoneInfo BoneInfo;
+				BoneInfo.Damping = BoneInfoParam.Damping;
+				BoneInfo.Elasticity = BoneInfoParam.Elasticity;
+				BoneInfo.Stiffness = BoneInfoParam.Stiffness;
+				BoneInfo.Inert = BoneInfoParam.Inert;
+				BoneInfo.Radius = BoneInfoParam.Radius;
+				BoneInfo.EndLength = BoneInfoParam.EndLength;
+				BoneInfo.EndOffset = BoneInfoParam.EndOffset;
+				BoneInfo.Gravity = BoneInfoParam.Gravity;
+				BoneInfo.UpdateScale = BoneInfoParam.UpdateScale;
+				DyBone->Init(BoneInfo);
 				NodeInfo->bAttachToDynamic = true;
 
 				auto Iter = Impl->TransfromMap.find(NodeInfo->BoneName);
@@ -261,16 +262,17 @@ namespace Engine
 		{
 			if (item->GetID() == param.BoneName)
 			{
-				FDynamicBoneInfo db_info;
-				db_info.Damping = param.Damping;
-				db_info.Elasticity = param.Elasticity;
-				db_info.Stiffness = param.Stiffness;
-				db_info.Inert = param.Inert;
-				db_info.Radius = param.Radius;
-				db_info.EndLength = param.EndLength;
-				db_info.EndOffset = param.EndOffset;
-				db_info.Gravity = param.Gravity;
-				item->UpdateParticleParam(db_info);
+				FDynamicBoneInfo boneInfo;
+				boneInfo.Damping = param.Damping;
+				boneInfo.Elasticity = param.Elasticity;
+				boneInfo.Stiffness = param.Stiffness;
+				boneInfo.Inert = param.Inert;
+				boneInfo.Radius = param.Radius;
+				boneInfo.EndLength = param.EndLength;
+				boneInfo.EndOffset = param.EndOffset;
+				boneInfo.Gravity = param.Gravity;
+				boneInfo.UpdateScale = param.UpdateScale;
+				item->UpdateParticleParam(boneInfo);
 			}
 		}
 	}

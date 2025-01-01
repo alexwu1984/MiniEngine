@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/RHI.h"
+#include <d3d12.h>
 
 namespace RenderCore
 {

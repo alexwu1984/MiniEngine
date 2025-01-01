@@ -1,6 +1,6 @@
 #pragma once
 #include "RHI/RHITexture2D.h"
-#include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12RHICommon.h"
 
 namespace DirectX
 {
@@ -9,6 +9,7 @@ namespace DirectX
 
 namespace RenderCore
 {
+	class FD3D12Resource;
 	struct D3D12Texture2DPrivate;
 
 	class D3D12Texture2D : public RHITexture2D, public FD3D12AdapterChild

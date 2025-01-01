@@ -71,8 +71,6 @@ namespace RenderCore
 			DSV = DepthRHI->GetDSV();
 			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		}
-		if (D3D12TargetViews.empty() && DSV.ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-			return;
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
 		StateCache->SetRenderTargetFormats(Targets, Depth);	

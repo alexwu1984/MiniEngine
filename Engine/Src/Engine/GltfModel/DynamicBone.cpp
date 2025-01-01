@@ -3,10 +3,9 @@
 
 namespace Engine
 {
-	struct DynamicBoneP
+	struct DynamicBonePrivate
 	{
-		// 由这个去驱动 一般就是跟着姿态矩阵走
-		DyTransformNode* RootNode = nullptr;
+		FDyTransformNode* RootNode = nullptr;
 		math::Vector3 Gravity;
 		math::Vector3 LocalGravity;
 		math::Vector3 ObjectMove;
@@ -18,24 +17,24 @@ namespace Engine
 		float Weight{ 0.f };
 		float EndLength{ 0.f };
 
-		DynamicBoneInfo Info;
+		FDynamicBoneInfo Info;
 		std::string DBName;
 
-		std::vector <std::shared_ptr<DynamicBone::DynamicParticle>> VecDynameicParticle;
+		std::vector <std::shared_ptr<FDynamicBone::DynamicParticle>> VecDynameicParticle;
 	};
 
-	DynamicBone::DynamicBone()
-		:Impl(new DynamicBoneP())
+	FDynamicBone::FDynamicBone()
+		:Impl(new DynamicBonePrivate())
 	{
 
 	}
 
-	DynamicBone::~DynamicBone()
+	FDynamicBone::~FDynamicBone()
 	{
 		delete Impl;
 	}
 
-	void DynamicBone::Update()
+	void FDynamicBone::Update()
 	{
 		if (Impl->RootNode == nullptr)
 		{
@@ -49,7 +48,7 @@ namespace Engine
 		ApplyParticlesToTransforms();
 	}
 
-	void DynamicBone::Init(DynamicBoneInfo& BoneInfo)
+	void FDynamicBone::Init(FDynamicBoneInfo& BoneInfo)
 	{
 		Impl->Info.Damping = BoneInfo.Damping;
 		Impl->Info.Elasticity = BoneInfo.Elasticity;
@@ -66,7 +65,7 @@ namespace Engine
 		Impl->Gravity = Impl->Info.Gravity;
 	}
 
-	void DynamicBone::InitParticle(DyTransformNode* RootTransform)
+	void FDynamicBone::InitParticle(FDyTransformNode* RootTransform)
 	{
 		Impl->VecDynameicParticle.clear();
 		Impl->DBName = RootTransform->GetID();
@@ -77,7 +76,7 @@ namespace Engine
 		UpdateParticleParam();
 	}
 
-	void DynamicBone::InitTransform()
+	void FDynamicBone::InitTransform()
 	{
 		for (int i = 0; i < Impl->VecDynameicParticle.size(); ++i)
 		{
@@ -90,7 +89,7 @@ namespace Engine
 		}
 	}
 
-	void DynamicBone::AppendParticles(DyTransformNode* TransformNode, int ParentIndex, float BoneLength)
+	void FDynamicBone::AppendParticles(FDyTransformNode* TransformNode, int ParentIndex, float BoneLength)
 	{
 		if (!TransformNode)
 		{
@@ -115,7 +114,7 @@ namespace Engine
 
 		int32_t index = (int32_t)Impl->VecDynameicParticle.size();
 		Impl->VecDynameicParticle.push_back(particle);
-		DyTransformNode* ChildNode = TransformNode->GetFirstChild();
+		FDyTransformNode* ChildNode = TransformNode->GetFirstChild();
 		if (ChildNode != nullptr) {
 			for (int i = 0; i < TransformNode->GetChildCount(); ++i)
 			{
@@ -125,12 +124,10 @@ namespace Engine
 
 	}
 
-	void DynamicBone::UpdateParticleParam()
+	void FDynamicBone::UpdateParticleParam()
 	{
-		// 没有绑定根节点
 		if (Impl->RootNode == nullptr)
 			return;
-		// 先假设重力是0
 		auto Gravity = math::Vector4(Impl->Info.Gravity, 0.0f) * Impl->RootNode->GetWorldToLocal() ;
 		Impl->LocalGravity = math::Vector3(Gravity.x, Gravity.y, Gravity.z);
 
@@ -151,7 +148,7 @@ namespace Engine
 		}
 	}
 
-	void DynamicBone::UpdateParticleParam(DynamicBoneInfo& Info)
+	void FDynamicBone::UpdateParticleParam(FDynamicBoneInfo& Info)
 	{
 		Impl->Gravity = Info.Gravity;
 		Impl->Info.Gravity = Info.Gravity;
@@ -176,12 +173,12 @@ namespace Engine
 		}
 	}
 
-	std::string DynamicBone::GetID() const
+	std::string FDynamicBone::GetID() const
 	{
 		return Impl->DBName;
 	}
 
-	void DynamicBone::UpdateParticle1(float UpdateDelta)
+	void FDynamicBone::UpdateParticle1(float UpdateDelta)
 	{
 		math::Vector3 Force = Impl->Gravity;
 		math::Vector3 Dir = Impl->Gravity.Normalize();
@@ -199,7 +196,7 @@ namespace Engine
 			if (Dp->ParentIndex >= 0)
 			{
 				// verlet integration
-				math::Vector3 v = Dp->Position - Dp->PrevPosition; //自动添加的动态骨骼节点
+				math::Vector3 v = Dp->Position - Dp->PrevPosition;
 				math::Vector3 rmove =  Impl->ObjectMove * Dp->Inert;
 				Dp->PrevPosition = Dp->Position + rmove;
 				float damping = Dp->Damping;
@@ -208,18 +205,18 @@ namespace Engine
 			}
 			else
 			{
-				Dp->PrevPosition = Dp->Position; //胸部骨骼的节点位置应该进行改变，在每一帧的运动之后需要进行更新
-				Dp->Position = Dp->GPTransform->GetWorldPosition(); //这个worldPosition是否需要在外面每一帧动作完成之后进行变化呢
+				Dp->PrevPosition = Dp->Position;
+				Dp->Position = Dp->GPTransform->GetWorldPosition(); 
 			}
 		}
 	}
 
-	void DynamicBone::UpdateParticle2(float UpdateDelta)
+	void FDynamicBone::UpdateParticle2(float UpdateDelta)
 	{
 		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
 		{
-			std::shared_ptr<DynamicParticle> p = Impl->VecDynameicParticle[i]; //添加的动态骨骼节点
-			std::shared_ptr<DynamicParticle> p0 = Impl->VecDynameicParticle[p->ParentIndex]; //胸部节点lPectoral，也就是所谓的父节点
+			std::shared_ptr<DynamicParticle> p = Impl->VecDynameicParticle[i]; 
+			std::shared_ptr<DynamicParticle> p0 = Impl->VecDynameicParticle[p->ParentIndex];
 
 			float restLen;
 			if (p->GPTransform != nullptr)
@@ -231,7 +228,6 @@ namespace Engine
 				restLen = (p->EndOffset * p0->GPTransform->GetLocalToWorld() ).GetLength();
 			}
 
-			//TODO:keep shape
 			float Stiffness = p->Stiffness;
 
 			if (Stiffness > 0.0f || p->Stiffness > 0.0f)
@@ -249,7 +245,6 @@ namespace Engine
 				}
 				else
 				{
-					//parentMatrix.transformPoint(p->_endOffset, &restPos);
 					auto TmpResult = math::Vector4(p->EndOffset, 1.0f) * TempMat;
 					RestPos = math::Vector3(TmpResult.x, TmpResult.y, TmpResult.z);
 				}
@@ -281,7 +276,7 @@ namespace Engine
 		}
 	}
 
-	void DynamicBone::ApplyParticlesToTransforms()
+	void FDynamicBone::ApplyParticlesToTransforms()
 	{
 		for (int i = 1; i < Impl->VecDynameicParticle.size(); ++i)
 		{

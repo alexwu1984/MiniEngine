@@ -11,15 +11,13 @@ namespace Engine
 		std::vector<std::shared_ptr<GltfBoneNodeInfo>>	_BoneNode;
 		std::vector<std::vector<BoneSkinInfo>>			_BoneNodeArray;
 
-		//骨骼名对应的骨骼ID
 		std::map<std::string, int32_t>					_BoneMap;
-		//NodeID对应的骨骼ID
 		std::map<int32_t, int32_t>						_NodeBoneMap;
 		std::vector<std::shared_ptr<GltfBoneNodeInfo>>	_RootNode;
 
 		std::shared_ptr<GltfNode>						_ModelNode;
 		int32_t											_BoneIndex = 0;
-		std::shared_ptr< DynamicBoneManager>            _DynamicBoneMgr;
+		std::shared_ptr< FDynamicBoneManager>            _DynamicBoneMgr;
 	};
 
 	void MatToTRS(const float (&m)[16], std::shared_ptr<GltfBoneNodeInfo> NodeInfo)
@@ -27,13 +25,6 @@ namespace Engine
 		memcpy(NodeInfo->InitMat.m, m, sizeof(float) * 16);
 		NodeInfo->Translate = math::Vector3(NodeInfo->InitMat[3][0], NodeInfo->InitMat[3][1], NodeInfo->InitMat[3][2]);
 		NodeInfo->InitMat[3][0] = 0.0; NodeInfo->InitMat[3][1] = 0.0; NodeInfo->InitMat[3][2] = 0.0; NodeInfo->InitMat[3][3] = 1.0;
-		//math::Vector3 tmp = math::Vector3(NodeInfo->InitMat[0][0], NodeInfo->InitMat[0][1], NodeInfo->InitMat[0][2]);
-		//float s = tmp.GetLength();
-		//NodeInfo->Scale = math::Vector3(s, s, s);
-		//for (int i = 0; i < 15; i++)
-		//{
-		//	m[i] /= s;
-		//}
 	}
 
 	GltfSkeleton::GltfSkeleton(tinygltf::Model* gltfModel, std::shared_ptr<GltfNode> Node)
@@ -41,7 +32,7 @@ namespace Engine
 		, Impl(new GltfSkeletonPrivate())
 	{
 		Impl->_ModelNode = Node;
-		Impl->_DynamicBoneMgr = std::make_shared<DynamicBoneManager>();
+		Impl->_DynamicBoneMgr = std::make_shared<FDynamicBoneManager>();
 	}
 
 	GltfSkeleton::~GltfSkeleton()
@@ -146,7 +137,7 @@ namespace Engine
 	}
 
 
-	void GltfSkeleton::AddDynamicBone(const std::vector<DynamicBoneInfo>& BoneInfoArray)
+	void GltfSkeleton::AddDynamicBone(const std::vector<FDynamicBoneInfo>& BoneInfoArray)
 	{
 		Impl->_DynamicBoneMgr->ResetDynamicBone();
 		for (int i = 0; i < BoneInfoArray.size(); ++i)
@@ -167,7 +158,7 @@ namespace Engine
 		Impl->_DynamicBoneMgr->DeleteDynamicBone(BoneName);
 	}
 
-	void GltfSkeleton::UpdateDynamicBoneParameter(const DynamicBoneInfo& param)
+	void GltfSkeleton::UpdateDynamicBoneParameter(const FDynamicBoneInfo& param)
 	{
 		Impl->_DynamicBoneMgr->UpdateDynamicBoneParameter(param);
 	}
@@ -256,7 +247,6 @@ namespace Engine
 		math::Matrix4x4 mat4Rotation = math::Matrix4x4::CreateFromQuaternion(math::Quaternion(BoneNodeInfo->TargetRotation));
 		math::Matrix4x4 mat4Translation = math::Matrix4x4::CreateFromTranslate(math::Vector3(BoneNodeInfo->TargetTranslate.x, BoneNodeInfo->TargetTranslate.y, BoneNodeInfo->TargetTranslate.z));
 
-		//不能去掉！解析模型的时候M16不一定是TRS，所以这里的InitMat存储的转换矩阵，不一定是单位阵。特别是头发处会出问题
 		if ((BoneNodeInfo->TargetRotation - math::Vector4(0, 0, 0, 1)).GetLength() < 0.0001)
 		{
 			mat4Rotation = BoneNodeInfo->InitMat;
@@ -264,7 +254,6 @@ namespace Engine
 
 		math::Matrix4x4 NodeTransformation =  mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
 
-		//更新动态骨骼
 		auto TransformBone = Impl->_DynamicBoneMgr->GetTransformNode(BoneNodeInfo->BoneName);
 		if (TransformBone)
 		{
@@ -273,13 +262,11 @@ namespace Engine
 			math::Vector3 Scale;
 			RotMat.GetScale(Scale);
 			math::Vector3 Translate = TransformBone->GetWorldPosition();
-			//math::Vector3 Translate = RotMat.GetTranslation();
 			math::Quaternion Rot = TransformBone->GetWorldRotation();
 
 			auto TmpScaleMat = math::Matrix4x4::ScaleMatrix(Scale);
 			auto TmpRotMat = math::Matrix4x4::CreateFromQuaternion(Rot);
 			auto TmpTranslateMat = math::Matrix4x4::CreateFromTranslate(Translate);
-			//最终只需要使用旋转参数进行所有的变化，所以需要把旋转的变换应用到该附属节点上，这里采用直接替换旋转四元数的方式才是正确的
 			NodeTransformation = TmpScaleMat * TmpRotMat * TmpTranslateMat;
 		}
 

@@ -7,7 +7,7 @@ namespace Engine
 {
 	struct GltfModelConfigPrivate;
 	class GltfMeshComponent;
-	struct DynamicBoneInfo;
+	struct FDynamicBoneInfo;
 
 	struct GltfFurConfig
 	{
@@ -37,7 +37,7 @@ namespace Engine
 		bool Load(const nlohmann::json& GltfJson);
 		std::wstring GetModelName() const;
 
-		const std::vector< DynamicBoneInfo>& GetDyNamicBoneInfoList() const;
+		const std::vector< FDynamicBoneInfo>& GetDyNamicBoneInfoList() const;
 		const GltfFurConfig& GetFurConfig() const;
 		const GltfMaterialConfig& GetMaterialConfig() const;
 

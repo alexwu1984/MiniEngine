@@ -66,8 +66,6 @@ set_target_properties(
 
 set(GLTFModel_GLBS
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/floor.glb
-    ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model2.glb
-	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model2.json
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model3.glb
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model3.json
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/Model4.glb

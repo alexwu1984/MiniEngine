@@ -10,7 +10,7 @@ namespace Engine
 	{
 		nlohmann::json Config;
 		std::weak_ptr< GltfMeshComponent> Owner;
-		std::vector< DynamicBoneInfo> DyBonelist;
+		std::vector< FDynamicBoneInfo> DyBonelist;
 		std::wstring ModelName;
 		GltfFurConfig FurConfig;
 		GltfMaterialConfig MaterialConfig;
@@ -41,7 +41,7 @@ namespace Engine
 				const auto& DyBoneListJson = d->Config["DyBone"];
 				for (auto Item : DyBoneListJson)
 				{
-					DynamicBoneInfo BoneInfo;
+					FDynamicBoneInfo BoneInfo;
 					BoneInfo.BoneName = Item["Name"];
 					BoneInfo.Damping = Item["Damping"].get<float>();
 					BoneInfo.Elasticity = Item["Elasticity"].get<float>();
@@ -81,7 +81,7 @@ namespace Engine
 		return d->ModelName;
 	}
 
-	const std::vector< DynamicBoneInfo>& GltfModelConfig::GetDyNamicBoneInfoList() const
+	const std::vector< FDynamicBoneInfo>& GltfModelConfig::GetDyNamicBoneInfoList() const
 	{
 		C_P(const GltfModelConfig);
 		return d->DyBonelist;

@@ -5,14 +5,13 @@
 
 namespace Engine
 {
-	class DyTransformNode;
+	class FDyTransformNode;
 
-	struct DynamicBoneP;
+	struct DynamicBonePrivate;
 
-	class DynamicBone
+	class FDynamicBone
 	{
 	public:
-		// 记录每个粒子(节点)的信息
 		struct DynamicParticle
 		{
 			math::Vector3  LocalPosition;
@@ -29,27 +28,27 @@ namespace Engine
 			math::Vector3 PrevPosition;
 			math::Vector3 EndOffset;
 
-			DyTransformNode* GPTransform = nullptr;
+			FDyTransformNode* GPTransform = nullptr;
 		};
 	public:
-		DynamicBone();
-		~DynamicBone();
+		FDynamicBone();
+		~FDynamicBone();
 
 		// 去更新内部所有节点的信息
 		void Update(); //更新节点，每一帧都会进行更新，更新动态骨骼的位置
-		void Init( DynamicBoneInfo& BoneInfo); //3.设置界面上设置的刚性、弹性等参数
-		void InitParticle(DyTransformNode* RootTransform);  //1.初始化每个节点信息
+		void Init( FDynamicBoneInfo& BoneInfo); //3.设置界面上设置的刚性、弹性等参数
+		void InitParticle(FDyTransformNode* RootTransform);  //1.初始化每个节点信息
 		void InitTransform(); //2.初始化动态骨骼的局部位置和局部旋转
-		void UpdateParticleParam(DynamicBoneInfo& Info);
+		void UpdateParticleParam(FDynamicBoneInfo& Info);
 		std::string GetID() const;
 	private:
-		void AppendParticles(DyTransformNode* TransformNode, int ParentIndex, float BoneLength);
+		void AppendParticles(FDyTransformNode* TransformNode, int ParentIndex, float BoneLength);
 		void UpdateParticleParam();
 		void UpdateParticle1(float UpdateDelta);
 		void UpdateParticle2(float UpdateDelta);
 		void ApplyParticlesToTransforms();
 
 	private:
-		DynamicBoneP* Impl = nullptr;
+		DynamicBonePrivate* Impl = nullptr;
 	};
 }

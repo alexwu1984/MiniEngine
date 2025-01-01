@@ -5,7 +5,7 @@ using namespace math;
 
 namespace Engine
 {
-	struct TransformNodeP
+	struct TransformNodePrivate
 	{
 		std::string Id;
 		Vector3		LocalPosition;
@@ -15,25 +15,25 @@ namespace Engine
 		Matrix4x4	LocalToWorld;
 		Matrix4x4	WorldToLocal;
 
-		DyTransformNode* FirstChild;
-		DyTransformNode* NextSibling;
-		DyTransformNode* PrevSibling;
-		DyTransformNode* Parent;
+		FDyTransformNode* FirstChild;
+		FDyTransformNode* NextSibling;
+		FDyTransformNode* PrevSibling;
+		FDyTransformNode* Parent;
 		int32_t ChildCount = 0;
 	};
 
-	DyTransformNode::DyTransformNode(const char* id)
-		:Impl(new TransformNodeP())
+	FDyTransformNode::FDyTransformNode(const char* id)
+		:Impl(new TransformNodePrivate())
 	{
 		Impl->Id = id;
 	}
 
-	DyTransformNode::~DyTransformNode()
+	FDyTransformNode::~FDyTransformNode()
 	{
 		delete Impl;
 	}
 
-	void DyTransformNode::AddChildNode(DyTransformNode* Child)
+	void FDyTransformNode::AddChildNode(FDyTransformNode* Child)
 	{
 		if (Child->Impl->Parent)
 		{
@@ -56,77 +56,77 @@ namespace Engine
 		++Impl->ChildCount;
 	}
 
-	void DyTransformNode::SetLocalPosition(const math::Vector3& Pos)
+	void FDyTransformNode::SetLocalPosition(const math::Vector3& Pos)
 	{
 		Impl->LocalPosition = Pos;
 	}
 
-	void DyTransformNode::SetWorldPosition(const math::Vector3& Pos)
+	void FDyTransformNode::SetWorldPosition(const math::Vector3& Pos)
 	{
 		Impl->WorldPosition = Pos;
 	}
 
-	void DyTransformNode::SetLocalRotation(const math::Quaternion& Rot)
+	void FDyTransformNode::SetLocalRotation(const math::Quaternion& Rot)
 	{
 		Impl->LocalRotation = Rot;
 	}
 
-	void DyTransformNode::SetWorldRotation(const math::Quaternion& Rot)
+	void FDyTransformNode::SetWorldRotation(const math::Quaternion& Rot)
 	{
 		Impl->WorldRotation = Rot;
 	}
 
-	void DyTransformNode::SetLocalToWorld(const math::Matrix4x4& Mat)
+	void FDyTransformNode::SetLocalToWorld(const math::Matrix4x4& Mat)
 	{
 		Impl->LocalToWorld = Mat;
 	}
 
-	void DyTransformNode::SetWorldToLocal(const math::Matrix4x4& Mat)
+	void FDyTransformNode::SetWorldToLocal(const math::Matrix4x4& Mat)
 	{
 		Impl->WorldToLocal = Mat;
 	}
 
-	math::Vector3 DyTransformNode::GetLocalPosition() const
+	math::Vector3 FDyTransformNode::GetLocalPosition() const
 	{
 		return Impl->LocalPosition;
 	}
 
-	math::Vector3 DyTransformNode::GetWorldPosition() const
+	math::Vector3 FDyTransformNode::GetWorldPosition() const
 	{
 		return Impl->WorldPosition;
 	}
 
-	math::Quaternion DyTransformNode::GetLocalRotation() const
+	math::Quaternion FDyTransformNode::GetLocalRotation() const
 	{
 		return Impl->LocalRotation;
 	}
 
-	math::Quaternion DyTransformNode::GetWorldRotation() const
+	math::Quaternion FDyTransformNode::GetWorldRotation() const
 	{
 		return Impl->WorldRotation;
 	}
 
-	math::Matrix4x4 DyTransformNode::GetWorldToLocal() const
+	math::Matrix4x4 FDyTransformNode::GetWorldToLocal() const
 	{
 		return Impl->WorldToLocal;
 	}
 
-	math::Matrix4x4 DyTransformNode::GetLocalToWorld() const
+	math::Matrix4x4 FDyTransformNode::GetLocalToWorld() const
 	{
 		return Impl->LocalToWorld;
 	}
 
-	DyTransformNode* DyTransformNode::GetFirstChild() const
+	FDyTransformNode* FDyTransformNode::GetFirstChild() const
 	{
 		return Impl->FirstChild;
 	}
 
-	int32_t DyTransformNode::GetChildCount() const
+	int32_t FDyTransformNode::GetChildCount() const
 	{
 		return Impl->ChildCount;
 	}
 
-	std::string DyTransformNode::GetID() const
+	std::string FDyTransformNode::GetID() const
 	{
 		return Impl->Id;
 	}

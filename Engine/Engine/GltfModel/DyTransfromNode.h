@@ -5,15 +5,15 @@
 
 namespace Engine
 {
-	struct TransformNodeP;
+	struct TransformNodePrivate;
 
-	class DyTransformNode
+	class FDyTransformNode
 	{
 	public:
-		DyTransformNode(const char* id);
-		~DyTransformNode();
+		FDyTransformNode(const char* id);
+		~FDyTransformNode();
 
-		void AddChildNode(DyTransformNode* Child);
+		void AddChildNode(FDyTransformNode* Child);
 
 		void SetLocalPosition(const math::Vector3& Pos);
 		void SetWorldPosition(const math::Vector3& Pos);
@@ -29,13 +29,13 @@ namespace Engine
 		math::Matrix4x4 GetWorldToLocal() const;
 		math::Matrix4x4 GetLocalToWorld() const;
 
-		DyTransformNode* GetFirstChild() const;
+		FDyTransformNode* GetFirstChild() const;
 		int32_t GetChildCount() const;
 
 		std::string GetID() const;
 
 	private:
-		TransformNodeP* Impl = nullptr;
+		TransformNodePrivate* Impl = nullptr;
 	};
 }
 

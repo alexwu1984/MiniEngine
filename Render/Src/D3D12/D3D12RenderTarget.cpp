@@ -75,4 +75,34 @@ namespace RenderCore
 		GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->SetRenderTarget(nullptr, nullptr);
 	}
 
+	std::shared_ptr<RHITexture2D> D3D12RenderTarget::GetTex() const
+	{
+		C_P(const D3D12RenderTarget);
+		return d->Tex2D;
+	}
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetSRV(void) const
+	{
+		C_P(const D3D12RenderTarget);
+		if (!d->Tex2D)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		return d->Tex2D->GetSRV();
+	}
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetRTV(void) const
+	{
+		C_P(const D3D12RenderTarget);
+		if (!d->Tex2D)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		return d->Tex2D->GetRTV();
+	}
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetDSV(void) const
+	{
+		C_P(const D3D12RenderTarget);
+		if (!d->Tex2D)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		return d->Tex2D->GetDSV();
+	}
+
 }

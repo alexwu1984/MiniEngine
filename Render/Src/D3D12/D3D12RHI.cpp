@@ -7,6 +7,7 @@
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Shaders.h"
 #include "D3D12/D3D12State.h"
+#include "D3D12/D3D12RenderTarget.h"
 #include "D3D12/D3D12UniformBuffer.h"
 #include "math/math.h"
 #include "core/timer.h"
@@ -328,7 +329,7 @@ namespace RenderCore
 		RHICachedStates::DestroyAll();
 		if (D3D12Adapter)
 		{
-			//D3D12Adapter->BlockUntilIdle();
+			D3D12Adapter->BlockUntilIdle();
 			D3D12Adapter->Cleanup();
 		}
 		
@@ -451,6 +452,11 @@ namespace RenderCore
 
 	std::shared_ptr<RHIRenderTarget> D3D12DynamicRHI::RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth)
 	{
+		std::shared_ptr<D3D12RenderTarget> RenderTarget = std::make_shared<D3D12RenderTarget>(D3D12Adapter);
+		if (RenderTarget->Create(Format,SizeX,SizeY,NumMips,IsMultiSampled,CreateDepth))
+		{
+			return RenderTarget;
+		}
 		return {};
 	}
 

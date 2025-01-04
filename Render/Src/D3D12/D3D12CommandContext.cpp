@@ -414,4 +414,15 @@ namespace RenderCore
 			StateCache->ClearState();
 	}
 
+	FD3D12StateCache& D3D12CommandContext::GetD3D12StateCache() const
+	{
+		Assert(StateCache.get());
+		return *StateCache;
+	}
+
+	D3D12CommandListHandle& D3D12CommandContext::GetCurrentCommandListHandle()
+	{
+		return CommandListHandle;
+	}
+
 }

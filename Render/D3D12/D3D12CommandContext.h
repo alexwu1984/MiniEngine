@@ -83,6 +83,8 @@ namespace RenderCore
 		void Initialize(void);
 		void Destroy();
 		void ClearState();
+		FD3D12StateCache& GetD3D12StateCache() const;
+		D3D12CommandListHandle& GetCurrentCommandListHandle();
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();

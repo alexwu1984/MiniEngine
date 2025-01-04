@@ -98,7 +98,7 @@ namespace RenderCore
 		void CommitComputeRootDescriptorTables(ID3D12GraphicsCommandList* CommandList);
 
 		void CleanupUsedHeaps(uint64_t FenceValue);
-
+		win32::com_ptr<ID3D12DescriptorHeap> GetHeapPointer();
 	private:
 		bool HasSpace(uint32_t Count)
 		{
@@ -107,7 +107,6 @@ namespace RenderCore
 		void RetireCurrentHeap();
 		void RetireUsedHeaps(uint64_t FenceValue);
 		void UnbindAllInvalid();
-		win32::com_ptr<ID3D12DescriptorHeap> GetHeapPointer();
 		win32::com_ptr<ID3D12DescriptorHeap> RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
 
 	private:

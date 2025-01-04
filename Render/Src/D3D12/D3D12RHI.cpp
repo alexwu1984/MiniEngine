@@ -12,6 +12,8 @@
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
+#include "Imgui/imgui_impl_win32.h"
+#include "Imgui/imgui_impl_dx12.h"
 
 namespace RenderCore
 {
@@ -318,6 +320,9 @@ namespace RenderCore
 		math::RandInit(Seed1);
 		math::SRandInit(Seed2);
 
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+
 		D3D12Adapter->Initialize(this->shared_from_this());
 		D3D12Adapter->InitializeDevices();
 
@@ -330,9 +335,11 @@ namespace RenderCore
 		if (D3D12Adapter)
 		{
 			D3D12Adapter->BlockUntilIdle();
+			::ImGui_ImplDX12_Shutdown();
 			D3D12Adapter->Cleanup();
 		}
-		
+		::ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
 	}
 
 	std::shared_ptr<RHICommandContext> D3D12DynamicRHI::GetDefaultCommandContext()

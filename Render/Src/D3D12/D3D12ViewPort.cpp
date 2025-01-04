@@ -4,6 +4,9 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12CommandList.h"
+#include "Imgui/imgui_impl_dx12.h"
+#include "Imgui/imgui_impl_win32.h"
 
 namespace RenderCore
 {
@@ -104,6 +107,8 @@ namespace RenderCore
 			BackBufTex2D->CreateFromSwapChain(L"BackBuffer", BackBufferrRes.get());
 			BackBuffers.emplace_back(BackBufTex2D);
 		}
+
+		::ImGui_ImplWin32_Init(WindowHandle);
 	}
 
 	void D3D12ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
@@ -167,6 +172,11 @@ namespace RenderCore
 	{
 		if (!SwapChain4)
 			return;
+
+		ImGui::Render();
+		//GetDefaultCommandContext()->GetCurrentCommandListHandle()->SetDescriptorHeaps(1, HeapsToBind);
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList());
+
 		GetDefaultCommandContext()->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
@@ -174,6 +184,13 @@ namespace RenderCore
 		SwapChain4->Present(1, 0);
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+	}
+
+	void D3D12ViewPort::Prepare()
+	{
+		ImGui_ImplDX12_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
 	}
 
 	void D3D12ViewPort::CalculateSwapChainDepth(int32_t DefaultSwapChainDepth)

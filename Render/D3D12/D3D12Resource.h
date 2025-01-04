@@ -19,6 +19,7 @@ namespace RenderCore
 	public:
 		D3D12RefCount()
 		{
+			NumRefs = 0;
 		}
 		virtual ~D3D12RefCount()
 		{
@@ -36,6 +37,7 @@ namespace RenderCore
 			if (NewValue == 0)
 			{
 				delete this;
+				return 0;
 			}
 			assert(NewValue >= 0);
 			return uint32_t(NewValue);

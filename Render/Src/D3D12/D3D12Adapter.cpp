@@ -5,6 +5,8 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12RootSignature.h"
+#include "D3D12/D3D12DescriptorCache.h"
+#include "Imgui/imgui_impl_dx12.h"
 #include <dxgidebug.h>
 
 namespace RenderCore
@@ -35,6 +37,8 @@ namespace RenderCore
 		std::shared_ptr<FD3D12Device> Device;
 		std::shared_ptr<FRootSignature> RootSignature;
 
+		std::shared_ptr<FDynamicDescriptorHeap> DynamicViewDescriptorHeap;
+
 		~FD3D12AdapterPrivate()
 		{
 			RootDevice = {};
@@ -47,6 +51,7 @@ namespace RenderCore
 			FenceCorePool = {};
 			FrameFence = {};
 			Device = {};
+			DynamicViewDescriptorHeap = {};
 
 			if(DxgiDebug)
 				DxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
@@ -151,10 +156,17 @@ namespace RenderCore
 		d->FrameFence = std::make_shared<FD3D12ManualFence>(this->shared_from_this(), L"Adapter Frame Fence");
 		d->FrameFence->CreateFence();
 
-		d->Device = make_shared<FD3D12Device>(this->shared_from_this());
+		d->Device = std::make_shared<FD3D12Device>(this->shared_from_this());
 		d->Device->Initialize();
 
 		CreateSignatures();
+
+		d->DynamicViewDescriptorHeap = std::make_shared<FDynamicDescriptorHeap>(d->Device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		win32::com_ptr<ID3D12DescriptorHeap> DescriptorHeap = d->DynamicViewDescriptorHeap->GetHeapPointer();
+		::ImGui_ImplDX12_Init(d->RootDevice.get(), WINDOWS_DEFAULT_NUM_BACK_BUFFERS,
+			DXGI_FORMAT_R8G8B8A8_UNORM, DescriptorHeap.get(),
+			DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+			DescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	}
 
 	void FD3D12Adapter::InitializeRayTracing()

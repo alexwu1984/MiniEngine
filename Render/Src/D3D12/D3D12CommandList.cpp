@@ -2,6 +2,7 @@
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12StateCache.h"
 
 namespace RenderCore
 {
@@ -89,6 +90,7 @@ namespace RenderCore
 		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 			GetCurrentOwningContext()->GetLinerAllocator(CpuWritable).CleanupUsedPages(FenceID);
 			GetCurrentOwningContext()->GetLinerAllocator(GpuExclusive).CleanupUsedPages(FenceID);
+			GetCurrentOwningContext()->GetD3D12StateCache().CleanupUsedHeaps(FenceID);
 			}, WaitForCompletion);
 	}
 

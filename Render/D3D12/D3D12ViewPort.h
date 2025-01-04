@@ -20,6 +20,7 @@ namespace RenderCore
 		void Clear(const core::FLinearColor& Color) override;
 		void SetRenderTarget() override;
 		void Present() override;
+		void Prepare() override;
 	private:
 		// Determine how deep the swapchain should be (based on AFR or not)
 		void CalculateSwapChainDepth(int32_t DefaultSwapChainDepth);

@@ -43,7 +43,7 @@ namespace RenderCore
 		virtual void* GetNativeWindow(void** AddParam = nullptr) const { return nullptr; }
 
 		virtual void SetRenderTarget() {};
-		virtual void Prepare() {};
+		virtual void Prepare() = 0;
 		virtual void Clear(const core::FLinearColor& Color) {};
 		virtual void Present() {};
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) = 0;

@@ -84,7 +84,7 @@ namespace Engine
 
 	int64_t AppWindow::WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam)
 	{
-		ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
+		::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
 
 		switch (message)
 		{

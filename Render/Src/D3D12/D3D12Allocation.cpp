@@ -197,12 +197,6 @@ namespace RenderCore
 			StandardPagePool.front()->Release();
 			StandardPagePool.pop();
 		}
-
-		while (!RetiredPages.empty())
-		{
-			RetiredPages.front()->Release();
-			RetiredPages.pop();
-		}
 	}
 
 	ELinearAllocatorType LinearAllocationPageManager::GetAllocatorType() const

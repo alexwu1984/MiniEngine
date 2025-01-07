@@ -9,6 +9,7 @@
 #include "D3D12/D3D12State.h"
 #include "D3D12/D3D12RenderTarget.h"
 #include "D3D12/D3D12UniformBuffer.h"
+#include "D3D12/D3D12TextureCube.h"
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
@@ -424,7 +425,16 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(const core::FLinearColor& Color)
 	{
-		return {};
+		std::shared_ptr<D3D12Texture2D> Tex2DRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
+		uint8_t tmp[] = { (uint8_t)(Color.R * 255),(uint8_t)(Color.G * 255),(uint8_t)(Color.B * 255),(uint8_t)(Color.A * 255) };
+		if (Tex2DRHI->CreateTexture2D(EPixelFormat::PF_B8G8R8A8, ETextureCreateFlags::TexCreate_ShaderResource, 1, 1, 1, 1, tmp, 4))
+		{
+			return Tex2DRHI;
+		}
+		else
+		{
+			return nullptr;
+		}
 	}
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
@@ -444,6 +454,11 @@ namespace RenderCore
 
 	std::shared_ptr<RHITextureCube> D3D12DynamicRHI::RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
 	{
+		std::shared_ptr<D3D12TextureCube> CubeRHI = std::make_shared<D3D12TextureCube>(D3D12Adapter);
+		if (CubeRHI->CreateTextureCube(Format,SizeX,SizeY,NumMips,CreateDepth))
+		{
+			return CubeRHI;
+		}
 		return {};
 	}
 

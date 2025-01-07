@@ -3,6 +3,7 @@
 #include "D3D12/D3D12State.h"
 #include "D3D12/D3D12Shaders.h"
 #include "D3D12/D3D12UniformBuffer.h"
+#include "D3D12/D3D12TextureCube.h"
 
 namespace RenderCore
 {
@@ -57,6 +58,12 @@ namespace RenderCore
 	struct TD3D12ResourceTraits<RHIUniformBuffer>
 	{
 		typedef D3D12UniformBuffer TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHITextureCube>
+	{
+		typedef D3D12TextureCube TConcreteType;
 	};
 
 	template<typename TRHIType>

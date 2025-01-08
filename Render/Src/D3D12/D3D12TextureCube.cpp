@@ -86,6 +86,18 @@ namespace RenderCore
 		return d->NumMipMaps;
 	}
 
+	DXGI_FORMAT D3D12TextureCube::GetPlatformResourceFormat() const
+	{
+		C_P(const D3D12TextureCube);
+		return d->PlatformResourceFormat;
+	}
+
+	FD3D12Resource* D3D12TextureCube::GetResource() const
+	{
+		C_P(const D3D12TextureCube);
+		return d->Resource;
+	}
+
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetRTV(int Face, int Mip) const
 	{
 		C_P(D3D12TextureCube);

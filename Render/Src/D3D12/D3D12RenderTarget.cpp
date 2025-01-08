@@ -31,10 +31,7 @@ namespace RenderCore
 		d->Size = core::vec2i(SizeX, SizeY);
 		d->Tex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter());
 		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
-		//if (NumMips > 1)
-		//{
-		//	Flags |= TexCreate_GenerateMipCapable;
-		//}
+
 		if (IsMultiSampled)
 		{
 			Flags |= ETextureCreateFlags::TexCreate_MSAA;
@@ -103,6 +100,22 @@ namespace RenderCore
 		if (!d->Tex2D)
 			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		return d->Tex2D->GetDSV();
+	}
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetMipRTV(int Mip) const
+	{
+		C_P(const D3D12RenderTarget);
+		if (!d->Tex2D)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		return d->Tex2D->GetMipRTV(Mip);
+	}
+
+	FD3D12Resource* D3D12RenderTarget::GetResource() const
+	{
+		C_P(const D3D12RenderTarget);
+		if (!d->Tex2D)
+			return nullptr;
+		return d->Tex2D->GetResource();
 	}
 
 }

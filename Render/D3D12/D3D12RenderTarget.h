@@ -5,6 +5,7 @@
 namespace RenderCore
 {
 	struct D3D12RenderTargetPrivate;
+	class FD3D12Resource;
 
 	class D3D12RenderTarget : public RHIRenderTarget, public FD3D12AdapterChild
 	{
@@ -21,6 +22,8 @@ namespace RenderCore
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetRTV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetDSV(void) const;
+		const D3D12_CPU_DESCRIPTOR_HANDLE GetMipRTV(int Mip) const;
+		FD3D12Resource* GetResource() const;
 	private:
 		D3D12RenderTargetPrivate* d_ptr = nullptr;
 	};

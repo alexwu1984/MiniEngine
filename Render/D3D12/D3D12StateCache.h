@@ -109,6 +109,8 @@ namespace RenderCore
 	class FD3D12PixelShader;
 	class D3D12UniformBuffer;
 	class RHITexture2D;
+	class D3D12RenderTarget;
+	class D3D12TextureCube;
 
 	class FD3D12StateCache : public FD3D12DeviceChild
 	{
@@ -168,6 +170,8 @@ namespace RenderCore
 		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
 		void SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth);
+		void SetRenderTargetFormat(const D3D12RenderTarget* RenderTarget);
+		void SetRenderTargetFormat(const D3D12TextureCube* RenderTarget);
 
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);

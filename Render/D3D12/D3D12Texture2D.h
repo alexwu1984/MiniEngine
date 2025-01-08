@@ -24,7 +24,7 @@ namespace RenderCore
 		bool CreateHDRFromFile(const std::wstring& FileName) override;
 		bool IsMultisampled() const override { return false; }
 		core::vec2i GetSize()const override;
-		virtual uint32_t GetNumMips() const { return 0; }
+		virtual uint32_t GetNumMips() const override;
 		virtual EPixelFormat GetPixelFormat() const;
 		DXGI_FORMAT GetPlatformResourceFormat() const;
 
@@ -32,6 +32,9 @@ namespace RenderCore
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetRTV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetDSV(void) const;
+		const D3D12_CPU_DESCRIPTOR_HANDLE GetMipSRV(int Mip) const;
+		const D3D12_CPU_DESCRIPTOR_HANDLE GetMipUAV(int Mip) const;
+		const D3D12_CPU_DESCRIPTOR_HANDLE GetMipRTV(int Mip) const;
 		FD3D12Resource* GetResource() const;
 	private:
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;

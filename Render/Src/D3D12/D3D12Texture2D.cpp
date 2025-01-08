@@ -20,8 +20,8 @@ namespace RenderCore
 		int32_t InFlags = TexCreate_ShaderResource;
 		D3D12_CPU_DESCRIPTOR_HANDLE DSV{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE RTVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-		D3D12_CPU_DESCRIPTOR_HANDLE SRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL }, SRVHandleMips{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-		D3D12_CPU_DESCRIPTOR_HANDLE UAVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL }, UAVHandleMips{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		D3D12_CPU_DESCRIPTOR_HANDLE SRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		D3D12_CPU_DESCRIPTOR_HANDLE UAVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 
 		~D3D12Texture2DPrivate()
 		{
@@ -142,6 +142,12 @@ namespace RenderCore
 		return d->Size;
 	}
 
+	uint32_t D3D12Texture2D::GetNumMips() const
+	{
+		C_P(const D3D12Texture2D);
+		return d->NumMipMaps;
+	}
+
 	EPixelFormat D3D12Texture2D::GetPixelFormat() const
 	{
 		C_P(const D3D12Texture2D);
@@ -188,6 +194,39 @@ namespace RenderCore
 		return d->DSV;
 	}
 
+	const D3D12_CPU_DESCRIPTOR_HANDLE D3D12Texture2D::GetMipSRV(int Mip) const
+	{
+		C_P(D3D12Texture2D);
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		Assert(Device.get());
+		uint32_t SRVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE Result = d->SRVHandle;
+		Result.ptr += SRVDescriptorSize * Mip;
+		return Result;
+	}
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE D3D12Texture2D::GetMipUAV(int Mip) const
+	{
+		C_P(D3D12Texture2D);
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		Assert(Device.get());
+		uint32_t UAVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE Result = d->UAVHandle;
+		Result.ptr += UAVDescriptorSize * Mip;
+		return Result;
+	}
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE D3D12Texture2D::GetMipRTV(int Mip) const
+	{
+		C_P(D3D12Texture2D);
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		Assert(Device.get());
+		uint32_t RTVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		D3D12_CPU_DESCRIPTOR_HANDLE Result = d->RTVHandle;
+		Result.ptr += RTVDescriptorSize * Mip;
+		return Result;
+	}
+
 	FD3D12Resource* D3D12Texture2D::GetResource() const
 	{
 		C_P(const D3D12Texture2D);
@@ -213,7 +252,7 @@ namespace RenderCore
 		RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 		RTVDesc.Texture2D.MipSlice = 0;
 
-		d->SRVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		d->SRVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
 
 		SRVDesc.Format = Format;
 		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -224,20 +263,25 @@ namespace RenderCore
 
 		if (d->InFlags & TexCreate_UAV)
 		{
-			d->UAVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			d->UAVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
 			UAVDesc.Format = Format;
 			UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 			UAVDesc.Texture2D.MipSlice = 0;
 			Device->GetDevice()->CreateUnorderedAccessView(d->Resource->GetResource(), nullptr, &UAVDesc, d->UAVHandle);
 		}
 
+		if (d->InFlags & TexCreate_RenderTargetable)
+		{
+			d->RTVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, NumMips);
+			Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), &RTVDesc, d->RTVHandle);
+		}
+
 		if (NumMips > 1)
 		{
-			d->SRVHandleMips = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
-			d->UAVHandleMips = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
-
+			uint32_t RTVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 			uint32_t SRVUAVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			D3D12_CPU_DESCRIPTOR_HANDLE CurrentSRVHandle = d->SRVHandleMips;
+
+			D3D12_CPU_DESCRIPTOR_HANDLE CurrentSRVHandle = d->SRVHandle;
 			for (uint32_t i = 0; i < NumMips; ++i)
 			{
 				SRVDesc.Texture2DArray.ArraySize = 1;
@@ -252,8 +296,7 @@ namespace RenderCore
 
 			if (d->InFlags & TexCreate_UAV)
 			{
-				d->UAVHandleMips = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
-				D3D12_CPU_DESCRIPTOR_HANDLE CurrentUAVHandle = d->UAVHandleMips;
+				D3D12_CPU_DESCRIPTOR_HANDLE CurrentUAVHandle = d->UAVHandle;
 				for (uint32_t i = 0; i < NumMips; ++i)
 				{
 					UAVDesc.Texture2DArray.ArraySize = 1;
@@ -264,12 +307,20 @@ namespace RenderCore
 					CurrentUAVHandle.ptr += SRVUAVDescriptorSize;
 				}
 			}
-		}
 
-		if (d->InFlags & TexCreate_RenderTargetable)
-		{
-			d->RTVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-			Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), &RTVDesc, d->RTVHandle);
+			if (d->InFlags & TexCreate_RenderTargetable)
+			{
+				D3D12_CPU_DESCRIPTOR_HANDLE CurrentRTVHandle = d->RTVHandle;
+				for (uint32_t i = 0; i < NumMips; ++i)
+				{
+					RTVDesc.Texture2DArray.ArraySize = 1;
+					RTVDesc.Texture2DArray.FirstArraySlice = 0;
+					RTVDesc.Texture2DArray.MipSlice = i;
+					RTVDesc.Texture2DArray.PlaneSlice = 0;
+					Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), &RTVDesc, CurrentRTVHandle);
+					CurrentRTVHandle.ptr += SRVUAVDescriptorSize;
+				}
+			}
 		}
 	}
 
@@ -356,7 +407,7 @@ namespace RenderCore
 		GetParentDevice()->GetDefaultCommandContext()->InitializeTexture(d->Resource, (UINT)subresources.size(), &subresources[0]);
 		CreateDerivedViews(d->PlatformResourceFormat, d->NumMipMaps);
 
-		return d->RTVHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		return d->SRVHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
 	}
 
 }

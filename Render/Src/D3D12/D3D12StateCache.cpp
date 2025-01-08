@@ -6,6 +6,7 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12UniformBuffer.h"
 #include "D3D12/D3D12ReourceTraits.h"
+#include "D3D12/D3D12RenderTarget.h"
 
 namespace RenderCore
 {
@@ -125,6 +126,29 @@ namespace RenderCore
 		PSDesc.NumRenderTargets = Targets.size();
 		D3D12Texture2D* DepthTex = RHIResourceCast(Depth.get());
 		PSDesc.DSVFormat = DepthTex ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
+		PSDesc.SampleDesc.Count = 1;
+		PSDesc.SampleDesc.Quality = 0;
+	}
+
+	void FD3D12StateCache::SetRenderTargetFormat(const D3D12RenderTarget* RenderTarget)
+	{
+		D3D12Texture2D* Tex2D = RHIResourceCast(RenderTarget->GetTex().get());
+		PSDesc.RTVFormats[0] = Tex2D->GetPlatformResourceFormat();
+		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
+			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+		PSDesc.NumRenderTargets = 1;
+		PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		PSDesc.SampleDesc.Count = 1;
+		PSDesc.SampleDesc.Quality = 0;
+	}
+
+	void FD3D12StateCache::SetRenderTargetFormat(const D3D12TextureCube* RenderTarget)
+	{
+		PSDesc.RTVFormats[0] = RenderTarget->GetPlatformResourceFormat();
+		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
+			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+		PSDesc.NumRenderTargets = 1;
+		PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
 	}

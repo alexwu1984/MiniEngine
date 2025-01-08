@@ -4,6 +4,7 @@
 #include "D3D12/D3D12Shaders.h"
 #include "D3D12/D3D12UniformBuffer.h"
 #include "D3D12/D3D12TextureCube.h"
+#include "D3D12/D3D12RenderTarget.h"
 
 namespace RenderCore
 {
@@ -64,6 +65,12 @@ namespace RenderCore
 	struct TD3D12ResourceTraits<RHITextureCube>
 	{
 		typedef D3D12TextureCube TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHIRenderTarget>
+	{
+		typedef D3D12RenderTarget TConcreteType;
 	};
 
 	template<typename TRHIType>

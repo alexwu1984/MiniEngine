@@ -82,6 +82,39 @@ namespace RenderCore
 		SetRenderTarget(Targets, Depth);
 	}
 
+	void D3D12CommandContext::SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget, int32_t IndexMip /*= 0*/)
+	{
+		if (!StateCache)
+			return;
+		Assert(CommandListHandle.GraphicsCommandList());
+		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
+		if (RenderTargetRHI && RenderTargetRHI->GetMipRTV(IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			CommandListHandle.FlushResourceBarriers();
+			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetMipRTV(IndexMip);
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, nullptr);
+			StateCache->SetRenderTargetFormat(RenderTargetRHI);
+		}
+
+	}
+
+	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip)
+	{
+		if (!StateCache)
+			return;
+		Assert(CommandListHandle.GraphicsCommandList());
+		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
+		if (TextureCubeRHI && TextureCubeRHI->GetRTV(IndexView,IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			TransitionResource(TextureCubeRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			CommandListHandle.FlushResourceBarriers();
+			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(IndexView, IndexMip);
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, nullptr);
+			StateCache->SetRenderTargetFormat(TextureCubeRHI);
+		}
+	}
+
 	void D3D12CommandContext::Clear(std::shared_ptr<RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget,
 									const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
 	{

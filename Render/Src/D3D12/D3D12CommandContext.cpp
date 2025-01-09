@@ -415,6 +415,26 @@ namespace RenderCore
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 
+	void D3D12CommandContext::InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/)
+	{
+		Assert(Dest);
+		ConditionalObtainCommandAllocator();
+		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
+
+		// Get a new command list
+		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
+		CommandList.SetCurrentOwningContext(this);
+
+		FAllocation Allocation = CpuLinearAllocator.Allocate(NumBytes);
+		memcpy(Allocation.CPU, Data, NumBytes);
+		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.D3d12Resource, 0, NumBytes);
+		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+		CommandList.Close();
+		CommandList.Execute(true);
+		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
+	}
+
 	LinearAllocator& D3D12CommandContext::GetLinerAllocator(ELinearAllocatorType type)
 	{
 		Assert(type == CpuWritable || type == GpuExclusive);

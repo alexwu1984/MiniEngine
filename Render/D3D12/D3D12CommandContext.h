@@ -79,6 +79,7 @@ namespace RenderCore
 		void CloseCommandList();
 		void TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush = false);
 		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
+		void InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/);
 		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
 		void Initialize(void);
 		void Destroy();

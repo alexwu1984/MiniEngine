@@ -98,6 +98,14 @@ namespace RenderCore
 		return d->Resource;
 	}
 
+	FD3D12Resource* D3D12TextureCube::GetDepthResource() const
+	{
+		C_P(const D3D12TextureCube);
+		if (!d->DepthTex)
+			return nullptr;
+		return d->DepthTex->GetResource();
+	}
+
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetRTV(int Face, int Mip) const
 	{
 		C_P(D3D12TextureCube);
@@ -131,6 +139,14 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE Result = d->FaceMipSRVHandle;
 		Result.ptr += SRVDescriptorSize * GetSubresourceIndex(Face, Mip);
 		return Result;
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetDSV(void) const
+	{
+		C_P(const D3D12TextureCube);
+		if (!d->DepthTex)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		return d->DepthTex->GetDSV();
 	}
 
 	std::shared_ptr<FD3D12Device> D3D12TextureCube::GetParentDevice() const

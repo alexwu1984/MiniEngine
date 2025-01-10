@@ -371,7 +371,7 @@ namespace RenderCore
 	{
 		std::shared_ptr<D3D12VertexBffer> VertexBufferRHI = std::make_shared<D3D12VertexBffer>(D3D12Adapter);
 		if (VertexBufferRHI->CreateVertexBuffer(InData, InUsage, StrideByteWidth, Count))
-			VertexBufferRHI;
+			return VertexBufferRHI;
 		return {};
 	}
 

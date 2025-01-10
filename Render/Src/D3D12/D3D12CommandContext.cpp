@@ -91,9 +91,13 @@ namespace RenderCore
 		if (RenderTargetRHI && RenderTargetRHI->GetMipRTV(IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			if(RenderTargetRHI->GetDepthResource())
+				TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			CommandListHandle.FlushResourceBarriers();
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetMipRTV(IndexMip);
-			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, nullptr);
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
+													RenderTargetRHI->GetDepthResource() ? &DSV : nullptr);
 			StateCache->SetRenderTargetFormat(RenderTargetRHI);
 		}
 
@@ -108,9 +112,13 @@ namespace RenderCore
 		if (TextureCubeRHI && TextureCubeRHI->GetRTV(IndexView,IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			TransitionResource(TextureCubeRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			if (TextureCubeRHI->GetDepthResource())
+				TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			CommandListHandle.FlushResourceBarriers();
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(IndexView, IndexMip);
-			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, nullptr);
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
+				TextureCubeRHI->GetDepthResource() ? &DSV : nullptr);
 			StateCache->SetRenderTargetFormat(TextureCubeRHI);
 		}
 	}
@@ -234,6 +242,7 @@ namespace RenderCore
 	{
 		if (!StateCache)
 			return;
+		StateCache->ClearState();
 
 		if (Initializer.BlendState)
 		{
@@ -298,11 +307,71 @@ namespace RenderCore
 			StateCache->SetDynamicConstantBuffer(ShaderType,BufferIndex, std::static_pointer_cast<D3D12UniformBuffer>(UniformBufferRHI));
 	}
 
+	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
+	{
+		if (!StateCache)
+			return;
+
+		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		D3D12IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		if (!VertexBuffer || !IndexBuffer)
+			return;
+
+		StateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
+		StateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
+		if (!StateCache->ApplyGraphicState(CommandListHandle))
+			return;
+		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1, 0, 0,0);
+	}
+
+	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
+	{
+		if (!StateCache)
+			return;
+
+		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		if (!VertexBuffer)
+			return;
+
+		StateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
+		D3D12_INDEX_BUFFER_VIEW IndexView{};
+		IndexView.Format = DXGI_FORMAT_UNKNOWN;
+		StateCache->SetIndexBuffer(CommandListHandle, IndexView);
+		if (!StateCache->ApplyGraphicState(CommandListHandle))
+			return;
+		CommandListHandle->DrawInstanced(VertexBuffer->GetCount(),1,0,0);
+	}
+
+	void D3D12CommandContext::DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
+	{
+		if (!StateCache)
+			return;
+
+		int32_t StreamIndex = 0;
+		for (const auto& BufferRHI : VertexBufferArrayRHI)
+		{
+			if (BufferRHI)
+			{
+				D3D12VertexBffer* VertexBuffer = RHIResourceCast(BufferRHI.get());
+				StateCache->SetVertexBuffer(CommandListHandle, StreamIndex++, VertexBuffer->VertexBufferView());
+			}
+		}
+		D3D12IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		if (!IndexBuffer)
+		{
+			return;
+		}
+		StateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
+		if (!StateCache->ApplyGraphicState(CommandListHandle))
+			return;
+		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1,0,0,0);
+	}
+
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
-		CommandListHandle.GraphicsCommandList()->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
+		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 	}
 
 	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)

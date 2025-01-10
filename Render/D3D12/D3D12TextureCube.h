@@ -20,10 +20,12 @@ namespace RenderCore
 		
 		DXGI_FORMAT GetPlatformResourceFormat() const;
 		FD3D12Resource* GetResource() const;
+		FD3D12Resource* GetDepthResource() const;
 		
 		D3D12_CPU_DESCRIPTOR_HANDLE GetRTV(int Face, int Mip) const;
 		D3D12_CPU_DESCRIPTOR_HANDLE GetCubeSRV(int Mip = -1) const;
 		D3D12_CPU_DESCRIPTOR_HANDLE GetFaceMipSRV(int Face, int Mip) const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetDSV(void) const;
 
 	private:
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;

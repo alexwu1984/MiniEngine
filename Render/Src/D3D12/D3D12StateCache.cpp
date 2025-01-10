@@ -153,6 +153,24 @@ namespace RenderCore
 		PSDesc.SampleDesc.Quality = 0;
 	}
 
+	void FD3D12StateCache::SetIndexBuffer(D3D12CommandListHandle& CommandList, const D3D12_INDEX_BUFFER_VIEW& View)
+	{
+		CommandList->IASetIndexBuffer(&View);
+	}
+
+	void FD3D12StateCache::SetVertexBuffer(D3D12CommandListHandle& CommandList,
+										   uint32_t Slot, const D3D12_VERTEX_BUFFER_VIEW& View)
+	{
+		SetVertexBuffers(CommandList,Slot, 1, &View);
+	}
+
+	void FD3D12StateCache::SetVertexBuffers(D3D12CommandListHandle& CommandList,
+											uint32_t StartSlot, uint32_t Count,
+											const D3D12_VERTEX_BUFFER_VIEW View[])
+	{
+		CommandList->IASetVertexBuffers(StartSlot, Count, View);
+	}
+
 	std::shared_ptr<FRootSignature> FD3D12StateCache::BuildRootSignature()
 	{
 		std::shared_ptr<FD3D12VertexShader> VertexShader;
@@ -201,28 +219,28 @@ namespace RenderCore
 		if (VertexResCount.NumCBs > 0)
 		{
 			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, VertexResCount.NumCBs, D3D12_SHADER_VISIBILITY_VERTEX);
-			ConstantBufferCache.RootIndex[SF_Vertex] = RootIndex;
+			RootSignature->CBRootIndex[SF_Vertex] = RootIndex;
 			++RootIndex;
 		}
 	
 		if (PixelResCount.NumCBs > 0)
 		{
 			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, PixelResCount.NumCBs, D3D12_SHADER_VISIBILITY_PIXEL);
-			ConstantBufferCache.RootIndex[SF_Pixel] = RootIndex;
+			RootSignature->CBRootIndex[SF_Pixel] = RootIndex;
 			++RootIndex;
 		}
 
 		if (PixelResCount.NumSRVs > 0)
 		{
 			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, PixelResCount.NumSRVs);
-			ShaderResourceViewCache.RootIndex[SF_Pixel] = RootIndex;
+			RootSignature->SRVRootIndex[SF_Pixel] = RootIndex;
 			++RootIndex;
 		}
 
 		if (PixelResCount.NumUAVs > 0)
 		{
 			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, PixelResCount.NumUAVs);
-			//ShaderResourceViewCache.RootIndex[SF_Pixel] = RootIndex;
+
 			++RootIndex;
 		}
 
@@ -340,39 +358,51 @@ namespace RenderCore
 		DynamicViewDescriptorHeap.ParseGraphicsRootSignature(*RootSignature);
 		CommandList->SetPipelineState(PipelineState.get());
 
-		if (ConstantBufferCache.RootIndex[SF_Vertex] > -1)
+		if (RootSignature->CBRootIndex[SF_Vertex] > -1)
 		{
 			for (uint32_t Index = 0; Index < VertexResCount.NumCBs; ++Index)
 			{
-				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Vertex][Index]->GetCPUHandle();
-				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ConstantBufferCache.RootIndex[SF_Vertex], Index, 1, &Handle);
+				if (ConstantBufferCache.Buffers[SF_Vertex][Index])
+				{
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Vertex][Index]->GetCPUHandle();
+					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->CBRootIndex[SF_Vertex], Index, 1, &Handle);
+				}
 			}
 		}
 
-		if (ConstantBufferCache.RootIndex[SF_Pixel] > -1)
+		if (RootSignature->CBRootIndex[SF_Pixel] > -1)
 		{
 			for (uint32_t Index = 0; Index < PixelResCount.NumCBs; ++Index)
 			{
-				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Pixel][Index]->GetCPUHandle();
-				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ConstantBufferCache.RootIndex[SF_Pixel], Index, 1, &Handle);
+				if (ConstantBufferCache.Buffers[SF_Pixel][Index])
+				{
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Pixel][Index]->GetCPUHandle();
+					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->CBRootIndex[SF_Pixel], Index, 1, &Handle);
+				}
 			}
 		}
 
-		if (ShaderResourceViewCache.RootIndex[SF_Vertex] > -1)
+		if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
 		{
 			for (uint32_t Index = 0; Index < VertexResCount.NumSRVs; ++Index)
 			{
-				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Vertex][Index]->GetSRV();
-				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ShaderResourceViewCache.RootIndex[SF_Vertex], Index, 1, &Handle);
+				if (ShaderResourceViewCache.Views[SF_Vertex][Index])
+				{
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Vertex][Index]->GetSRV();
+					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->SRVRootIndex[SF_Vertex], Index, 1, &Handle);
+				}
 			}
 		}
 
-		if (ShaderResourceViewCache.RootIndex[SF_Pixel] > -1)
+		if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
 		{
 			for (uint32_t Index = 0; Index < PixelResCount.NumSRVs; ++Index)
 			{
-				D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Pixel][Index]->GetSRV();
-				DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(ShaderResourceViewCache.RootIndex[SF_Pixel], Index, 1, &Handle);
+				if (ShaderResourceViewCache.Views[SF_Pixel][Index])
+				{
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Pixel][Index]->GetSRV();
+					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->SRVRootIndex[SF_Pixel], Index, 1, &Handle);
+				}
 			}
 		}
 

@@ -129,6 +129,8 @@ namespace RenderCore
 		uint32_t GetDescriptorTableBitMap() const { return m_DescriptorTableBitMap; }
 		uint32_t GetDescriptorTableSize(uint32_t RootIndex) const { return m_DescriptorTableSize[RootIndex]; }
 
+		int32_t CBRootIndex[SF_NumStandardFrequencies]{-1};
+		int32_t SRVRootIndex[SF_NumStandardFrequencies]{-1};
 	protected:
 		bool m_Finalized = false;
 		uint32_t m_NumParameters = 0;

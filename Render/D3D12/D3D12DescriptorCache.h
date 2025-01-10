@@ -123,7 +123,6 @@ namespace RenderCore
 		uint32_t m_CurrentOffset = 0;
 		std::vector<win32::com_ptr<ID3D12DescriptorHeap>> m_RetiredHeaps;
 
-
 		struct FDescriptorTableCache
 		{
 			FDescriptorTableCache()

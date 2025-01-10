@@ -97,9 +97,9 @@ namespace RenderCore
 	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetDSV(void) const
 	{
 		C_P(const D3D12RenderTarget);
-		if (!d->Tex2D)
+		if (!d->DepthTex)
 			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-		return d->Tex2D->GetDSV();
+		return d->DepthTex->GetDSV();
 	}
 
 	const D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetMipRTV(int Mip) const
@@ -116,6 +116,14 @@ namespace RenderCore
 		if (!d->Tex2D)
 			return nullptr;
 		return d->Tex2D->GetResource();
+	}
+
+	FD3D12Resource* D3D12RenderTarget::GetDepthResource() const
+	{
+		C_P(const D3D12RenderTarget);
+		if (!d->DepthTex)
+			return nullptr;
+		return d->DepthTex->GetResource();
 	}
 
 }

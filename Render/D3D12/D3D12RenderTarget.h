@@ -24,6 +24,7 @@ namespace RenderCore
 		const D3D12_CPU_DESCRIPTOR_HANDLE& GetDSV(void) const;
 		const D3D12_CPU_DESCRIPTOR_HANDLE GetMipRTV(int Mip) const;
 		FD3D12Resource* GetResource() const;
+		FD3D12Resource* GetDepthResource() const;
 	private:
 		D3D12RenderTargetPrivate* d_ptr = nullptr;
 	};

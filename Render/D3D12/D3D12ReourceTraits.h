@@ -5,6 +5,8 @@
 #include "D3D12/D3D12UniformBuffer.h"
 #include "D3D12/D3D12TextureCube.h"
 #include "D3D12/D3D12RenderTarget.h"
+#include "D3D12/D3D12VertexBuffer.h"
+#include "D3D12/D3D12IndexBuffer.h"
 
 namespace RenderCore
 {
@@ -71,6 +73,18 @@ namespace RenderCore
 	struct TD3D12ResourceTraits<RHIRenderTarget>
 	{
 		typedef D3D12RenderTarget TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHIVertexBuffer>
+	{
+		typedef D3D12VertexBffer TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHIIndexBuffer>
+	{
+		typedef D3D12IndexBuffer TConcreteType;
 	};
 
 	template<typename TRHIType>

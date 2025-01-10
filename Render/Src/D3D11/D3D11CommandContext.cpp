@@ -471,6 +471,8 @@ namespace RenderCore
 	{
 		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
 		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		if (!VertexBuffer || !IndexBuffer)
+			return;
 
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
@@ -482,6 +484,8 @@ namespace RenderCore
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
 	{
 		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		if (!VertexBuffer)
+			return;
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);

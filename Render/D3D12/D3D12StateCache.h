@@ -55,7 +55,6 @@ namespace RenderCore
 		}
 
 		std::shared_ptr<D3D12UniformBuffer> Buffers[SF_NumStandardFrequencies][MAX_CBS];
-		int32_t RootIndex[SF_NumStandardFrequencies]{};
 	};
 
 	struct FD3D12ShaderResourceViewCache 
@@ -77,7 +76,6 @@ namespace RenderCore
 		}
 
 		std::shared_ptr<D3D12Texture2D> Views[SF_NumStandardFrequencies][MAX_SRVS];
-		int32_t RootIndex[SF_NumStandardFrequencies]{};
 	};
 
 	struct FD3D12UnorderedAccessViewCache 
@@ -172,6 +170,10 @@ namespace RenderCore
 		void SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth);
 		void SetRenderTargetFormat(const D3D12RenderTarget* RenderTarget);
 		void SetRenderTargetFormat(const D3D12TextureCube* RenderTarget);
+		void SetIndexBuffer(D3D12CommandListHandle& CommandList,const D3D12_INDEX_BUFFER_VIEW& View);
+		void SetVertexBuffer(D3D12CommandListHandle& CommandList, uint32_t Slot, const D3D12_VERTEX_BUFFER_VIEW& View);
+		void SetVertexBuffers(D3D12CommandListHandle& CommandList,
+							  uint32_t StartSlot, uint32_t Count, const D3D12_VERTEX_BUFFER_VIEW View[]);
 
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);

@@ -40,30 +40,38 @@ namespace RenderCore
 		d->Count = Count;
 
 		D3D12_RESOURCE_DESC ResDesc = DescribeBuffer();
-
+		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_PROPERTIES HeapProps;
 		HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-		if (InUsage & BUF_Dynamic)
+		if (InUsage & BUF_AnyDynamic)
 		{
 			HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+			InitState = D3D12_RESOURCE_STATE_GENERIC_READ;
 		}
 		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 		HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 		HeapProps.CreationNodeMask = 1;
 		HeapProps.VisibleNodeMask = 1;
 		static int32_t gCounter = 0;
-		std::wstring Name = core::formatw("W:", ResDesc.Width, "_Vertex_", ++gCounter);
-		HRESULT hr = GetParentAdapter()->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_COMMON, nullptr, &d->Resource, Name.c_str());
+		std::wstring Name = core::formatw("W:", d->BufferSize, "_Vertex_", ++gCounter);
+		HRESULT hr = GetParentAdapter()->CreateCommittedResource(ResDesc, HeapProps, InitState,
+																 nullptr, &d->Resource, Name.c_str());
 		if (FAILED(hr))
-		{
 			return false;
-		}
 		if (InData)
 		{
-			GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, ResDesc.Width,0);
+			if (InUsage & BUF_AnyDynamic)
+			{
+				void* MappedData = d->Resource->Map();
+				if (MappedData)
+					memcpy(MappedData, InData, d->BufferSize);
+				d->Resource->Unmap();
+			}
+			else
+				GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, d->BufferSize, 0);
 		}
 
-		return false;
+		return true;
 	}
 
 	void D3D12VertexBffer::UpdateVertexBUffer(const void* InData, int32_t nVertex, int32_t sizePerVertex)

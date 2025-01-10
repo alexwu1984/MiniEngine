@@ -10,6 +10,8 @@
 #include "D3D12/D3D12RenderTarget.h"
 #include "D3D12/D3D12UniformBuffer.h"
 #include "D3D12/D3D12TextureCube.h"
+#include "D3D12/D3D12VertexBuffer.h"
+#include "D3D12/D3D12IndexBuffer.h"
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
@@ -367,21 +369,30 @@ namespace RenderCore
 
 	std::shared_ptr<RHIVertexBuffer> D3D12DynamicRHI::RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)
 	{
+		std::shared_ptr<D3D12VertexBffer> VertexBufferRHI = std::make_shared<D3D12VertexBffer>(D3D12Adapter);
+		if (VertexBufferRHI->CreateVertexBuffer(InData, InUsage, StrideByteWidth, Count))
+			VertexBufferRHI;
 		return {};
 	}
 
 	void D3D12DynamicRHI::RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex)
 	{
-
+		VertexBuffer->UpdateVertexBUffer(InData, nVertex, sizePerVertex);
 	}
 
 	std::shared_ptr<RHIIndexBuffer> D3D12DynamicRHI::RHICreateIndexBuffer(const uint16_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount)
 	{
+		std::shared_ptr<D3D12IndexBuffer> IndexBufferRHI = std::make_shared<D3D12IndexBuffer>(D3D12Adapter);
+		if (IndexBufferRHI->CreateIndexBuffer(InData, InUsage, IndexCount))
+			return IndexBufferRHI;
 		return {};
 	}
 
 	std::shared_ptr<RHIIndexBuffer> D3D12DynamicRHI::RHICreateIndexBuffer(const uint32_t* InData, EBufferUsageFlags InUsage, int32_t IndexCount)
 	{
+		std::shared_ptr<D3D12IndexBuffer> IndexBufferRHI = std::make_shared<D3D12IndexBuffer>(D3D12Adapter);
+		if (IndexBufferRHI->CreateIndexBuffer(InData, InUsage, IndexCount))
+			return IndexBufferRHI;
 		return {};
 	}
 

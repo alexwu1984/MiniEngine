@@ -425,11 +425,14 @@ namespace RenderCore
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);
 
+		D3D12_RESOURCE_STATES OldState = Dest->GetResourceState().GetSubresourceState(0);
+
 		FAllocation Allocation = CpuLinearAllocator.Allocate(NumBytes);
 		memcpy(Allocation.CPU, Data, NumBytes);
-		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+		TransitionResource(Dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
 		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.D3d12Resource, 0, NumBytes);
-		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+		TransitionResource(Dest, D3D12_RESOURCE_STATE_GENERIC_READ);
+
 		CommandList.Close();
 		CommandList.Execute(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);

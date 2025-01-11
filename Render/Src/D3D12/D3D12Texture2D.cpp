@@ -393,7 +393,7 @@ namespace RenderCore
 		}
 
 		d->PlatformResourceFormat = Image.GetMetadata().format;
-		d->NumMipMaps = Image.GetMetadata().mipLevels;
+		d->NumMipMaps = (uint32_t)Image.GetMetadata().mipLevels;
 
 		d->Resource = new FD3D12Resource(Device, Resoure.get(), D3D12_RESOURCE_STATE_COPY_DEST, Resoure->GetDesc());
 		d->Resource->AddRef();

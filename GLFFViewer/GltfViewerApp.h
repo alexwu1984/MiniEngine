@@ -5,9 +5,8 @@
 namespace Engine
 {
 	class GltfActor;
+	class SimplePostProcessor;
 }
-
-class PostProcessorDemo;
 
 class GltfViewApp : public Engine::WindowApplication
 {
@@ -25,5 +24,5 @@ private:
 	std::shared_ptr<Engine::GltfActor> AGltfModel;
 	int32_t SelIndex = 0;
 	math::Vector3 mDirectLight{ 0,0,1 };
-	std::shared_ptr< PostProcessorDemo> _Demo;
+	std::shared_ptr<Engine::SimplePostProcessor> _Demo;
 };

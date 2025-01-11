@@ -243,6 +243,8 @@ namespace RenderCore
 		if (!StateCache)
 			return;
 
+		StateCache->ClearRenderState();
+
 		if (Initializer.BlendState)
 		{
 			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
@@ -293,7 +295,9 @@ namespace RenderCore
 
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
 		if (Texture2D)
+		{
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
+		}
 	}
 
 	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI)
@@ -302,7 +306,10 @@ namespace RenderCore
 			return;
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
+		{
+			TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
+		}
 	}
 
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
@@ -486,7 +493,6 @@ namespace RenderCore
 		FAllocation Allocation = CpuLinearAllocator.Allocate(UploadBufferSize);
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.D3d12Resource, 0, 0, NumSubResources, SubData);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
-
 		CommandList.Close();
 		CommandList.Execute(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);

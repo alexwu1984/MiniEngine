@@ -88,6 +88,7 @@ namespace Engine
 		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 128, 128, 5, false);
 		d->CubeR = std::make_shared<CubeRender>(d->RHI);
 		d->CubeR->InitResource();
+		PreIntegrateBRDF();
 	}
 
 	void IBLRender::LoadConfig(const std::wstring& FileName)
@@ -113,6 +114,13 @@ namespace Engine
 		}
 	}
 
+	void IBLRender::LoadTex(const std::wstring& FileName)
+	{
+		C_P(IBLRender);
+		d->HDRTex = d->RHI->RHICreateHDRTexture2D(FileName);
+		d->bInitRender = false;
+	}
+
 	void IBLRender::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
@@ -121,34 +129,39 @@ namespace Engine
 			return;
 		}
 		d->bInitRender = true;
+		PreIntegrateBRDF();
 		GenerateCubeMap(RHIContext);
 		GenerateIrradianceMap(RHIContext);
-		GeneratePrefilteredMap(RHIContext);
-		PreIntegrateBRDF();
 	}
 
-	std::shared_ptr<RenderCore::RHITextureCube> IBLRender::GetPreFilterCube()
+	std::shared_ptr<RHITextureCube> IBLRender::GetPreFilterCube()
 	{
 		C_P(IBLRender);
 		return d->PreFilterCube;
 	}
 
-	std::shared_ptr<RenderCore::RHITextureCube> IBLRender::GetIrrCube()
+	std::shared_ptr<RHITextureCube> IBLRender::GetIrrCube()
 	{
 		C_P(IBLRender);
 		return d->IrrCube;
 	}
 
-	std::shared_ptr< RenderCore::RHITextureCube> IBLRender::GetEvnCube()
+	std::shared_ptr<RHITextureCube> IBLRender::GetEvnCube()
 	{
 		C_P(IBLRender);
 		return d->EvnCube;
 	}
 
-	std::shared_ptr<RenderCore::RHITexture2D> IBLRender::GetPreIntegrateBRDF()
+	std::shared_ptr<RHITexture2D> IBLRender::GetPreIntegrateBRDF()
 	{
 		C_P(IBLRender);
 		return d->PreBRDF;
+	}
+
+	std::shared_ptr<RHITexture2D> IBLRender::GetHDRTex()
+	{
+		C_P(IBLRender);
+		return d->HDRTex;
 	}
 
 	void IBLRender::GenerateCubeMap(RenderCore::RHICommandContext& RHIContext)
@@ -170,7 +183,6 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-		
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
@@ -184,6 +196,7 @@ namespace Engine
 			RHIContext.SetViewPort(0, 0, d->EvnCube->GetSize().cx, d->EvnCube->GetSize().cy);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
+			
 		}
 		RHIContext.GenerateMips(d->EvnCube);
 	}
@@ -206,7 +219,6 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-		
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
@@ -246,7 +258,6 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-	
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		uint32_t NumMips = d->PreFilterCube->GetNumMips();
 		d->GET_UNIFORMDATA(PSContant).MaxMipLevel = d->PreFilterCube->GetNumMips();

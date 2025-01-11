@@ -24,6 +24,7 @@ namespace math
 
 		Vector3();
 		Vector3(const Vector3& v);
+		Vector3(float c) : x(c), y(c), z(c) {}
 		Vector3(float _x, float _y, float _z);
 
 		void Set(float _x, float _y, float _z)

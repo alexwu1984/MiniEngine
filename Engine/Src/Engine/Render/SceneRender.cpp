@@ -36,6 +36,7 @@ namespace Engine
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
 		std::shared_ptr<SimplePostProcessor> SimplePostProc;//È«ÆÁÌØÐ§DEMO
 		std::atomic_bool IsInit{ false };
+		core::FLinearColor Color = core::FLinearColor::Blue;
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
@@ -112,6 +113,12 @@ namespace Engine
 		});
 	}
 
+	void SceneRender::SetBackgroundColor(const core::FLinearColor& Color)
+	{
+		C_P(SceneRender);
+		d->Color = Color;
+	}
+
 	void SceneRender::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
 	{
 		if (InSizeX ==0 || InSizeY == 0)
@@ -184,7 +191,7 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->SetRenderTarget();
-			d->MainViewPort->Clear(core::FLinearColor::Blue);
+			d->MainViewPort->Clear(d->Color);
 			d->MainViewPort->Prepare();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
@@ -259,6 +266,12 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		return d->ShadowRender;
+	}
+
+	std::shared_ptr<RHIViewPort> SceneRender::GetViewPort() const
+	{
+		C_P(SceneRender);
+		return d->MainViewPort;
 	}
 
 	void SceneRender::SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor)

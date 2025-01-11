@@ -76,6 +76,10 @@ set(GLTFModel_GLBS
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/aerith_wallpaper_3840x2160.jpg
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/tifa_wallpaper_3840x2160.png
 	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/test.png
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/HDR/de_balie_2k.hdr
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/HDR/modern_buildings_night_2k.hdr
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/HDR/museum_of_ethnography_2k.hdr
+	${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel/HDR/spruit_sunrise_2k.hdr
 )
 
 copyTargetCommand("${GLTFModel_GLBS}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/GLTFModel copied_glb_debug)

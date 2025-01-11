@@ -179,6 +179,7 @@ namespace RenderCore
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);
 		void ClearState();
+		void ClearRenderState();
 		void CleanupUsedHeaps(uint64_t FenceValue);
 
 		FD3D12SamplerStateCache SamplerCache;

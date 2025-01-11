@@ -49,7 +49,7 @@ namespace RenderCore
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC CBVDesc{};
 		CBVDesc.BufferLocation = d->AllocationPage->GetGPUVirtualAddress();
-		CBVDesc.SizeInBytes = AlignedSize;
+		CBVDesc.SizeInBytes = (uint32_t)AlignedSize;
 
 		d->hCBV = GetParentAdapter()->GetDevice()->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		GetParentAdapter()->GetD3DDevice()->CreateConstantBufferView(&CBVDesc, d->hCBV);

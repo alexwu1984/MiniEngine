@@ -1,6 +1,7 @@
 #pragma once
 #include "core/inc.h"
 #include "core/event.h"
+#include "core/color.h"
 
 namespace RenderCore
 {
@@ -25,10 +26,12 @@ namespace Engine
 
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 		void LoadConfig(const std::wstring& FileName);
+		void SetBackgroundColor(const core::FLinearColor& Color);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render(float DeltaTime);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
+		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
 		void SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor);
 	public:

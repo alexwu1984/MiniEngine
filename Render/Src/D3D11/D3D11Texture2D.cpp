@@ -216,8 +216,6 @@ namespace RenderCore
 			}
 		}
 		 
-
-
 		if (Flags & TexCreate_UAV)
 		{
 			TextureDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
@@ -228,7 +226,6 @@ namespace RenderCore
 			TextureDesc.BindFlags &= ~D3D11_BIND_SHADER_RESOURCE;
 			bCreateShaderResource = false;
 		}
-
 
 		auto DeviceContext = d->D3D11RHI->GetDeviceContext();
 		HRESULT hr = S_OK;

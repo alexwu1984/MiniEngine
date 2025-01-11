@@ -132,7 +132,7 @@ namespace RenderCore
 		}
 		for (uint32_t i = (uint32_t)Targets.size(); i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
-		PSDesc.NumRenderTargets = Targets.size();
+		PSDesc.NumRenderTargets = (uint32_t)Targets.size();
 		D3D12Texture2D* DepthTex = RHIResourceCast(Depth.get());
 		PSDesc.DSVFormat = DepthTex ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
@@ -203,7 +203,7 @@ namespace RenderCore
 			KeyName += itFindPixelShader->second->PSEntryPoint;
 		}
 		
-		CurrentRootHash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
+		CurrentRootHash = core::Crc::MemCrc32(KeyName.data(), (int32_t)KeyName.size());
 
 		std::shared_ptr<FRootSignature> RootSignature;
 		auto ItRootSignature = RootSignatures.find(CurrentRootHash);
@@ -266,7 +266,7 @@ namespace RenderCore
 			for (uint32_t index = 0; index < PixelResCount.NumSamplers; ++index)
 				RootSignature->InitStaticSampler(index, Samplers[index], D3D12_SHADER_VISIBILITY_PIXEL);
 		}
-		if (RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))\
+		if (RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))
 		{
 			RootSignatures.insert({ CurrentRootHash,RootSignature });
 			return RootSignature;
@@ -339,7 +339,7 @@ namespace RenderCore
 		}
 		PSDesc.NodeMask = 1;
 		PSDesc.SampleMask = (UINT)-1;
-		PSDesc.InputLayout.NumElements = ElementDescs.size();
+		PSDesc.InputLayout.NumElements = (uint32_t)ElementDescs.size();
 		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts.data();
 
 		size_t HashCode = core::Crc::HashState(&PSDesc);
@@ -431,6 +431,16 @@ namespace RenderCore
 		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 		PSDesc = {};
+		ConstantBufferCache.Clear();
+		SamplerCache.Clear();
+		ShaderResourceViewCache.Clear();
+
+		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
+			CurrentDescriptorHeaps[index] = {};
+	}
+
+	void FD3D12StateCache::ClearRenderState()
+	{
 		ConstantBufferCache.Clear();
 		SamplerCache.Clear();
 		ShaderResourceViewCache.Clear();

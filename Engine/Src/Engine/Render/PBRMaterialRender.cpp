@@ -170,7 +170,7 @@ namespace Engine
 
 		d->RenderParam = RenderParam;
 
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = RenderParam.lightInfos.size();
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)RenderParam.lightInfos.size();
 		for (int32_t index = 0; index < RenderParam.lightInfos.size(); ++index)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = RenderParam.lightInfos[index];

@@ -70,12 +70,12 @@ namespace RenderCore
 			{
 				for (int32_t SRVIdx = 0; SRVIdx < MAX_SRVS; ++SRVIdx)
 				{
-					Views[FrequencyIdx][SRVIdx] = {};
+					Views[FrequencyIdx][SRVIdx] = { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 				}
 			}
 		}
 
-		std::shared_ptr<D3D12Texture2D> Views[SF_NumStandardFrequencies][MAX_SRVS];
+		D3D12_CPU_DESCRIPTOR_HANDLE Views[SF_NumStandardFrequencies][MAX_SRVS];
 	};
 
 	struct FD3D12UnorderedAccessViewCache 
@@ -165,6 +165,7 @@ namespace RenderCore
 		void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology);
 		void SetDynamicConstantBuffer(EShaderFrequency ShaderType,uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
+		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12TextureCube> TextureCube);
 		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
 		void SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth);

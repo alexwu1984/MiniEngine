@@ -82,13 +82,22 @@ namespace RenderCore
 	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D)
 	{
 		Assert(TextureIndex < MAX_SRVS);
-		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].get() != Texture2D.get())
+		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != Texture2D->GetSRV().ptr)
 		{
-			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Texture2D;
+			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Texture2D->GetSRV();
 		}
 	}
 
-	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
+	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12TextureCube> TextureCube)
+	{
+		Assert(TextureIndex < MAX_SRVS);
+		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != TextureCube->GetCubeSRV().ptr)
+		{
+			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = TextureCube->GetCubeSRV();
+		}
+	}
+
+	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
 		if (CurrentDescriptorHeaps[Type] != HeapPtr)
 		{
@@ -116,12 +125,12 @@ namespace RenderCore
 
 	void FD3D12StateCache::SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
 	{
-		for (uint32_t i = 0; i < Targets.size(); ++i)
+		for (uint32_t i = 0; i < (uint32_t)Targets.size(); ++i)
 		{
 			D3D12Texture2D* Tex2D = RHIResourceCast(Targets[i].get());
 			PSDesc.RTVFormats[i] = Tex2D->GetPlatformResourceFormat();
 		}
-		for (uint32_t i = Targets.size(); i < MaxSimultaneousRenderTargets; ++i)
+		for (uint32_t i = (uint32_t)Targets.size(); i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = Targets.size();
 		D3D12Texture2D* DepthTex = RHIResourceCast(Depth.get());
@@ -386,9 +395,9 @@ namespace RenderCore
 		{
 			for (uint32_t Index = 0; Index < VertexResCount.NumSRVs; ++Index)
 			{
-				if (ShaderResourceViewCache.Views[SF_Vertex][Index])
+				if (ShaderResourceViewCache.Views[SF_Vertex][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Vertex][Index]->GetSRV();
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Vertex][Index];
 					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->SRVRootIndex[SF_Vertex], Index, 1, &Handle);
 				}
 			}
@@ -398,9 +407,9 @@ namespace RenderCore
 		{
 			for (uint32_t Index = 0; Index < PixelResCount.NumSRVs; ++Index)
 			{
-				if (ShaderResourceViewCache.Views[SF_Pixel][Index])
+				if (ShaderResourceViewCache.Views[SF_Pixel][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Pixel][Index]->GetSRV();
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Pixel][Index];
 					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->SRVRootIndex[SF_Pixel], Index, 1, &Handle);
 				}
 			}

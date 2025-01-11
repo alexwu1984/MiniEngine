@@ -242,7 +242,6 @@ namespace RenderCore
 	{
 		if (!StateCache)
 			return;
-		StateCache->ClearState();
 
 		if (Initializer.BlendState)
 		{
@@ -295,6 +294,15 @@ namespace RenderCore
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
 		if (Texture2D)
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
+	}
+
+	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI)
+	{
+		if (!StateCache)
+			return;
+		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
+		if (TextureCube)
+			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 	}
 
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)

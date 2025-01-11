@@ -25,54 +25,61 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-
-	//ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
-	//	if (!_Demo)
-	//	{
-	//		_Demo = std::make_shared<PostProcessorDemo>(RHI);
-	//	}
-	//	_Demo->InitResource();
-	//	auto sceneRender = Engine::GEngine->GetSceneRender();
-	//	sceneRender->SetSamplePostProcessor(_Demo);
-	//	});
-
-	core::filesystem::path Path = core::process_directory();
-	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
-	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
-	SelIndex = 0;
-	auto Scene = Engine::GEngine->GetScene();
-	Scene->LoadScene(ModelFile);
-
-	auto Camera = Scene->GetMainCamera();
-	if (Camera)
+	if (1)
 	{
-		auto CameraPos = Camera->GetCameraPos();
-		CameraPos.y = 1;
-		Camera->SetCameraPos(CameraPos);
+		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
+			if (!_Demo)
+			{
+				_Demo = std::make_shared<PostProcessorDemo>(RHI);
+			}
+			_Demo->InitResource();
+			auto sceneRender = Engine::GEngine->GetSceneRender();
+			sceneRender->SetSamplePostProcessor(_Demo);
+			});
 	}
 
-	mDirectLight = Scene->GetLights()[0].Direction;
 
-	Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
+	if (0)
+	{
+		core::filesystem::path Path = core::process_directory();
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+		SelIndex = 0;
+		auto Scene = Engine::GEngine->GetScene();
+		Scene->LoadScene(ModelFile);
 
-		ImGui::SetNextWindowPos(ImVec2(10, 10));
-		if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+		auto Camera = Scene->GetMainCamera();
+		if (Camera)
 		{
-			auto& Lights = Scene->GetLights();
-			auto& DirectLight = Lights[0];
-
-			ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
-			ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
-			ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
-
-			DirectLight.Direction = mDirectLight;
-			DirectLight.Direction.Normalize();
+			auto CameraPos = Camera->GetCameraPos();
+			CameraPos.y = 1;
+			Camera->SetCameraPos(CameraPos);
 		}
 
-		ImGui::End();
+		mDirectLight = Scene->GetLights()[0].Direction;
 
-		}, this);
+		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
+
+			ImGui::SetNextWindowPos(ImVec2(10, 10));
+			if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				auto& Lights = Scene->GetLights();
+				auto& DirectLight = Lights[0];
+
+				ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
+				ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
+				ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
+
+				DirectLight.Direction = mDirectLight;
+				DirectLight.Direction.Normalize();
+			}
+
+			ImGui::End();
+
+			}, this);
+	}
+
 
 	return true;
 }

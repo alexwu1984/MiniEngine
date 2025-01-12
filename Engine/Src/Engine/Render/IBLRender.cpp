@@ -129,7 +129,6 @@ namespace Engine
 			return;
 		}
 		d->bInitRender = true;
-		PreIntegrateBRDF();
 		GenerateCubeMap(RHIContext);
 		GenerateIrradianceMap(RHIContext);
 		GeneratePrefilteredMap(RHIContext);
@@ -197,7 +196,6 @@ namespace Engine
 			RHIContext.SetViewPort(0, 0, d->EvnCube->GetSize().cx, d->EvnCube->GetSize().cy);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
-			
 		}
 		RHIContext.GenerateMips(d->EvnCube);
 	}

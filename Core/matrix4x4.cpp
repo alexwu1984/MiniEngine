@@ -42,8 +42,6 @@ namespace math
 
 	}
 
-	
-
 	void Matrix4x4::GetRotation(Quaternion& q)
 	{
 

@@ -105,7 +105,6 @@ void IBLRenderDemo::InitResource()
 		}
 		ImGui::End();
 
-		GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 		Engine::GEngine->GetSceneRender()->SetBackgroundColor(m_ClearColor);
 		
 		}, this);
@@ -169,6 +168,7 @@ void IBLRenderDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext)
 
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, m_IBLRender->GetHDRTex());
+	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 	RHIContext.Draw(3);

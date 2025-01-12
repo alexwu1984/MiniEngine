@@ -21,4 +21,16 @@ namespace Engine
 	private:
 		CubeRenderPrivate* d_ptr = nullptr;
 	};
+	
+	struct CubeMapCrossRenderPrivate;
+	class CubeMapCrossRender
+	{
+	public:
+		CubeMapCrossRender(RenderCore::DynamicRHI* RHI);
+		~CubeMapCrossRender();
+		void InitResource();
+		void Render(RenderCore::RHICommandContext& RHIContext);
+	private:
+		CubeMapCrossRenderPrivate* d_ptr = nullptr;
+	};
 }

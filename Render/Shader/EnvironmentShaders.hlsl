@@ -37,6 +37,14 @@ VertexOutput VS_SkyCube(VertexIN In)
     return Out;
 }
 
+float4 PS_SkyCube(VertexOutput In) : SV_Target
+{
+	// Local Direction don't need to normalized
+	float4 Sample = CubeEnvironment.Sample(LinearSampler, In.LocalDirection);
+	return float4(Sample.xyz * Exposure, 1.0);
+}
+
+
 float4 PS_GenIrradiance(VertexOutput In) : SV_Target
 {
 	//return CubeEnvironment.Sample(LinearSampler, In.LocalDirection);
@@ -179,42 +187,27 @@ float4 PS_ShowTexture2D(in VertexOutput_Texture2D In) : SV_Target0
 }
 
 //-------------------------------------------------------
-// SkyBox
+// CubeMap Cross View
 //-------------------------------------------------------
 
-cbuffer VSContant : register(b0)
+struct VertexIN_CubeMapCross
 {
-	float4x4 ModelMatrix;
-	float4x4 ViewProjMatrix;
+	float3 Position : ATTRIBUTE0;
+	float3 Normal : ATTRIBUTE1;
 };
 
-VertexOutput VS_SkyCube(VertexIN In)
+VertexOutput VS_CubeMapCross(VertexIN_CubeMapCross In)
 {
 	VertexOutput Out;
-	Out.LocalDirection = In.Position;
-	Out.Position = mul(mul(float4(In.Position, 1.0), ModelMatrix), ViewProjMatrix).xyww;
+	Out.LocalDirection = In.Normal;
+    Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
 	return Out;
 }
 
-cbuffer PSContant : register(b0)
+float4 PS_CubeMapCross(VertexOutput In) : SV_Target
 {
-	float	Exposure;
-	int		MipLevel;
-	int		MaxMipLevel;
-	int		NumSamplesPerDir;
-	int		Degree;
-	float3	pod1;
-	float4  pad2;
-	float3	Coeffs[16];
-};
-
-TextureCube CubeEnvironment : register(t0);
-
-float4 PS_SkyCube(VertexOutput In) : SV_Target
-{
-	// Local Direction don't need to normalized
-	float4 Sample = CubeEnvironment.Sample(LinearSampler, In.LocalDirection);
-	return float4(Sample.xyz * Exposure, 1.0);
+	float3 Color = CubeEnvironment.SampleLevel(LinearSampler, In.LocalDirection, MipLevel).xyz;
+	return float4(ToneMapping(Color * Exposure), 1.0);
 }
 
 #endif

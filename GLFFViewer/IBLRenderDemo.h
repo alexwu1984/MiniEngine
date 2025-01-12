@@ -3,10 +3,12 @@
 #include "RHI/RHIShdader.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIShaderDefine.h"
+#include "Render/MaterialPreFrame.h"
 
 namespace Engine
 {
 	class IBLRender;
+	class CubeMapCrossRender;
 }
 
 enum EShowMode
@@ -40,8 +42,10 @@ public:
 private:
 	void GenerateIBLMaps();
 	void ShowTexture2D(RenderCore::RHICommandContext& RHIContext);
+	void ShowSHCubeMapDebugView(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITextureCube> Cube);
 private:
 	std::shared_ptr<Engine::IBLRender> m_IBLRender;
+	std::shared_ptr<Engine::CubeMapCrossRender> m_CubeMapCrossRender;
 	std::vector<std::string> m_AllHDRFiles;
 	int m_ChooseHDR = 0;
 	int m_CurrentHDR = -1;
@@ -53,9 +57,11 @@ private:
 	std::shared_ptr<RenderCore::RHIPixelShader>  m_ShowTexture2DPS;
 	std::shared_ptr<RenderCore::RHIPixelShader> m_GenIrradiancePS;
 	std::shared_ptr<RenderCore::RHIPixelShader> m_GenPrefilterPS;
-	std::shared_ptr<RenderCore::RHIVertexShader> m_SkyVS;
-	std::shared_ptr<RenderCore::RHIPixelShader> m_SkyPS;
+	std::shared_ptr<RenderCore::RHIVertexShader> m_CubeMapCrossVS;
+	std::shared_ptr<RenderCore::RHIPixelShader>  m_CubeMapCrossPS;
 	std::shared_ptr<RenderCore::RHIViewPort> m_ViewPort;
 	RenderCore::DynamicRHI* m_RHI = nullptr;
 	DECLARE_SHADER_STRUCT_MEMBER(PSRenderDemoContant);
+	Engine::DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame);
+	Engine::DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
 };

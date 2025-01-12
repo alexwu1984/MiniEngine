@@ -73,9 +73,9 @@ namespace RenderCore
 	void FD3D12StateCache::SetDynamicConstantBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
 	{
 		Assert(BufferIndex < MAX_CBS);
-		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex].get() != UniformBuffer.get())
+		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex].ptr != UniformBuffer->GetCPUHandle().ptr)
 		{
-			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = UniformBuffer;
+			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = UniformBuffer->GetCPUHandle();
 		}
 	}
 
@@ -371,9 +371,9 @@ namespace RenderCore
 		{
 			for (uint32_t Index = 0; Index < VertexResCount.NumCBs; ++Index)
 			{
-				if (ConstantBufferCache.Buffers[SF_Vertex][Index])
+				if (ConstantBufferCache.Buffers[SF_Vertex][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Vertex][Index]->GetCPUHandle();
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Vertex][Index];
 					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->CBRootIndex[SF_Vertex], Index, 1, &Handle);
 				}
 			}
@@ -383,9 +383,9 @@ namespace RenderCore
 		{
 			for (uint32_t Index = 0; Index < PixelResCount.NumCBs; ++Index)
 			{
-				if (ConstantBufferCache.Buffers[SF_Pixel][Index])
+				if (ConstantBufferCache.Buffers[SF_Pixel][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Pixel][Index]->GetCPUHandle();
+					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Pixel][Index];
 					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->CBRootIndex[SF_Pixel], Index, 1, &Handle);
 				}
 			}

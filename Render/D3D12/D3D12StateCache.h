@@ -49,12 +49,12 @@ namespace RenderCore
 			{
 				for (int32_t SRVIdx = 0; SRVIdx < MAX_CBS; ++SRVIdx)
 				{
-					Buffers[FrequencyIdx][SRVIdx] = {};
+					Buffers[FrequencyIdx][SRVIdx] = { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 				}
 			}
 		}
 
-		std::shared_ptr<D3D12UniformBuffer> Buffers[SF_NumStandardFrequencies][MAX_CBS];
+		D3D12_CPU_DESCRIPTOR_HANDLE Buffers[SF_NumStandardFrequencies][MAX_CBS];
 	};
 
 	struct FD3D12ShaderResourceViewCache 

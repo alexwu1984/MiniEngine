@@ -76,8 +76,8 @@ namespace Engine
 		InitShader();
 
 		d->CaptureViews = {
-			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::NegUnitX,Vector3::UnitY),
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::UnitX,Vector3::UnitY),
+			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::NegUnitX,Vector3::UnitY),
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::UnitY,Vector3::NegUnitZ),
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::NegUnitY,Vector3::UnitZ),
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::UnitZ,Vector3::UnitY),
@@ -132,6 +132,7 @@ namespace Engine
 		PreIntegrateBRDF();
 		GenerateCubeMap(RHIContext);
 		GenerateIrradianceMap(RHIContext);
+		GeneratePrefilteredMap(RHIContext);
 	}
 
 	std::shared_ptr<RHITextureCube> IBLRender::GetPreFilterCube()

@@ -127,7 +127,7 @@ namespace RenderCore
 		Desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 		Desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 		Desc.Format = DXGI_FORMAT_UNKNOWN;
-		Desc.Width = (UINT64)d->StrideByteWidth * (UINT64)d->Count;
+		Desc.Width = (UINT64)d->BufferSize;
 		Desc.Height = 1;
 		Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		Desc.MipLevels = 1;

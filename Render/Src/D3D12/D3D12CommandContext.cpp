@@ -45,7 +45,7 @@ namespace RenderCore
 		vp.TopLeftY = (float)TopLeftY;
 		CommandListHandle.GraphicsCommandList()->RSSetViewports(1, &vp);
 
-		CD3DX12_RECT ScissorRect(TopLeftX, TopLeftY, SizeX, SizeY);
+		CD3DX12_RECT ScissorRect(TopLeftX, TopLeftY, TopLeftX + SizeX, TopLeftY + SizeY);
 		CommandListHandle.GraphicsCommandList()->RSSetScissorRects(1, &ScissorRect);
 	}
 
@@ -389,7 +389,7 @@ namespace RenderCore
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 	}
 
-	D3D12CommandListHandle D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
+	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		const bool bHasDoneWork = HasDoneWork() ;
@@ -408,8 +408,6 @@ namespace RenderCore
 			// Restore the state from the previous command list.
 			OpenCommandList();
 		}
-
-		return CommandListHandle;
 	}
 
 	FD3D12CommandListManager& D3D12CommandContext::GetCommandListManager()

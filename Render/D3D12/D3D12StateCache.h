@@ -54,7 +54,7 @@ namespace RenderCore
 			}
 		}
 
-		D3D12_CPU_DESCRIPTOR_HANDLE Buffers[SF_NumStandardFrequencies][MAX_CBS];
+		D3D12_GPU_VIRTUAL_ADDRESS Buffers[SF_NumStandardFrequencies][MAX_CBS];
 	};
 
 	struct FD3D12ShaderResourceViewCache 

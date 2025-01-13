@@ -19,10 +19,10 @@ namespace RenderCore
 		virtual void UnBind() override;
 		virtual std::shared_ptr<RHITexture2D> GetTex() const override;
 
-		const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV(void) const;
-		const D3D12_CPU_DESCRIPTOR_HANDLE& GetRTV(void) const;
-		const D3D12_CPU_DESCRIPTOR_HANDLE& GetDSV(void) const;
-		const D3D12_CPU_DESCRIPTOR_HANDLE GetMipRTV(int Mip) const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetSRV(void) const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetRTV(void) const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetDSV(void) const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetMipRTV(int Mip) const;
 		FD3D12Resource* GetResource() const;
 		FD3D12Resource* GetDepthResource() const;
 	private:

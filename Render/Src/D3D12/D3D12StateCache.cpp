@@ -73,9 +73,9 @@ namespace RenderCore
 	void FD3D12StateCache::SetDynamicConstantBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
 	{
 		Assert(BufferIndex < MAX_CBS);
-		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex].ptr != UniformBuffer->GetCPUHandle().ptr)
+		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex] != UniformBuffer->GetGPUVirtualAddress())
 		{
-			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = UniformBuffer->GetCPUHandle();
+			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = UniformBuffer->GetGPUVirtualAddress();
 		}
 	}
 
@@ -212,11 +212,8 @@ namespace RenderCore
 		RootSignature = std::make_shared<FRootSignature>(GetParentDevice());
 
 		int32_t NumRootParams = 0;
-		if (VertexResCount.NumCBs > 0)
-			NumRootParams += 1;
-
-		if (PixelResCount.NumCBs > 0)
-			NumRootParams += 1;
+		NumRootParams += VertexResCount.NumCBs;
+		NumRootParams += PixelResCount.NumCBs;
 		if (PixelResCount.NumSRVs > 0)
 			NumRootParams += 1;
 		if (PixelResCount.NumUAVs > 0)
@@ -227,16 +224,22 @@ namespace RenderCore
 		int32_t RootIndex = 0;
 		if (VertexResCount.NumCBs > 0)
 		{
-			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, VertexResCount.NumCBs, D3D12_SHADER_VISIBILITY_VERTEX);
 			RootSignature->CBRootIndex[SF_Vertex] = RootIndex;
-			++RootIndex;
+			for (int32_t index = 0; index < VertexResCount.NumCBs; ++index)
+			{
+				(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_VERTEX);
+				++RootIndex;
+			}
 		}
 	
 		if (PixelResCount.NumCBs > 0)
 		{
-			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, PixelResCount.NumCBs, D3D12_SHADER_VISIBILITY_PIXEL);
 			RootSignature->CBRootIndex[SF_Pixel] = RootIndex;
-			++RootIndex;
+			for (int32_t index = 0; index < PixelResCount.NumCBs; ++index)
+			{
+				(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_PIXEL);
+				++RootIndex;
+			}
 		}
 
 		if (PixelResCount.NumSRVs > 0)
@@ -367,27 +370,23 @@ namespace RenderCore
 		DynamicViewDescriptorHeap.ParseGraphicsRootSignature(*RootSignature);
 		CommandList->SetPipelineState(PipelineState.get());
 
-		if (RootSignature->CBRootIndex[SF_Vertex] > -1)
+		int32_t StartIndex = RootSignature->CBRootIndex[SF_Vertex];
+		for (uint32_t Index = 0; Index < VertexResCount.NumCBs; ++Index)
 		{
-			for (uint32_t Index = 0; Index < VertexResCount.NumCBs; ++Index)
+			if (ConstantBufferCache.Buffers[SF_Vertex][Index] !=  D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			{
-				if (ConstantBufferCache.Buffers[SF_Vertex][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Vertex][Index];
-					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->CBRootIndex[SF_Vertex], Index, 1, &Handle);
-				}
+				auto Handle = ConstantBufferCache.Buffers[SF_Vertex][Index];
+				CommandList->SetGraphicsRootConstantBufferView(Index + StartIndex, Handle);
 			}
 		}
 
-		if (RootSignature->CBRootIndex[SF_Pixel] > -1)
+		StartIndex = RootSignature->CBRootIndex[SF_Pixel];
+		for (uint32_t Index = 0; Index < PixelResCount.NumCBs; ++Index)
 		{
-			for (uint32_t Index = 0; Index < PixelResCount.NumCBs; ++Index)
+			if (ConstantBufferCache.Buffers[SF_Pixel][Index] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			{
-				if (ConstantBufferCache.Buffers[SF_Pixel][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ConstantBufferCache.Buffers[SF_Pixel][Index];
-					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->CBRootIndex[SF_Pixel], Index, 1, &Handle);
-				}
+				auto Handle = ConstantBufferCache.Buffers[SF_Pixel][Index];
+				CommandList->SetGraphicsRootConstantBufferView(Index + StartIndex, Handle);
 			}
 		}
 

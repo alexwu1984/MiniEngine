@@ -241,7 +241,8 @@ namespace RenderCore
 
 		Assert(m_CurrentPage != nullptr);
 		FAllocation allocation;
-		allocation.D3d12Resource = m_CurrentPage->GetResource();
+		allocation.Resource = m_CurrentPage;
+		//allocation.D3d12Resource = m_CurrentPage->GetResource();
 		allocation.Offset = m_CurrentOffset;
 		allocation.CPU = (uint8_t*)m_CurrentPage->GetResourceBaseAddress() + m_CurrentOffset;
 		allocation.GpuAddress = m_CurrentPage->GetGPUVirtualAddress() + m_CurrentOffset;
@@ -275,7 +276,7 @@ namespace RenderCore
 		m_LargePages.push_back(Page);
 
 		FAllocation allocation;
-		allocation.D3d12Resource = Page->GetResource();
+		allocation.Resource = Page;
 		allocation.Offset = 0;
 		allocation.CPU = (uint8_t*)Page->GetResourceBaseAddress();
 		allocation.GpuAddress = Page->GetGPUVirtualAddress();

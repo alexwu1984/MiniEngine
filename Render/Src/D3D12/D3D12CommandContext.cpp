@@ -489,7 +489,7 @@ namespace RenderCore
 
 		size_t UploadBufferSize = (size_t)GetRequiredIntermediateSize(Dest->GetResource(), 0, NumSubResources);
 		FAllocation Allocation = CpuLinearAllocator.Allocate(UploadBufferSize);
-		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.D3d12Resource, 0, 0, NumSubResources, SubData);
+		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.Resource->GetResource(), 0, 0, NumSubResources, SubData);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		CommandList.Close();
 		CommandList.Execute(true);
@@ -511,7 +511,7 @@ namespace RenderCore
 		FAllocation Allocation = CpuLinearAllocator.Allocate(NumBytes);
 		memcpy(Allocation.CPU, Data, NumBytes);
 		TransitionResource(Dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
-		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.D3d12Resource, 0, NumBytes);
+		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.Resource->GetResource(), 0, NumBytes);
 		TransitionResource(Dest, D3D12_RESOURCE_STATE_GENERIC_READ);
 
 		CommandList.Close();

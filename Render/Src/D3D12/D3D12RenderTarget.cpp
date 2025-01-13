@@ -78,7 +78,7 @@ namespace RenderCore
 		return d->Tex2D;
 	}
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetSRV(void) const
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetSRV(void) const
 	{
 		C_P(const D3D12RenderTarget);
 		if (!d->Tex2D)
@@ -86,7 +86,7 @@ namespace RenderCore
 		return d->Tex2D->GetSRV();
 	}
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetRTV(void) const
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetRTV(void) const
 	{
 		C_P(const D3D12RenderTarget);
 		if (!d->Tex2D)
@@ -94,7 +94,7 @@ namespace RenderCore
 		return d->Tex2D->GetRTV();
 	}
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12RenderTarget::GetDSV(void) const
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetDSV(void) const
 	{
 		C_P(const D3D12RenderTarget);
 		if (!d->DepthTex)
@@ -102,7 +102,7 @@ namespace RenderCore
 		return d->DepthTex->GetDSV();
 	}
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetMipRTV(int Mip) const
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetMipRTV(int Mip) const
 	{
 		C_P(const D3D12RenderTarget);
 		if (!d->Tex2D)

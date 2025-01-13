@@ -7,9 +7,11 @@ namespace RenderCore
 	const static uint32_t GpuAllocatorPageSize = 0x10000;	// 64k
 	const static uint32_t CpuAllocatorPageSize = 0x200000;	// 2MB
 
+	class LinearAllocationPage;
+
 	struct FAllocation
 	{
-		ID3D12Resource* D3d12Resource;
+		LinearAllocationPage* Resource;
 		size_t Offset;
 		void* CPU;
 		D3D12_GPU_VIRTUAL_ADDRESS GpuAddress;

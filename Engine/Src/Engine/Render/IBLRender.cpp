@@ -197,6 +197,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
 		}
+		RHIContext.FlushCommands(true);
 		RHIContext.GenerateMips(d->EvnCube);
 	}
 

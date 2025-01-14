@@ -92,7 +92,7 @@ namespace Engine
 
 	CubeMapCrossRender::~CubeMapCrossRender()
 	{
-
+		delete d_ptr;
 	}
 
 	void CubeMapCrossRender::InitResource()

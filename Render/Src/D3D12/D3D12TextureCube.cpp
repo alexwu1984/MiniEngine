@@ -18,6 +18,12 @@ namespace RenderCore
 		int32_t InFlags = TexCreate_ShaderResource;
 		D3D12_CPU_DESCRIPTOR_HANDLE RTVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE CubeSRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL }, FaceMipSRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+
+		~D3D12TextureCubePrivate()
+		{
+			if (Resource)
+				Resource->Release();
+		}
 	};
 
 

@@ -8,13 +8,10 @@ namespace RenderCore
 	struct D3D12UniformBufferPrivate
 	{
 		uint32_t ConstantBufferSize = 0;
-		LinearAllocationPage* AllocationPage = nullptr;
-		D3D12_CPU_DESCRIPTOR_HANDLE hCBV{};
+		FAllocation Allocation;
 
 		~D3D12UniformBufferPrivate()
 		{
-			if(AllocationPage)
-				AllocationPage->Release();
 		}
 	};
 
@@ -38,21 +35,10 @@ namespace RenderCore
 
 		d->ConstantBufferSize = ConstantBufferSize;
 
-		const size_t AlignedSize = math::AlignUp(ConstantBufferSize, DEFAULT_ALIGN);
+		auto& Allocator = GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->GetLinerAllocator(ELinearAllocatorType::CpuWritable);
+		d->Allocation = Allocator.Allocate(ConstantBufferSize, DEFAULT_ALIGN);
 
-		LinearAllocationPageManager& PageManager = GetParentAdapter()->GetDevice()->GetLinearPageManager(ELinearAllocatorType::CpuWritable);
-		d->AllocationPage = PageManager.CreateNewPage(AlignedSize);
-		if (!d->AllocationPage)
-			return false;
-
-		memcpy(d->AllocationPage->GetResourceBaseAddress(), Contents, ConstantBufferSize);
-
-		D3D12_CONSTANT_BUFFER_VIEW_DESC CBVDesc{};
-		CBVDesc.BufferLocation = d->AllocationPage->GetGPUVirtualAddress();
-		CBVDesc.SizeInBytes = (uint32_t)AlignedSize;
-
-		d->hCBV = GetParentAdapter()->GetDevice()->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		GetParentAdapter()->GetD3DDevice()->CreateConstantBufferView(&CBVDesc, d->hCBV);
+		memcpy(d->Allocation.CPU, Contents, ConstantBufferSize);
 		return true;
 	}
 
@@ -65,27 +51,22 @@ namespace RenderCore
 	void* D3D12UniformBuffer::GetResourceBaseAddress() const
 	{
 		C_P(const D3D12UniformBuffer);
-		return d->AllocationPage->GetResourceBaseAddress();
+		return  d->Allocation.CPU;
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS D3D12UniformBuffer::GetGPUVirtualAddress() const
 	{
 		C_P(const D3D12UniformBuffer);
-		return d->AllocationPage->GetGPUVirtualAddress();
-	}
-
-	D3D12_CPU_DESCRIPTOR_HANDLE D3D12UniformBuffer::GetCPUHandle() const
-	{
-		C_P(const D3D12UniformBuffer);
-		return d->hCBV;
+		return  d->Allocation.GpuAddress;
 	}
 
 	void D3D12UniformBuffer::UpdateUniformBuffer(const void* Contents)
 	{
 		C_P(D3D12UniformBuffer);
-		if (!d->AllocationPage->GetResourceBaseAddress())
-			return;
-		memcpy(d->AllocationPage->GetResourceBaseAddress(), Contents, d->ConstantBufferSize);
+		auto& Allocator = GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->GetLinerAllocator(ELinearAllocatorType::CpuWritable);
+		d->Allocation = Allocator.Allocate(d->ConstantBufferSize, DEFAULT_ALIGN);
+
+		memcpy(d->Allocation.CPU, Contents, d->ConstantBufferSize);
 	}
 
 }

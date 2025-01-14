@@ -84,7 +84,7 @@ namespace RenderCore
 		CommandListData->AddRef();
 	}
 
-	void D3D12CommandListHandle::Execute(bool WaitForCompletion /*= false*/)
+	void D3D12CommandListHandle::ExecuteAndClear(bool WaitForCompletion /*= false*/)
 	{
 		Assert(CommandListData);
 		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {

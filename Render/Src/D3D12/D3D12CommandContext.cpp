@@ -389,7 +389,7 @@ namespace RenderCore
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 	}
 
-	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
+	void D3D12CommandContext::FinishCommands(bool WaitForCompletion /*= false*/)
 	{
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		const bool bHasDoneWork = HasDoneWork() ;
@@ -402,7 +402,7 @@ namespace RenderCore
 			CloseCommandList();
 
 			// Just submit the current command list
-			CommandListHandle.Execute(WaitForCompletion);
+			CommandListHandle.ExecuteAndClear(WaitForCompletion);
 
 			// Get a new command list to replace the one we submitted for execution. 
 			// Restore the state from the previous command list.
@@ -492,7 +492,7 @@ namespace RenderCore
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.Resource->GetResource(), 0, 0, NumSubResources, SubData);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		CommandList.Close();
-		CommandList.Execute(true);
+		CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 
@@ -520,7 +520,7 @@ namespace RenderCore
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
 		CommandList.Close();
-		CommandList.Execute(true);
+		CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 

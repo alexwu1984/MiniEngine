@@ -66,8 +66,8 @@ namespace RenderCore
 		{
 			CurrentPrimitiveTopology = PrimitiveTopology;
 			PSDesc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(PrimitiveTopology);
-			bNeedSetPrimitiveTopology = true;
 		}
+		bNeedSetPrimitiveTopology = true;
 	}
 
 	void FD3D12StateCache::SetDynamicConstantBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)

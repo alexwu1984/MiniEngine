@@ -237,6 +237,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 			RenderCube(RHIContext);
 		}
+		RHIContext.FlushCommands(true);
 		RHIContext.GenerateMips(d->IrrCube);
 	}
 
@@ -286,6 +287,7 @@ namespace Engine
 				RenderCube(RHIContext);
 			}
 		}
+		RHIContext.FlushCommands(true);
 	}
 
 	// Appoximation of joint Smith term for GGX

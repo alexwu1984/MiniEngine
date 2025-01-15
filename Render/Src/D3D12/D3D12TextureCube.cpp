@@ -126,6 +126,10 @@ namespace RenderCore
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetCubeSRV(int Mip /*= -1*/) const
 	{
 		C_P(D3D12TextureCube);
+		if (Mip < 0)
+		{
+			return d->CubeSRVHandle; // -1 means whole mipmap chain
+		}
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		Assert(Device.get());
 		uint32_t SRVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);

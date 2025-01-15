@@ -2,7 +2,6 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIUniformBuffer.h"
-#include "Engine/Thread/RenderThread.h"
 
 #define BEGIN_SHADER_STRUCT(Name,CBIndex)\
 	struct Name##Wrap\
@@ -35,9 +34,7 @@
 	}\
 	Name##Wrap(RenderCore::DynamicRHI* RHI){\
 	_RHI = RHI;\
-	Engine::ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI){\
-		CB_ = RHI->RHICreateUniformBuffer(&Data,sizeof(Data));\
-	});\
+	CB_ = RHI->RHICreateUniformBuffer(&Data,sizeof(Data));\
 	uint32_t offset = 0;
 
 #define INIT_TEXTURE_INDEX(Name,Index) TextureIndexMap_.insert({Name,Index});

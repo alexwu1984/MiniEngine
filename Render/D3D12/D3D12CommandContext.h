@@ -8,6 +8,8 @@ namespace RenderCore
 	class D3D12CommandContext;
 	class FD3D12Device;
 	class FD3D12StateCache;
+	class FD3D12GenerateMips;
+	class D3D12TextureCube;
 	// Base class used to define commands that are not device specific, or that broadcast to all devices.
 	class FD3D12CommandContextBase : public RHICommandContext, public FD3D12AdapterChild
 	{
@@ -19,7 +21,7 @@ namespace RenderCore
 		const bool bIsAsyncComputeContext;
 	};
 
-	class D3D12CommandContext : public FD3D12CommandContextBase, public FD3D12DeviceChild
+	class D3D12CommandContext : public FD3D12CommandContextBase
 	{
 	public:
 		D3D12CommandContext(std::weak_ptr<FD3D12Device> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
@@ -29,10 +31,11 @@ namespace RenderCore
 		virtual void SetRenderTarget(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth) override;
 		virtual void SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget, int32_t IndexMip = 0) override;
 		virtual void SetRenderTarget(std::shared_ptr< RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip) override;
+		void SetRenderTarget(D3D12TextureCube* TextureCube, int32_t IndexView, int32_t IndexMip);
 		virtual void Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
 		virtual void Clear(std::shared_ptr< RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
-		virtual void Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
-		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0) {};
+		virtual void Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
+		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
 		void RHIBeing() override;
 		virtual void RHIEndDrawing() override;
 
@@ -46,13 +49,14 @@ namespace RenderCore
 		virtual void RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents) override;
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI) override;
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI) override;
+		void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip,std::shared_ptr<RHITextureCube> TextureCubeRHI);
 		virtual void RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV) {};
 		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) override;
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void Draw(uint32_t VertexCount, uint32_t VertexStartOffset = 0);
-		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) {};
+		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) override;
 		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) {};
 		virtual void RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) {};
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) {};
@@ -79,6 +83,7 @@ namespace RenderCore
 		void OpenCommandList();
 		void CloseCommandList();
 		void TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush = false);
+		void TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush);
 		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
 		void InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/);
 		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
@@ -90,6 +95,7 @@ namespace RenderCore
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();
+		std::shared_ptr<FD3D12Device> GetParentDevice() const;
 
 		// Handles to the command list and direct command allocator this context owns (granted by the command list manager/command allocator manager), and a direct pointer to the D3D command list/command allocator.
 		D3D12CommandListHandle CommandListHandle;
@@ -100,5 +106,7 @@ namespace RenderCore
 		LinearAllocator GpuLinearAllocator;
 
 		std::shared_ptr<FD3D12StateCache> StateCache;
+		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
+
 	};
 }

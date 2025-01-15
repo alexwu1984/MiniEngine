@@ -4,6 +4,7 @@
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12StateCache.h"
+#include "D3D12/D3D12GenerateMips.h"
 
 namespace RenderCore
 {
@@ -18,7 +19,6 @@ namespace RenderCore
 
 	D3D12CommandContext::D3D12CommandContext(std::weak_ptr<FD3D12Device> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext)
 		:FD3D12CommandContextBase(InParent.lock()->GetParentAdapter(),InIsDefaultContext,InIsAsyncComputeContext),
-		FD3D12DeviceChild(InParent),
 		CommandAllocator(nullptr),
 		CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
 		CpuLinearAllocator(ELinearAllocatorType::CpuWritable, InParent),
@@ -90,7 +90,7 @@ namespace RenderCore
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
 		if (RenderTargetRHI && RenderTargetRHI->GetMipRTV(IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
-			TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			TransitionSubResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, IndexMip, false);
 			if(RenderTargetRHI->GetDepthResource())
 				TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			CommandListHandle.FlushResourceBarriers();
@@ -123,21 +123,59 @@ namespace RenderCore
 		}
 	}
 
+	void D3D12CommandContext::SetRenderTarget(D3D12TextureCube* TextureCube, int32_t IndexView, int32_t IndexMip)
+	{
+		if (!StateCache)
+			return;
+		Assert(CommandListHandle.GraphicsCommandList());
+		if (TextureCube && TextureCube->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCube->GetRTV(IndexView, IndexMip);
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCube->GetDSV();
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE,
+				TextureCube->GetDepthResource() ? &DSV : nullptr);
+			StateCache->SetRenderTargetFormat(TextureCube);
+		}
+	}
+
 	void D3D12CommandContext::Clear(std::shared_ptr<RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget,
 									const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
 	{
 		Assert(CommandListHandle.GraphicsCommandList());
-		auto TexRHI = RHIResourceCast(RenderTarget.get());
+		auto TargetRHI = RHIResourceCast(RenderTarget.get());
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
-		if (RenderTarget)
-		{
-			TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TexRHI->GetRTV(), &Color.R, 0, nullptr);
-		}
+		if (TargetRHI)
+			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TargetRHI->GetRTV(), &Color.R, 0, nullptr);
 		if (DepthRHI)
+			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+	}
+
+	void D3D12CommandContext::Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, 
+									const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	{
+		Assert(CommandListHandle.GraphicsCommandList());
+		for (std::shared_ptr<RHITexture2D> Target: Targets)
 		{
-			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetRTV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+			auto TargetRHI = RHIResourceCast(Target.get());
+			if (TargetRHI)
+				CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TargetRHI->GetRTV(), &Color.R, 0, nullptr);
+		}
+		auto DepthRHI = RHIResourceCast(DepthTarget.get());
+		if (DepthRHI)
+			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+	}
+
+	void D3D12CommandContext::Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	{
+		Assert(CommandListHandle.GraphicsCommandList());
+		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
+		if (TextureCubeRHI && TextureCubeRHI->GetRTV(Face, Mip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(Face, Mip);
+			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(RTV, &Color.R, 0, nullptr);
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
+			if(DSV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+				CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
 		}
 	}
 
@@ -308,7 +346,19 @@ namespace RenderCore
 		if (TextureCube)
 		{
 			TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
-			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
+			StateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
+		}
+	}
+
+	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<RHITextureCube> TextureCubeRHI)
+	{
+		if (!StateCache)
+			return;
+		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
+		if (TextureCube)
+		{
+			TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, Mip, true);
+			StateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
 
@@ -389,6 +439,16 @@ namespace RenderCore
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 	}
 
+	void D3D12CommandContext::GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI)
+	{
+		if (!D3D12GenerateMips)
+		{
+			D3D12GenerateMips = std::make_shared<FD3D12GenerateMips>(GetParentAdapter());
+			D3D12GenerateMips->InitResource();
+		}
+		D3D12GenerateMips->GenerateForCube(TextureCubeRHI, this);
+	}
+
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
@@ -453,6 +513,11 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr<RenderCore::FD3D12Device> D3D12CommandContext::GetParentDevice() const
+	{
+		return GetParentAdapter()->GetDevice();
+	}
+
 	void D3D12CommandContext::OpenCommandList()
 	{
 		// Conditionally get a new command allocator.
@@ -497,6 +562,19 @@ namespace RenderCore
 			Resource->GetResourceState().SetResourceState(NewState);
 		}
 
+	}
+
+	void D3D12CommandContext::TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush)
+	{
+		Assert(Subresource < Resource->GetSubresourceCount());
+		D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(Subresource);
+		if (OldState != NewState)
+		{
+			CommandListHandle.AddTransitionBarrier(Resource, OldState, NewState, Subresource);
+			if (Flush)
+				CommandListHandle.FlushResourceBarriers();
+			Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
+		}
 	}
 
 	void D3D12CommandContext::InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[])
@@ -560,12 +638,13 @@ namespace RenderCore
 
 	void D3D12CommandContext::Initialize(void)
 	{
-		StateCache = std::make_shared<FD3D12StateCache>(GetParentDevice());
+		StateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice());
 	}
 
 	void D3D12CommandContext::Destroy()
 	{
 		StateCache = {};
+		D3D12GenerateMips = {};
 		if(CommandAllocator)
 			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
 		CommandAllocator = nullptr;

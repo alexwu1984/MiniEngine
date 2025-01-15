@@ -3,6 +3,7 @@
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/CameraComponent.h"
 #include "Engine/Render/SceneRender.h"
+#include "Engine/Thread/RenderThread.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/SceneView.h"
 #include "RHI/DynamicRHI.h"

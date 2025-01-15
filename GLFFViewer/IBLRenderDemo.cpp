@@ -198,6 +198,7 @@ void IBLRenderDemo::ShowSHCubeMapDebugView(RenderCore::RHICommandContext& RHICon
 	GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = 0;
+	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 

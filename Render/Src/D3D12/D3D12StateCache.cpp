@@ -88,12 +88,12 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12TextureCube> TextureCube)
+	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<D3D12TextureCube> TextureCube)
 	{
 		Assert(TextureIndex < MAX_SRVS);
-		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != TextureCube->GetCubeSRV().ptr)
+		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != TextureCube->GetCubeSRV(Mip).ptr)
 		{
-			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = TextureCube->GetCubeSRV();
+			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = TextureCube->GetCubeSRV(Mip);
 		}
 	}
 

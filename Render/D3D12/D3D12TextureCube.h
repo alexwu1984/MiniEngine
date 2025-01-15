@@ -26,11 +26,10 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE GetCubeSRV(int Mip = -1) const;
 		D3D12_CPU_DESCRIPTOR_HANDLE GetFaceMipSRV(int Face, int Mip) const;
 		D3D12_CPU_DESCRIPTOR_HANDLE GetDSV(void) const;
-
+		uint32_t GetSubresourceIndex(int Face, int Mip) const;
 	private:
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;
 		void CreateDerivedViews(DXGI_FORMAT Format, uint32_t ArraySize, uint32_t NumMips = 1);
-		uint32_t GetSubresourceIndex(int Face, int Mip) const;
 	private:
 		D3D12TextureCubePrivate* d_ptr = nullptr;
 	};

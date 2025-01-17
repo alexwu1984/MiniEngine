@@ -53,6 +53,8 @@ namespace RenderCore
 
 	void D3D12CommandListHandle::D3D12CommandListData::Reset(D3D12CommandAllocator& CommandAllocator)
 	{
+		if (CommandAllocator.IsReady())
+			CommandAllocator.Reset();
 		VERIFYD3DRESULT(CommandList->Reset(CommandAllocator, nullptr));
 
 		CurrentCommandAllocator = &CommandAllocator;

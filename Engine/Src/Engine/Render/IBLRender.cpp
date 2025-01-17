@@ -17,7 +17,7 @@ using namespace RenderCore;
 
 namespace Engine
 {
-	const int CUBE_MAP_SIZE = 1024;
+	const int CUBE_MAP_SIZE = 512;
 	const int IRRADIANCE_SIZE = 256;
 	const int PREFILTERED_SIZE = 256;
 

@@ -84,7 +84,21 @@ namespace Engine
 
 	int64_t AppWindow::WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam)
 	{
-		::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
+		auto ImguiRet = ::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
+		if (ImguiRet)
+			return ImguiRet;
+		
+		if (ImGui::GetCurrentContext())
+		{
+			const ImGuiIO& io = ImGui::GetIO();
+			if (io.WantCaptureMouse && (message == WM_LBUTTONDOWN || message == WM_LBUTTONUP || 
+										message == WM_RBUTTONDOWN || message == WM_RBUTTONUP || 
+										message == WM_MBUTTONDOWN || message == WM_MBUTTONUP || 
+										message == WM_MOUSEWHEEL || message == WM_MOUSEMOVE)) {
+				return ERROR_SUCCESS;
+			}
+		}
+
 
 		switch (message)
 		{

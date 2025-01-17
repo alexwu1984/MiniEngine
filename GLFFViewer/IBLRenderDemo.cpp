@@ -9,6 +9,7 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
+#include "RHI/RHITextureCube.h"
 #include "App/AppWindow.h"
 #include "Render/CubeRender.h"
 
@@ -72,7 +73,7 @@ void IBLRenderDemo::InitResource()
 		static bool ShowConfig = true;
 		if (!ShowConfig)
 			return;
-
+		ImGui::SetNextWindowPos(ImVec2(1, 1));
 		if (ImGui::Begin("Config", &ShowConfig, ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			ImGui::ColorEdit3("Clear Color", &m_ClearColor.x);
@@ -98,10 +99,21 @@ void IBLRenderDemo::InitResource()
 			ImGui::RadioButton("Cube Cross", &m_ShowMode, SM_CubeMapCross);
 			ImGui::RadioButton("Irradiance", &m_ShowMode, SM_Irradiance);
 			ImGui::RadioButton("Prefiltered", &m_ShowMode, SM_Prefiltered);
-			//ImGui::RadioButton("SphericalHarmonics", &m_ShowMode, SM_SphericalHarmonics);
-			//ImGui::RadioButton("PreintegratedGF", &m_ShowMode, SM_PreintegratedGF);
-			//ImGui::RadioButton("PBR Mesh", &m_ShowMode, SM_PBR);
+			ImGui::RadioButton("PreintegratedGF", &m_ShowMode, SM_PreintegratedGF);
 			ImGui::EndGroup();
+
+			if (m_ShowMode == SM_CubeMapCross)
+			{
+				ImGui::SliderInt("Mip Level", &m_MipLevel, 0, m_IBLRender->GetEvnCube()->GetNumMips() - 1);
+			}
+			else if (m_ShowMode == SM_Irradiance)
+			{
+				ImGui::SliderInt("Mip Level", &m_MipLevel, 0, m_IBLRender->GetIrrCube()->GetNumMips() - 1);
+			}
+			else if (m_ShowMode == SM_Prefiltered)
+			{
+				ImGui::SliderInt("Mip Level", &m_MipLevel, 0, m_IBLRender->GetPreFilterCube()->GetNumMips() - 1);
+			}
 		}
 		ImGui::End();
 
@@ -121,7 +133,7 @@ void IBLRenderDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_
 	switch (m_ShowMode)
 	{
 	case SM_LongLat:
-		ShowTexture2D(RHIContext);
+		ShowTexture2D(RHIContext, m_IBLRender->GetHDRTex());
 		break;
 	case SM_CubeMapCross:
 		ShowSHCubeMapDebugView(RHIContext, m_IBLRender->GetEvnCube());
@@ -132,8 +144,10 @@ void IBLRenderDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_
 	case SM_Prefiltered:
 		ShowSHCubeMapDebugView(RHIContext, m_IBLRender->GetPreFilterCube());
 		break;
+	case SM_PreintegratedGF:
+		ShowTexture2D(RHIContext, m_IBLRender->GetPreIntegrateBRDF());
+		break;
 	}
-	
 }
 
 void IBLRenderDemo::GenerateIBLMaps()
@@ -145,12 +159,11 @@ void IBLRenderDemo::GenerateIBLMaps()
 	}
 }
 
-void IBLRenderDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext)
+void IBLRenderDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Texture2D)
 {
-	if (!m_IBLRender->GetHDRTex())
+	if (!Texture2D)
 		return;
 	std::shared_ptr<Engine::AppWindow> AppWin = Engine::GEngine->GetAppWindow();
-	auto Texture2D = m_IBLRender->GetHDRTex();
 	float AspectRatio = Texture2D->GetSize().w * 1.f / Texture2D->GetSize().h;
 	int Width = std::min(AppWin->GetWidth(), Texture2D->GetSize().w);
 	int Height = std::min(AppWin->GetHeight(), Texture2D->GetSize().h);
@@ -167,7 +180,7 @@ void IBLRenderDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext)
 	RHIContext.RHISetGraphicsPipelineState(Init);
 
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
-	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, m_IBLRender->GetHDRTex());
+	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
@@ -197,7 +210,7 @@ void IBLRenderDemo::ShowSHCubeMapDebugView(RenderCore::RHICommandContext& RHICon
 	GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = Matrix4x4::MatrixOrthoLH(1.f, 1.f, -1.f, 1.f);
 	GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = 0;
+	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = m_MipLevel;
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);

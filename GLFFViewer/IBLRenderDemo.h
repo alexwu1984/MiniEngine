@@ -41,7 +41,7 @@ public:
 	void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime) override;
 private:
 	void GenerateIBLMaps();
-	void ShowTexture2D(RenderCore::RHICommandContext& RHIContext);
+	void ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D);
 	void ShowSHCubeMapDebugView(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITextureCube> Cube);
 private:
 	std::shared_ptr<Engine::IBLRender> m_IBLRender;

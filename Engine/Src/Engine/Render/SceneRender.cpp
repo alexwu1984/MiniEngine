@@ -129,15 +129,11 @@ namespace Engine
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
 			if (d->TargetBuffer)
-			{
-				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | 
-																			GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER | 
-																			GBufferFlagBits::GBUFFER_EMISSIVE_BUFFER), InSizeX, InSizeY);
-			}
+				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS |
+					GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER |
+					GBufferFlagBits::GBUFFER_EMISSIVE_BUFFER), InSizeX, InSizeY);
 			if (d->PostProcess)
-			{
 				d->PostProcess->InitResource();
-			}
 			
 		});
 	}
@@ -146,23 +142,17 @@ namespace Engine
 	{
 		std::shared_ptr<RHICommandContext> CommandContext =  GEngine->GetRHI()->GetDefaultCommandContext();
 		if (!CommandContext)
-		{
 			return;
-		}
 		C_P(SceneRender);
 		if (!d->IsInit)
-		{
 			return;
-		}
 
 		const auto& Actors = GetOwner()->GetAllActors();
 		if (!d->SimplePostProc)
 		{
 			ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
 				if (d->PreProcess)
-				{
 					d->PreProcess->Draw(*CommandContext);
-				}
 				});
 
 			d->MeshesInfo.clear();
@@ -176,17 +166,13 @@ namespace Engine
 					{
 						GltfSceneMeshInfo SceneMeshInfo;
 						if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
-						{
 							d->MeshesInfo.push_back(SceneMeshInfo);
-						}
 					}
 				}
 			}
 
 			if (d->MeshesInfo.size())
-			{
 				d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
-			}
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
@@ -228,32 +214,23 @@ namespace Engine
 					{
 						GltfSceneMeshInfo SceneMeshInfo;
 						if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
-						{
 							d->MeshesInfo.push_back(SceneMeshInfo);
-						}
 					}
 				}
 			}
 
 			if (d->MeshesInfo.size())
-			{
 				d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
-			}
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
-				if (d->PostProcess)
-				{
-					d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort);
-				}
-				});
+				d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort);
+			});
 		}
-
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
 			sigGuiEvent();
 			d->MainViewPort->Present();
 		});
-
 	}
 
 	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor() const

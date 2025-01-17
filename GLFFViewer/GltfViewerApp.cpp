@@ -26,7 +26,7 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-	if (1)
+	if (0)
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
 			if (!_Demo)
@@ -39,12 +39,11 @@ bool GltfViewApp::Init()
 			});
 	}
 
-
-	if (0)
+	if (1)
 	{
 		core::filesystem::path Path = core::process_directory();
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();
 		Scene->LoadScene(ModelFile);
@@ -61,7 +60,7 @@ bool GltfViewApp::Init()
 
 		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
 
-			ImGui::SetNextWindowPos(ImVec2(10, 10));
+			ImGui::SetNextWindowPos(ImVec2(1, 1));
 			if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
 			{
 				auto& Lights = Scene->GetLights();

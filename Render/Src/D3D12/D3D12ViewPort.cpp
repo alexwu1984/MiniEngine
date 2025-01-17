@@ -109,6 +109,11 @@ namespace RenderCore
 		}
 
 		::ImGui_ImplWin32_Init(WindowHandle);
+		ImGuiIO& io = ImGui::GetIO();
+
+		io.FontGlobalScale = ::GetDpiForWindow(WindowHandle) / 96.0f;
+		// Allow user UI scaling using CTRL+Mouse Wheel scrolling
+		io.FontAllowUserScaling = true;
 	}
 
 	void D3D12ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)

@@ -17,6 +17,17 @@ using namespace RenderCore;
 
 namespace Engine
 {
+	const int CUBE_MAP_SIZE = 1024;
+	const int IRRADIANCE_SIZE = 256;
+	const int PREFILTERED_SIZE = 256;
+
+	static inline uint32_t ComputeNumMips(uint32_t Width, uint32_t Height)
+	{
+		uint32_t HighBit;
+		_BitScanReverse((unsigned long*)&HighBit, Width | Height);
+		return HighBit + 1;
+	}
+
 	BEGIN_SHADER_STRUCT(PSContant, 5)
 		DECLARE_PARAM(float, Exposure)
 		DECLARE_PARAM(int32_t, MipLevel)
@@ -83,9 +94,9 @@ namespace Engine
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::UnitZ,Vector3::UnitY),
 			Matrix4x4::MatrixLookAtLH(Vector3(),Vector3::NegUnitZ,Vector3::UnitY)
 		};
-		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 512, 512, 5, false);
-		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 256, 256, 8, false);
-		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, 128, 128, 5, false);
+		d->EvnCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, CUBE_MAP_SIZE, CUBE_MAP_SIZE, ComputeNumMips(CUBE_MAP_SIZE, CUBE_MAP_SIZE), false);
+		d->PreFilterCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, IRRADIANCE_SIZE, IRRADIANCE_SIZE, ComputeNumMips(IRRADIANCE_SIZE, IRRADIANCE_SIZE), false);
+		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, PREFILTERED_SIZE, PREFILTERED_SIZE, ComputeNumMips(PREFILTERED_SIZE, PREFILTERED_SIZE), false);
 		d->CubeR = std::make_shared<CubeRender>(d->RHI);
 		d->CubeR->InitResource();
 		PreIntegrateBRDF();

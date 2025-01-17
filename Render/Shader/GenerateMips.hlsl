@@ -6,7 +6,7 @@ struct VertexOutput
 	float4 Pos	: SV_Position;
 };
 
-cbuffer PSContant : register(b5)
+cbuffer PSContant : register(b0)
 {
 	int MipIndex;
 	int NumMips;

@@ -173,10 +173,10 @@ namespace RenderCore
 	void FD3D12Device::BlockUntilIdle()
 	{
 		if (DefaultCommandContext)
-			DefaultCommandContext->FinishCommands(true);
+			DefaultCommandContext->FlushCommands(true);
 
 		if (AsyncComputeContext)
-			AsyncComputeContext->FinishCommands(true);
+			AsyncComputeContext->FlushCommands(true);
 
 		if (CommandListManager)
 			CommandListManager->WaitForCommandQueueFlush();

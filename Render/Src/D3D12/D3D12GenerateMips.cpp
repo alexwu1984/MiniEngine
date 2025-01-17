@@ -12,7 +12,7 @@
 
 namespace RenderCore
 {
-	BEGIN_SHADER_STRUCT(PSContant, 5)
+	BEGIN_SHADER_STRUCT(PSContant, 0)
 		DECLARE_PARAM(int32_t, MipIndex)
 		DECLARE_PARAM(int32_t, NumMips)
 		DECLARE_PARAM(int32_t, CubeFace)

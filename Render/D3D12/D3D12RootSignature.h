@@ -95,6 +95,8 @@ namespace RenderCore
 			:FD3D12DeviceChild(InParent)
 		{
 			Reset(NumRootParams, NumStaticSamplers);
+			std::fill(CBRootIndex, CBRootIndex + SF_NumStandardFrequencies, -1);
+			std::fill(SRVRootIndex, SRVRootIndex + SF_NumStandardFrequencies, -1);
 		}
 
 		~FRootSignature() = default;

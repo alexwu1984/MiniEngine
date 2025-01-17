@@ -63,7 +63,6 @@ namespace RenderCore
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) { return false; };
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data) {};
 		virtual void FlushCommands(bool WaitForCompletion = false) override;
-		void FinishCommands(bool WaitForCompletion = false);
 
 		uint32_t numDraws = 0;
 		uint32_t numDispatches = 0;

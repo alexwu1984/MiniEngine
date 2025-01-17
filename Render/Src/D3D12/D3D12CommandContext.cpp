@@ -462,27 +462,6 @@ namespace RenderCore
 			CloseCommandList();
 
 			// Just submit the current command list
-			CommandListHandle.Execute(WaitForCompletion);
-
-			// Get a new command list to replace the one we submitted for execution. 
-			// Restore the state from the previous command list.
-			OpenCommandList();
-		}
-	}
-
-	void D3D12CommandContext::FinishCommands(bool WaitForCompletion /*= false*/)
-	{
-		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
-		const bool bHasDoneWork = HasDoneWork() ;
-		const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork;
-
-		// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
-		if (bOpenNewCmdList)
-		{
-			// Close the current command list
-			CloseCommandList();
-
-			// Just submit the current command list
 			CommandListHandle.ExecuteAndClear(WaitForCompletion);
 
 			// Get a new command list to replace the one we submitted for execution. 

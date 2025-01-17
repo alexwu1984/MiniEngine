@@ -185,7 +185,7 @@ namespace RenderCore
 		GetDefaultCommandContext()->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
-		GetDefaultCommandContext()->FinishCommands(true);
+		GetDefaultCommandContext()->FlushCommands(true);
 		SwapChain4->Present(1, 0);
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();

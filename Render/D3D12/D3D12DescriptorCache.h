@@ -148,6 +148,7 @@ namespace RenderCore
 				m_RootDescriptorTablesBitMap = 0;
 				m_MaxCachedDescriptors = 0;
 				ZeroMemory(m_HandleCache, sizeof(m_HandleCache));
+				ZeroMemory(m_RootDescriptorTable, sizeof(m_RootDescriptorTable));
 			}
 
 			void UnbindAllInvalid();

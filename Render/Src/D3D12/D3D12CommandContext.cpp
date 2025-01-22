@@ -559,7 +559,6 @@ namespace RenderCore
 	void D3D12CommandContext::InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[])
 	{
 		Assert(Dest);
-		ConditionalObtainCommandAllocator();
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
 		// Get a new command list
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
@@ -577,9 +576,7 @@ namespace RenderCore
 	void D3D12CommandContext::InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/)
 	{
 		Assert(Dest);
-		ConditionalObtainCommandAllocator();
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
-
 		// Get a new command list
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);

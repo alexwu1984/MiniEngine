@@ -343,7 +343,10 @@ namespace RenderCore
 		PSDesc.NodeMask = 1;
 		PSDesc.SampleMask = (UINT)-1;
 		PSDesc.InputLayout.NumElements = (uint32_t)ElementDescs.size();
-		PSDesc.InputLayout.pInputElementDescs = m_InputLayouts.data();
+		if (PSDesc.InputLayout.NumElements > 0)
+			PSDesc.InputLayout.pInputElementDescs = m_InputLayouts.data();
+		else
+			PSDesc.InputLayout.pInputElementDescs = nullptr;
 
 		size_t HashCode = core::Crc::HashState(&PSDesc);
 		HashCode = core::Crc::HashState(m_InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);

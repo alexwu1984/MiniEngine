@@ -13,7 +13,7 @@ namespace RenderCore
 		, CurrentHeap(nullptr)
 		, DescriptorSize(0)
 	{
-
+		DescriptorSize = GetParentDevice()->GetDevice()->GetDescriptorHandleIncrementSize(HeapType);
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12ResourceAllocator::Allocate(uint32_t Count)
@@ -23,10 +23,6 @@ namespace RenderCore
 			CurrentHeap = RequestNewHeap(GetParentDevice(),HeapType);
 			CurrentCpuAddress = CurrentHeap->GetCPUDescriptorHandleForHeapStart();
 			RemainingFreeHandles = sm_NumDescriptorsPerHeap;
-			if (DescriptorSize == 0)
-			{
-				DescriptorSize = GetParentDevice()->GetDevice()->GetDescriptorHandleIncrementSize(HeapType);
-			}
 		}
 
 		D3D12_CPU_DESCRIPTOR_HANDLE Result = CurrentCpuAddress;

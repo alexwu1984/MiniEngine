@@ -101,9 +101,6 @@ namespace RenderCore
 		D3D12CommandAllocator* CommandAllocator = nullptr;
 		FD3D12CommandAllocatorManager CommandAllocatorManager;
 
-		LinearAllocator CpuLinearAllocator;
-		LinearAllocator GpuLinearAllocator;
-
 		std::shared_ptr<FD3D12StateCache> StateCache;
 		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
 

@@ -23,7 +23,8 @@ namespace RenderCore
 		HRESULT hr = InDevice->CreateCommandAllocator(InType, IID_PPV_ARGS(CommandAllocator.get_init_ref()));
 	}
 
-	D3D12CommandListHandle::D3D12CommandListData::D3D12CommandListData(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
+	D3D12CommandListHandle::D3D12CommandListData::D3D12CommandListData(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, 
+																	   D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
 		:FD3D12DeviceChild(ParentDevice)
 		, CommandListType(InCommandListType)
 		, CurrentCommandAllocator(&CommandAllocator)
@@ -32,6 +33,8 @@ namespace RenderCore
 		, LastCompleteGeneration(0)
 		, IsClosed(false)
 		, bShouldTrackStartEndTime(false)
+		, CpuLinearAllocator(ELinearAllocatorType::CpuWritable, ParentDevice)
+		, GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, ParentDevice)
 
 	{
 		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommandList(0, CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.get_init_ref())));
@@ -90,8 +93,8 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
-			GetCurrentOwningContext()->GetLinerAllocator(CpuWritable).CleanupUsedPages(FenceID);
-			GetCurrentOwningContext()->GetLinerAllocator(GpuExclusive).CleanupUsedPages(FenceID);
+			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID);
+			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID);
 			GetCurrentOwningContext()->GetD3D12StateCache().CleanupUsedHeaps(FenceID);
 			}, WaitForCompletion);
 	}

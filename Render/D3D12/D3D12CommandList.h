@@ -2,6 +2,7 @@
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Resource.h"
+#include "D3D12/D3D12Allocation.h"
 #include "win/com_ptr.h"
 
 namespace RenderCore
@@ -221,6 +222,10 @@ namespace RenderCore
 			std::recursive_mutex						ActiveGenerationsCS;	// While only a single thread can record to a command list at any given time, multiple threads can ask for the state of a given command list. So the associated tracking must be thread-safe.
 			// Batches resource barriers together until it's explicitly flushed
 			FD3D12ResourceBarrierBatcher ResourceBarrierBatcher;
+
+
+			LinearAllocator CpuLinearAllocator;
+			LinearAllocator GpuLinearAllocator;
 		};
 	public:
 		D3D12CommandListHandle() : CommandListData(nullptr) {}
@@ -461,6 +466,19 @@ namespace RenderCore
 		{
 			Assert(CommandListData);
 			CommandListData->FlushResourceBarriers();
+		}
+
+		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type)
+		{
+			Assert(CommandListData);
+			if (type == CpuWritable)
+			{
+				return CommandListData->CpuLinearAllocator;
+			}
+			else
+			{
+				return CommandListData->GpuLinearAllocator;
+			}
 		}
 
 	private:

@@ -169,6 +169,7 @@ namespace Engine
 		C_P(PBRMaterialRender);
 
 		d->RenderParam = RenderParam;
+		SetPipeLineState(RHIContext);
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)RenderParam.lightInfos.size();
 		for (int32_t index = 0; index < RenderParam.lightInfos.size(); ++index)
@@ -200,7 +201,7 @@ namespace Engine
 				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 8, shadowMap->GetTex());
 			}
 		}
-		SetPipeLineState(RHIContext);
+		
 		DrawMesh(RHIContext);
 	}
 

@@ -332,6 +332,7 @@ namespace RenderCore
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
 		if (Texture2D)
 		{
+			TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
 	}
@@ -566,6 +567,7 @@ namespace RenderCore
 		FAllocation Allocation = CommandList.GetLinerAllocator(ELinearAllocatorType::CpuWritable).Allocate(UploadBufferSize);
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.Resource->GetResource(), 0, 0, NumSubResources, SubData);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
 		CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
@@ -591,7 +593,7 @@ namespace RenderCore
 
 		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.Resource->GetResource(), 0, NumBytes);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
-		CommandList.FlushResourceBarriers();
+		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
 		CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);

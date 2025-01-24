@@ -146,7 +146,10 @@ namespace RenderCore
 		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = 1;
-		PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		if (RenderTarget->GetDepthResource())
+			PSDesc.DSVFormat = RenderTarget->GetDepthResource()->GetDesc().Format;
+		else
+			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
 	}
@@ -157,6 +160,10 @@ namespace RenderCore
 		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = 1;
+		if (RenderTarget->GetDepthResource())
+			PSDesc.DSVFormat = RenderTarget->GetDepthResource()->GetDesc().Format;
+		else
+			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;

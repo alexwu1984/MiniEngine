@@ -12,6 +12,7 @@
 #include "D3D12/D3D12TextureCube.h"
 #include "D3D12/D3D12VertexBuffer.h"
 #include "D3D12/D3D12IndexBuffer.h"
+#include "D3D12/D3D12UnorderedAccessView.h"
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
@@ -475,11 +476,19 @@ namespace RenderCore
 
 	std::shared_ptr<RHIUnorderedAccessView> D3D12DynamicRHI::RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY)
 	{
-		return {};
+		std::shared_ptr< RHITexture2D> Tex2D = RHICreateTexture2D(Format, ETextureCreateFlags::TexCreate_UAV | ETextureCreateFlags::TexCreate_ShaderResource, SizeX, SizeY, 1);
+		if (!Tex2D)
+		{
+			return nullptr;
+		}
+		return RHICreateUnorderedAccessView(Tex2D);
 	}
 
 	std::shared_ptr<RHIUnorderedAccessView> D3D12DynamicRHI::RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D)
 	{
+		std::shared_ptr<D3D12UnorderedAccessView> UavRHI = std::make_shared<D3D12UnorderedAccessView>(D3D12Adapter);
+		if (UavRHI->CreateFromTexture(Tex2D,0))
+			return UavRHI;
 		return {};
 	}
 

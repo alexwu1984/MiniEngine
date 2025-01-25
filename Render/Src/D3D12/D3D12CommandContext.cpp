@@ -167,13 +167,34 @@ namespace RenderCore
 	{
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
-		if (TextureCubeRHI && TextureCubeRHI->GetRTV(Face, Mip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		if (!TextureCubeRHI)
+			return;
+		if (TextureCubeRHI->GetRTV(Face, Mip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(Face, Mip);
 			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(RTV, &Color.R, 0, nullptr);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
 			if(DSV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 				CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+		}
+	}
+
+	void D3D12CommandContext::Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
+	{
+		Assert(CommandListHandle.GraphicsCommandList());
+		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
+		if (!RenderTargetRHI)
+			return;
+		if (RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetRTV();
+			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(RTV, &Color.R, 0, nullptr);
+		}
+
+		if (RenderTargetRHI->GetDSV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
+			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
 		}
 	}
 

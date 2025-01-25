@@ -182,6 +182,12 @@ namespace RenderCore
 		return d->SRVHandle;
 	}
 
+	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12Texture2D::GetUAV(void) const
+	{
+		C_P(const D3D12Texture2D);
+		return d->UAVHandle;
+	}
+
 	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12Texture2D::GetRTV(void) const
 	{
 		C_P(const D3D12Texture2D);

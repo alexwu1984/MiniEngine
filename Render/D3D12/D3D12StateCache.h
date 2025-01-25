@@ -98,6 +98,7 @@ namespace RenderCore
 
 	class FD3D12VertexShader;
 	class FD3D12PixelShader;
+	class FD3D12ComputeShader;
 	class D3D12UniformBuffer;
 	class RHITexture2D;
 	class D3D12RenderTarget;
@@ -155,6 +156,7 @@ namespace RenderCore
 
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);
 		void SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader);
+		void SetComputeShader(std::shared_ptr<FD3D12ComputeShader> InComputeShader);
 		void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology);
 		void SetDynamicConstantBuffer(EShaderFrequency ShaderType,uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
@@ -172,6 +174,7 @@ namespace RenderCore
 
 		std::shared_ptr<FRootSignature> BuildRootSignature();
 		bool ApplyGraphicState(D3D12CommandListHandle& CommandList);
+		bool ApplyComputeState(D3D12CommandListHandle& CommandList);
 		void ClearState();
 		void ClearRenderState();
 		void CleanupUsedHeaps(uint64_t FenceValue);
@@ -181,6 +184,7 @@ namespace RenderCore
 		FD3D12ShaderResourceViewCache ShaderResourceViewCache;
 		FD3D12UnorderedAccessViewCache UAVCache;
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC PSDesc{};
+		D3D12_COMPUTE_PIPELINE_STATE_DESC CSDesc{};
 		// Blend State Cache
 		float CurrentBlendFactor[4]{};
 		bool bNeedSetBlendFactor = false;
@@ -190,6 +194,7 @@ namespace RenderCore
 		bool bNeedSetPrimitiveTopology = false;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12VertexShader>> VertexShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12PixelShader>> PixelShaders;
+		std::unordered_map<uint32_t, std::shared_ptr<FD3D12ComputeShader>> ComputeShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FRootSignature>> RootSignatures;
 
 		uint32_t CurrentVertexHash = 0;

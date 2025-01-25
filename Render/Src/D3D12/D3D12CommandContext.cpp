@@ -443,9 +443,7 @@ namespace RenderCore
 		}
 		D3D12IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
 		if (!IndexBuffer)
-		{
 			return;
-		}
 		StateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
@@ -455,6 +453,8 @@ namespace RenderCore
 
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
+		if (!StateCache)
+			return;
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
@@ -473,11 +473,22 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer)
 	{
-
+		if (!StateCache)
+			return;
+		if (Initializer.ComputeShader)
+			StateCache->SetComputeShader(std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader));
+		else
+			StateCache->SetComputeShader(nullptr);
+		++numDispatches;
 	}
 
 	void D3D12CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
 	{
+		if (!StateCache)
+			return;
+		if (!StateCache->ApplyComputeState(CommandListHandle))
+			return;
+		CommandListHandle->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 		++numDispatches;
 	}
 

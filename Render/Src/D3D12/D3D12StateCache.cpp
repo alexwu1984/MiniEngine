@@ -60,6 +60,22 @@ namespace RenderCore
 		}
 	}
 
+	void FD3D12StateCache::SetComputeShader(std::shared_ptr<FD3D12ComputeShader> InComputeShader)
+	{
+		if (InComputeShader)
+		{
+			if (ComputeShaders.count(InComputeShader->Hash) == 0)
+				ComputeShaders.insert({ InComputeShader->Hash, InComputeShader });
+			CurrentPixelHash = InComputeShader->Hash;
+			CSDesc.CS = CD3DX12_SHADER_BYTECODE(InComputeShader->Code.get());
+		}
+		else
+		{
+			CurrentPixelHash = 0;
+			CSDesc.CS = CD3DX12_SHADER_BYTECODE();
+		}
+	}
+
 	void FD3D12StateCache::SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology)
 	{
 		if (CurrentPrimitiveTopology != PrimitiveTopology)
@@ -437,6 +453,19 @@ namespace RenderCore
 		return true;
 	}
 
+	bool FD3D12StateCache::ApplyComputeState(D3D12CommandListHandle& CommandList)
+	{
+		auto RootSignature = BuildRootSignature();
+		if (!RootSignature)
+			return false;
+
+		CSDesc.pRootSignature = RootSignature->GetSignature();
+		Assert(CSDesc.pRootSignature != nullptr);
+		CSDesc.NodeMask = 1;
+
+		return false;
+	}
+
 	void FD3D12StateCache::ClearState()
 	{
 		// Blend State Cache
@@ -449,9 +478,11 @@ namespace RenderCore
 		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 		PSDesc = {};
+		CSDesc = {};
 		ConstantBufferCache.Clear();
 		SamplerCache.Clear();
 		ShaderResourceViewCache.Clear();
+		UAVCache.Clear();
 
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
@@ -462,6 +493,7 @@ namespace RenderCore
 		ConstantBufferCache.Clear();
 		SamplerCache.Clear();
 		ShaderResourceViewCache.Clear();
+		UAVCache.Clear();
 
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};

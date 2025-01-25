@@ -20,8 +20,6 @@ namespace RenderCore
 		ID3D11InputLayout* GetNativeInputLayout() const;
 	private:
 		bool CreateLayout(const std::vector< VertexElementDesc>& ElementDescs);
-		
-
 	private:
 		D3D11VertexShaderPrivate* d_ptr = nullptr;
 	};
@@ -36,7 +34,6 @@ namespace RenderCore
 		ID3D11PixelShader* GetNativePixelShader() const;
 	private:
 		D3D11PixelShaderPrivate* d_ptr = nullptr;
-
 	};
 
 	class D3D11ComputeShader : public RHIComputeShader
@@ -49,6 +46,5 @@ namespace RenderCore
 		ID3D11ComputeShader* GetNativeComputeShader() const;
 	private:
 		D3D11ComputeShaderPrivate* d_ptr = nullptr;
-
 	};
 }

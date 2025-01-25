@@ -139,6 +139,12 @@ namespace RenderCore
 		return d->CommandContext;
 	}
 
+	std::shared_ptr<RHICommandContext> D3D11DynamicRHI::GetDefaultAsyncComputeContext()
+	{
+		C_P(D3D11DynamicRHI);
+		return d->CommandContext;
+	}
+
 	std::shared_ptr<RHIViewPort> D3D11DynamicRHI::RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 	{
 		std::shared_ptr<D3D11ViewPort> ViewPortRHI = std::make_shared<D3D11ViewPort>(this, (HWND)WindowHandle,SizeX,SizeY);

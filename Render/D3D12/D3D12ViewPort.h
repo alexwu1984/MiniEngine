@@ -26,6 +26,7 @@ namespace RenderCore
 		void CalculateSwapChainDepth(int32_t DefaultSwapChainDepth);
 		DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext();
+		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext();
 
 	private:
 		HWND WindowHandle;

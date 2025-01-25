@@ -87,20 +87,13 @@ namespace RenderCore
 
 		inline void Clear()
 		{
-			//DirtyAll();
-
-			//FMemory::Memzero(Views);
-			//FMemory::Memzero(ResidencyHandles);
-
-			//for (uint32& Index : StartSlot)
-			//{
-			//	Index = INDEX_NONE;
-			//}
+			for (int32_t SRVIdx = 0; SRVIdx < MAX_UAVS; ++SRVIdx)
+			{
+				Views[SRVIdx] = { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+			}
 		}
 
-		//FD3D12UnorderedAccessView* Views[SF_NumStandardFrequencies][MAX_UAVS];
-		//FD3D12ResidencyHandle* ResidencyHandles[SF_NumStandardFrequencies][MAX_UAVS];
-		//uint32 StartSlot[SF_NumStandardFrequencies];
+		D3D12_CPU_DESCRIPTOR_HANDLE Views[MAX_UAVS];
 	};
 
 	class FD3D12VertexShader;
@@ -165,6 +158,7 @@ namespace RenderCore
 		void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology);
 		void SetDynamicConstantBuffer(EShaderFrequency ShaderType,uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
+		void SetUAV(uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<D3D12TextureCube> TextureCube);
 		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
@@ -185,6 +179,7 @@ namespace RenderCore
 		FD3D12SamplerStateCache SamplerCache;
 		FD3D12ConstantBufferCache ConstantBufferCache;
 		FD3D12ShaderResourceViewCache ShaderResourceViewCache;
+		FD3D12UnorderedAccessViewCache UAVCache;
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC PSDesc{};
 		// Blend State Cache
 		float CurrentBlendFactor[4]{};

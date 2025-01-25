@@ -349,10 +349,15 @@ namespace RenderCore
 	std::shared_ptr<RHICommandContext> D3D12DynamicRHI::GetDefaultCommandContext()
 	{
 		if (!D3D12Adapter || !D3D12Adapter->GetDevice())
-		{
 			return {};
-		}
 		return D3D12Adapter->GetDevice()->GetDefaultCommandContext();
+	}
+
+	std::shared_ptr<RenderCore::RHICommandContext> D3D12DynamicRHI::GetDefaultAsyncComputeContext()
+	{
+		if (!D3D12Adapter || !D3D12Adapter->GetDevice())
+			return {};
+		return D3D12Adapter->GetDevice()->GetDefaultAsyncComputeContext();
 	}
 
 	win32::com_ptr<ID3D12CommandQueue> D3D12DynamicRHI::CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc)
@@ -521,6 +526,9 @@ namespace RenderCore
 
 	std::shared_ptr<RHIComputeShader> D3D12DynamicRHI::RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		std::shared_ptr<FD3D12ComputeShader>  ComputeShaderRHI = std::make_shared<FD3D12ComputeShader>();
+		if (ComputeShaderRHI->CreateShader(FileName, CSMain, MacroDefines))
+			return ComputeShaderRHI;
 		return {};
 	}
 

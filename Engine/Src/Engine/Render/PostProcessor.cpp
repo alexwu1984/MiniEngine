@@ -62,8 +62,13 @@ namespace Engine
 		C_P(PostProcessor);
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-		d->TAA->Draw(RHIContext, TargetBuffer);
-		d->BloomEffect->Draw(RHIContext, TargetBuffer);
+		auto ComputeContext = d->RHI->GetDefaultAsyncComputeContext();
+		if (ComputeContext)
+		{
+			d->TAA->Draw(*ComputeContext, TargetBuffer);
+			d->BloomEffect->Draw(*ComputeContext, TargetBuffer);
+		}
+
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		Tonemapping(RHIContext, TargetBuffer);
@@ -73,9 +78,7 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 		if (!d->BloomEffect->GetResult())
-		{
 			return;
-		}
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;

@@ -97,6 +97,15 @@ namespace RenderCore
 		}
 	}
 
+	void FD3D12StateCache::SetUAV(uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D)
+	{
+		Assert(TextureIndex < MAX_UAVS);
+		if (UAVCache.Views[TextureIndex].ptr != Texture2D->GetUAV().ptr)
+		{
+			UAVCache.Views[TextureIndex] = Texture2D->GetUAV();
+		}
+	}
+
 	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
 		if (CurrentDescriptorHeaps[Type] != HeapPtr)

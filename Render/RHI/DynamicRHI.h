@@ -51,7 +51,7 @@ namespace RenderCore
 		virtual const TCHAR* GetName() = 0;
 
 		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() = 0;
-
+		virtual std::shared_ptr< RHICommandContext> GetDefaultAsyncComputeContext() = 0;
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) { return nullptr; }
 		virtual std::shared_ptr< RHIVertexBuffer> RHICreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count) = 0;
 		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer, const void* InData, int32_t nVertex, int32_t sizePerVertex) = 0;

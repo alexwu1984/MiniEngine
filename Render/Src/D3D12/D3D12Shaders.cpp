@@ -92,4 +92,45 @@ namespace RenderCore
 		return true;
 	}
 
+	FD3D12ComputeShader::FD3D12ComputeShader()
+		:RHIComputeShader(SF_Compute)
+	{
+
+	}
+
+	bool FD3D12ComputeShader::CreateShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+
+		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), CSMain, "cs_5_0", Code.get_init_ref());
+		if (!Ret)
+		{
+			Assert(false);
+			return false;
+		}
+		CSEntryPoint = CSMain;
+		std::vector<uint8_t> shaderCode;
+		shaderCode.resize(Code->GetBufferSize());
+		std::memcpy(&shaderCode[0], Code->GetBufferPointer(), Code->GetBufferSize());
+
+		uint32_t NumSamplers = 0;
+		uint32_t NumSRVs = 0;
+		uint32_t NumCBs = 0;
+		uint32_t NumUAVs = 0;
+		FShaderCompilerOutput Output;
+
+		ShaderUtil::ExtractParameterMapFromD3DShader(0, shaderCode, NumSamplers, NumSRVs, NumCBs, NumUAVs, Output);
+
+		ResourceCounts.NumCBs = NumCBs;
+		ResourceCounts.NumSRVs = NumSRVs;
+		ResourceCounts.NumUAVs = NumUAVs;
+		ResourceCounts.NumSamplers = NumSamplers;
+
+		std::filesystem::path Path(core::ucs2_u8(FileName));
+		KeyName = core::format(Path.filename().string(), "_", CSMain);
+		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
+		return true;
+	}
+
 }

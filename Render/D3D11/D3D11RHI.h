@@ -34,7 +34,7 @@ namespace RenderCore
 		virtual const TCHAR* GetName() { return TEXT("D3D11"); }
 
 		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() override;
-
+		virtual std::shared_ptr< RHICommandContext> GetDefaultAsyncComputeContext() override;
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) override;
 		virtual std::shared_ptr< RHIVertexBuffer> RHICreateVertexBuffer(const void* Data, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count) override;
 		virtual void RHIUpdateVertexBuffer(std::shared_ptr< RHIVertexBuffer> VertexBuffer,const void* InData, int32_t nVertex, int32_t sizePerVertex) override;

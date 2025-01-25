@@ -186,6 +186,7 @@ namespace RenderCore
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 		GetDefaultCommandContext()->FlushCommands(true);
+		GetDefaultAsyncComputeContext()->FlushCommands(true);
 		SwapChain4->Present(1, 0);
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
@@ -218,10 +219,16 @@ namespace RenderCore
 		return Ret;
 	}
 
-	std::shared_ptr<RenderCore::D3D12CommandContext> D3D12ViewPort::GetDefaultCommandContext()
+	std::shared_ptr<D3D12CommandContext> D3D12ViewPort::GetDefaultCommandContext()
 	{
 		Assert(GetParentAdapter()->GetDevice().get());
 		return GetParentAdapter()->GetDevice()->GetDefaultCommandContext();
+	}
+
+	std::shared_ptr<D3D12CommandContext> D3D12ViewPort::GetDefaultAsyncComputeContext()
+	{
+		Assert(GetParentAdapter()->GetDevice().get());
+		return GetParentAdapter()->GetDevice()->GetDefaultAsyncComputeContext();
 	}
 
 }

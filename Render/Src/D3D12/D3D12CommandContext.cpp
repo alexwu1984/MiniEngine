@@ -146,6 +146,7 @@ namespace RenderCore
 			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TargetRHI->GetRTV(), &Color.R, 0, nullptr);
 		if (DepthRHI)
 			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+		++numClears;
 	}
 
 	void D3D12CommandContext::Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, 
@@ -161,6 +162,7 @@ namespace RenderCore
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
 		if (DepthRHI)
 			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+		++numClears;
 	}
 
 	void D3D12CommandContext::Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
@@ -177,6 +179,7 @@ namespace RenderCore
 			if(DSV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 				CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
 		}
+		++numClears;
 	}
 
 	void D3D12CommandContext::Clear(std::shared_ptr< RHIRenderTarget> RenderTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
@@ -196,6 +199,7 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
 		}
+		++numClears;
 	}
 
 	void D3D12CommandContext::RHIBeing()
@@ -282,9 +286,7 @@ namespace RenderCore
 			return;
 		auto DepthStencilState = RHIResourceCast(NewState.get());
 		if (DepthStencilState)
-		{
 			StateCache->SetDepthStencilState(DepthStencilState->GetDepthStencilDesc());
-		}
 		StateCache->SetStencilRef(StencilRef);
 	}
 
@@ -303,35 +305,21 @@ namespace RenderCore
 		StateCache->ClearRenderState();
 
 		if (Initializer.BlendState)
-		{
 			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-		}
 		if (Initializer.DepthStencilState)
-		{
 			RHISetDepthStencilState(Initializer.DepthStencilState, 0);
-		}
 		if (Initializer.RasterizerState)
-		{
 			RHISetRasterizerState(Initializer.RasterizerState);
-		}
 
 		if (Initializer.VertexShader)
-		{
 			StateCache->SetVertexShader(std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader));
-		}
 		else
-		{
 			StateCache->SetVertexShader(nullptr);
-		}
 
 		if (Initializer.PixelShader)
-		{
 			StateCache->SetPixelShader(std::static_pointer_cast<FD3D12PixelShader>(Initializer.PixelShader));
-		}
 		else
-		{
 			StateCache->SetPixelShader(nullptr);
-		}
 
 		StateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType,false));
 	}
@@ -353,7 +341,8 @@ namespace RenderCore
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
 		if (Texture2D)
 		{
-			TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
+			if(ShaderType == SF_Pixel)
+				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
 	}
@@ -365,7 +354,8 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
+			if (ShaderType == SF_Pixel)
+				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -377,9 +367,17 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, Mip, true);
+			if (ShaderType == SF_Pixel)
+				TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, Mip, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
+	}
+
+	void D3D12CommandContext::RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV)
+	{
+		if (!StateCache)
+			return;
+		StateCache->SetUAV(UAVIndex, std::static_pointer_cast<D3D12Texture2D>(UAV->GetTexture2D()));
 	}
 
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
@@ -407,6 +405,7 @@ namespace RenderCore
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1, 0, 0,0);
+		++numDraws;
 	}
 
 	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
@@ -425,6 +424,7 @@ namespace RenderCore
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawInstanced(VertexBuffer->GetCount(),1,0,0);
+		++numDraws;
 	}
 
 	void D3D12CommandContext::DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
@@ -450,6 +450,7 @@ namespace RenderCore
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1,0,0,0);
+		++numDraws;
 	}
 
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
@@ -457,6 +458,7 @@ namespace RenderCore
 		if (!StateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
+		++numDraws;
 	}
 
 	void D3D12CommandContext::GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI)
@@ -467,6 +469,16 @@ namespace RenderCore
 			D3D12GenerateMips->InitResource();
 		}
 		D3D12GenerateMips->GenerateForCube(TextureCubeRHI, this);
+	}
+
+	void D3D12CommandContext::RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer)
+	{
+
+	}
+
+	void D3D12CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
+	{
+		++numDispatches;
 	}
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)

@@ -40,6 +40,22 @@ namespace RenderCore
 		win32::com_ptr<ID3DBlob> Code;
 		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
+	};
 
+	class FD3D12ComputeShader : public RHIComputeShader
+	{
+	public:
+		FD3D12ComputeShader();
+		virtual ~FD3D12ComputeShader() = default;
+
+		bool CreateShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines) override;
+		
+		enum { StaticFrequency = SF_Compute };
+		std::string KeyName;
+		std::string CSEntryPoint;
+		/** The shader's bytecode, with custom data in the last byte. */
+		win32::com_ptr<ID3DBlob> Code;
+		uint32_t Hash = 0;
+		FShaderCodePackedResourceCounts ResourceCounts;
 	};
 }

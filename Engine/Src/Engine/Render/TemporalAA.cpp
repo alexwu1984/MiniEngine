@@ -57,14 +57,10 @@ namespace Engine
 		auto SceneColor = TargetBuffer->GetSceneColor();
 
 		if (!d->HistoryUAV)
-		{
 			d->HistoryUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
-		}
 
 		if (!d->TAAOutUAV)
-		{
 			d->TAAOutUAV = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), SceneColor->GetSize().x, SceneColor->GetSize().y);
-		}
 
 		if (!d->HistoryUAV || !d->TAAOutUAV)
 			return;
@@ -82,7 +78,6 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
 			RHIContext.RHISetUAVParameter(0, d->TAAOutUAV);
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
-			RHIContext.FlushCommands(true);
 			d->First = false;
 		}
 		else
@@ -116,7 +111,6 @@ namespace Engine
 			RHIContext.RHISetUAVParameter(1, d->HistoryUAV);
 
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
-			
 		}
 	}
 

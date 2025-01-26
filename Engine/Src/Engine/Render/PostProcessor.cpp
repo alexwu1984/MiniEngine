@@ -11,6 +11,7 @@
 #include "Render/TemporalAA.h"
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
+#include <d3d12.h>
 
 namespace Engine
 {
@@ -62,12 +63,8 @@ namespace Engine
 		C_P(PostProcessor);
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-		auto ComputeContext = d->RHI->GetDefaultAsyncComputeContext();
-		if (ComputeContext)
-		{
-			d->TAA->Draw(*ComputeContext, TargetBuffer);
-			d->BloomEffect->Draw(*ComputeContext, TargetBuffer);
-		}
+		d->TAA->Draw(RHIContext, TargetBuffer);
+		d->BloomEffect->Draw(RHIContext, TargetBuffer);
 
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);

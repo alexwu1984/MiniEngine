@@ -320,6 +320,7 @@ namespace RenderCore
 			StateCache->SetPixelShader(std::static_pointer_cast<FD3D12PixelShader>(Initializer.PixelShader));
 		else
 			StateCache->SetPixelShader(nullptr);
+		StateCache->SetComputeShader(nullptr);
 
 		StateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType,false));
 	}
@@ -344,7 +345,7 @@ namespace RenderCore
 			if(ShaderType == SF_Pixel)
 				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
 			if(ShaderType == SF_Compute)
-				GetParentDevice()->GetDefaultCommandContext()->TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, true);
+				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
 	}
@@ -359,7 +360,7 @@ namespace RenderCore
 			if (ShaderType == SF_Pixel)
 				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
 			if (ShaderType == SF_Compute)
-				GetParentDevice()->GetDefaultCommandContext()->TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, true);
+				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -489,6 +490,8 @@ namespace RenderCore
 			StateCache->SetComputeShader(std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader));
 		else
 			StateCache->SetComputeShader(nullptr);
+		StateCache->SetVertexShader(nullptr);
+		StateCache->SetPixelShader(nullptr);
 	}
 
 	void D3D12CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
@@ -520,6 +523,13 @@ namespace RenderCore
 			// Restore the state from the previous command list.
 			OpenCommandList();
 		}
+	}
+
+	void D3D12CommandContext::RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush /*= false*/)
+	{
+		auto TexRHI = RHIResourceCast(Tex.get());
+		if (TexRHI)
+			TransitionResource(TexRHI->GetResource(), (D3D12_RESOURCE_STATES)NewState, Flush);
 	}
 
 	FD3D12CommandListManager& D3D12CommandContext::GetCommandListManager()

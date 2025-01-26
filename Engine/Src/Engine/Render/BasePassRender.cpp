@@ -50,9 +50,6 @@ namespace Engine
 		d->sceneView = View;
 		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), true);
 		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), false);
-		ENQUEUE_UNIQUE_RENDER_COMMAND([](RenderCore::DynamicRHI* RHI) {
-			RHI->GetDefaultCommandContext()->FlushCommands(true);
-			});
 	}
 
 	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos,const math::Vector3& CameraPos)

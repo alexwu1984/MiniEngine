@@ -22,7 +22,8 @@ namespace Engine
 			:RHI(_RHI),
 			GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
 			GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
-			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get())
+			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get()),
+			GET_SHADER_STRUCT_MEMBER(CBPerFur)(GEngine->GetRHI().get())
 		{
 
 		}
@@ -31,9 +32,12 @@ namespace Engine
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< BlurCS> Blur;
 		std::shared_ptr<GltfMesh> Mesh;
+		bool HasSkin = false;
+		bool HasFur = false;
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerFur)
 	};
 
 	ShadowPS::ShadowPS(RenderCore::DynamicRHI* RHI, std::shared_ptr<GltfMesh> gltfMesh)
@@ -64,6 +68,7 @@ namespace Engine
 		if (VerticesBuffer[RenderCore::VT_JointsWeights0])
 		{
 			ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
+			d->HasSkin = true;
 		}
 		int32_t Index = 2;
 		if (VerticesBuffer[RenderCore::VT_Tangent])
@@ -86,6 +91,7 @@ namespace Engine
 		if (d->Mesh->GetMaterial() && d->Mesh->GetMaterial()->GetMaterialType() == GltfMaterial::MaterialType::FUR)
 		{
 			ShaderMacros.push_back({ "HASFUR","1" });
+			d->HasFur = true;
 		}
 		d->VertexShader = d->RHI->RHICreateVertexShader(VSPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 
@@ -116,7 +122,18 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
-
+		if (d->HasSkin)
+		{
+			d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		}
+		if (d->HasFur)
+		{
+			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		}
 		RHIContext.DrawPrimitive(d->Mesh->GetMeshBuffer()->GetVerticesBuffer(), d->Mesh->GetMeshBuffer()->GetIndexBuffer());
 	}
 

@@ -11,7 +11,6 @@
 #include "Render/TemporalAA.h"
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
-#include <d3d12.h>
 
 namespace Engine
 {

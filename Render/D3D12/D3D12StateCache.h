@@ -107,7 +107,7 @@ namespace RenderCore
 	class FD3D12StateCache : public FD3D12DeviceChild
 	{
 	public:
-		FD3D12StateCache(std::weak_ptr<FD3D12Device> InParent);
+		FD3D12StateCache(std::weak_ptr<FD3D12Device> InParent,std::weak_ptr<D3D12CommandContext> CommandContext);
 		~FD3D12StateCache();
 
 		template <EShaderFrequency ShaderFrequency>
@@ -177,6 +177,7 @@ namespace RenderCore
 		bool ApplyComputeState(D3D12CommandListHandle& CommandList);
 		void ClearState();
 		void ClearRenderState();
+		void ClearComputeState();
 		void CleanupUsedHeaps(uint64_t FenceValue);
 
 		FD3D12SamplerStateCache SamplerCache;
@@ -199,10 +200,12 @@ namespace RenderCore
 
 		uint32_t CurrentVertexHash = 0;
 		uint32_t CurrentPixelHash = 0;
+		uint32_t CurrentComputeHash = 0;
 		uint32_t CurrentRootHash = 0;
 		
 		std::map<size_t, win32::com_ptr<ID3D12PipelineState>> GraphicsPSHashMap;
-		std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
+		std::map<size_t, win32::com_ptr<ID3D12PipelineState>> ComputePSHashMap;
+		std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayouts;
 		FDynamicDescriptorHeap DynamicViewDescriptorHeap;
 		win32::com_ptr<ID3D12DescriptorHeap> CurrentDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	};

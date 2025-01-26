@@ -10,10 +10,12 @@ namespace RenderCore
 	std::queue<std::pair<uint64_t, win32::com_ptr<ID3D12DescriptorHeap>>> FDynamicDescriptorHeap::ms_RetiredDescriptorHeaps[2];
 	std::vector<win32::com_ptr<ID3D12DescriptorHeap>> FDynamicDescriptorHeap::ms_DescriptorHeapPool[2];
 
-	FDynamicDescriptorHeap::FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE HeapType)
+	FDynamicDescriptorHeap::FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice,
+												   std::weak_ptr<D3D12CommandContext> CommandContext,
+											       D3D12_DESCRIPTOR_HEAP_TYPE HeapType)
 		:FD3D12DeviceChild(InDevice),
 		m_HeapType(HeapType),
-		m_OwningContext(InDevice.lock()->GetDefaultCommandContext())
+		m_OwningContext(CommandContext.lock())
 	{
 		m_DescriptorSize = GetParentDevice()->GetDevice()->GetDescriptorHandleIncrementSize(HeapType);
 	}

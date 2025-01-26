@@ -161,7 +161,9 @@ namespace RenderCore
 
 		CreateSignatures();
 
-		d->DynamicViewDescriptorHeap = std::make_shared<FDynamicDescriptorHeap>(d->Device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		d->DynamicViewDescriptorHeap = std::make_shared<FDynamicDescriptorHeap>(d->Device,
+																				d->Device->GetDefaultCommandContext(), 
+																			    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		win32::com_ptr<ID3D12DescriptorHeap> DescriptorHeap = d->DynamicViewDescriptorHeap->GetHeapPointer();
 		::ImGui_ImplDX12_Init(d->RootDevice.get(), WINDOWS_DEFAULT_NUM_BACK_BUFFERS,
 			DXGI_FORMAT_R8G8B8A8_UNORM, DescriptorHeap.get(),

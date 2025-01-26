@@ -67,9 +67,7 @@ namespace Engine
 		}
 
 		if (!d->HistoryUAV || !d->TAAOutUAV)
-		{
 			return;
-		}
 
 		uint32_t ThreadGroupCountX = (SceneColor->GetSize().w + 7) / 8;
 		uint32_t ThreadGroupCountY = (SceneColor->GetSize().h + 7) / 8;
@@ -83,9 +81,8 @@ namespace Engine
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampPointSampler);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
 			RHIContext.RHISetUAVParameter(0, d->TAAOutUAV);
-
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
-
+			RHIContext.FlushCommands(true);
 			d->First = false;
 		}
 		else
@@ -119,6 +116,7 @@ namespace Engine
 			RHIContext.RHISetUAVParameter(1, d->HistoryUAV);
 
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
+			
 		}
 	}
 

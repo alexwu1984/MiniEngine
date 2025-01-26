@@ -97,6 +97,7 @@ namespace RenderCore
 			Reset(NumRootParams, NumStaticSamplers);
 			std::fill(CBRootIndex, CBRootIndex + SF_NumStandardFrequencies, -1);
 			std::fill(SRVRootIndex, SRVRootIndex + SF_NumStandardFrequencies, -1);
+			std::fill(UAVRootIndex, UAVRootIndex + SF_NumStandardFrequencies, -1);
 		}
 
 		~FRootSignature() = default;
@@ -133,6 +134,7 @@ namespace RenderCore
 
 		int32_t CBRootIndex[SF_NumStandardFrequencies]{-1};
 		int32_t SRVRootIndex[SF_NumStandardFrequencies]{-1};
+		int32_t UAVRootIndex[SF_NumStandardFrequencies]{-1};
 	protected:
 		bool m_Finalized = false;
 		uint32_t m_NumParameters = 0;

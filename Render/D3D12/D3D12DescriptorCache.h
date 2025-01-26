@@ -63,7 +63,9 @@ namespace RenderCore
 	class FDynamicDescriptorHeap : public FD3D12DeviceChild
 	{
 	public:
-		FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
+		FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice, 
+							   std::weak_ptr<D3D12CommandContext> CommandContext, 
+							   D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
 		~FDynamicDescriptorHeap() = default;
 
 		static void DestroyAll()

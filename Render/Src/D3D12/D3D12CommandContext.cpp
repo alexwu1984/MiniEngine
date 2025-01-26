@@ -343,6 +343,8 @@ namespace RenderCore
 		{
 			if(ShaderType == SF_Pixel)
 				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
+			if(ShaderType == SF_Compute)
+				GetParentDevice()->GetDefaultCommandContext()->TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
 	}
@@ -356,6 +358,8 @@ namespace RenderCore
 		{
 			if (ShaderType == SF_Pixel)
 				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
+			if (ShaderType == SF_Compute)
+				GetParentDevice()->GetDefaultCommandContext()->TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -369,6 +373,8 @@ namespace RenderCore
 		{
 			if (ShaderType == SF_Pixel)
 				TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, Mip, true);
+			if (ShaderType == SF_Compute)
+				GetParentDevice()->GetDefaultCommandContext()->TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, Mip, true);
 			StateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -377,7 +383,9 @@ namespace RenderCore
 	{
 		if (!StateCache)
 			return;
-		StateCache->SetUAV(UAVIndex, std::static_pointer_cast<D3D12Texture2D>(UAV->GetTexture2D()));
+		auto TexRHI = std::static_pointer_cast<D3D12Texture2D>(UAV->GetTexture2D());
+		TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
+		StateCache->SetUAV(UAVIndex, TexRHI);
 	}
 
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
@@ -475,11 +483,12 @@ namespace RenderCore
 	{
 		if (!StateCache)
 			return;
+		StateCache->ClearComputeState();
+
 		if (Initializer.ComputeShader)
 			StateCache->SetComputeShader(std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader));
 		else
 			StateCache->SetComputeShader(nullptr);
-		++numDispatches;
 	}
 
 	void D3D12CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
@@ -583,7 +592,6 @@ namespace RenderCore
 				CommandListHandle.FlushResourceBarriers();
 			Resource->GetResourceState().SetResourceState(NewState);
 		}
-
 	}
 
 	void D3D12CommandContext::TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush)
@@ -652,7 +660,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::Initialize(void)
 	{
-		StateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice());
+		StateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(),this->shared_from_this());
 	}
 
 	void D3D12CommandContext::Destroy()

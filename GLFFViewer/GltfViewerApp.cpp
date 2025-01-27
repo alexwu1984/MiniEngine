@@ -42,8 +42,8 @@ bool GltfViewApp::Init()
 	if (1)
 	{
 		core::filesystem::path Path = core::process_directory();
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();
 		Scene->LoadScene(ModelFile);
@@ -72,6 +72,10 @@ bool GltfViewApp::Init()
 
 				DirectLight.Direction = mDirectLight;
 				DirectLight.Direction.Normalize();
+
+				ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
+				ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
+				Engine::GEngine->GetSceneRender()->SetIBLRotate(xHDRRotate,yHDRRotate);
 			}
 
 			ImGui::End();

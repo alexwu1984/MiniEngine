@@ -42,6 +42,7 @@ struct PerFrame
     matrix        CameraCurrViewProj;
     matrix        CameraPrevViewProj;
     matrix        CameraCurrViewProjInverse;
+    matrix        RotateIBL;
     float4        CameraPos;
     float         IBLFactor;
     float         EmissiveFactor;

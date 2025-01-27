@@ -19,6 +19,7 @@ namespace Engine
 		math::Matrix4x4 PrevViewProjMatrix;
 		math::Matrix4x4 CurrViewProjInverseMatrix;
 		math::Matrix4x4 PrevViewProjInverseMatrix;
+		math::Matrix4x4 RotateIBL;
 		math::Vector4 CameraPos;
 		math::Vector4 TemporalAAJitter;
 		bool HasSkin = false;

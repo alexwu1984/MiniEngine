@@ -233,21 +233,28 @@ namespace Engine
 		});
 	}
 
-	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor() const
+	void SceneRender::SetIBLRotate(float x, float y)
 	{
 		C_P(SceneRender);
+		d->BackgroundRender->SetRotate(x, y);
+		d->BaseRender->SetIBLRotate(x, y);
+	}
+
+	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor() const
+	{
+		C_P(const SceneRender);
 		return d->PreProcess;
 	}
 
 	std::shared_ptr<ShadowRenderPass> SceneRender::GetShadowRenderPass() const
 	{
-		C_P(SceneRender);
+		C_P(const SceneRender);
 		return d->ShadowRender;
 	}
 
 	std::shared_ptr<RHIViewPort> SceneRender::GetViewPort() const
 	{
-		C_P(SceneRender);
+		C_P(const SceneRender);
 		return d->MainViewPort;
 	}
 

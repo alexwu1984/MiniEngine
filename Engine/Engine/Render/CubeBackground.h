@@ -22,6 +22,7 @@ namespace Engine
 		void InitResource();
 		void Render(RenderCore::RHICommandContext& RHIContext);
 		void SetTextureCube(std::shared_ptr<RenderCore::RHITextureCube> TexCube);
+		void SetRotate(float xRotate, float yRotate);
 	private:
 		void InitShader();
 	private:

@@ -29,6 +29,8 @@ namespace Engine
 		std::vector<MeshDistanceInfo> SortMesh;
 		std::map<std::string, std::shared_ptr<MaterialRender>> Renders;
 		std::shared_ptr<SceneView> sceneView;
+		float xHDRRotate{ 0.f };
+		float yHDRRotate{ 1.f };
 	};
 
 	BasePassRender::BasePassRender()
@@ -52,7 +54,14 @@ namespace Engine
 		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), false);
 	}
 
-	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos,const math::Vector3& CameraPos)
+	void BasePassRender::SetIBLRotate(float x, float y)
+	{
+		C_P(BasePassRender);
+		d->xHDRRotate = x;
+		d->yHDRRotate = y;
+	}
+
+	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos, const math::Vector3& CameraPos)
 	{
 		C_P(BasePassRender);
 		
@@ -162,6 +171,9 @@ namespace Engine
 		RenderParam.TemporalAAJitter = Camera->GetTemporalAAJitter();
 		RenderParam.HasSkin = Mesh->HasSkin();
 		RenderParam.preProcessor = GEngine->GetSceneRender()->GetPreProcessor();
+		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(d->xHDRRotate));
+		Rotate *= math::Matrix4x4::RotateY(math::Radians(d->yHDRRotate));
+		RenderParam.RotateIBL = Rotate;
 
 		auto RenderMesh = [Render, RenderParam, Mesh, IsPreDraw](RenderCore::DynamicRHI* DyRHI)
 			{

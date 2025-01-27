@@ -27,6 +27,8 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr<RHITextureCube> TexCube;
+		float xHDRRotate{ 0.f };
+		float yHDRRotate{ 1.f };
 
 		CubeBackgroundPrivate(RenderCore::DynamicRHI* _RHI)
 			:RHI(_RHI),
@@ -87,26 +89,16 @@ namespace Engine
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
-		//glm::mat4 view = glm::lookAt(glm::vec3(0.0), glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
-		//glm::mat4 rotate = glm::rotate(glm::mat4(), -EffectConfig->ModelConfig.hdrRotateX * CC_PI / 180.f, glm::vec3(1.0f, 0.0f, 0.0f));
-		//rotate = glm::rotate(rotate, -EffectConfig->ModelConfig.hdrRotateY * CC_PI / 180.f, glm::vec3(0.0f, 1.0f, 0.0f));
-		//view *= rotate;
-
-		//glm::mat4 projection = glm::perspective(glm::radians(45.f), (float)m_nRenderWidth / (float)m_nRenderHeight, 0.1f, 100.0f);
-
-		//m_IBLConstantBuffer.projection = glm::transpose(projection);
-		//m_IBLConstantBuffer.view = glm::transpose(view);
-
 		int32_t w = GEngine->GetAppWindow()->GetWidth();
 		int32_t h = GEngine->GetAppWindow()->GetHeight();
 
 		math::Matrix4x4 View = math::Matrix4x4::MatrixLookAtLH(math::Vector3::Zero, math::Vector3::NegUnitZ, math::Vector3::UnitY);
-		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(0));
-		Rotate *= math::Matrix4x4::RotateY(math::Radians(-0));
+		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(d->xHDRRotate));
+		Rotate *= math::Matrix4x4::RotateY(math::Radians(-d->yHDRRotate));
 		math::Matrix4x4 Proj = math::Matrix4x4::MatrixPerspectiveFovLH(math::Radians(45.f), static_cast<float>(w) / h, 0, 100);
 
 		d->GET_UNIFORMDATA(CBMatrix).Proj = Proj;
-		d->GET_UNIFORMDATA(CBMatrix).View = View;
+		d->GET_UNIFORMDATA(CBMatrix).View = View * Rotate;
 		d->GET_SHADER_STRUCT_MEMBER(CBMatrix).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBMatrix).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->TexCube);
@@ -119,4 +111,10 @@ namespace Engine
 		d->TexCube = TexCube;
 	}
 
+	void CubeBackground::SetRotate(float xRotate, float yRotate)
+	{
+		C_P(CubeBackground);
+		d->xHDRRotate = xRotate;
+		d->yHDRRotate = yRotate;
+	}
 }

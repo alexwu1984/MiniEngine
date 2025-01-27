@@ -20,7 +20,7 @@ namespace Engine
 
 		void Render(const std::vector<GltfSceneMeshInfo> &MeshesPair,
 			RenderCore::RHICommandContext& RHIContext,std::shared_ptr<SceneView> View);
-
+		void SetIBLRotate(float x, float y);
 	private:
 		//对Mesh进行排序，按顺序渲染
 		void SortMesh(const std::vector<GltfSceneMeshInfo>& MeshesPair,const math::Vector3& CameraPos);

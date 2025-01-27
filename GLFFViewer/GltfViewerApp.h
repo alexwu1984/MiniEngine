@@ -25,4 +25,6 @@ private:
 	int32_t SelIndex = 0;
 	math::Vector3 mDirectLight{ 0,0,1 };
 	std::shared_ptr<Engine::SimplePostProcessor> _Demo;
+	float xHDRRotate{ 0.f };
+	float yHDRRotate{ 0.f };
 };

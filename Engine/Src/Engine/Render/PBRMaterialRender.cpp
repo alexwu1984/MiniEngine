@@ -150,6 +150,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPrevViewProj = d->RenderParam.PrevViewProjMatrix;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->RenderParam.CurrViewProjMatrix;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = d->RenderParam.CurrViewProjInverseMatrix;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.RotateIBL = d->RenderParam.RotateIBL;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.TemporalAAJitter = d->RenderParam.TemporalAAJitter;
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();

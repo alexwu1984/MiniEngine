@@ -136,8 +136,9 @@ namespace RenderCore
 			if (memcmp(CurrentBlendFactor, BlendFactor, sizeof(CurrentBlendFactor)))
 			{
 				memcpy(&CurrentBlendFactor, BlendFactor, sizeof(CurrentBlendFactor));
+				bNeedSetBlendFactor = true;
 			}
-			bNeedSetBlendFactor = true;
+			
 		}
 
 		void SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& DepthStencilState)
@@ -150,8 +151,8 @@ namespace RenderCore
 			if (CurrentReferenceStencil != StencilRef)
 			{
 				CurrentReferenceStencil = StencilRef;
+				bNeedSetStencilRef = true;
 			}
-			bNeedSetStencilRef = true;
 		}
 
 		void SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader);

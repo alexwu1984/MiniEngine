@@ -16,6 +16,7 @@ namespace Engine
 	struct SceneRenderPrivate;
 	class ShadowRenderPass;
 	class SimplePostProcessor;
+	class CubeBackground;
 
 	class SceneRender
 	{
@@ -29,6 +30,7 @@ namespace Engine
 		void SetBackgroundColor(const core::FLinearColor& Color);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render(float DeltaTime);
+		void SetIBLRotate(float x, float y);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;

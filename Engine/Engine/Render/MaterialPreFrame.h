@@ -47,6 +47,7 @@ namespace Engine
 		math::Matrix4x4     CameraCurrViewProj;
 		math::Matrix4x4     CameraPrevViewProj;
 		math::Matrix4x4     CameraCurrViewProjInverse;
+		math::Matrix4x4     RotateIBL;
 		math::Vector4       CameraPos;
 		float				IBLFactor{ 1.f };
 		float				EmissiveFactor{ 100.f };

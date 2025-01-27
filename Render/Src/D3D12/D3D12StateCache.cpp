@@ -602,6 +602,14 @@ namespace RenderCore
 
 	void FD3D12StateCache::ClearRenderState()
 	{
+		CurrentBlendFactor[0] = D3D12_DEFAULT_BLEND_FACTOR_RED;
+		CurrentBlendFactor[1] = D3D12_DEFAULT_BLEND_FACTOR_GREEN;
+		CurrentBlendFactor[2] = D3D12_DEFAULT_BLEND_FACTOR_BLUE;
+		CurrentBlendFactor[3] = D3D12_DEFAULT_BLEND_FACTOR_ALPHA;
+
+		CurrentReferenceStencil = 0;
+		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+
 		ConstantBufferCache.Clear();
 		SamplerCache.Clear();
 		ShaderResourceViewCache.Clear();

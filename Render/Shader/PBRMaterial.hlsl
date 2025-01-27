@@ -46,7 +46,7 @@ float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
     float u_MipCount = myPerFrame.IBLMIpCount; // resolution of 512x512 of the IBL
     float lod = clamp(MaterialInfo.perceptualRoughness * float(u_MipCount), 0.0, float(u_MipCount));
     float3 reflection = normalize(reflect(-v, n));
-
+    reflection = mul(float4(reflection, 1.0), RotateIBL).xyz;
     float Mip = ComputeReflectionCaptureMipFromRoughness(MaterialInfo.perceptualRoughness, u_MipCount - 1);
     
     float2 brdfSamplePoint = clamp(float2(NdotV, Mip), float2(0.0, 0.0), float2(1.0, 1.0));

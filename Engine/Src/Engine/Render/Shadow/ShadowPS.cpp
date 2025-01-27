@@ -88,11 +88,11 @@ namespace Engine
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 		}
 
-		if (d->Mesh->GetMaterial() && d->Mesh->GetMaterial()->GetMaterialType() == GltfMaterial::MaterialType::FUR)
-		{
-			ShaderMacros.push_back({ "HASFUR","1" });
-			d->HasFur = true;
-		}
+		//if (d->Mesh->GetMaterial() && d->Mesh->GetMaterial()->GetMaterialType() == GltfMaterial::MaterialType::FUR)
+		//{
+		//	ShaderMacros.push_back({ "HASFUR","1" });
+		//	d->HasFur = true;
+		//}
 		d->VertexShader = d->RHI->RHICreateVertexShader(VSPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 
 		std::wstring PSPath = ShaderPath + L"ShadowPass-PS.hlsl";

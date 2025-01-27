@@ -5,7 +5,7 @@
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.0,0.0,1.0",
+        "LightDir": "0.0,0.729,0.833",
         "LightStrength": 1.0,
         "LightType": 0
       }
@@ -15,13 +15,20 @@
   },
   "Modles": [
     {
+      "Model": "floor.glb",
+      "Scale": 0.05,
+      "Material": {
+        "Metallic": 0.0
+      }
+    },
+    {
       "Model": "Model4.glb",
       "Scale": 1.0,
       "Material": {
         "Metallic": 1.0
       },
       "MainCamera": true,
-      "ProjShadow": false,
+      "ProjShadow": true,
       "FurMaterial": {
         "Name": "TuEr_fur",
         "NoiseTex": "noise.jpg",

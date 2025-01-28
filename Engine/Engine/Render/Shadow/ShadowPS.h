@@ -24,7 +24,7 @@ namespace Engine
 
 		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,const Light& mainLight);
-
+		void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index);
 	private:
 		ShadowPSPrivate* d_ptr = nullptr;
 	};

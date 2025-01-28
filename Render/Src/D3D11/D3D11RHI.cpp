@@ -8,6 +8,7 @@
 #include "RHI/RHICachedStates.h"
 #include "Imgui/imgui_impl_win32.h"
 #include "Imgui/imgui_impl_dx11.h"
+#include "common/crc.h"
 
 namespace RenderCore
 {
@@ -330,7 +331,9 @@ namespace RenderCore
 		C_P(D3D11DynamicRHI);
 		std::shared_ptr<D3D11VertexShader> VertexShaderRHI = std::make_shared<D3D11VertexShader>(this);
 
-		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + VSMain);
+		auto Key = core::ucs2_u8(FileName) + VSMain;
+		auto HashCode = core::Crc::MemCrc32(Key.c_str(), Key.length());
+		HashCode = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(),HashCode);
 		auto It = d->ShaderCache.VertexShaderCache.find(HashCode);
 		if (It != d->ShaderCache.VertexShaderCache.end())
 		{

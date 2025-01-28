@@ -54,7 +54,7 @@ namespace Engine
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_FloatRGBA, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 	}
 
-	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& Meshes, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
+	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& MeshInfos, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
 	{
 		C_P(ShadowRenderPass);
 		d->ShadowMgr->Update(View);
@@ -74,7 +74,7 @@ namespace Engine
 			return;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([this,projActor, View, Meshes, &RHIContext](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([this,projActor, View, MeshInfos, &RHIContext](RenderCore::DynamicRHI* RHI) {
 			C_P(ShadowRenderPass);
 
 			auto modelBox = projActor->GetComponent<GltfMeshComponent>()->GetModelBox();
@@ -116,17 +116,28 @@ namespace Engine
 			auto TargetSize = d->DepthRenderBuffer->GetSize();
 			RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
 
-			for (auto itMeshInfo = Meshes.begin(); itMeshInfo != Meshes.end(); ++itMeshInfo)
+			for (const auto& MeshInfo : MeshInfos)
 			{
-				for (auto itMesh = itMeshInfo->Meshes.begin(); itMesh != itMeshInfo->Meshes.end(); ++itMesh)
+				size_t MeshSize = MeshInfo.Meshes.size();
+				for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 				{
-					auto& shadowRender = d->ShadowRenders[*itMesh];
+					std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
+					auto& shadowRender = d->ShadowRenders[Mesh];
 					if (!shadowRender)
 					{
-						shadowRender = std::make_shared<ShadowPS>(d->RHI, *itMesh);
+						shadowRender = std::make_shared<ShadowPS>(d->RHI, Mesh);
 						shadowRender->InitResource();
 					}
-					shadowRender->Draw(RHIContext, (*itMesh)->GetMeshMat() * itMeshInfo->WorldTransform, mainLight);
+					if (Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
+					{
+						auto& Bone = Mesh->GetBoneNodeArray()[Mesh->GetSkinId()];
+						for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+						{
+							shadowRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+						}
+					}
+
+					shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight);
 				}
 			}
 		});

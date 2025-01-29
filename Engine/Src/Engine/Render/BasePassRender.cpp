@@ -109,8 +109,6 @@ namespace Engine
 				d->SortMesh.push_back(DisInfo);
 			}
 		}
-
-
 		std::sort(d->SortMesh.begin(), d->SortMesh.end(), MeshDistanceInfo());
 	}
 
@@ -123,7 +121,7 @@ namespace Engine
 		for (const auto& MeshInfo : MeshInfos)
 		{
 			size_t MeshSize = MeshInfo.Meshes.size();
-			for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+			for (int32_t MeshIndex = MeshSize-1; MeshIndex >= 0; --MeshIndex)
 			{
 				std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
 

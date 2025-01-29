@@ -48,6 +48,7 @@ namespace RenderCore
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(),"_", VSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
+		Hash = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), Hash);
 		return true;
 	}
 

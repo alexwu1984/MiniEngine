@@ -11,6 +11,7 @@ namespace Engine
 	class  SceneView;
 	class  MaterialRender;
 	struct GltfSceneMeshInfo;
+	struct MeshDistanceInfo;
 
 	class BasePassRender
 	{
@@ -23,7 +24,9 @@ namespace Engine
 		void SetIBLRotate(float x, float y);
 	private:
 		//对Mesh进行排序，按顺序渲染
-		void SortMesh(const std::vector<GltfSceneMeshInfo>& MeshesPair,const math::Vector3& CameraPos);
+		void SortMesh(const std::vector<GltfSceneMeshInfo>& MeshesPair, const math::Vector3& CameraPos);
+		void SortMesh(const std::vector<GltfSceneMeshInfo>& MeshesPair, const math::Vector3& CameraPos, std::vector<MeshDistanceInfo>& Result);
+		void GraphMeshByDistance(const GltfSceneMeshInfo& MeshInfo, const math::Vector3& CameraPos, std::vector<MeshDistanceInfo>& Result);
 		void ActualDraw(const std::vector<GltfSceneMeshInfo>& MeshesPair,
 						RenderCore::RHICommandContext& RHIContext, 
 						std::shared_ptr<CameraComponent> Camera, bool IsPreDraw);
@@ -33,6 +36,6 @@ namespace Engine
 					 std::shared_ptr<CameraComponent> Camera, bool IsPreDraw);
 		std::shared_ptr<MaterialRender> GetOrCreateRender(std::shared_ptr<GltfMesh> Mesh);
 	private:
-		BasePassRenderPrivate* d_ptr;
+		BasePassRenderPrivate* d_ptr = nullptr;
 	};
 }

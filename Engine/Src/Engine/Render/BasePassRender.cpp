@@ -20,7 +20,7 @@ namespace Engine
 		math::Matrix4x4 PrevWorldTransform;
 		bool operator()(const MeshDistanceInfo& Near, const MeshDistanceInfo& Far)
 		{
-			return Near.Distance > Far.Distance;
+			return Near.Distance < Far.Distance;
 		}
 	};
 
@@ -64,52 +64,59 @@ namespace Engine
 	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos, const math::Vector3& CameraPos)
 	{
 		C_P(BasePassRender);
-		
-		math::Matrix4x4 ModelMatrix;
+		SortMesh(MeshInfos, CameraPos, d->SortMesh);
+	}
 
+	void BasePassRender::SortMesh(const std::vector<GltfSceneMeshInfo>& MeshInfos, const math::Vector3& CameraPos, std::vector<MeshDistanceInfo>& Result)
+	{
 		for (const auto& MeshInfo : MeshInfos)
 		{
-			size_t MeshSize = MeshInfo.Meshes.size();
-			for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
-			{
-				MeshDistanceInfo DisInfo;
-				std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
-
-				math::Vector3 BoxPoint[8]{};
-				Mesh->GetBoundingBox().GetPoint(BoxPoint);
-
-				float distanceMin = 100000.f;
-				float distanceMax = 0.f;
-				DisInfo.WorldTransform = MeshInfo.WorldTransform;
-				DisInfo.PrevWorldTransform = MeshInfo.PrevWorldTransform;
-				DisInfo.Mesh = Mesh;
-
-				for (int32_t PointIndex = 0; PointIndex < 8; PointIndex++)
-				{
-					math::Vector3 Point = BoxPoint[PointIndex];
-
-					math::Vector4 Point4 = math::Vector4(Point.x, Point.y, Point.z, 1.0f);
-					math::Vector4 TargetPoint = Point4 * Mesh->GetMeshMat() * ModelMatrix;
-					TargetPoint = TargetPoint / TargetPoint.w;
-
-					//计算两个向量Z的距离
-					float Distance = math::Abs(TargetPoint.z - CameraPos.z);
-
-					if (Distance < distanceMin)
-					{
-						distanceMin = Distance;
-						DisInfo.Distance = distanceMin;
-					}
-					if (Distance > distanceMax)
-					{
-						distanceMax = Distance;
-						DisInfo.Distance = distanceMax;
-					}
-				}
-				d->SortMesh.push_back(DisInfo);
-			}
+			GraphMeshByDistance(MeshInfo, CameraPos, Result);
 		}
-		std::sort(d->SortMesh.begin(), d->SortMesh.end(), MeshDistanceInfo());
+		std::sort(Result.begin(), Result.end(), MeshDistanceInfo());
+	}
+
+	void BasePassRender::GraphMeshByDistance(const GltfSceneMeshInfo& MeshInfo, const math::Vector3& CameraPos, std::vector<MeshDistanceInfo>& Result)
+	{
+		size_t MeshSize = MeshInfo.Meshes.size();
+		for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+		{
+			MeshDistanceInfo DisInfo;
+			std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
+
+			math::Vector3 BoxPoint[8]{};
+			Mesh->GetBoundingBox().GetPoint(BoxPoint);
+
+			float distanceMin = 100000.f;
+			float distanceMax = 0.f;
+			DisInfo.WorldTransform = MeshInfo.WorldTransform;
+			DisInfo.PrevWorldTransform = MeshInfo.PrevWorldTransform;
+			DisInfo.Mesh = Mesh;
+
+			for (int32_t PointIndex = 0; PointIndex < 8; PointIndex++)
+			{
+				math::Vector3 Point = BoxPoint[PointIndex];
+
+				math::Vector4 Point4 = math::Vector4(Point.x, Point.y, Point.z, 1.0f);
+				math::Vector4 TargetPoint = Point4 * Mesh->GetMeshMat() ;
+				TargetPoint = TargetPoint / TargetPoint.w;
+
+				//计算两个向量Z的距离
+				float Distance = math::Abs(TargetPoint.z - CameraPos.z);
+
+				if (Distance < distanceMin)
+				{
+					distanceMin = Distance;
+					DisInfo.Distance = distanceMin;
+				}
+				if (Distance > distanceMax)
+				{
+					distanceMax = Distance;
+					DisInfo.Distance = distanceMax;
+				}
+			}
+			Result.push_back(DisInfo);
+		}
 	}
 
 	void BasePassRender::ActualDraw(const std::vector<GltfSceneMeshInfo>& MeshInfos,
@@ -121,9 +128,12 @@ namespace Engine
 		for (const auto& MeshInfo : MeshInfos)
 		{
 			size_t MeshSize = MeshInfo.Meshes.size();
-			for (int32_t MeshIndex = MeshSize-1; MeshIndex >= 0; --MeshIndex)
+			std::vector<MeshDistanceInfo> RenderResult;
+			GraphMeshByDistance(MeshInfo, Camera->GetCameraPos(), RenderResult);
+			std::sort(RenderResult.begin(), RenderResult.end(), MeshDistanceInfo());
+			for (const auto &RenderInfo : RenderResult)
 			{
-				std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
+				std::shared_ptr<GltfMesh> Mesh = RenderInfo.Mesh;
 
 				auto Material = GetOrCreateRender(Mesh);
 

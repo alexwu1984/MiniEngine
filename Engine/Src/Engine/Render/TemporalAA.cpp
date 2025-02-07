@@ -17,6 +17,7 @@ namespace Engine
 		RenderCore::DynamicRHI* RHI = nullptr;
 		std::shared_ptr<RenderCore::RHIComputeShader> TAAFirst;
 		std::shared_ptr<RenderCore::RHIComputeShader> TAAMain;
+		std::shared_ptr<RenderCore::RHIComputeShader> TAAMain2;
 		std::shared_ptr<RenderCore::RHIComputeShader> TAASharpener;
 
 		std::shared_ptr<RenderCore::RHIUnorderedAccessView> HistoryUAV;
@@ -48,6 +49,8 @@ namespace Engine
 
 		std::wstring TAASharpenerShaderPath = ShaderPath + L"TAASharpenerCS.hlsl";
 		d->TAASharpener = d->RHI->RHICreateComputeShader(TAASharpenerShaderPath, "mainCS", {});
+
+		d->TAAMain2 = d->RHI->RHICreateComputeShader(TAAShaderPath, "TAA_Main", {});
 	}
 
 	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
@@ -82,7 +85,6 @@ namespace Engine
 		}
 		else
 		{
-
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAAMain;
 
@@ -103,6 +105,7 @@ namespace Engine
 
 		//Sharpener
 		{
+
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAASharpener;
 			RHIContext.RHISetComputePipelineState(Init);

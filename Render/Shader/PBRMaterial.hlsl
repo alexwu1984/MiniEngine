@@ -454,7 +454,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     
     float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness);
     Output.Target0 = float4(HDRColor, alpha);
-    Output.Target1 = Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition);
+    Output.Target1 = Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition); 
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
     Output.Target3 = EmissMap.Sample(SampleLinear, Input.UV0);
     return Output;

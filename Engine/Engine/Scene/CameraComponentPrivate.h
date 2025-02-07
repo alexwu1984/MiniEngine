@@ -20,5 +20,7 @@ namespace Engine
 		float PrevjitterX = 0.f;
 		float PrevjitterY = 0.f;
 		math::Frustum Frustum;
+		uint32_t FrameIndex = 0;
+		uint32_t FrameIndexMod2 = 0;
 	};
 }

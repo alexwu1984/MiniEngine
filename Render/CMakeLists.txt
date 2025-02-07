@@ -48,6 +48,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/CubeBackground.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PostProcess.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAA.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAA2.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAASharpenerCS.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Blend.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShadowPass-PS.hlsl
@@ -78,7 +79,3 @@ copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE
 copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/ShaderLibDX copied_dx_shaders_gltf_release_debinfo)
 
 add_dependencies(Render copied_dx_shaders_gltf_debug copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release_debinfo)
-
-
-set_source_files_properties(${Shaders_GLTF_src} PROPERTIES VS_TOOL_OVERRIDE "Text")
-set_source_files_properties(${Shaders_PostProc_src} PROPERTIES VS_TOOL_OVERRIDE "Text")

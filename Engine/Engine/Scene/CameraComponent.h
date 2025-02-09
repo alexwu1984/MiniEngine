@@ -33,6 +33,8 @@ namespace Engine
 		void SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex);
 
 		math::Matrix4x4 HackAddTemporalAAProjectionJitter( bool PrevFrame = false);
+		int32_t GetFrameIndexMod2() const;
+		int32_t GetFrameIndex() const;
 
 	protected:
 		CameraComponentPrivate* d_ptr;

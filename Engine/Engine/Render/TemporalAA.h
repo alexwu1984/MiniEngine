@@ -7,11 +7,11 @@ namespace RenderCore
 	class DynamicRHI;
 }
 
-
 namespace Engine
 {
 	struct TemporallAAPrivate;
 	class GBuffer;
+	class CameraComponent;
 
 	class TemporallAA
 	{
@@ -20,7 +20,7 @@ namespace Engine
 		~TemporallAA();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera);
 	private:
 		TemporallAAPrivate* d_ptr = nullptr;
 	};

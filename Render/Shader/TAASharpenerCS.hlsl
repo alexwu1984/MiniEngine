@@ -1,6 +1,6 @@
 Texture2D<float4> TAABuffer : register(t0);
 RWTexture2D<float4> HDR : register(u0);
-RWTexture2D<float4> History : register(u1);
+//RWTexture2D<float4> History : register(u1);
 
 float3 RGBToYCoCg(in float3 rgb)
 {
@@ -47,5 +47,5 @@ void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThread
     const float3 color = ApplySharpening(center, top, left, right, bottom);
 
     HDR[globalID.xy] = float4(ReinhardInverse(color), 1.0f);
-    History[globalID.xy] = float4(center, 1.0f);
+   // History[globalID.xy] = float4(center, 1.0f);
 }

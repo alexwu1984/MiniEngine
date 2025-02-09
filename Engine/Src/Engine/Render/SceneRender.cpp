@@ -223,7 +223,7 @@ namespace Engine
 				d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
-				d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort);
+				d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort,GetOwner()->GetMainCamera());
 			});
 		}
 

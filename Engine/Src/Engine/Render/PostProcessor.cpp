@@ -57,12 +57,13 @@ namespace Engine
 		d->BloomEffect->InitResource();
 	}
 
-	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RHIViewPort> ViewPort)
+	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
+						     std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(PostProcessor);
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-		d->TAA->Draw(RHIContext, TargetBuffer);
+		d->TAA->Draw(RHIContext, TargetBuffer, Camera);
 		d->BloomEffect->Draw(RHIContext, TargetBuffer);
 
 		ViewPort->SetRenderTarget();

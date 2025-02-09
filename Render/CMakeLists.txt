@@ -47,8 +47,7 @@ set(Shaders_GLTF_src
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/EnvironmentShaders.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/CubeBackground.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PostProcess.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAA.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAA2.hlsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAACS.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAASharpenerCS.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Blend.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShadowPass-PS.hlsl

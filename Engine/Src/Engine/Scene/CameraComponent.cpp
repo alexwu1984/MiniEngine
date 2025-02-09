@@ -245,4 +245,16 @@ namespace Engine
 		return ProjectMatrix;
 	}
 
+	int32_t CameraComponent::GetFrameIndexMod2() const
+	{
+		C_P(const CameraComponent);
+		return d->FrameIndexMod2;
+	}
+
+	int32_t CameraComponent::GetFrameIndex() const
+	{
+		C_P(const CameraComponent);
+		return d->FrameIndex;
+	}
+
 }

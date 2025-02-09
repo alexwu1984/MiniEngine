@@ -20,6 +20,7 @@ namespace Engine
 		DynamicRHI* RHI = nullptr;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
+		std::shared_ptr< RHIPixelShader> AppalyBloomShader;
 		std::shared_ptr< TemporallAA> TAA;
 		std::shared_ptr< Bloom> BloomEffect;
 
@@ -49,7 +50,8 @@ namespace Engine
 		ShaderPath += L"PostProcess.hlsl";
 
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_ScreenQuad", {}, {});
-		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ToneMapAndBloom", {});
+		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_Tonemapping", {});
+		d->AppalyBloomShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ApplyBloom", {});
 
 		d->TAA = std::make_shared<TemporallAA>(d->RHI);
 		d->TAA->InitResource();
@@ -63,19 +65,18 @@ namespace Engine
 		C_P(PostProcessor);
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-		d->TAA->Draw(RHIContext, TargetBuffer, Camera);
 		d->BloomEffect->Draw(RHIContext, TargetBuffer);
-
+		ApplyBloom(RHIContext, TargetBuffer);
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+
+		d->TAA->Draw(RHIContext, TargetBuffer, Camera);
 		Tonemapping(RHIContext, TargetBuffer);
 	}
 
 	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(PostProcessor);
-		if (!d->BloomEffect->GetResult())
-			return;
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;
@@ -87,8 +88,29 @@ namespace Engine
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
+
+		RHIContext.Draw(3);
+	}
+
+	void PostProcessor::ApplyBloom(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
+	{
+		C_P(PostProcessor);
+		if (!d->BloomEffect->GetResult())
+			return;
+		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
+		RenderCore::GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = d->VertexShader;
+		Init.PixelShader = d->AppalyBloomShader;
+
+		Init.BlendState = RenderCore::RHICachedStates::BlendTraditional;
+		Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
+
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->BloomEffect->GetResult());
-		d->GET_UNIFORMDATA(BloomContants).BloomIntensity = 2.5f;
+		d->GET_UNIFORMDATA(BloomContants).BloomIntensity = 1.5f;
 		d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(BloomContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);

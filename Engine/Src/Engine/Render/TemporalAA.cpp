@@ -68,7 +68,7 @@ namespace Engine
 		uint32_t Src = Camera->GetFrameIndexMod2();
 		uint32_t Dst = Src ^ 1;
 
-		auto SceneColor = TargetBuffer->GetSceneColor();
+		auto SceneColor = TargetBuffer->GetSceneColorWithBloom();
 		const float width = static_cast<float>(SceneColor->GetSize().w);
 		const float height = static_cast<float>(SceneColor->GetSize().y);
 

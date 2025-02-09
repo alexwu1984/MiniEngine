@@ -44,6 +44,13 @@ float4 PS_ToneMapAndBloom(in VertexOutput Input) : SV_Target0
     return float4(AMDTonemapping(Color + Bloom * BloomIntensity), 1.0);
 }
 
+float4 PS_ApplyBloom(in VertexOutput Input) : SV_Target0
+{
+    float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
+    float3 Bloom = BloomTexture.Sample(LinearSampler, Input.Tex).xyz;
+    return float4(Color + Bloom * BloomIntensity, 1.0);
+}
+
 static float2 offsets[9] =
 {
     float2(1, 1), float2(0, 1), float2(-1, 1),

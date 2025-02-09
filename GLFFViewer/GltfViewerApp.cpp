@@ -42,9 +42,9 @@ bool GltfViewApp::Init()
 	if (1)
 	{
 		core::filesystem::path Path = core::process_directory();
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();

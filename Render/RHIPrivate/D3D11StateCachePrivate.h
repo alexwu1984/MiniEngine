@@ -2,7 +2,7 @@
 #include "RHI/RHIDefinitions.h"
 namespace RenderCore
 {
-#define D3D11_ALLOW_STATE_CACHE 1
+#define D3D11_ALLOW_STATE_CACHE 0
 	//-----------------------------------------------------------------------------
 //	FD3D11StateCache Class Definition
 //-----------------------------------------------------------------------------
@@ -23,9 +23,15 @@ namespace RenderCore
 		float DepthBoundsMax = 1.0f;
 
 	protected:
-#if D3D11_ALLOW_STATE_CACHE
 		ID3D11DeviceContext* Direct3DDeviceIMContext;
-
+		ID3D11BlendState* CurrentBlendState;
+		ID3D11DepthStencilState* CurrentDepthStencilState;
+		uint16_t StreamStrides[MaxVertexElementCount];
+		// Viewport
+		uint32_t			CurrentNumberOfViewports;
+		D3D11_VIEWPORT CurrentViewport[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+#if D3D11_ALLOW_STATE_CACHE
+		
 		// Shader Resource Views Cache
 		ID3D11ShaderResourceView* CurrentShaderResourceViews[SF_NumStandardFrequencies][D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
 
@@ -34,7 +40,6 @@ namespace RenderCore
 
 		// Depth Stencil State Cache
 		uint32_t CurrentReferenceStencil;
-		ID3D11DepthStencilState* CurrentDepthStencilState;
 
 		// Shader Cache
 		ID3D11VertexShader* CurrentVertexShader;
@@ -47,11 +52,7 @@ namespace RenderCore
 		// Blend State Cache
 		float CurrentBlendFactor[4];
 		uint32_t CurrentBlendSampleMask;
-		ID3D11BlendState* CurrentBlendState;
-
-		// Viewport
-		uint32_t			CurrentNumberOfViewports;
-		D3D11_VIEWPORT CurrentViewport[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	
 
 
 		// Vertex Buffer State
@@ -73,8 +74,6 @@ namespace RenderCore
 		// Input Layout State
 		ID3D11InputLayout* CurrentInputLayout;
 
-		uint16_t StreamStrides[MaxVertexElementCount];
-
 		// Sampler State
 		ID3D11SamplerState* CurrentSamplerStates[SF_NumStandardFrequencies][D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];
 
@@ -92,7 +91,9 @@ namespace RenderCore
 		D3D11StateCacheBase()
 			: Direct3DDeviceIMContext(nullptr)
 		{
+#if D3D11_ALLOW_STATE_CACHE
 			ZeroMemory(CurrentShaderResourceViews, sizeof(CurrentShaderResourceViews));
+#endif
 		}
 
 		~D3D11StateCacheBase()
@@ -496,7 +497,9 @@ namespace RenderCore
 
 		void SetStreamStrides(const uint16_t* InStreamStrides)
 		{
+#if D3D11_ALLOW_STATE_CACHE
 			memcpy(StreamStrides, InStreamStrides, sizeof(StreamStrides));
+#endif
 		}
 
 		void SetInputLayout(ID3D11InputLayout* InputLayout)

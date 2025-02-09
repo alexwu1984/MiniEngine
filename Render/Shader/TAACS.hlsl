@@ -349,15 +349,15 @@ void TAA_Main(
     //prevColor = clamp(prevColor, neighborMin, neighborMax);
 
     // neighborhood clamping
-  prevColor = ClampHistory(neighborMin, neighborMax, prevColor, (neighborMin + neighborMax) / 2.0f);
+    //prevColor = ClampHistory(neighborMin, neighborMax, prevColor, (neighborMin + neighborMax) / 2.0f);
 
     // variance clip
-    //float3 mu = m1 / N;
-    //float3 sigma = sqrt(abs(m2 / N - mu * mu));
-    //float VarianceClipGamma = lerp(MIN_VARIANCE_GAMMA, MAX_VARIANCE_GAMMA, velocityConfidenceFactor);
-    //neighborMin = mu - VarianceClipGamma * sigma;
-    //neighborMax = mu + VarianceClipGamma * sigma;
-    //prevColor = ClampHistory(neighborMin, neighborMax, prevColor, mu);
+    float3 mu = m1 / N;
+    float3 sigma = sqrt(abs(m2 / N - mu * mu));
+    float VarianceClipGamma = lerp(MIN_VARIANCE_GAMMA, MAX_VARIANCE_GAMMA, velocityConfidenceFactor);
+    neighborMin = mu - VarianceClipGamma * sigma;
+    neighborMax = mu + VarianceClipGamma * sigma;
+    prevColor = ClampHistory(neighborMin, neighborMax, prevColor, mu);
 
     // compute blend amount 
     float BlendFinal;

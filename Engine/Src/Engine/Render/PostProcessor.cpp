@@ -77,6 +77,7 @@ namespace Engine
 	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(PostProcessor);
+		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;
@@ -97,6 +98,7 @@ namespace Engine
 		C_P(PostProcessor);
 		if (!d->BloomEffect->GetResult())
 			return;
+		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;

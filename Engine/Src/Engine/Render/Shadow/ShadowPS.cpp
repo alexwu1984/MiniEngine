@@ -94,6 +94,8 @@ namespace Engine
 	void ShadowPS::Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform, const Light& mainLight)
 	{
 		C_P(ShadowPS);
+		RenderCore::RHICommandMark Mark(RHIContext, "Shadow_Depth");
+
 		GraphicsPipelineStateInitializer Init;
 		Init.PixelShader = d->PixelShader;
 		Init.VertexShader = d->VertexShader;

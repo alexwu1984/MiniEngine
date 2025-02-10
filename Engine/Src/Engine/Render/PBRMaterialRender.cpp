@@ -168,7 +168,7 @@ namespace Engine
 	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
 		C_P(PBRMaterialRender);
-
+		RenderCore::RHICommandMark Mark(RHIContext, "PBRPass");
 		d->RenderParam = RenderParam;
 		SetPipeLineState(RHIContext);
 
@@ -213,7 +213,7 @@ namespace Engine
 		{
 			return;
 		}
-
+		RenderCore::RHICommandMark Mark(RHIContext, "PBRPrePass");
 		d->RenderParam = RenderParam;
 
 		SetPipeLineState(RHIContext);

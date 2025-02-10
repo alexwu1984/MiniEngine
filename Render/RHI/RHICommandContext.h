@@ -61,5 +61,25 @@ namespace RenderCore
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) = 0;
 		virtual void FlushCommands(bool WaitForCompletion = false) {};
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) {};
+		virtual void BeginUserMark(const char* name) {};
+		virtual void EndUserMark(){};
+	};
+
+	class RHICommandMark
+	{
+	public:
+		RHICommandMark(RHICommandContext& Command,const char* Name)
+			:RHICommand(Command)
+		{
+			RHICommand.BeginUserMark(Name);
+		}
+
+		~RHICommandMark()
+		{
+			RHICommand.EndUserMark();
+		}
+
+	private:
+		RHICommandContext& RHICommand;
 	};
 }

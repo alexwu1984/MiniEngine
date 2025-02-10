@@ -53,8 +53,8 @@ namespace Engine
 
 	void FurMaterialRender::DrawMesh(RHICommandContext& RHIContext)
 	{
-
 		C_P(FurMaterialRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "FurPass");
 		auto& FurConfig = d->FurMaterial->GetFurConfig();
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = FurConfig.FurLength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = FurConfig.FurLevel;
@@ -88,6 +88,7 @@ namespace Engine
 	void FurMaterialRender::PreDrawMesh(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(FurMaterialRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "FurPrePass");
 		auto& FurConfig = d->FurMaterial->GetFurConfig();
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = 0;
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = 0;

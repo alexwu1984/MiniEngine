@@ -5,6 +5,7 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12GenerateMips.h"
+#include "pix.h"
 
 namespace RenderCore
 {
@@ -530,6 +531,21 @@ namespace RenderCore
 		auto TexRHI = RHIResourceCast(Tex.get());
 		if (TexRHI)
 			TransitionResource(TexRHI->GetResource(), (D3D12_RESOURCE_STATES)NewState, Flush);
+	}
+
+	void D3D12CommandContext::BeginUserMark(const char* name)
+	{
+		ID3D12GraphicsCommandList* commandBuffer = GetCurrentCommandListHandle().GraphicsCommandList();
+		if(commandBuffer)
+			PIXBeginEvent(commandBuffer, 0, name);
+	}
+
+
+	void D3D12CommandContext::EndUserMark()
+	{
+		ID3D12GraphicsCommandList* commandBuffer = GetCurrentCommandListHandle().GraphicsCommandList();
+		if (commandBuffer)
+			PIXEndEvent(commandBuffer);
 	}
 
 	FD3D12CommandListManager& D3D12CommandContext::GetCommandListManager()

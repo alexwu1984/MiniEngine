@@ -65,6 +65,8 @@ namespace Engine
 	{
 		C_P(TemporallAA);
 
+		RenderCore::RHICommandMark Mark(RHIContext,"TAA");
+
 		uint32_t Src = Camera->GetFrameIndexMod2();
 		uint32_t Dst = Src ^ 1;
 

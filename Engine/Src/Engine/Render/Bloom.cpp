@@ -57,7 +57,7 @@ namespace Engine
 	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(Bloom);
-
+		RenderCore::RHICommandMark Mark(RHIContext, "Bloom");
 		auto ScreenSize = TargetBuffer->GetSceneColor()->GetSize();
 		auto Size = TargetBuffer->GetSceneColor()->GetSize();
 		if (!d->BloomBuffers[0])

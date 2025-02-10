@@ -77,7 +77,7 @@ namespace Engine
 		{
 			return;
 		}
-
+		RenderCore::RHICommandMark Mark(RHIContext, "CubeBackground");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;

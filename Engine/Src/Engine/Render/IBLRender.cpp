@@ -178,6 +178,7 @@ namespace Engine
 	void IBLRender::GenerateCubeMap(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "GenerateCubeMap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PSLongLatToCube;
@@ -215,6 +216,7 @@ namespace Engine
 	void IBLRender::GenerateIrradianceMap(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "GenerateIrradianceMap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->IrrPixelShader;
@@ -255,6 +257,7 @@ namespace Engine
 	void IBLRender::GeneratePrefilteredMap(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(IBLRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "GeneratePrefilteredMap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PSGenPrefiltered;

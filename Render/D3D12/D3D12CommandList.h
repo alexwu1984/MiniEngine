@@ -127,7 +127,7 @@ namespace RenderCore
 							GenerationSyncPoint.second.WaitForCompletion();
 
 							ActiveGenerationsCS.lock();
-							LastCompleteGeneration = std::max(LastCompleteGeneration, GenerationSyncPoint.first);
+							LastCompleteGeneration = (std::max)(LastCompleteGeneration, GenerationSyncPoint.first);
 						}
 					}
 				}

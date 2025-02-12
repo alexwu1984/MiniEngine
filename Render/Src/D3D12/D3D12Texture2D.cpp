@@ -167,7 +167,7 @@ namespace RenderCore
 		D3D12_RESOURCE_DESC Desc = BaseResource->GetDesc();
 		d->Size.cx = (int32_t)Desc.Width;
 		d->Size.cy = (int32_t)Desc.Height;
-		d->Resource = new FD3D12Resource(GetParentDevice(), BaseResource, D3D12_RESOURCE_STATE_PRESENT, Desc);
+		d->Resource = new FD3D12Resource(GetParentDevice(),nullptr, BaseResource, D3D12_RESOURCE_STATE_PRESENT, Desc);
 		d->Resource->SetName(Name.c_str());
 		d->Resource->AddRef();
 		d->PlatformResourceFormat = Desc.Format;
@@ -401,7 +401,7 @@ namespace RenderCore
 		d->PlatformResourceFormat = Image.GetMetadata().format;
 		d->NumMipMaps = (uint32_t)Image.GetMetadata().mipLevels;
 
-		d->Resource = new FD3D12Resource(Device, Resoure.get(), D3D12_RESOURCE_STATE_COPY_DEST, Resoure->GetDesc());
+		d->Resource = new FD3D12Resource(Device,nullptr, Resoure.get(), D3D12_RESOURCE_STATE_COPY_DEST, Resoure->GetDesc());
 		d->Resource->AddRef();
 		d->Resource->SetName(Name.c_str());
 

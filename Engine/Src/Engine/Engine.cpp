@@ -74,14 +74,14 @@ namespace Engine
 		{
 			d->RThread->Stop();
 		}
+		d->SeRender = {};
+		d->Scene = {};
+		d->RThread = {};
 		if (d->DynamicRHI)
 		{
 			d->DynamicRHI->Shutdown();
 		}
-		d->SeRender = {};
-		d->Scene = {};
 		d->DynamicRHI = {};
-		d->RThread = {};
 		
 	}
 

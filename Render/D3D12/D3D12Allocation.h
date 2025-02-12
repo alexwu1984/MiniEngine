@@ -49,6 +49,7 @@ namespace RenderCore
 
 	public:
 		LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice,
+			D3D12MA::Allocation* InAllocation,
 			ID3D12Resource* InResource,
 			D3D12_RESOURCE_STATES InitialState,
 			D3D12_RESOURCE_DESC const& InDesc,

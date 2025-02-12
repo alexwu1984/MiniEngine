@@ -7,6 +7,7 @@
 #include <delayimp.h>
 #include "RHI/RHIDefinitions.h"
 #include "D3D12/D3D12RHICommon.h"
+#include "D3D12/D3D12MemAlloc.h"
 
 namespace RenderCore
 {

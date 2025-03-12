@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.10)
+﻿cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngineTutorial)
 

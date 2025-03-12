@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
-
+cmake_minimum_required(VERSION 3.15)
 PROJECT (tinygltf)
 
 option(TINYGLTF_BUILD_LOADER_EXAMPLE "Build loader_example(load glTF and dump infos)" ON)

@@ -57,8 +57,6 @@ namespace Engine
 
 		std::wstring TAASharpenerShaderPath = ShaderPath + L"TAASharpenerCS.hlsl";
 		d->TAASharpener = d->RHI->RHICreateComputeShader(TAASharpenerShaderPath, "mainCS", {});
-		TAAShaderPath = ShaderPath + L"TAA2.hlsl";
-		
 	}
 
 	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera)

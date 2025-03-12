@@ -35,27 +35,6 @@ source_group("Source Files\\Imgui" FILES ${Src_Imgui} )
 
 #-----shader
 
-set(Shaders_GLTF_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFPbrPass-IO.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFVertexFactory.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GLTFPbrPass-VS.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PBRMaterial.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/FurMaterial.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PerFrameStruct.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Skinning.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShaderUtils.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/EnvironmentShaders.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/CubeBackground.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PostProcess.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAACS.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/TAASharpenerCS.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/Blend.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShadowPass-PS.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/ShadowPass-VS.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/PostProcessDemo.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shader/GenerateMips.hlsl
-)
-
 add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_D3D12} ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
 
 #-------------------------------------------------------------------------------------------
@@ -73,8 +52,36 @@ target_link_libraries(Render LINK_PUBLIC Core dinput8.lib dxguid.lib xinput.lib 
 
 target_include_directories(Render PUBLIC RHI)
 
-copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}/ShaderLibDX copied_dx_shaders_gltf_debug)
-copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}/ShaderLibDX copied_dx_shaders_gltf_release)
-copyTargetCommand("${Shaders_GLTF_src}" ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}/ShaderLibDX copied_dx_shaders_gltf_release_debinfo)
 
-add_dependencies(Render copied_dx_shaders_gltf_debug copied_dx_shaders_gltf_release copied_dx_shaders_gltf_release_debinfo)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ShaderLibDX
+     DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}
+     FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                      GROUP_READ GROUP_EXECUTE
+                      WORLD_READ WORLD_EXECUTE
+     DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                           GROUP_READ GROUP_EXECUTE
+                           WORLD_READ WORLD_EXECUTE
+     USE_SOURCE_PERMISSIONS
+     FOLLOW_SYMLINK_CHAIN) 
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ShaderLibDX
+     DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                      GROUP_READ GROUP_EXECUTE
+                      WORLD_READ WORLD_EXECUTE
+     DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                           GROUP_READ GROUP_EXECUTE
+                           WORLD_READ WORLD_EXECUTE
+     USE_SOURCE_PERMISSIONS
+     FOLLOW_SYMLINK_CHAIN)
+	
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ShaderLibDX
+     DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                      GROUP_READ GROUP_EXECUTE
+                      WORLD_READ WORLD_EXECUTE
+     DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                           GROUP_READ GROUP_EXECUTE
+                           WORLD_READ WORLD_EXECUTE
+     USE_SOURCE_PERMISSIONS
+     FOLLOW_SYMLINK_CHAIN)

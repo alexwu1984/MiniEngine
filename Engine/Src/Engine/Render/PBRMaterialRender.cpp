@@ -1,6 +1,6 @@
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Engine.h"
-#include "GltfModel/GltfMaterial.h"
+#include "Material/GltfMaterial.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/GltfModelConfig.h"
 #include "Thread/RenderThread.h"

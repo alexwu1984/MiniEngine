@@ -1,6 +1,6 @@
 #pragma once
 #include "core/inc.h"
-#include "Engine/GltfModel/GltfMaterial.h"
+#include "Engine/Material/GltfMaterial.h"
 
 namespace Engine
 {

@@ -6,7 +6,7 @@ add_subdirectory(AGS)
 SET(TINYGLTF_BUILD_LOADER_EXAMPLE OFF)
 SET(TINYGLTF_HEADER_ONLY OFF)
 add_subdirectory(tinygltf)
-add_subdirectory(ffmpeg)
+add_subdirectory(Assimp)
 
 set_target_properties(
 	DirectXTex
@@ -14,7 +14,7 @@ set_target_properties(
 	texconv
 	texdiag
 	tinygltf
-	ffmpeg
+	Assimp
 	PROPERTIES
 		FOLDER ThirdParty
 )

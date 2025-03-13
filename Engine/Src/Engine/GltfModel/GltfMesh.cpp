@@ -1,7 +1,7 @@
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/GltfNode.h"
-#include "GltfModel/GltfMaterial.h"
+#include "Material/GltfMaterial.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfSkeleton.h"
 #include "math/matrix4x4.h"

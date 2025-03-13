@@ -1,7 +1,7 @@
 #include "Scene/GltfMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
-#include "GltfModel/GltfMaterial.h"
+#include "Material/GltfMaterial.h"
 #include "GltfModel/GltfSkeleton.h"
 #include "GltfModel/GltfModelConfig.h"
 #include "Render/PBRMaterialRender.h"

@@ -1,6 +1,6 @@
 #include "Render/BasePassRender.h"
 #include "GltfModel/GltfMesh.h"
-#include "GltfModel/GltfMaterial.h"
+#include "Material/GltfMaterial.h"
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/CameraComponent.h"
 #include "Engine/Render/SceneRender.h"

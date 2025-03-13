@@ -10,7 +10,7 @@
 #include "Render/Blur.h"
 #include "Engine/GltfModel/GltfMesh.h"
 #include "Engine/GltfModel/GltfMeshBuffer.h"
-#include "Engine/GltfModel/GltfMaterial.h"
+#include "Engine/Material/GltfMaterial.h"
 
 namespace Engine
 {

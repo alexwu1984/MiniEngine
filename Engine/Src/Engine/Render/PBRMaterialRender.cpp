@@ -1,6 +1,6 @@
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Engine.h"
-#include "Material/GltfMaterial.h"
+#include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/GltfModelConfig.h"
 #include "Thread/RenderThread.h"
@@ -26,7 +26,7 @@ namespace Engine
 		{
 		}
 		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
-		std::shared_ptr<GltfMaterial> MeshMaterial;
+		std::shared_ptr<MaterialBase> MeshMaterial;
 		std::shared_ptr<RHIVertexShader> VertexShader;
 		std::shared_ptr<RHIPixelShader> PixelShader;
 		MaterialRenderParam RenderParam;
@@ -36,7 +36,7 @@ namespace Engine
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
 	};
 
-	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial)
+	PBRMaterialRender::PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< MaterialBase> MeshMaterial)
 		:d_ptr(new PBRMaterialRenderPrivate())
 	{
 		

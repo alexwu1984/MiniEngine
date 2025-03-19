@@ -13,7 +13,7 @@ namespace Engine
 		std::vector< FDynamicBoneInfo> DyBonelist;
 		std::wstring ModelName;
 		GltfFurConfig FurConfig;
-		GltfMaterialConfig MaterialConfig;
+		MaterialConfig MaterialConfig;
 	};
 
 	GltfModelConfig::GltfModelConfig(std::weak_ptr< GltfMeshComponent> Owner)
@@ -94,7 +94,7 @@ namespace Engine
 		return d->FurConfig;
 	}
 
-	const Engine::GltfMaterialConfig& GltfModelConfig::GetMaterialConfig() const
+	const Engine::MaterialConfig& GltfModelConfig::GetMaterialConfig() const
 	{
 		C_P(const GltfModelConfig);
 		return d->MaterialConfig;

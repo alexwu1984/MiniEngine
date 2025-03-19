@@ -23,7 +23,7 @@ namespace Engine
 		std::shared_ptr<GltfFurMaterial> FurMaterial;
 	};
 
-	FurMaterialRender::FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial)
+	FurMaterialRender::FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< MaterialBase> MeshMaterial)
 		:PBRMaterialRender(MeshBuffer,MeshMaterial)
 		,d_ptr(new FurMaterialRenderPrivate())
 	{

@@ -149,7 +149,7 @@ namespace Engine
 	}
 
 
-	const Engine::GltfMaterialConfig& GltfMaterial::GetMaterialConfig() const
+	const Engine::MaterialConfig& GltfMaterial::GetMaterialConfig() const
 	{
 		C_P(GltfMaterial);
 		return d->Owner->GetModelConfig()->GetMaterialConfig();

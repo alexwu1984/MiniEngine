@@ -6,12 +6,12 @@ namespace Engine
 {
 	struct PBRMaterialRenderPrivate;
 	class GltfMeshBuffer;
-	class GltfMaterial;
+	class MaterialBase;
 
 	class PBRMaterialRender : public MaterialRender
 	{
 	public:
-		PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer,std::shared_ptr< GltfMaterial> MeshMaterial);
+		PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer,std::shared_ptr< MaterialBase> MeshMaterial);
 		virtual ~PBRMaterialRender();
 
 		virtual void InitRenderResource();

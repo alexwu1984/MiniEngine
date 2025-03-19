@@ -8,7 +8,7 @@ namespace Engine
 	class FurMaterialRender : public PBRMaterialRender
 	{
 	public:
-		FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< GltfMaterial> MeshMaterial);
+		FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< MaterialBase> MeshMaterial);
 		virtual ~FurMaterialRender();
 
 		virtual void InitRenderResource() override;

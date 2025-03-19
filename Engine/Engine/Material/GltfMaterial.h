@@ -1,5 +1,5 @@
 #pragma once
-#include "core/inc.h"
+#include "Material/MaterialBase.h"
 #include "tinygltf/tiny_gltf.h"
 
 namespace RenderCore
@@ -11,35 +11,29 @@ namespace Engine
 {
 	struct GltfMaterialPrivate;
 	class GltfModel;
-	struct GltfMaterialConfig;
+	struct MaterialConfig;
 
-	class GltfMaterial 
+	class GltfMaterial : public MaterialBase
 	{
-	public:
-		enum class MaterialType: uint8_t
-		{
-			PBR,
-			FUR,
-		};
-
 	public:
 		GltfMaterial(GltfModel* Owner,tinygltf::Model* Model);
 		~GltfMaterial();
 
 		virtual void  InitMaterial(uint32_t MaterialIndex);
-		std::string GetMaterialName() const;
-		bool IsTransparent() const;
+
+		std::string GetMaterialName() const override;
+		bool IsTransparent() const override;
 		void SetTransparent(bool Transparent);
 
-		virtual MaterialType GetMaterialType() const;
+		MaterialType GetMaterialType() const override;
 
-		std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const;
-		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const;
-		std::shared_ptr<RenderCore::RHITexture2D> GetNormalTexture() const;
-		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveTexture() const;
-		std::shared_ptr<RenderCore::RHITexture2D> GetOcclusionTexture() const;
+		std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const override;
+		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const override;
+		std::shared_ptr<RenderCore::RHITexture2D> GetNormalTexture() const override;
+		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveTexture() const override;
+		std::shared_ptr<RenderCore::RHITexture2D> GetOcclusionTexture() const override;
 
-		const GltfMaterialConfig& GetMaterialConfig() const;
+		const MaterialConfig& GetMaterialConfig() const override;
 
 	protected:
 		tinygltf::Model* GetModel();

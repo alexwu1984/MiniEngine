@@ -45,10 +45,10 @@ source_group("Source Files\\Src\\Engine" FILES ${Engine_Source} )
 source_group("Source Files\\Src\\Engine\\Thread" FILES ${Engine_Thread_Source} )
 source_group("Source Files\\Src\\Engine\\Scene" FILES ${Engine_Scene_Source} )
 source_group("Source Files\\Src\\Engine\\GltfModel" FILES ${Engine_GltfModel_Source} )
-source_group("Source Files\\Engine\\ObjModel" FILES ${Engine_ObjModel_Source} )
+source_group("Source Files\\Src\\Engine\\ObjModel" FILES ${Engine_ObjModel_Source} )
 source_group("Source Files\\Src\\Engine\\Render" FILES ${Engine_Render_Source} )
 source_group("Source Files\\Src\\Engine\\Render\\Shadow" FILES ${Engine_Render_Shadow_Source} )
-source_group("Source Files\\Engine\\Material" FILES ${Engine_Material_Source} )
+source_group("Source Files\\Src\\Engine\\Material" FILES ${Engine_Material_Source} )
 
 add_library(Engine ${App_Source} ${Engine_Source} ${App_Header} ${Engine_Header} ${Engine_Thread_Source} ${Engine_Thread_Header} 
                    ${Engine_Scene_Header} ${Engine_Scene_Source} ${Engine_GltfModel_Header} ${Engine_GltfModel_Source}

@@ -4,7 +4,7 @@
 namespace Engine
 {
 	struct GltfFurMaterialPrivate;
-	struct GltfFurConfig;
+	struct FurConfig;
 	
 	class GltfFurMaterial : public GltfMaterial
 	{
@@ -15,7 +15,7 @@ namespace Engine
 		virtual void  InitMaterial(uint32_t MaterialIndex) override;
 		virtual MaterialType GetMaterialType() const override;
 
-		const GltfFurConfig& GetFurConfig() const;
+		const FurConfig& GetFurConfig() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetNoiseTex() const;
 	private:
 		GltfFurMaterialPrivate* d_ptr = nullptr;

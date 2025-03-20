@@ -108,6 +108,7 @@ namespace RenderCore
 *	Called to create the instance of the dynamic RHI.
 */
 	std::shared_ptr<DynamicRHI> PlatformCreateDynamicRHI(RHIAPIType apiType);
+	std::shared_ptr<DynamicRHI> GetDynamicRHI();
 	void ReleasePlatformModule();
 
 	extern uint32_t GRHIVendorId;

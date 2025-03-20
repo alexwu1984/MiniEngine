@@ -9,7 +9,7 @@ namespace Engine
 	class GltfMeshComponent;
 	struct FDynamicBoneInfo;
 
-	struct GltfFurConfig
+	struct FurConfig
 	{
 		std::string Name;
 		std::string NoiseTex;
@@ -38,7 +38,7 @@ namespace Engine
 		std::wstring GetModelName() const;
 
 		const std::vector< FDynamicBoneInfo>& GetDyNamicBoneInfoList() const;
-		const GltfFurConfig& GetFurConfig() const;
+		const FurConfig& GetFurConfig() const;
 		const MaterialConfig& GetMaterialConfig() const;
 
 	private:

@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "Render/PBRMaterialRender.h"
 #include "Render/FurMaterialRender.h"
+#include "Material/GltfFurMaterial.h"
 #include "Engine/Scene/SceneView.h"
 
 namespace Engine
@@ -224,7 +225,10 @@ namespace Engine
 			PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
 			break;
 		case GltfMaterial::MaterialType::FUR:
-			PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
+		{
+			auto furMaterial = std::static_pointer_cast<GltfFurMaterial>(Mesh->GetMaterial());
+			PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), furMaterial, furMaterial->GetFurConfig(), furMaterial->GetNoiseTex());
+		}
 			break;
 		default:
 			PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());

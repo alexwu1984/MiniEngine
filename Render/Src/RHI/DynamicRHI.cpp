@@ -28,6 +28,15 @@ namespace RenderCore
 	}
 
 
+	std::shared_ptr<DynamicRHI> GetDynamicRHI()
+	{
+		if (!GRHIModule)
+		{
+			return {};
+		}
+		return GRHIModule->CreateRHI();
+	}
+
 	void ReleasePlatformModule()
 	{
 		GRHIModule = {};

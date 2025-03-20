@@ -15,7 +15,7 @@ namespace Engine
 	struct GltfFurMaterialPrivate
 	{
 		std::shared_ptr<RenderCore::RHITexture2D> NoiseTex;
-		GltfFurConfig FurConfig;
+		FurConfig FurConfigParam;
 	};
 
 	GltfFurMaterial::GltfFurMaterial(GltfModel* Owner, tinygltf::Model* Model)
@@ -38,17 +38,12 @@ namespace Engine
 		C_P(GltfFurMaterial);
 
 		const auto& ModelConfig = GetOwner()->GetModelConfig();
-		d->FurConfig = ModelConfig->GetFurConfig();
+		d->FurConfigParam = ModelConfig->GetFurConfig();
 
-		auto CreateTexCommand = [this, ModelConfig](DynamicRHI* DyRHI) {
-			C_P(GltfFurMaterial);
-			core::filesystem::path Path = core::process_directory();
-			std::wstring ModelFile = Path.wstring() + L"/GLTFModel/" + core::u8_ucs2(ModelConfig->GetFurConfig().NoiseTex);
-			
-			d->NoiseTex = DyRHI->RHICreateTexture2D(ModelFile);
-		};
+		core::filesystem::path Path = core::process_directory();
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/" + core::u8_ucs2(ModelConfig->GetFurConfig().NoiseTex);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
+		d->NoiseTex = GetDynamicRHI()->RHICreateTexture2D(ModelFile);
 	}
 
 	GltfMaterial::MaterialType GltfFurMaterial::GetMaterialType() const
@@ -56,10 +51,10 @@ namespace Engine
 		return MaterialType::FUR;
 	}
 
-	const GltfFurConfig& GltfFurMaterial::GetFurConfig() const
+	const FurConfig& GltfFurMaterial::GetFurConfig() const
 	{
 		C_P(const GltfFurMaterial);
-		return d_ptr->FurConfig;
+		return d_ptr->FurConfigParam;
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> GltfFurMaterial::GetNoiseTex() const

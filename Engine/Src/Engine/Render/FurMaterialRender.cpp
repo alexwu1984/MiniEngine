@@ -20,15 +20,19 @@ namespace Engine
 		}
 
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFur);
-		std::shared_ptr<GltfFurMaterial> FurMaterial;
+		FurConfig Config;
+		std::shared_ptr<RenderCore::RHITexture2D> NoiseTex;
 	};
 
-	FurMaterialRender::FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< MaterialBase> MeshMaterial)
+	FurMaterialRender::FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< MaterialBase> MeshMaterial,
+										 const FurConfig& InConifg,
+										 std::shared_ptr<RenderCore::RHITexture2D> NoiseTex)
 		:PBRMaterialRender(MeshBuffer,MeshMaterial)
 		,d_ptr(new FurMaterialRenderPrivate())
 	{
 		C_P(FurMaterialRender);
-		d->FurMaterial = std::static_pointer_cast<GltfFurMaterial>(MeshMaterial);
+		d->Config = InConifg;
+		d->NoiseTex = NoiseTex;
 	}
 
 	FurMaterialRender::~FurMaterialRender()
@@ -55,7 +59,7 @@ namespace Engine
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurPass");
-		auto& FurConfig = d->FurMaterial->GetFurConfig();
+		auto& FurConfig = d->Config;
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = FurConfig.FurLength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = FurConfig.FurLevel;
 		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;
@@ -68,7 +72,7 @@ namespace Engine
 		//gltfÈý½ÇÐÎË³Ðò
 		RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
 
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->FurMaterial->GetNoiseTex());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->NoiseTex);
 
 		for (int32_t Index = 0; Index < FurConfig.FurLevel; Index++)
 		{
@@ -89,7 +93,7 @@ namespace Engine
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurPrePass");
-		auto& FurConfig = d->FurMaterial->GetFurConfig();
+		auto& FurConfig = d->Config;
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = 0;
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = 0;
 		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;

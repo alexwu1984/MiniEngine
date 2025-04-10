@@ -45,7 +45,8 @@ bool GltfViewApp::Init()
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/lost_empire/lost_empire.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();
 		Scene->LoadScene(ModelFile);

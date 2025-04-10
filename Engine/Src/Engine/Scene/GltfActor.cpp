@@ -42,7 +42,7 @@ namespace Engine
 		{
 			return;
 		}
-		SetActorName(d->MeshComp->GetModel().GetModelConfig()->GetModelName());
+		//SetActorName(d->MeshComp->GetModel().GetModelConfig()->GetModelName());
 
 		AddComponent(d->MeshComp);
 		d->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());

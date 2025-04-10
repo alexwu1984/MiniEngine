@@ -1,6 +1,7 @@
 #include "Scene/GltfMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
+#include "ObjModel/ObjModel.h"
 #include "Material/GltfMaterial.h"
 #include "GltfModel/GltfSkeleton.h"
 #include "GltfModel/GltfModelConfig.h"
@@ -23,7 +24,9 @@ namespace Engine
 
 	struct GltfMeshComponentPrivate
 	{
-		GltfModel Model;
+		GltfModel gltfModel;
+		ObjModel objModel;
+		bool isGltfModel = true;
 		float TotalDeltaTime = 0.f;
 		std::shared_ptr< GltfModelConfig>  ModelConfig;
 	};
@@ -63,9 +66,16 @@ namespace Engine
 			{
 				std::wstring Path = std::filesystem::path(FileName).parent_path().wstring();
 				Path += L"/" + d->ModelConfig->GetModelName();
-				if (!d->Model.Load(Path, d->ModelConfig))
+				if (Path.find(L".glb") != std::wstring::npos)
 				{
-					return false;
+					if (!d->gltfModel.Load(Path, d->ModelConfig))
+						return false;
+				}
+				else
+				{
+					d->isGltfModel = false;
+					if (!d->objModel.Load(Path, d->ModelConfig))
+						return false;
 				}
 			}
 			else
@@ -75,7 +85,7 @@ namespace Engine
 		}
 		else
 		{
-			if (!d->Model.Load(FileName,nullptr))
+			if (!d->gltfModel.Load(FileName,nullptr))
 			{
 				return false;
 			}
@@ -92,9 +102,16 @@ namespace Engine
 		{
 			std::wstring Path = GEngine->GetModelPath();
 			Path += L"/" + d->ModelConfig->GetModelName();
-			if (!d->Model.Load(Path, d->ModelConfig))
+			if (Path.find(L".glb") != std::wstring::npos)
 			{
-				return false;
+				if (!d->gltfModel.Load(Path, d->ModelConfig))
+					return false;
+			}
+			else
+			{
+				d->isGltfModel = false;
+				if (!d->objModel.Load(Path, d->ModelConfig))
+					return false;
 			}
 			return true;
 		}
@@ -107,13 +124,13 @@ namespace Engine
 	GltfModel& GltfMeshComponent::GetModel() const
 	{
 		C_P(GltfMeshComponent);
-		return d->Model;
+		return d->gltfModel;
 	}
 
 	math::AABB3 GltfMeshComponent::GetModelBox() const
 	{
 		C_P(const GltfMeshComponent);
-		return d->Model.GetModelBox();
+		return d->gltfModel.GetModelBox();
 	}
 
 
@@ -121,18 +138,22 @@ namespace Engine
 	{
 		C_P(GltfMeshComponent);
 		d->TotalDeltaTime += deltaTime / 5.f;
-		d->Model.Play(d->TotalDeltaTime, deltaTime);
+		d->gltfModel.Play(d->TotalDeltaTime, deltaTime);
 	}
 
 	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
 	{
 		C_P(GltfMeshComponent);
-		auto& RootNodes = d->Model.GetSkeleton()->GetRootNode();
-		if (!RootNodes.empty())
+		if (d->isGltfModel)
 		{
-			math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
-			RootNodes[0]->ParentMat = WorldTransform;
+			auto& RootNodes = d->gltfModel.GetSkeleton()->GetRootNode();
+			if (!RootNodes.empty())
+			{
+				math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
+				RootNodes[0]->ParentMat = WorldTransform;
+			}
 		}
+
 	}
 
 	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, std::shared_ptr<CameraComponent> Camera)
@@ -140,11 +161,11 @@ namespace Engine
 		C_P(GltfMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
 		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
-		math::AABB3 Box = d->Model.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+		math::AABB3 Box = d->gltfModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 		bool Render = Camera->GetFrustum().Intersects(Box);
 		if (Render)
 		{
-			auto& TmpMeshs = d->Model.GetModelMesh();
+			auto& TmpMeshs = d->gltfModel.GetModelMesh();
 			std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
 				SceneMeshInfo.Meshes.push_back(Item);
 				});

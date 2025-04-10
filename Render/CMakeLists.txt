@@ -47,7 +47,7 @@ add_compile_options(/wd4201)
 
 target_link_libraries(Render LINK_PUBLIC DirectXTex)
 target_link_libraries(Render LINK_PUBLIC amd_ags)
-
+target_link_libraries(Render LINK_PUBLIC Assimp)
 target_link_libraries(Render LINK_PUBLIC Core dinput8.lib dxguid.lib xinput.lib dxgi.lib d3d11.lib D3DCompiler.lib d3d12.lib)
 
 target_include_directories(Render PUBLIC RHI)

@@ -219,6 +219,8 @@ namespace win32
 	void debug_memory::Deallocate(char* pcAddr, size_t uiAlignment, bool bIsArray)
 	{
 		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
+		if (!pcAddr)
+			return;
 		m_uiNumDeleteCalls++;
 		assert(pcAddr);
 		pcAddr -= sizeof(unsigned int);

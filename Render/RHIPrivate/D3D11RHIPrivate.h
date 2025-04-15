@@ -73,6 +73,8 @@ namespace RenderCore
 		std::shared_ptr< D3D11CommandContext> CommandContext;
 
 		RHIShaderCache ShaderCache;
+
+		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;
 	};
 
 	/** Find an appropriate DXGI format for the input format and SRGB setting. */

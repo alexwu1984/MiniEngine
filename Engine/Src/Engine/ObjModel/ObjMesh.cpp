@@ -14,6 +14,7 @@ namespace Engine
 		aiMesh* vAiMesh = nullptr;
 		std::shared_ptr<GltfMeshInfo> Mesh;
 		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
+		std::shared_ptr<ObjMaterial> Material;
 		std::string MeshName;
 		std::string Directory;
 
@@ -42,8 +43,11 @@ namespace Engine
 
 	void ObjMesh::Init()
 	{
+		C_P(ObjMesh);
 		ProcessVertex();
 		ProcessIndices();
+		ProcessTextures();
+		d->MeshBuffer->InitMesh(d->Mesh);
 	}
 
 	void ObjMesh::ProcessVertex()
@@ -81,6 +85,13 @@ namespace Engine
 			for (int32_t k = 0; k < NumIndices; ++k)
 				d->Indices.push_back(AiFace.mIndices[k]);
 		}
+	}
+
+	void ObjMesh::ProcessTextures()
+	{
+		C_P(ObjMesh);
+		d->Material = std::make_shared<ObjMaterial>(d->pScene, d->vAiMesh,d->Directory);
+		d->Material->Init();
 	}
 
 }

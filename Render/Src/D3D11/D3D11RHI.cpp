@@ -229,9 +229,16 @@ namespace RenderCore
 
 	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(const std::wstring& FileName)
 	{
+		C_P(D3D11DynamicRHI);
+		auto it = d->TexCaches.find(FileName);
+		if (it != d->TexCaches.end())
+		{
+			return it->second;
+		}
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);
 		if (Tex2DRHI->CreateFromFile(FileName))
 		{
+			d->TexCaches.insert({ FileName,Tex2DRHI });
 			return Tex2DRHI;
 		}
 		else

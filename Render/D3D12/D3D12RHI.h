@@ -75,5 +75,6 @@ namespace RenderCore
 
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;
+		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;
 	};
 }

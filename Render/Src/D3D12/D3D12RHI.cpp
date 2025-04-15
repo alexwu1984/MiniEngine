@@ -432,9 +432,15 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(const std::wstring& FileName)
 	{
+		auto it = TexCaches.find(FileName);
+		if (it != TexCaches.end())
+		{
+			return it->second;
+		}
 		std::shared_ptr<D3D12Texture2D> TexRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
 		if (TexRHI->CreateFromFile(FileName))
 		{
+			TexCaches.insert({ FileName,TexRHI });
 			return TexRHI;
 		}
 		return {};
@@ -456,9 +462,15 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
 	{
+		auto it = TexCaches.find(FileName);
+		if (it != TexCaches.end())
+		{
+			return it->second;
+		}
 		std::shared_ptr<D3D12Texture2D> TexRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
 		if (TexRHI->CreateHDRFromFile(FileName))
 		{
+			TexCaches.insert({ FileName,TexRHI });
 			return TexRHI;
 		}
 		return {};

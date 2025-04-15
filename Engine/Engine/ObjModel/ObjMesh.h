@@ -18,6 +18,7 @@ namespace Engine
 	private:
 		void ProcessVertex();
 		void ProcessIndices();
+		void ProcessTextures();
 	private:
 		ObjMeshPrivate* d_ptr = nullptr;
 	};

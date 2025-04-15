@@ -3,6 +3,7 @@
 #include "Engine/Engine.h"
 #include "RHI/RHITexture2D.h"
 #include "Thread/RenderThread.h"
+#include "GltfModel/GltfModelConfig.h"
 #include <Assimp/Importer.hpp>
 #include <Assimp/scene.h>
 #include <Assimp/postprocess.h>
@@ -24,10 +25,19 @@ namespace Engine
 #define ROUGHNESS_TEX	"u_RoughnessTexture"
 #define METALLIC_TEX	"u_MetallicTexture"
 
+	struct SMeshMatProperties
+	{
+		math::Vector3 AmbientColor;
+		math::Vector3 DiffuseColor;
+		math::Vector3 SpecularColor;
+		float Shininess = 0.0f;
+		float Refracti = 0.0f;
+	};
+
 	struct ObjMaterialPrivate
 	{
 		aiMesh* vAiMesh = nullptr;
-		aiScene* Scene = nullptr;
+		const aiScene* Scene = nullptr;
 		std::string MaterialName;
 		std::string Directory;
 		bool DoubleSided = false;
@@ -39,9 +49,11 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> EmissiveTexture;
 		std::shared_ptr<RHITexture2D> OcclusionTexture;
 
+		MaterialConfig Config;
+		SMeshMatProperties MatProperty;
 	};
 
-	ObjMaterial::ObjMaterial(aiScene* pScene, aiMesh* pMesh, const std::string& Directory)
+	ObjMaterial::ObjMaterial(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory)
 		:d_ptr(new ObjMaterialPrivate())
 	{
 		C_P(ObjMaterial);
@@ -69,6 +81,19 @@ namespace Engine
 		loadTextureFromMaterial(aiTextureType_EMISSIVE, pAiMat, TexNames);
 		loadTextureFromMaterial(aiTextureType_LIGHTMAP, pAiMat, TexNames);
 
+		aiColor3D AmbientColor, DiffuseColor, SpecularColor;
+		float Shininess = 0.0f, Refracti = 0.0f;
+		pAiMat->Get(AI_MATKEY_COLOR_AMBIENT, AmbientColor);
+		pAiMat->Get(AI_MATKEY_COLOR_DIFFUSE, DiffuseColor);
+		pAiMat->Get(AI_MATKEY_COLOR_SPECULAR, SpecularColor);
+		pAiMat->Get(AI_MATKEY_SHININESS, Shininess);
+		pAiMat->Get(AI_MATKEY_REFRACTI, Refracti);
+		d->MatProperty.AmbientColor = { AmbientColor.r, AmbientColor.g, AmbientColor.b };
+		d->MatProperty.DiffuseColor = { DiffuseColor.r, DiffuseColor.g, DiffuseColor.b };
+		d->MatProperty.SpecularColor = { SpecularColor.r, SpecularColor.g, SpecularColor.b };
+		d->MatProperty.Shininess = Shininess;
+		d->MatProperty.Refracti = Refracti;
+
 		auto CreateTexture = [this](const aiString& Str, const core::FLinearColor& Color) {
 			C_P(ObjMaterial);
 			std::shared_ptr<RHITexture2D> TexRHI;
@@ -87,14 +112,62 @@ namespace Engine
 
 		auto CreateTexCommand = [this, CreateTexture, TexNames](DynamicRHI* DyRHI) {
 			C_P(ObjMaterial);
-			d->BaseColorTexture = CreateTexture(TexNames.find(aiTextureType_DIFFUSE)->second, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));
-			d->MetallicRoughnessTexture = CreateTexture(TexNames.find(aiTextureType_SHININESS)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
+			d->BaseColorTexture = CreateTexture(TexNames.find(aiTextureType_DIFFUSE)->second, core::FLinearColor(d->MatProperty.DiffuseColor));
+			d->MetallicRoughnessTexture = CreateTexture(TexNames.find(aiTextureType_SHININESS)->second, core::FLinearColor(1.f, d->MatProperty.Shininess, d->MatProperty.Refracti, 1.f));
 			d->EmissiveTexture = CreateTexture(TexNames.find(aiTextureType_EMISSIVE)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
 			d->NormalTexture = CreateTexture(TexNames.find(aiTextureType_NORMALS)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
 			d->OcclusionTexture = CreateTexture(TexNames.find(aiTextureType_LIGHTMAP)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
 			};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
+	}
+
+	std::string ObjMaterial::GetMaterialName() const
+	{
+		C_P(ObjMaterial);
+		return d->MaterialName;
+	}
+
+	bool ObjMaterial::IsTransparent() const
+	{
+		C_P(ObjMaterial);
+		return d->IsTransParent;
+	}
+
+	std::shared_ptr<RHITexture2D> ObjMaterial::GetBaseColorTexture() const
+	{
+		C_P(ObjMaterial);
+		return d->BaseColorTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> ObjMaterial::GetMetallicRoughnessTexture() const
+	{
+		C_P(ObjMaterial);
+		return d->MetallicRoughnessTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> ObjMaterial::GetNormalTexture() const
+	{
+		C_P(ObjMaterial);
+		return d->NormalTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> ObjMaterial::GetEmissiveTexture() const
+	{
+		C_P(ObjMaterial);
+		return d->EmissiveTexture;
+	}
+
+	std::shared_ptr<RHITexture2D> ObjMaterial::GetOcclusionTexture() const
+	{
+		C_P(ObjMaterial);
+		return d->OcclusionTexture;
+	}
+
+	const Engine::MaterialConfig& ObjMaterial::GetMaterialConfig() const
+	{
+		C_P(ObjMaterial);
+		return d->Config;
 	}
 
 	void ObjMaterial::loadTextureFromMaterial(aiTextureType vTextureType, const aiMaterial* vMat, std::map< int32_t, aiString>& TexNames)

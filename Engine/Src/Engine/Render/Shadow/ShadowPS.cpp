@@ -30,14 +30,14 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr< BlurCS> Blur;
-		std::shared_ptr<GltfMesh> Mesh;
+		std::shared_ptr<MeshBase> Mesh;
 		bool HasSkin = false;
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
 	};
 
-	ShadowPS::ShadowPS(RenderCore::DynamicRHI* RHI, std::shared_ptr<GltfMesh> gltfMesh)
+	ShadowPS::ShadowPS(RenderCore::DynamicRHI* RHI, std::shared_ptr<MeshBase> gltfMesh)
 		:d_ptr(new ShadowPSPrivate(RHI))
 	{
 		C_P(ShadowPS);

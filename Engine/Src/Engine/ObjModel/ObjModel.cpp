@@ -9,12 +9,15 @@
 
 namespace Engine
 {
+	using namespace math;
+
 	struct ObjModelPrivate
 	{
 		Assimp::Importer ModelImpoter;
 		const aiScene* pScene = nullptr;
 		std::string Directory;
 		std::vector<std::shared_ptr<ObjMesh>> ModelMesh;
+		AABB3  ModelBox;
 	};
 
 	ObjModel::ObjModel()
@@ -42,6 +45,18 @@ namespace Engine
 		return true;
 	}
 
+	std::vector<std::shared_ptr<ObjMesh>>& ObjModel::GetModelMesh()
+	{
+		C_P(ObjModel);
+		return d->ModelMesh;
+	}
+
+	math::AABB3 ObjModel::GetModelBox() const
+	{
+		C_P(ObjModel);
+		return d->ModelBox;
+	}
+
 	void ObjModel::traverseNodes()
 	{
 		C_P(ObjModel);
@@ -51,6 +66,10 @@ namespace Engine
 			std::shared_ptr<ObjMesh> mesh = std::make_shared<ObjMesh>(d->pScene, d->pScene->mMeshes[i],d->Directory);
 			mesh->Init();
 			d->ModelMesh.push_back(mesh);
+
+			AABB3 TmpMeshBox = mesh->GetBoundingBox();
+			d->ModelBox.UpdateMinMax(TmpMeshBox.GetMinPoint());
+			d->ModelBox.UpdateMinMax(TmpMeshBox.GetMaxPoint());
 		}
 	}
 

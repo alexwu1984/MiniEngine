@@ -116,11 +116,15 @@ namespace Engine
 		}
 	}
 
-	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun)
+	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun,bool wait)
 	{
 		if (GRenderThread)
 		{
 			GRenderThread->AppendCommand(fun);
+			if (wait)
+			{
+				GRenderThread->WaitForFinish();
+			}
 		}
 	}
 

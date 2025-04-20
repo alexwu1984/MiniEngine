@@ -150,7 +150,7 @@ namespace Engine
 		return Impl->MeshBuffer;
 	}
 
-	std::shared_ptr<Engine::GltfMaterial> GltfMesh::GetMaterial()
+	std::shared_ptr<MaterialBase> GltfMesh::GetMaterial()
 	{
 		return Impl->Material;
 	}

@@ -5,7 +5,7 @@
 
 namespace Engine
 {
-	class GltfMesh;
+	class MeshBase;
 	class MaterialRender;
 	class GltfModel;
 
@@ -13,7 +13,7 @@ namespace Engine
 
 	struct GltfSceneMeshInfo
 	{
-		std::vector<std::shared_ptr<GltfMesh>> Meshes;
+		std::vector<std::shared_ptr<MeshBase>> Meshes;
 		math::Matrix4x4 WorldTransform;
 		math::Matrix4x4 PrevWorldTransform;
 	};

@@ -1,6 +1,7 @@
 #include "Scene/GltfMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
+#include "ObjModel/ObjMesh.h"
 #include "ObjModel/ObjModel.h"
 #include "Material/GltfMaterial.h"
 #include "GltfModel/GltfSkeleton.h"
@@ -138,7 +139,11 @@ namespace Engine
 	{
 		C_P(GltfMeshComponent);
 		d->TotalDeltaTime += deltaTime / 5.f;
-		d->gltfModel.Play(d->TotalDeltaTime, deltaTime);
+		if (d->isGltfModel)
+		{
+			d->gltfModel.Play(d->TotalDeltaTime, deltaTime);
+		}
+		
 	}
 
 	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
@@ -161,17 +166,35 @@ namespace Engine
 		C_P(GltfMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
 		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
-		math::AABB3 Box = d->gltfModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
-		bool Render = Camera->GetFrustum().Intersects(Box);
-		if (Render)
+		if (d->isGltfModel)
 		{
-			auto& TmpMeshs = d->gltfModel.GetModelMesh();
-			std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
-				SceneMeshInfo.Meshes.push_back(Item);
-				});
-			
+			math::AABB3 Box = d->gltfModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+			bool Render = Camera->GetFrustum().Intersects(Box);
+			if (Render)
+			{
+				auto& TmpMeshs = d->gltfModel.GetModelMesh();
+				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
+					SceneMeshInfo.Meshes.push_back(Item);
+					});
+
+			}
+			return Render;
 		}
-		return Render;
+		else
+		{
+			math::AABB3 Box = d->objModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+			bool Render = Camera->GetFrustum().Intersects(Box);
+			if (Render)
+			{
+				auto& TmpMeshs = d->objModel.GetModelMesh();
+				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<ObjMesh> Item) {
+					SceneMeshInfo.Meshes.push_back(Item);
+					});
+
+			}
+			return Render;
+		}
+
 	}
 
 }

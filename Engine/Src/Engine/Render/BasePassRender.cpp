@@ -16,7 +16,7 @@ namespace Engine
 	struct MeshDistanceInfo
 	{
 		float Distance;
-		std::shared_ptr<GltfMesh> Mesh;
+		std::shared_ptr<MeshBase> Mesh;
 		math::Matrix4x4 WorldTransform;
 		math::Matrix4x4 PrevWorldTransform;
 		bool operator()(const MeshDistanceInfo& Near, const MeshDistanceInfo& Far)
@@ -83,7 +83,7 @@ namespace Engine
 		for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 		{
 			MeshDistanceInfo DisInfo;
-			std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
+			std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
 
 			math::Vector3 BoxPoint[8]{};
 			Mesh->GetBoundingBox().GetPoint(BoxPoint);
@@ -134,7 +134,7 @@ namespace Engine
 			std::sort(RenderResult.begin(), RenderResult.end(), MeshDistanceInfo());
 			for (const auto &RenderInfo : RenderResult)
 			{
-				std::shared_ptr<GltfMesh> Mesh = RenderInfo.Mesh;
+				std::shared_ptr<MeshBase> Mesh = RenderInfo.Mesh;
 
 				auto Material = GetOrCreateRender(Mesh);
 
@@ -150,7 +150,7 @@ namespace Engine
 
 		for (const auto& SortItem : d->SortMesh)
 		{
-			std::shared_ptr<GltfMesh> Mesh = SortItem.Mesh;
+			std::shared_ptr<MeshBase> Mesh = SortItem.Mesh;
 
 			auto Material = GetOrCreateRender(Mesh);
 
@@ -162,7 +162,7 @@ namespace Engine
 		}
 	}
 
-	void BasePassRender::DrawMesh(std::shared_ptr<GltfMesh> Mesh, const math::Matrix4x4& WorldTransform,
+	void BasePassRender::DrawMesh(std::shared_ptr<MeshBase> Mesh, const math::Matrix4x4& WorldTransform,
 		const math::Matrix4x4& PrevWorldTransform,
 		std::shared_ptr<MaterialRender> Render, RenderCore::RHICommandContext& RHIContext,
 		std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
@@ -209,7 +209,7 @@ namespace Engine
 
 	}
 
-	std::shared_ptr<Engine::MaterialRender> BasePassRender::GetOrCreateRender(std::shared_ptr<GltfMesh> Mesh)
+	std::shared_ptr<Engine::MaterialRender> BasePassRender::GetOrCreateRender(std::shared_ptr<MeshBase> Mesh)
 	{
 		C_P(BasePassRender);
 		

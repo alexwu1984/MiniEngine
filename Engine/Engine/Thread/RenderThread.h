@@ -32,5 +32,5 @@ namespace Engine
 	extern RenderThread* GRenderThread;
 
 
-	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun);
+	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun,bool wait = false);
 }

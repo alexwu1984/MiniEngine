@@ -23,7 +23,7 @@ namespace Engine
 	{
 		RenderCore::DynamicRHI* RHI;
 		//std::shared_ptr<ShadowPS> ShadowRender;
-		std::map <std::shared_ptr<GltfMesh>, std::shared_ptr< ShadowPS> > ShadowRenders;
+		std::map <std::shared_ptr<MeshBase>, std::shared_ptr< ShadowPS> > ShadowRenders;
 		std::shared_ptr<ShadowMapManager> ShadowMgr;
 		std::shared_ptr<RenderCore::RHIRenderTarget> DepthRenderBuffer;
 
@@ -121,7 +121,7 @@ namespace Engine
 				size_t MeshSize = MeshInfo.Meshes.size();
 				for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
 				{
-					std::shared_ptr<GltfMesh> Mesh = MeshInfo.Meshes[MeshIndex];
+					std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
 					auto& shadowRender = d->ShadowRenders[Mesh];
 					if (!shadowRender)
 					{

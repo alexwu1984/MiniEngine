@@ -27,7 +27,7 @@ namespace Engine
 
 	void GltfMeshBuffer::InitMesh(std::shared_ptr< GltfMeshInfo> MeshInfo)
 	{
-		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, Impl = Impl](RenderCore::DynamicRHI* DyRHI) {
+		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, Impl = Impl](std::shared_ptr<RenderCore::DynamicRHI> DyRHI) {
 			auto RHI = DyRHI;
 			Impl->VerticesBuffer[RenderCore::EVertexType::VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
 			Impl->VerticesBuffer[RenderCore::EVertexType::VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
@@ -76,7 +76,7 @@ namespace Engine
 
 		};
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateVertexBufferCommand);
+		CreateVertexBufferCommand(RenderCore::GetDynamicRHI());
 	}
 
 	void GltfMeshBuffer::UpdateVert(math::Vector3* pVert, int nVert)

@@ -1,10 +1,12 @@
 #include "ObjModel/ObjMesh.h"
 #include "GltfModel/GltfMeshInfo.h"
 #include "GltfModel/GltfMeshBuffer.h"
+#include "GltfModel/DynamicBoneInfo.h"
 #include "Material/ObjMatereial.h"
 #include <Assimp/Importer.hpp>
 #include <Assimp/scene.h>
 #include <Assimp/postprocess.h>
+
 
 namespace Engine
 {
@@ -22,7 +24,11 @@ namespace Engine
 		std::vector<math::Vector3> Normals;
 		std::vector<math::Vector2> TexCoords;
 		std::vector<math::Vector3> Tangents;
-		std::vector<int32_t> Indices;
+		std::vector<uint32_t> Indices;
+
+		math::AABB3  ModelBox;
+		math::Matrix4x4 MeshMat;
+		std::vector<std::vector<BoneSkinInfo>> BoneSkinInfos;
 	};
 
 	ObjMesh::ObjMesh(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory)
@@ -50,6 +56,42 @@ namespace Engine
 		d->MeshBuffer->InitMesh(d->Mesh);
 	}
 
+	const math::AABB3& ObjMesh::GetBoundingBox() const
+	{
+		C_P(ObjMesh);
+		return d->ModelBox;
+	}
+
+	const math::Matrix4x4& ObjMesh::GetMeshMat() const
+	{
+		C_P(ObjMesh);
+		return d->MeshMat;
+	}
+
+	std::shared_ptr<GltfMeshBuffer> ObjMesh::GetMeshBuffer()
+	{
+		C_P(ObjMesh);
+		return d->MeshBuffer;
+	}
+
+	std::shared_ptr<Engine::MaterialBase> ObjMesh::GetMaterial()
+	{
+		C_P(ObjMesh);
+		return d->Material;
+	}
+
+	std::string ObjMesh::GetMeshName() const
+	{
+		C_P(ObjMesh);
+		return d->MeshName;
+	}
+
+	std::vector<std::vector<BoneSkinInfo>>& ObjMesh::GetBoneNodeArray()
+	{
+		C_P(ObjMesh);
+		return d->BoneSkinInfos;
+	}
+
 	void ObjMesh::ProcessVertex()
 	{
 		C_P(ObjMesh);
@@ -72,6 +114,8 @@ namespace Engine
 		}
 		d->Mesh->nNumVertices = NumVertices;
 		d->Mesh->Vertices = d->Positions.data();
+
+		d->ModelBox.CreateAABB(d->Positions);
 	}
 
 	void ObjMesh::ProcessIndices()
@@ -85,6 +129,8 @@ namespace Engine
 			for (int32_t k = 0; k < NumIndices; ++k)
 				d->Indices.push_back(AiFace.mIndices[k]);
 		}
+		d->Mesh->nNumFaces = NumFaces/3;
+		d->Mesh->FacesIndex32 = d->Indices.data();
 	}
 
 	void ObjMesh::ProcessTextures()

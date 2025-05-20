@@ -46,7 +46,7 @@ bool GltfViewApp::Init()
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
 		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/lost_empire/lost_empire.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/cube/cube.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();
 		Scene->LoadScene(ModelFile);
@@ -55,7 +55,7 @@ bool GltfViewApp::Init()
 		if (Camera)
 		{
 			auto CameraPos = Camera->GetCameraPos();
-			CameraPos.y = 1;
+			CameraPos.z += 3;
 			Camera->SetCameraPos(CameraPos);
 		}
 

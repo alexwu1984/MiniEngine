@@ -1,0 +1,32 @@
+{
+  "Evn": {
+    "Hdr": "HDR/modern_buildings_night_2k.hdr",
+    "AmbientStrength": 1.48,
+    "Light": [
+      {
+        "LightColor": "1.0,1.0,1.0",
+        "LightDir": "0.0,0.729,0.833",
+        "LightStrength": 1.0,
+        "LightType": 0
+      }
+    ],
+
+    "RotateIBL": "0,0"
+  },
+  "Modles": [
+    {
+      "Model": "cube.obj",
+      "Scale": 1.0,
+      "Material": {
+        "Metallic": 1.0
+      },
+      "MainCamera": true,
+      "ProjShadow": false
+    }
+  ],
+  "Tonemapping": {
+    "Type": 1,
+    "Contrast": 1.74,
+    "Saturation": 1.23
+  }
+}

@@ -4,7 +4,7 @@
 namespace Engine
 {
 
-	struct AppWindowP
+	struct AppWindowPrivate
 	{
 		HINSTANCE _hInst = nullptr;
 		HWND _hWnd = nullptr;
@@ -30,18 +30,20 @@ namespace Engine
 	}
 
 	AppWindow::AppWindow(HINSTANCE hInst)
-		:Impl(std::make_shared<AppWindowP>())
+		:d_ptr(new AppWindowPrivate())
 	{
-		Impl->_hInst = hInst;
+		C_P(AppWindow);
+		d->_hInst = hInst;
 	}
 
 	AppWindow::~AppWindow()
 	{
-
+		delete d_ptr;
 	}
 
 	bool AppWindow::CreateAppWindow(int32_t width, int32_t height)
 	{
+		C_P(AppWindow);
 		int32_t ScreenX = ::GetSystemMetrics(SM_CXSCREEN);
 		int32_t ScreenY = ::GetSystemMetrics(SM_CYSCREEN);
 
@@ -51,14 +53,14 @@ namespace Engine
 			height = 720;
 		}
 
-		Impl->_width = width;
-		Impl->_height = height;
+		d->_width = width;
+		d->_height = height;
 		WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
 		wcex.lpfnWndProc = ApplicationWndProc;
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = 0;
-		wcex.hInstance = Impl->_hInst;
+		wcex.hInstance = d->_hInst;
 		wcex.hIcon = nullptr;
 		wcex.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
 		wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
@@ -68,12 +70,11 @@ namespace Engine
 
 		RegisterClassExW(&wcex);
 
-
-		Impl->_hWnd = ::CreateWindowExW(0, L"EngineAppWindow", L"MiniEngine", WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, Impl->_hInst, nullptr);
-		if (IsWindow(Impl->_hWnd))
+		d->_hWnd = ::CreateWindowExW(0, L"EngineAppWindow", L"MiniEngine", WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, d->_hInst, nullptr);
+		if (IsWindow(d->_hWnd))
 		{
-			::SetPropW(Impl->_hWnd, WINDOW_PROP_THIS_PTR, (void*)(AppWindow*)this);
-			::SetWindowPos(Impl->_hWnd, HWND_TOP, (ScreenX - width) / 2, (ScreenY - height) / 2, width, height, SWP_SHOWWINDOW);
+			::SetPropW(d->_hWnd, WINDOW_PROP_THIS_PTR, (void*)(AppWindow*)this);
+			::SetWindowPos(d->_hWnd, HWND_TOP, (ScreenX - width) / 2, (ScreenY - height) / 2, width, height, SWP_SHOWWINDOW);
 			return true;
 		}
 		return false;
@@ -84,6 +85,7 @@ namespace Engine
 
 	int64_t AppWindow::WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam)
 	{
+		C_P(AppWindow);
 		auto ImguiRet = ::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
 		if (ImguiRet)
 			return ImguiRet;
@@ -109,8 +111,8 @@ namespace Engine
 		{
 			int32_t NewWidth = LOWORD(lParam);
 			int32_t NewHeight = HIWORD(lParam);
-			Impl->_width = NewWidth;
-			Impl->_height = NewHeight;
+			d->_width = NewWidth;
+			d->_height = NewHeight;
 			EvtSizeChanged(core::vec2i(NewWidth,NewHeight));
 		}
 		break;
@@ -190,9 +192,9 @@ namespace Engine
 			break;
 		}
 
-		if (Impl->_proc_old)
+		if (d->_proc_old)
 		{
-			return CallWindowProcW((WNDPROC)Impl->_proc_old, (HWND)pWnd, message, wParam, lParam);
+			return CallWindowProcW((WNDPROC)d->_proc_old, (HWND)pWnd, message, wParam, lParam);
 		}
 		else
 		{
@@ -225,17 +227,20 @@ namespace Engine
 
 	HWND AppWindow::GetWnd() const
 	{
-		return Impl->_hWnd;
+		C_P(const AppWindow);
+		return d->_hWnd;
 	}
 
 	int32_t AppWindow::GetWidth() const
 	{
-		return Impl->_width;
+		C_P(const AppWindow);
+		return d->_width;
 	}
 
 	int32_t AppWindow::GetHeight() const
 	{
-		return Impl->_height;
+		C_P(const AppWindow);
+		return d->_height;
 	}
 
 }

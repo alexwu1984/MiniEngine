@@ -78,7 +78,7 @@ namespace RenderCore
 		uint32_t InstanceDataStepRate = 0;
 	};
 
-	struct RHIVertexDeclareP;
+	struct RHIVertexDeclarePrivate;
 
 	class RHIVertexDeclare
 	{
@@ -91,7 +91,7 @@ namespace RenderCore
 		const std::vector< VertexElementDesc>& GetDeclareDesc() const;
 		uint32_t GetHash() const;
 	private:
-		std::shared_ptr< RHIVertexDeclareP> Data;
+		std::vector< VertexElementDesc> Decs;
 	};
 
 	struct RHIShaderMacro

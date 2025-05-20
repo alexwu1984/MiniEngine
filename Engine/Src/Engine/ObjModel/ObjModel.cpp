@@ -35,7 +35,7 @@ namespace Engine
 	{
 		C_P(ObjModel);
 		std::string utf8FileName = core::ucs2_u8(FileName);
-		d->pScene = d->ModelImpoter.ReadFile(utf8FileName.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace);
+		d->pScene = d->ModelImpoter.ReadFile(utf8FileName.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipWindingOrder);
 		if (!d->pScene || !d->pScene->mRootNode || d->pScene->mFlags == AI_SCENE_FLAGS_INCOMPLETE)
 		{
 			return false;

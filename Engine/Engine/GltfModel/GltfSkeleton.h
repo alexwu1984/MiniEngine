@@ -31,7 +31,7 @@ namespace Engine
 		void InitDynamicBoneNode();
 
 	private:
-		GltfSkeletonPrivate* Impl = nullptr;
+		GltfSkeletonPrivate* d_ptr = nullptr;
 
 	};
 }

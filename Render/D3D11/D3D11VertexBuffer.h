@@ -4,7 +4,7 @@
 
 namespace RenderCore
 {
-	struct D3D11VertexBufferP;
+	struct D3D11VertexBufferPrivate;
 	class D3D11DynamicRHI;
 
 	class D3D11VertexBuffer : public RHIVertexBuffer
@@ -21,6 +21,6 @@ namespace RenderCore
 		ID3D11Buffer* GetNativeBuffer() const;
 
 	private:
-		std::shared_ptr< D3D11VertexBufferP> Impl;
+		D3D11VertexBufferPrivate* d_ptr = nullptr;
 	};
 }

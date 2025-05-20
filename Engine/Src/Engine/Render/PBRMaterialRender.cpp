@@ -134,7 +134,7 @@ namespace Engine
 			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		}
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);

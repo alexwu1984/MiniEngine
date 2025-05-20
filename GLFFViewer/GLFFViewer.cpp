@@ -8,7 +8,6 @@
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
 	int argc = 0;
-
 	LPWSTR* argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
 	
 	GltfViewApp App;

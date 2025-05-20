@@ -5,7 +5,7 @@
 
 namespace RenderCore
 {
-	struct D3D11IndexBufferP
+	struct D3D11IndexBufferPrivate
 	{
 		win32::com_ptr<ID3D11Buffer> Buffer;
 		D3D11DynamicRHI* D3D11RHI = nullptr;
@@ -16,53 +16,60 @@ namespace RenderCore
 	};
 
 	D3D11IndexBuffer::D3D11IndexBuffer(D3D11DynamicRHI* D3D11RHI)
-		:Impl(std::make_shared<D3D11IndexBufferP>())
+		:d_ptr(new D3D11IndexBufferPrivate())
 	{
-		Impl->D3D11RHI = D3D11RHI;
+		C_P(D3D11IndexBuffer);
+		d_ptr->D3D11RHI = D3D11RHI;
 	}
 
 	D3D11IndexBuffer::~D3D11IndexBuffer()
 	{
-
+		delete d_ptr;
 	}
 
 	bool D3D11IndexBuffer::CreateIndexBuffer(const uint16_t* InData, int32_t InUsage, int32_t TriangleNumber)
 	{
-		Impl->IndexFormat = DXGI_FORMAT_R16_UINT;
-		Impl->IndexCount = TriangleNumber * 3;
-		Impl->Size = sizeof(uint16_t) * Impl->IndexCount;
+		C_P(D3D11IndexBuffer);
+		d->IndexFormat = DXGI_FORMAT_R16_UINT;
+		d->IndexCount = TriangleNumber * 3;
+		d->Size = sizeof(uint16_t) * d->IndexCount;
 		return CreateBuffer(InData,InUsage);
 	}
 
 	bool D3D11IndexBuffer::CreateIndexBuffer(const uint32_t* InData, int32_t InUsage, int32_t TriangleNumber)
 	{
-		Impl->IndexFormat = DXGI_FORMAT_R32_UINT;
-		Impl->IndexCount = TriangleNumber * 3;
-		Impl->Size = sizeof(uint32_t) * Impl->IndexCount;
+		C_P(D3D11IndexBuffer);
+		d->IndexFormat = DXGI_FORMAT_R32_UINT;
+		d->IndexCount = TriangleNumber * 3;
+		d->Size = sizeof(uint32_t) * d->IndexCount;
 		return CreateBuffer(InData, InUsage);
 	}
 
 	ID3D11Buffer* D3D11IndexBuffer::GetNativeBuffer() const
 	{
-		return Impl->Buffer.get();
+		C_P(D3D11IndexBuffer);
+		return d->Buffer.get();
 	}
 
 	int32_t D3D11IndexBuffer::GetIndexFormat() const
 	{
-		return Impl->IndexFormat;
+		C_P(D3D11IndexBuffer);
+		return d->IndexFormat;
 	}
 
 	int32_t D3D11IndexBuffer::GetIndexCount() const
 	{
-		return Impl->IndexCount;
+		C_P(D3D11IndexBuffer);
+		return d->IndexCount;
 	}
 
 	bool D3D11IndexBuffer::CreateBuffer(const void* InData, int32_t InUsage)
 	{
+		C_P(D3D11IndexBuffer);
 		// Describe the index buffer.
 		D3D11_BUFFER_DESC Desc;
 		ZeroMemory(&Desc, sizeof(D3D11_BUFFER_DESC));
-		Desc.ByteWidth = Impl->Size;
+		Desc.ByteWidth = d->Size;
 		Desc.Usage = (InUsage & BUF_AnyDynamic) ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_DEFAULT;
 		Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 		Desc.CPUAccessFlags = (InUsage & BUF_AnyDynamic) ? D3D11_CPU_ACCESS_WRITE : 0;
@@ -90,7 +97,7 @@ namespace RenderCore
 
 		D3D11_SUBRESOURCE_DATA IndexInitData{};
 		IndexInitData.pSysMem = InData;
-		HRESULT hr = Impl->D3D11RHI->GetDevice()->CreateBuffer(&Desc, &IndexInitData, Impl->Buffer.get_init_ref());
+		HRESULT hr = d->D3D11RHI->GetDevice()->CreateBuffer(&Desc, &IndexInitData, d->Buffer.get_init_ref());
 		return SUCCEEDED(hr);
 	}
 

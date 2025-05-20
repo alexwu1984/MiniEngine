@@ -6,7 +6,7 @@
 
 namespace Engine
 {
-	struct GltfMeshBufferP;
+	struct GltfMeshBufferPrivate;
 
 	class GltfMeshBuffer
 	{
@@ -22,6 +22,6 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIIndexBuffer> GetIndexBuffer() const;
 
 	private:
-		std::shared_ptr<GltfMeshBufferP> Impl;
+		GltfMeshBufferPrivate* d_ptr = nullptr;
 	};
 }

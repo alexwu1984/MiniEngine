@@ -23,7 +23,7 @@ namespace Engine
 		std::vector<math::Vector3> Positions;
 		std::vector<math::Vector3> Normals;
 		std::vector<math::Vector2> TexCoords;
-		std::vector<math::Vector3> Tangents;
+		std::vector<math::Vector4> Tangents;
 		std::vector<uint32_t> Indices;
 
 		math::AABB3  ModelBox;
@@ -107,14 +107,16 @@ namespace Engine
 			if (d->vAiMesh->mTextureCoords[0])
 				TextureCoord = math::Vector2(d->vAiMesh->mTextureCoords[0][i].x, d->vAiMesh->mTextureCoords[0][i].y);
 			d->TexCoords.emplace_back(TextureCoord);
-			math::Vector3 Tangent;
+			math::Vector4 Tangent;
 			if (d->vAiMesh->mTangents)
-				Tangent = math::Vector3(d->vAiMesh->mTangents[i].x, d->vAiMesh->mTangents[i].y, d->vAiMesh->mTangents[i].z);
+				Tangent = math::Vector4(d->vAiMesh->mTangents[i].x, d->vAiMesh->mTangents[i].y, d->vAiMesh->mTangents[i].z,1.0f);
 			d->Tangents.emplace_back(Tangent);
 		}
 		d->Mesh->nNumVertices = NumVertices;
 		d->Mesh->Vertices = d->Positions.data();
-
+		d->Mesh->Normals = d->Normals.data();
+		d->Mesh->TextureCoords = d->TexCoords.data();
+		d->Mesh->Tangents = d->Tangents.data();
 		d->ModelBox.CreateAABB(d->Positions);
 	}
 
@@ -129,7 +131,7 @@ namespace Engine
 			for (int32_t k = 0; k < NumIndices; ++k)
 				d->Indices.push_back(AiFace.mIndices[k]);
 		}
-		d->Mesh->nNumFaces = NumFaces/3;
+		d->Mesh->nNumFaces = NumFaces;
 		d->Mesh->FacesIndex32 = d->Indices.data();
 	}
 

@@ -5,7 +5,7 @@
 
 namespace Engine
 {
-	struct AppWindowP;
+	struct AppWindowPrivate;
 
 	class AppWindow 
 	{
@@ -32,6 +32,6 @@ namespace Engine
 		core::event<void(int32_t WheelValue)> EvtMouseWheel;
 		core::event<void(bool is_key_down, int32_t vk, int32_t scancode)> EvtKeyEvent;
 	private:
-		std::shared_ptr< AppWindowP> Impl;
+		AppWindowPrivate* d_ptr = nullptr;
 	};
 }

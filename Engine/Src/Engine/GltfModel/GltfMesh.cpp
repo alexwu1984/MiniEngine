@@ -10,7 +10,7 @@ namespace Engine
 {
 	using namespace math;
 	
-	struct GltfMeshP
+	struct GltfMeshPrivate
 	{
 		tinygltf::Model* Model = nullptr;
 		std::shared_ptr<GltfMeshInfo> Mesh;
@@ -28,45 +28,47 @@ namespace Engine
 
 	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
 		:GltfModelBase(Model),
-		Impl(std::make_shared<GltfMeshP>())
+		d_ptr(new GltfMeshPrivate())
 	{
-		Impl->Model = Model;
-		Impl->Owner = Owner;
-		Impl->Mesh = std::make_shared<GltfMeshInfo>();
-		Impl->MeshBuffer = std::make_shared<GltfMeshBuffer>();
+		C_P(GltfMesh);
+		d->Model = Model;
+		d->Owner = Owner;
+		d->Mesh = std::make_shared<GltfMeshInfo>();
+		d->MeshBuffer = std::make_shared<GltfMeshBuffer>();
 	}
 
 	GltfMesh::~GltfMesh()
 	{
-
+		delete d_ptr;
 	}
 
 	void GltfMesh::Init(uint32_t MeshIndex, uint32_t PrimitiveIndex, const std::vector < std::shared_ptr<GltfMaterial>>& ModelMatrial, std::shared_ptr< GltfNode> ModelNode)
 	{
-		auto& meshPrimitive = Impl->Model->meshes[MeshIndex].primitives[PrimitiveIndex];
-		Impl->MeshName = Impl->Model->meshes[MeshIndex].name;
+		C_P(GltfMesh);
+		auto& meshPrimitive = d->Model->meshes[MeshIndex].primitives[PrimitiveIndex];
+		d->MeshName = d->Model->meshes[MeshIndex].name;
 
-		auto Index = Getdata(meshPrimitive.indices, Impl->Mesh->nNumFaces, Impl->Mesh->type);
-		Impl->Mesh->nNumFaces /= 3;
-		if (Impl->Mesh->type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+		auto Index = Getdata(meshPrimitive.indices, d->Mesh->nNumFaces, d->Mesh->type);
+		d->Mesh->nNumFaces /= 3;
+		if (d->Mesh->type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 		{
-			Impl->Mesh->FacesIndex = (uint16_t*)Index;
+			d->Mesh->FacesIndex = (uint16_t*)Index;
 		}
-		else if (Impl->Mesh->type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+		else if (d->Mesh->type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
 		{
 
-			std::shared_ptr<uint16_t> TmpData(new uint16_t[Impl->Mesh->nNumFaces * 3], [](uint16_t* p) {delete[]p; });
+			std::shared_ptr<uint16_t> TmpData(new uint16_t[d->Mesh->nNumFaces * 3], [](uint16_t* p) {delete[]p; });
 			uint8_t* pSrc = (uint8_t*)Index;
-			for (uint32_t i = 0; i < Impl->Mesh->nNumFaces * 3; ++i)
+			for (uint32_t i = 0; i < d->Mesh->nNumFaces * 3; ++i)
 			{
 				TmpData.get()[i] = pSrc[i];
 			}
-			Impl->Mesh->FacesIndex = TmpData.get();
-			Impl->DataBuffer.push_back(TmpData);
+			d->Mesh->FacesIndex = TmpData.get();
+			d->DataBuffer.push_back(TmpData);
 		}
 		else
 		{
-			Impl->Mesh->FacesIndex32 = (uint32_t*)Index;
+			d->Mesh->FacesIndex32 = (uint32_t*)Index;
 		}
 
 		for (const auto& attribute : meshPrimitive.attributes) {
@@ -74,52 +76,52 @@ namespace Engine
 			int type = 0;
 			if (attribute.first == "POSITION")
 			{
-				Impl->Mesh->Vertices = (Vector3*)Getdata(attribute.second, Impl->Mesh->nNumVertices, type);
-				auto& minVaue = Impl->Model->accessors[attribute.second].minValues;
-				auto& maxVaue = Impl->Model->accessors[attribute.second].maxValues;
+				d->Mesh->Vertices = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+				auto& minVaue = d->Model->accessors[attribute.second].minValues;
+				auto& maxVaue = d->Model->accessors[attribute.second].maxValues;
 				if (minVaue.size() == 3 && maxVaue.size() == 3)
 				{
-					Impl->BoundingBox.Set(Vector3(float(maxVaue[0]), float(maxVaue[1]), float(maxVaue[2])), Vector3(float(minVaue[0]), float(minVaue[1]), float(minVaue[2])));
+					d->BoundingBox.Set(Vector3(float(maxVaue[0]), float(maxVaue[1]), float(maxVaue[2])), Vector3(float(minVaue[0]), float(minVaue[1]), float(minVaue[2])));
 				}
 
 			}
 			else if (attribute.first == "NORMAL")
 			{
-				Impl->Mesh->Normals = (Vector3*)Getdata(attribute.second, Impl->Mesh->nNumVertices, type);
+				d->Mesh->Normals = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
 			else if (attribute.first == "TEXCOORD_0")
 			{
-				Impl->Mesh->TextureCoords = (Vector2*)Getdata(attribute.second, Impl->Mesh->nNumVertices, type);
+				d->Mesh->TextureCoords = (Vector2*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
 			else if (attribute.first == "TANGENT")
 			{
-				Impl->Mesh->Tangents = (Vector4*)Getdata(attribute.second, Impl->Mesh->nNumVertices, type);
+				d->Mesh->Tangents = (Vector4*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
 			else if (attribute.first == "JOINTS_0")
 			{
-				Impl->Mesh->BoneIDs = (VertexBoneID*)Getdata(attribute.second, Impl->Mesh->nNumVertices, type);
+				d->Mesh->BoneIDs = (VertexBoneID*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
 			else if (attribute.first == "WEIGHTS_0")
 			{
-				Impl->Mesh->BoneWeights = (VertexBoneWeight*)Getdata(attribute.second, Impl->Mesh->nNumVertices, type);
+				d->Mesh->BoneWeights = (VertexBoneWeight*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
 		}
 
 		int nMaterial = meshPrimitive.material >= 0 ? meshPrimitive.material : 0;
-		Impl->Material = ModelMatrial[nMaterial];
+		d->Material = ModelMatrial[nMaterial];
 
-		auto& Nodes = Impl->Model->nodes;
+		auto& Nodes = d->Model->nodes;
 		for (int i = 0; i < Nodes.size(); i++)
 		{
 			if (Nodes[i].mesh == MeshIndex)
 			{
-				Impl->NodeID = i;
-				Impl->SkinID = Nodes[i].skin;
+				d->NodeID = i;
+				d->SkinID = Nodes[i].skin;
 
 				auto& AllNodeInfos = ModelNode->GetAllNodes();
-				if (Impl->NodeID < AllNodeInfos.size())
+				if (d->NodeID < AllNodeInfos.size())
 				{
-					Impl->MeshMat = AllNodeInfos[Impl->NodeID]->FinalMeshMat;
+					d->MeshMat = AllNodeInfos[d->NodeID]->FinalMeshMat;
 				}
 
 				break;
@@ -127,58 +129,68 @@ namespace Engine
 
 		}
 
-		Impl->MeshBuffer->InitMesh(Impl->Mesh);
+		d->MeshBuffer->InitMesh(d->Mesh);
 	}
 
 	bool GltfMesh::HasSkin() const
 	{
-		return Impl->Mesh->BoneWeights != nullptr;
+		C_P(GltfMesh);
+		return d->Mesh->BoneWeights != nullptr;
 	}
 
 	const math::AABB3& GltfMesh::GetBoundingBox() const
 	{
-		return Impl->BoundingBox;
+		C_P(GltfMesh);
+		return d->BoundingBox;
 	}
 
 	const math::Matrix4x4& GltfMesh::GetMeshMat() const
 	{
-		return Impl->MeshMat;
+		C_P(GltfMesh);
+		return d->MeshMat;
 	}
 
 	std::shared_ptr<GltfMeshBuffer> GltfMesh::GetMeshBuffer()
 	{
-		return Impl->MeshBuffer;
+		C_P(GltfMesh);
+		return d->MeshBuffer;
 	}
 
 	std::shared_ptr<MaterialBase> GltfMesh::GetMaterial()
 	{
-		return Impl->Material;
+		C_P(GltfMesh);
+		return d->Material;
 	}
 
 	std::string GltfMesh::GetMeshName() const
 	{
-		return Impl->MeshName;
+		C_P(GltfMesh);
+		return d->MeshName;
 	}
 
 	int32_t GltfMesh::GetNodeId() const
 	{
-		return Impl->NodeID;
+		C_P(GltfMesh);
+		return d->NodeID;
 	}
 
 	int32_t GltfMesh::GetSkinId() const
 	{
-		return Impl->SkinID;
+		C_P(GltfMesh);
+		return d->SkinID;
 	}
 
 	void GltfMesh::SetMeshMat(const math::Matrix4x4& Mat)
 	{
-		Impl->MeshMat = Mat;
+		C_P(GltfMesh);
+		d->MeshMat = Mat;
 	}
 
 	std::vector<std::vector<Engine::BoneSkinInfo>>& GltfMesh::GetBoneNodeArray()
 	{
-		assert(Impl->Owner->GetSkeleton());
-		return Impl->Owner->GetSkeleton()->GetBoneNodeArray();
+		C_P(GltfMesh);
+		assert(d->Owner->GetSkeleton());
+		return d->Owner->GetSkeleton()->GetBoneNodeArray();
 	}
 
 }

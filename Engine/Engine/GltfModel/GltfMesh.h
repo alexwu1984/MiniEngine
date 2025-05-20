@@ -7,7 +7,7 @@
 
 namespace Engine
 {
-	struct GltfMeshP;
+	struct GltfMeshPrivate;
 	class GltfMaterial;
 	class GltfMeshBuffer;
 	class GltfNode;
@@ -32,6 +32,6 @@ namespace Engine
 		virtual std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray() override;
 
 	private:
-		std::shared_ptr< GltfMeshP> Impl;
+		GltfMeshPrivate* d_ptr;
 	};
 }

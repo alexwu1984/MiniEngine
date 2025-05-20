@@ -5,13 +5,8 @@
 
 namespace RenderCore
 {
-	struct RHIVertexDeclareP
-	{
-		std::vector< VertexElementDesc> Decs;
-	};
 
 	RHIVertexDeclare::RHIVertexDeclare()
-		:Data(std::make_shared<RHIVertexDeclareP>())
 	{
 
 	}
@@ -55,24 +50,24 @@ namespace RenderCore
 		};
 		strcpy_s(D3DElement.SemanticName, "ATTRIBUTE");
 		D3DElement.SemanticIndex = DeclareInput.InAttributeIndex;
-		D3DElement.InputSlot = (uint32_t)Data->Decs.size();
+		D3DElement.InputSlot = (uint32_t)Decs.size();
 		//DeclareInput.bUseInstanceIndex ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
 		D3DElement.InputSlotClass = DeclareInput.bUseInstanceIndex ? 1 : 0;
 
 		// This is a divisor to apply to the instance index used to read from this stream.
 		D3DElement.InstanceDataStepRate = DeclareInput.bUseInstanceIndex ? 1 : 0;
 
-		Data->Decs.emplace_back(D3DElement);
+		Decs.emplace_back(D3DElement);
 	}
 
 	const std::vector< RenderCore::VertexElementDesc>& RHIVertexDeclare::GetDeclareDesc() const
 	{
-		return Data->Decs;
+		return Decs;
 	}
 
 	uint32_t RHIVertexDeclare::GetHash() const
 	{
-		return core::Crc::MemCrc32(Data->Decs.data(), Data->Decs.size() * sizeof(VertexElementDesc));
+		return core::Crc::MemCrc32(Decs.data(), Decs.size() * sizeof(VertexElementDesc));
 	}
 
 }

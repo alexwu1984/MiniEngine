@@ -4,7 +4,7 @@
 
 namespace RenderCore 
 {
-	struct D3D11IndexBufferP;
+	struct D3D11IndexBufferPrivate;
 	class D3D11DynamicRHI;
 
 	class D3D11IndexBuffer : public RHIIndexBuffer
@@ -23,6 +23,6 @@ namespace RenderCore
 		bool CreateBuffer(const void* InData, int32_t InUsage);
 
 	private:
-		std::shared_ptr< D3D11IndexBufferP> Impl;
+		D3D11IndexBufferPrivate* d_ptr = nullptr;
 	};
 }

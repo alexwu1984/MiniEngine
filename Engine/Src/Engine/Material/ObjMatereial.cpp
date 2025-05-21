@@ -77,7 +77,7 @@ namespace Engine
 		std::map< int32_t, aiString> TexNames;
 		loadTextureFromMaterial(aiTextureType_DIFFUSE, pAiMat, TexNames);
 		loadTextureFromMaterial(aiTextureType_SHININESS, pAiMat, TexNames);
-		loadTextureFromMaterial(aiTextureType_NORMALS, pAiMat, TexNames);
+		loadTextureFromMaterial(aiTextureType_HEIGHT, pAiMat, TexNames);
 		loadTextureFromMaterial(aiTextureType_EMISSIVE, pAiMat, TexNames);
 		loadTextureFromMaterial(aiTextureType_LIGHTMAP, pAiMat, TexNames);
 
@@ -115,7 +115,7 @@ namespace Engine
 			d->BaseColorTexture = CreateTexture(TexNames.find(aiTextureType_DIFFUSE)->second, core::FLinearColor(d->MatProperty.DiffuseColor));
 			d->MetallicRoughnessTexture = CreateTexture(TexNames.find(aiTextureType_SHININESS)->second, core::FLinearColor(1.f, d->MatProperty.Shininess, d->MatProperty.Refracti, 1.f));
 			d->EmissiveTexture = CreateTexture(TexNames.find(aiTextureType_EMISSIVE)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
-			d->NormalTexture = CreateTexture(TexNames.find(aiTextureType_NORMALS)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
+			d->NormalTexture = CreateTexture(TexNames.find(aiTextureType_HEIGHT)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
 			d->OcclusionTexture = CreateTexture(TexNames.find(aiTextureType_LIGHTMAP)->second, core::FLinearColor(1.f, 1.f, 1.f, 1.f));
 			};
 

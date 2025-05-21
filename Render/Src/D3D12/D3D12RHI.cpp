@@ -333,6 +333,12 @@ namespace RenderCore
 		RHICachedStates::Initialize(this);
 	}
 
+	void D3D12DynamicRHI::Wait()
+	{
+		if (D3D12Adapter)
+			D3D12Adapter->BlockUntilIdle();
+	}
+
 	void D3D12DynamicRHI::Shutdown()
 	{
 		RHICachedStates::DestroyAll();

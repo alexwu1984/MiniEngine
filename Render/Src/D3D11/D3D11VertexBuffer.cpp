@@ -22,7 +22,7 @@ namespace RenderCore
 
 	D3D11VertexBuffer::~D3D11VertexBuffer()
 	{
-
+		delete d_ptr;
 	}
 
 	bool D3D11VertexBuffer::CreateVertexBuffer(const void* InData, EBufferUsageFlags InUsage, int32_t StrideByteWidth, int32_t Count)

@@ -38,7 +38,7 @@ void IBLRenderDemo::InitResource()
 		m_CubeMapCrossRender->InitResource();
 	m_ViewPort = Engine::GEngine->GetSceneRender()->GetViewPort();
 
-	std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/";
+	std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/HDR/";
 	for (const auto& entry : std::filesystem::directory_iterator(HdrFile))
 	{
 		std::string path = entry.path().string();

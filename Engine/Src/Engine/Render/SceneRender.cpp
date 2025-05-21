@@ -140,97 +140,11 @@ namespace Engine
 
 	void SceneRender::Render(float DeltaTime)
 	{
-		std::shared_ptr<RHICommandContext> CommandContext =  GEngine->GetRHI()->GetDefaultCommandContext();
-		if (!CommandContext)
-			return;
 		C_P(SceneRender);
-		if (!d->IsInit)
-			return;
-
-		const auto& Actors = GetOwner()->GetAllActors();
-		if (!d->SimplePostProc)
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
-				if (d->PreProcess)
-					d->PreProcess->Draw(*CommandContext);
-				});
-
-			d->MeshesInfo.clear();
-			
-			for (const auto& ActorItem : Actors)
-			{
-				if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible() && ActorItem->IsProjectShadow())
-				{
-					auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-					for (auto& ComponentItem : Components)
-					{
-						GltfSceneMeshInfo SceneMeshInfo;
-						if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
-							d->MeshesInfo.push_back(SceneMeshInfo);
-					}
-				}
-			}
-
-			if (d->MeshesInfo.size())
-				d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
-		}
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
-			d->MainViewPort->SetRenderTarget();
-			d->MainViewPort->Clear(d->Color);
-			d->MainViewPort->Prepare();
-			int32_t width = GEngine->GetAppWindow()->GetWidth();
-			int32_t height = GEngine->GetAppWindow()->GetHeight();
-			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
-
-			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),d->TargetBuffer->GetEmissiveBuffer() };
-			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
-			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-			});
-
 		if (d->SimplePostProc)
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this, DeltaTime](RenderCore::DynamicRHI* RHI) {
-				d->MainViewPort->SetRenderTarget();
-				d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort, DeltaTime);
-				});
-		}
+			RenderSimple(DeltaTime);
 		else
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
-				auto IBL = d->PreProcess->GetIBLRender();
-				auto EvnCube = IBL->GetEvnCube();
-				d->BackgroundRender->SetTextureCube(EvnCube);
-				d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
-				});
-
-			d->MeshesInfo.clear();
-			for (const auto& ActorItem : Actors)
-			{
-				if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
-				{
-					auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-					for (auto& ComponentItem : Components)
-					{
-						GltfSceneMeshInfo SceneMeshInfo;
-						if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
-							d->MeshesInfo.push_back(SceneMeshInfo);
-					}
-				}
-			}
-
-			if (d->MeshesInfo.size())
-				d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
-
-			ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
-				d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort,GetOwner()->GetMainCamera());
-			});
-		}
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
-			sigGuiEvent();
-			d->MainViewPort->Present();
-		});
+			RenderScene(DeltaTime);
 	}
 
 	void SceneRender::SetIBLRotate(float x, float y)
@@ -262,6 +176,103 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		d->SimplePostProc = postProcessor;
+	}
+
+	void SceneRender::RenderSimple(float DeltaTime)
+	{
+		C_P(SceneRender);
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d,this, DeltaTime](RenderCore::DynamicRHI* RHI) {
+			d->MainViewPort->SetRenderTarget();
+			d->MainViewPort->Clear(d->Color);
+			d->MainViewPort->Prepare();
+			int32_t width = GEngine->GetAppWindow()->GetWidth();
+			int32_t height = GEngine->GetAppWindow()->GetHeight();
+			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+
+			d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort, DeltaTime);
+			sigGuiEvent();
+			d->MainViewPort->Present();
+		});
+	}
+
+	void SceneRender::RenderScene(float DeltaTime)
+	{
+		std::shared_ptr<RHICommandContext> CommandContext = GEngine->GetRHI()->GetDefaultCommandContext();
+		if (!CommandContext)
+			return;
+		C_P(SceneRender);
+		if (!d->IsInit || !GetOwner()->GetMainCamera())
+			return;
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
+			if (d->PreProcess)
+				d->PreProcess->Draw(*CommandContext);
+		});
+
+		d->MeshesInfo.clear();
+
+		const auto& Actors = GetOwner()->GetAllActors();
+		for (const auto& ActorItem : Actors)
+		{
+			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible() && ActorItem->IsProjectShadow())
+			{
+				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+				for (auto& ComponentItem : Components)
+				{
+					GltfSceneMeshInfo SceneMeshInfo;
+					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+						d->MeshesInfo.push_back(SceneMeshInfo);
+				}
+			}
+		}
+
+		if (d->MeshesInfo.size())
+			d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
+			d->MainViewPort->SetRenderTarget();
+			d->MainViewPort->Clear(d->Color);
+			d->MainViewPort->Prepare();
+			int32_t width = GEngine->GetAppWindow()->GetWidth();
+			int32_t height = GEngine->GetAppWindow()->GetHeight();
+			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+
+			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),d->TargetBuffer->GetEmissiveBuffer() };
+			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
+			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
+			});
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
+			auto IBL = d->PreProcess->GetIBLRender();
+			auto EvnCube = IBL->GetEvnCube();
+			d->BackgroundRender->SetTextureCube(EvnCube);
+			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
+			});
+
+		d->MeshesInfo.clear();
+		for (const auto& ActorItem : Actors)
+		{
+			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
+			{
+				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+				for (auto& ComponentItem : Components)
+				{
+					GltfSceneMeshInfo SceneMeshInfo;
+					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+						d->MeshesInfo.push_back(SceneMeshInfo);
+				}
+			}
+		}
+
+		if (d->MeshesInfo.size())
+			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
+			d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, GetOwner()->GetMainCamera());
+			sigGuiEvent();
+			d->MainViewPort->Present();
+		});
 	}
 
 }

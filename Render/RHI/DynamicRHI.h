@@ -44,7 +44,7 @@ namespace RenderCore
 
 		/** Initializes the RHI; separate from IDynamicRHIModule::CreateRHI so that GDynamicRHI is set when it is called. */
 		virtual void Init() = 0;
-
+		virtual void Wait() {};
 		/** Shutdown the RHI; handle shutdown and resource destruction before the RHI's actual destructor is called (so that all resources of the RHI are still available for shutdown). */
 		virtual void Shutdown() = 0;
 

@@ -36,6 +36,9 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
 		void SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor);
+	private:
+		void RenderSimple(float DeltaTime);
+		void RenderScene(float DeltaTime);
 	public:
 		core::event<void()> sigGuiEvent;
 	private:

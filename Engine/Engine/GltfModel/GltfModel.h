@@ -17,7 +17,6 @@ namespace Engine
 		~GltfModel();
 
 		bool Load(const std::wstring& FileName, std::shared_ptr< GltfModelConfig> Config);
-		void UpdateNode();
 		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
 		math::AABB3 GetModelBox() const;
 		std::shared_ptr<GltfNode> RootNode();
@@ -26,6 +25,7 @@ namespace Engine
 		std::shared_ptr< GltfModelConfig> GetModelConfig() const;
 	private:
 		void LoadNode();
+		void UpdateNode();
 		void LoadMesh();
 		void LoadAnimate();
 		void LoadSkeleton();

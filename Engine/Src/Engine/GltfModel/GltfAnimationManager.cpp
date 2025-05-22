@@ -29,11 +29,11 @@ namespace Engine
 
 	}
 
-	void GltfAnimationManager::Play(float Second)
+	bool GltfAnimationManager::Play(float Second)
 	{
 		if (_AnimationAllTime < 0.001)
 		{
-			return;
+			return false;
 		}
 
 		int nTmp = Second / _AnimationAllTime;
@@ -50,8 +50,14 @@ namespace Engine
 			{
 				_hasModelAnimate = true;
 			}
-
 		}
+		return _hasModelAnimate;
+	}
+
+
+	bool GltfAnimationManager::HasAnimation() const
+	{
+		return _hasModelAnimate;
 	}
 
 }

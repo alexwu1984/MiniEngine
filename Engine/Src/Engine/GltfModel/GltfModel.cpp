@@ -79,24 +79,6 @@ namespace Engine
 		}
 	}
 
-	void GltfModel::UpdateNode()
-	{
-		C_P(GltfModel);
-		if (!d->RootNode)
-		{
-			return;
-		}
-		for (int i = 0; i < d->ModelMesh.size(); i++)
-		{
-			auto NodeInfo = d->RootNode->GetNodeInfo(d->ModelMesh[i]->GetNodeId());
-			if (NodeInfo)
-			{
-				d->RootNode->UpdateNodeParent(NodeInfo);
-				d->ModelMesh[i]->SetMeshMat(NodeInfo->FinalMeshMat);
-			}
-		}
-	}
-
 	std::vector<std::shared_ptr<GltfMesh>>& GltfModel::GetModelMesh()
 	{
 		C_P(GltfModel);
@@ -126,15 +108,12 @@ namespace Engine
 		C_P(GltfModel);
 		if (d->AnimationMgr)
 		{
-			d->AnimationMgr->Play(TotalDeltaTime);
+			if(d->AnimationMgr->Play(TotalDeltaTime))
+				UpdateNode();
 		}
 
 		if (d->Skeleton)
-		{
 			d->Skeleton->UpdateBone();
-		}
-
-		UpdateNode();
 	}
 
 	std::shared_ptr< Engine::GltfModelConfig> GltfModel::GetModelConfig() const
@@ -158,6 +137,24 @@ namespace Engine
 				{
 					d->RootNode->InitGroupNode(NodeIds[k]);
 				}
+			}
+		}
+	}
+
+	void GltfModel::UpdateNode()
+	{
+		C_P(GltfModel);
+		if (!d->RootNode)
+		{
+			return;
+		}
+		for (int i = 0; i < d->ModelMesh.size(); i++)
+		{
+			auto NodeInfo = d->RootNode->GetNodeInfo(d->ModelMesh[i]->GetNodeId());
+			if (NodeInfo)
+			{
+				d->RootNode->UpdateNodeParent(NodeInfo);
+				d->ModelMesh[i]->SetMeshMat(NodeInfo->FinalMeshMat);
 			}
 		}
 	}

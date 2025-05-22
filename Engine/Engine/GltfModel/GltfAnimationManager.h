@@ -14,8 +14,8 @@ namespace Engine
 		~GltfAnimationManager();
 
 		void InitAnimation();
-		void Play(float Second);
-
+		bool Play(float Second);
+		bool HasAnimation() const;
 	private:
 		tinygltf::Model* _gltfModel = nullptr;
 		GltfModel* _Model = nullptr;

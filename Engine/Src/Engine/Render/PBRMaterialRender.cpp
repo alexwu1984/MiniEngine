@@ -134,10 +134,10 @@ namespace Engine
 			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		}
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
-		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
 
 		//to do,set uniform buffer

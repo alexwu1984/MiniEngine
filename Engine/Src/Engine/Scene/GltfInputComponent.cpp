@@ -95,10 +95,10 @@ namespace Engine
 				math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle, 0.f);
 
 				GetOwner()->SetRotation(Quat);
-				auto Pos = GetOwner()->GetPosition();
-				Pos.x = -1 * Impl->Translate.x;
-				Pos.y = -1 * Impl->Translate.y;
-				GetOwner()->SetPosition(Pos);
+				//auto Pos = GetOwner()->GetPosition();
+				//Pos.x = -1 * Impl->Translate.x;
+				//Pos.y = -1 * Impl->Translate.y;
+				//GetOwner()->SetPosition(Pos);
 			}
 			break;
 			case MET_Wheel:

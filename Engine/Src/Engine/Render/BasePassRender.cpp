@@ -28,7 +28,7 @@ namespace Engine
 	struct BasePassRenderPrivate
 	{
 		std::vector<MeshDistanceInfo> SortMesh;
-		std::map<std::string, std::shared_ptr<MaterialRender>> Renders;
+		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<MaterialRender>> Renders;
 		std::shared_ptr<SceneView> sceneView;
 		float xHDRRotate{ 0.f };
 		float yHDRRotate{ 1.f };
@@ -45,14 +45,13 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	void BasePassRender::Render(const std::vector<GltfSceneMeshInfo>& MeshInfos, RenderCore::RHICommandContext& RHIContext,
-								std::shared_ptr<SceneView> View)
+	void BasePassRender::Render(RenderCore::DynamicRHI* RHI,const std::vector<GltfSceneMeshInfo>& MeshInfos,std::shared_ptr<SceneView> View)
 	{
 		C_P(BasePassRender);
 		d->SortMesh.clear();
 		d->sceneView = View;
-		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), true);
-		ActualDraw(MeshInfos,RHIContext, View->GetMainCamera(), false);
+		ActualDraw(RHI, MeshInfos, View->GetMainCamera(), true);
+		ActualDraw(RHI, MeshInfos, View->GetMainCamera(), false);
 	}
 
 	void BasePassRender::SetIBLRotate(float x, float y)
@@ -120,8 +119,7 @@ namespace Engine
 		}
 	}
 
-	void BasePassRender::ActualDraw(const std::vector<GltfSceneMeshInfo>& MeshInfos,
-									RenderCore::RHICommandContext& RHIContext, 
+	void BasePassRender::ActualDraw(RenderCore::DynamicRHI* RHI,const std::vector<GltfSceneMeshInfo>& MeshInfos,
 									std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
 	{
 		C_P(BasePassRender);
@@ -132,39 +130,38 @@ namespace Engine
 			std::vector<MeshDistanceInfo> RenderResult;
 			GraphMeshByDistance(MeshInfo, Camera->GetCameraPos(), RenderResult);
 			std::sort(RenderResult.begin(), RenderResult.end(), MeshDistanceInfo());
-			for (const auto &RenderInfo : RenderResult)
+
+			for (const auto& RenderInfo : RenderResult)
 			{
 				std::shared_ptr<MeshBase> Mesh = RenderInfo.Mesh;
-
 				auto Material = GetOrCreateRender(Mesh);
-
 				if (!Mesh->GetMaterial()->IsTransparent())
 				{
-					DrawMesh(Mesh, MeshInfo.WorldTransform, MeshInfo.PrevWorldTransform, 
-						Material, RHIContext, Camera, IsPreDraw);
+					DrawMesh(RHI,
+							 Mesh, MeshInfo.WorldTransform, MeshInfo.PrevWorldTransform,
+							 Material, Camera, IsPreDraw);
 				}
 			}
 		}
 
 		SortMesh(MeshInfos, Camera->GetCameraPos());
-
 		for (const auto& SortItem : d->SortMesh)
 		{
 			std::shared_ptr<MeshBase> Mesh = SortItem.Mesh;
-
 			auto Material = GetOrCreateRender(Mesh);
-
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				DrawMesh(Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
-					Material, RHIContext, Camera, IsPreDraw);
+				DrawMesh(RHI,
+						 Mesh, SortItem.WorldTransform, SortItem.PrevWorldTransform,
+						 Material, Camera, IsPreDraw);
 			}
 		}
 	}
 
-	void BasePassRender::DrawMesh(std::shared_ptr<MeshBase> Mesh, const math::Matrix4x4& WorldTransform,
+	void BasePassRender::DrawMesh(RenderCore::DynamicRHI* RHI,
+		std::shared_ptr<MeshBase> Mesh, const math::Matrix4x4& WorldTransform,
 		const math::Matrix4x4& PrevWorldTransform,
-		std::shared_ptr<MaterialRender> Render, RenderCore::RHICommandContext& RHIContext,
+		std::shared_ptr<MaterialRender> Render,
 		std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
 	{
 		C_P(BasePassRender);
@@ -184,28 +181,22 @@ namespace Engine
 		Rotate *= math::Matrix4x4::RotateY(math::Radians(d->yHDRRotate));
 		RenderParam.RotateIBL = Rotate;
 
-		auto RenderMesh = [Render, RenderParam, Mesh, IsPreDraw](RenderCore::DynamicRHI* DyRHI)
+		if (Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
+		{
+			auto& Bone = Mesh->GetBoneNodeArray()[Mesh->GetSkinId()];
+			for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
 			{
-				if (Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
-				{
-					auto& Bone = Mesh->GetBoneNodeArray()[Mesh->GetSkinId()];
-					for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
-					{
-						Render->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
-					}
-				}
-				if (IsPreDraw)
-				{
-					Render->PreDraw(*DyRHI->GetDefaultCommandContext(), RenderParam);
-				}
-				else
-				{
-					Render->Draw(*DyRHI->GetDefaultCommandContext(), RenderParam);
-				}
-
-			};
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND(RenderMesh);
+				Render->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+			}
+		}
+		if (IsPreDraw)
+		{
+			Render->PreDraw(*RHI->GetDefaultCommandContext(), RenderParam);
+		}
+		else
+		{
+			Render->Draw(*RHI->GetDefaultCommandContext(), RenderParam);
+		}
 
 	}
 
@@ -213,7 +204,7 @@ namespace Engine
 	{
 		C_P(BasePassRender);
 		
-		auto ItFind = d->Renders.find(Mesh->GetMeshName());
+		auto ItFind = d->Renders.find(Mesh);
 		if (ItFind != d->Renders.end())
 		{
 			return ItFind->second;
@@ -235,7 +226,7 @@ namespace Engine
 		}
 
 		PBRMaterial->InitRenderResource();
-		d->Renders.insert({ Mesh->GetMeshName(),PBRMaterial });
+		d->Renders.insert({ Mesh,PBRMaterial });
 		return PBRMaterial;
 	}
 

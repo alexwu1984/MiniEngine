@@ -15,8 +15,16 @@
   },
   "Modles": [
     {
+      "Model": "floor.glb",
+      "Scale": 0.05,
+      "Material": {
+        "Metallic": 0.0
+      }
+    },
+    {
       "Model": "old_bicycle.glb",
-      "Scale": 1.0,
+      "Scale": 1.3,
+      "Position": "0.0,0.6,1.0",
       "Material": {
         "Metallic": 1.0
       },

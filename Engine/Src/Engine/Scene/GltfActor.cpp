@@ -71,6 +71,14 @@ namespace Engine
 		{
 			SetProjectShadow(d->GltfJson["ProjShadow"]);
 		}
+
+		if (d->GltfJson.find("Position") != d->GltfJson.end())
+		{
+			std::string PosStr = d->GltfJson["Position"];
+			math::Vector3 Pos;
+			std::sscanf(PosStr.c_str(), "%f,%f,%f", &Pos.x, &Pos.y, &Pos.z);
+			SetPosition(Pos);
+		}
 		
 		AddComponent(d->CameraComp);
 

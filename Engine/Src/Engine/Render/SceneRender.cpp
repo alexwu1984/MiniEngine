@@ -241,14 +241,12 @@ namespace Engine
 			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),d->TargetBuffer->GetEmissiveBuffer() };
 			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-			});
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			auto IBL = d->PreProcess->GetIBLRender();
 			auto EvnCube = IBL->GetEvnCube();
 			d->BackgroundRender->SetTextureCube(EvnCube);
 			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
-			});
+		});
 
 		d->MeshesInfo.clear();
 		for (const auto& ActorItem : Actors)
@@ -265,10 +263,9 @@ namespace Engine
 			}
 		}
 
-		if (d->MeshesInfo.size())
-			d->BaseRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this, MeshesInfo = d->MeshesInfo](RenderCore::DynamicRHI* RHI) {
+			if (MeshesInfo.size())
+				d->BaseRender->Render(RHI,MeshesInfo, GetOwner());
 			d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, GetOwner()->GetMainCamera());
 			sigGuiEvent();
 			d->MainViewPort->Present();

@@ -2,7 +2,6 @@
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 
-
 Texture2D AlbedoMap : register(t0);
 Texture2D NormalMap : register(t1);
 Texture2D Roughness_metallicMap : register(t2);
@@ -277,7 +276,7 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diffuseColor, in float3 specularColor, in float perceptualRoughness)
 {
 #ifdef MATERIAL_UNLIT
-        //return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
+        return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
 #endif
 
     // Roughness is authored as perceptual roughness; as is convention,
@@ -369,7 +368,7 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
 #endif
 
 #ifdef DEBUG_BASECOLOR
-    outColor.rgb = (baseColor.rgb);
+    outColor.rgb = (diffuseColor.rgb);
 #endif
 
 #ifdef DEBUG_OCCLUSION

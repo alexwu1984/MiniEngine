@@ -55,7 +55,6 @@ bool GltfViewApp::Init()
 		if (Camera)
 		{
 			auto CameraPos = Camera->GetCameraPos();
-			CameraPos.z += 3;
 			Camera->SetCameraPos(CameraPos);
 		}
 

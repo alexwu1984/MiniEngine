@@ -104,6 +104,8 @@ namespace Engine
 				ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
 			}
 
+			//ShaderMacros.push_back({"MATERIAL_UNLIT","0"});
+
 			if (VerticesBuffer[RenderCore::VT_JointsIndices0])
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));

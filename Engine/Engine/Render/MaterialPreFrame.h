@@ -36,7 +36,7 @@ namespace Engine
 
 	struct MaterialPerFrame
 	{
-		float Metallic{ 1.f };
+		float Metallic{ 0.f };
 		int padding0{ 0 };
 		int padding1{ 0 };
 		int padding2{ 0 };

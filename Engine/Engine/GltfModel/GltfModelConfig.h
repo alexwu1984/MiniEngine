@@ -25,7 +25,7 @@ namespace Engine
 
 	struct MaterialConfig
 	{
-		float Metallic{ 1.0 };
+		float Metallic{ 0.0 };
 	};
 
 	class GltfModelConfig

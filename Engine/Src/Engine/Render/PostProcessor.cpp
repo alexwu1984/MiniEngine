@@ -112,7 +112,7 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->BloomEffect->GetResult());
-		d->GET_UNIFORMDATA(BloomContants).BloomIntensity = 1.5f;
+		d->GET_UNIFORMDATA(BloomContants).BloomIntensity = 1.0f;
 		d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(BloomContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);

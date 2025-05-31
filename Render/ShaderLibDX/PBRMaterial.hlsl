@@ -56,7 +56,7 @@ float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
     float3 SpecularLight = PrefliterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
 
     float3 Diffuse = DiffuseLight * MaterialInfo.diffuseColor * (1.0 - MaterialInfo.Metallic);
-    float3 Specular = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
+    float3 Specular = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y) * MaterialInfo.Metallic;
 
     return Diffuse + Specular;
 }
@@ -273,7 +273,7 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
     return n * (bIsFontFacing ? -1 : 1);
 }
 
-float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diffuseColor, in float3 specularColor, in float perceptualRoughness)
+float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diffuseColor, in float3 specularColor, in float perceptualRoughness, in float metallic)
 {
 #ifdef MATERIAL_UNLIT
         return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
@@ -296,7 +296,7 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
         diffuseColor,
         specularEnvironmentR90,
         specularColor,
-        perFrame.Material.Metallic
+        metallic,
     };
 
     // LIGHTING
@@ -393,7 +393,7 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
 }
 
 
-void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 specularColor, out float perceptualRoughness, out float alpha)
+void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 specularColor, out float perceptualRoughness,out float metallic, out float alpha)
 {
     // Metallic and Roughness material properties are packed together
     // In glTF, these factors can be specified by fixed scalar values
@@ -408,7 +408,7 @@ void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 spec
     
     float4 mr = Roughness_metallicMap.Sample(SampleLinear, Input.UV0);
     perceptualRoughness = mr.g;
-    float metallic = mr.b * myPerFrame.Material.Metallic;
+    metallic = mr.b;
 
     // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
     // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
@@ -449,9 +449,10 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float perceptualRoughness;
     float3 diffuseColor;
     float3 specularColor;
-    GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, alpha);
+    float metallic;
+    GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness,metallic, alpha);
     
-    float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness);
+    float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness,metallic);
     Output.Target0 = float4(HDRColor, alpha);
     Output.Target1 = Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition); 
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);

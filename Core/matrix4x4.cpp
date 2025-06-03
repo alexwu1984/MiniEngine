@@ -338,20 +338,69 @@ namespace math
 
 	Matrix4x4 Matrix4x4::MatrixLookAtLH(const Vector3& EyePosition, const Vector3& FocusPosition, const Vector3& UpDirection)
 	{
+		// 定义最小距离阈值，避免距离过近导致的数值问题
+		const float MIN_DISTANCE = 0.001;
+
+		// 计算前向向量并归一化
 		Vector3 Forward = FocusPosition - EyePosition;
-		Forward.Normalize();
+		float distance = Forward.GetLength();
+
+		// 处理距离过近的情况
+		if (distance < MIN_DISTANCE) {
+			// 如果距离过近，使用一个默认的前向向量
+			Forward = Vector3::UnitZ;
+		}
+		else {
+			Forward /= distance; // 归一化
+		}
+
+		// 处理向上向量
 		Vector3 Up = UpDirection;
-		Up.Normalize();
+		float upLength = Up.GetLength();
 
+		// 检查向上向量是否有效
+		if (upLength < MIN_DISTANCE) {
+			Up = Vector3::UnitY; // 默认向上向量
+		}
+		else {
+			Up /= upLength; // 归一化
+		}
+
+		// 构建正交基
 		Vector3 Right = Vector3::Cross(Up, Forward);
-		Up = Vector3::Cross(Forward, Right);
+		float rightLength = Right.GetLength();
 
+		// 检查是否存在共线情况（前向向量与向上向量平行）
+		if (rightLength < MIN_DISTANCE) {
+			// 处理共线情况：找到一个与前向向量正交的向量
+			if (std::abs(Forward.x) < 0.9f) {
+				Right = Vector3::Cross(Vector3(1.0f, 0.0f, 0.0f), Forward);
+			}
+			else {
+				Right = Vector3::Cross(Vector3(0.0f, 1.0f, 0.0f), Forward);
+			}
+			Right.Normalize();
+			Up = Vector3::Cross(Forward, Right);
+		}
+		else {
+			Right /= rightLength;
+			Up = Vector3::Cross(Forward, Right); // 重新计算正交的向上向量
+		}
+
+		// 计算平移分量
 		float D0 = -EyePosition.Dot(Right);
 		float D1 = -EyePosition.Dot(Up);
 		float D2 = -EyePosition.Dot(Forward);
 
-		Matrix4x4 Result(Vector4(Right, D0), Vector4(Up, D1), Vector4(Forward, D2), Vector4(0.f, 0.f, 0.f, 1.f));
-		return Result.Transpose();
+		// 构建矩阵（列主序）
+		Matrix4x4 Result(
+			Vector4(Right.x, Up.x, Forward.x, 0.0f),
+			Vector4(Right.y, Up.y, Forward.y, 0.0f),
+			Vector4(Right.z, Up.z, Forward.z, 0.0f),
+			Vector4(D0, D1, D2, 1.0f)
+		);
+
+		return Result;
 	}
 
 	Matrix4x4 Matrix4x4::CreateFromQuaternion(const Quaternion& q)

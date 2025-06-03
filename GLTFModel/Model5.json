@@ -17,7 +17,7 @@
     {
       "Model": "Model5.glb",
       "Scale": 1.0,
-      "Position": "0.0,0.0,3.0",
+      "Position": "0.0,0.0,0.0",
       "Material": {
         "Metallic": 0.0
       },

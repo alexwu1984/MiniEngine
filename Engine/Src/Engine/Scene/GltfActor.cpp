@@ -56,7 +56,7 @@ namespace Engine
 				auto Box = d->MeshComp->GetModelBox();
 				math::Vector3 Length = Box.GetMaxPoint() - Box.GetMinPoint();
 				float Dist = (std::max)(Length.x, (std::max)(Length.y, Length.z));
-				Dist = Dist * 2.5;
+				Dist = Dist * 4;
 				auto Pos = d->CameraComp->GetCameraPos();
 				d->CameraComp->SetCameraPos(math::Vector3(Pos.x, Pos.y, Dist));
 			}

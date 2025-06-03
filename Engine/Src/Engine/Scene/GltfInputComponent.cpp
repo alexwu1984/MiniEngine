@@ -95,10 +95,10 @@ namespace Engine
 				math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle, 0.f);
 
 				GetOwner()->SetRotation(Quat);
-				//auto Pos = GetOwner()->GetPosition();
-				//Pos.x = -1 * Impl->Translate.x;
-				//Pos.y = -1 * Impl->Translate.y;
-				//GetOwner()->SetPosition(Pos);
+				auto Pos = GetOwner()->GetPosition();
+				Pos.x = -1 * Impl->Translate.x;
+				Pos.y = -1 * Impl->Translate.y;
+				GetOwner()->SetPosition(Pos);
 			}
 			break;
 			case MET_Wheel:
@@ -115,7 +115,13 @@ namespace Engine
 				}
 
 				math::Matrix4x4 Mat = math::Matrix4x4::CreateFromTranslate(0, 0, Scale * 1.5f);
-				MainCamera->SetCameraPos(Mat.TransformPosition(MainCamera->GetCameraPos()));
+				math::Vector3 Target = math::Vector3::UnitZ;
+				math::Vector3 NewPos = Mat.TransformPosition(MainCamera->GetCameraPos());
+				if (NewPos.GetLength() - Target.GetLength() < 0.01)
+				{
+					return;
+				}
+				MainCamera->SetCameraPos(NewPos);
 
 			}
 			break;

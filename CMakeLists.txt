@@ -58,6 +58,16 @@ endif ()
 set_target_properties(GLFFViewer PROPERTIES
 	PROJECT_LABEL "GLFFViewer")
 
+file(GLOB SoftwareRender_Headers "SoftwareRender/*.h")
+file(GLOB SoftwareRender_Sources "SoftwareRender/*.cpp")
+
+add_executable(SoftwareRender ${SoftwareRender_Sources} ${SoftwareRender_Headers})
+
+target_link_libraries(SoftwareRender LINK_PUBLIC Core DirectXTex Render Engine )
+
+set_target_properties(SoftwareRender PROPERTIES
+	PROJECT_LABEL "SoftwareRender")
+
 set_target_properties(
 	GLFFViewer
 	PROPERTIES

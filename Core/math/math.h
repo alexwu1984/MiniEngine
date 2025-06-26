@@ -667,4 +667,32 @@ namespace math
 	{
 		return 0 == ((size_t)value & (alignment - 1));
 	}
+
+	inline bool SolveQuadratic(const float& a, const float& b, const float& c, float& x0, float& x1)
+	{
+		float discr = b * b - 4 * a * c;
+		if (discr < 0)
+			return false;
+		else if (discr == 0)
+			x0 = x1 = -0.5 * b / a;
+		else
+		{
+			float q = (b > 0) ? -0.5 * (b + sqrt(discr)) : -0.5 * (b - sqrt(discr));
+			x0 = q / a;
+			x1 = c / q;
+		}
+		if (x0 > x1)
+			std::swap(x0, x1);
+		return true;
+	}
+
+	inline float GetRandomFloat()
+	{
+		// 使用线程局部存储确保每个线程有自己的随机数生成器
+		thread_local static std::random_device dev;
+		thread_local static std::mt19937 rng(dev());
+		thread_local static std::uniform_real_distribution<float> dist(0.f, 1.f);
+
+		return dist(rng);
+	}
 }

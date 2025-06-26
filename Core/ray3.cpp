@@ -85,6 +85,50 @@ namespace math
 		return Intersect::E_Intersect;
 	}
 
+	HitResult RayTriangleIntersect(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Ray3& ray, float& tnear, float& u, float& v)
+	{
+		HitResult hitResult{};
+		// 计算边向量
+		Vector3 edge1 = v1 - v0;
+		Vector3 edge2 = v2 - v0;
+
+		// 计算叉乘 s1 = dir × edge2
+		Vector3 s1 = Vector3::Cross(ray.GetDir(), edge2);
+		// 计算行列式 det = s1 · edge1
+		float det = Vector3::Dot(s1, edge1);
+
+		// 处理行列式接近0的情况（光线与三角形平面平行或反向）
+		if (det > -KINDA_SMALL_NUMBER && det < KINDA_SMALL_NUMBER)
+			return hitResult;
+
+		// 计算行列式的倒数，避免重复除法
+		float invDet = 1 / det;
+
+		// 计算从 v0 到光线原点的向量
+		Vector3 s = ray.GetOrig() - v0;
+		// 计算 u 并判断范围
+		hitResult.u = Vector3::Dot(s, s1) * invDet;
+		if (u < 0 || u > 1)
+			return hitResult;
+
+		// 计算叉乘 s2 = s × edge1
+		Vector3 s2 = Vector3::Cross(s, edge1);
+		// 计算 v 并判断范围
+		hitResult.v = Vector3::Dot(ray.GetDir(), s2) * invDet;
+		if (v < 0 || u + v > 1)
+			return hitResult;
+
+		// 计算 t（交点距离）并判断范围
+		hitResult.tNear = Vector3::Dot(edge2, s2) * invDet;
+		if (tnear < 0)
+			return hitResult;
+
+		// 所有条件满足，光线与三角形相交
+		hitResult.Hit = true;
+		return hitResult;
+
+	}
+
 }
 
 

@@ -56,5 +56,5 @@ namespace math
 		float v = 0.f;
 	};
 
-	HitResult RayTriangleIntersect(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Ray3& ray, float& tnear, float& u, float& v);
+	HitResult RayTriangleIntersect(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Ray3& ray);
 }

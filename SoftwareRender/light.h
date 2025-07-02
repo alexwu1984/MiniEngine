@@ -9,6 +9,8 @@ public:
 		, intensity(i)
 	{}
 	virtual ~Light() = default;
+
+	virtual math::Vector3 illuminate(const math::Vector3& lightDir, const math::Vector3& N,bool inShadow) const = 0;
 	math::Vector3 position;
 	math::Vector3 intensity;
 };

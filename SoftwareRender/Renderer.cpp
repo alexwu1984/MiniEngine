@@ -179,14 +179,13 @@ math::Vector3 castRay(
 				math::Vector3 lightDir = light->position - hitPoint;
 				// square of the distance between hitPoint and the light
 				float lightDistance2 = math::Vector3::Dot(lightDir, lightDir);
-				lightDir = lightDir.Normalize();
-				float LdotN = std::max(0.f, math::Vector3::Dot(lightDir, N));
 				// is the point in shadow, and is the nearest occluding object closer to the object than the light itself?
 				auto shadow_res = trace(shadowPointOrig, lightDir, scene.get_objects());
 				bool inShadow = shadow_res && (shadow_res->tNear * shadow_res->tNear < lightDistance2);
 
-				lightAmt += inShadow ? 0 : light->intensity * LdotN;
-				math::Vector3 reflectionDirection = reflect(-lightDir, N);
+				lightAmt += light->illuminate(lightDir, N, inShadow);
+
+				math::Vector3 reflectionDirection = reflect(-lightDir.Normalize(), N);
 
 				specularColor += powf(std::max(0.f, -math::Vector3::Dot(reflectionDirection, dir)),
 					payload->hit_obj->specularExponent) * light->intensity;

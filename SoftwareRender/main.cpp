@@ -4,6 +4,7 @@
 #include "Triangle.h"
 #include "Light.h"
 #include "Renderer.h"
+#include "PointLight.h"
 #include "DirectionLight.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
@@ -28,8 +29,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	mesh->materialType = DIFFUSE_AND_GLOSSY;
 
 	scene.Add(std::move(mesh));
-	scene.Add(std::make_unique<DirectionalLight>(math::Vector3(-20, 70, 20), 0.5));
-	scene.Add(std::make_unique<DirectionalLight>(math::Vector3(30, 50, -12), 0.5));
+	//scene.Add(std::make_unique<DirectionalLight>(math::Vector3(-20, 70, 20), 0.5));
+	//scene.Add(std::make_unique<DirectionalLight>(math::Vector3(30, 50, -12), 0.5));
+	scene.Add(std::make_unique<PointPoint>(math::Vector3(0, 5, 0), 0.5));
 
 	Renderer r;
 	r.Render(scene);

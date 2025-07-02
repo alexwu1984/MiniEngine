@@ -207,7 +207,7 @@ math::Vector3 castRay(
 // [/comment]
 void Renderer::Render(const Scene& scene)
 {
-	std::vector<math::Vector3> framebuffer(scene.width * scene.height);
+	m_frameBuffer.resize(scene.width * scene.height);
 
 	float scale = std::tan(math::Radians(scene.fov * 0.5f));
 	float imageAspectRatio = scene.width / (float)scene.height;
@@ -236,20 +236,13 @@ void Renderer::Render(const Scene& scene)
 
 			math::Vector3 dir = math::Vector3(x, y, -1); // Don't forget to normalize this direction!
 			dir = dir.Normalize();
-			framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
+			math::Vector3 color = castRay(eye_pos, dir, scene, 0);
+			m_frameBuffer[m++] = core::FColor(255 * math::Clamp(color.x, 0.f, 1.f), 255 * math::Clamp(color.y, 0.f, 1.f), 255 * math::Clamp(color.z, 0.f, 1.f));
 		}
-		UpdateProgress(j / (float)scene.height);
 	}
+}
 
-	// save framebuffer to file
-	FILE* fp = fopen("binary.ppm", "wb");
-	(void)fprintf(fp, "P6\n%d %d\n255\n", scene.width, scene.height);
-	for (auto i = 0; i < scene.height * scene.width; ++i) {
-		static unsigned char color[3];
-		color[0] = (char)(255 * math::Clamp(framebuffer[i].x,0.f, 1.f));
-		color[1] = (char)(255 * math::Clamp(framebuffer[i].y,0.f, 1.f));
-		color[2] = (char)(255 * math::Clamp(framebuffer[i].z,0.f, 1.f));
-		fwrite(color, 1, 3, fp);
-	}
-	fclose(fp);
+uint8_t* Renderer::GetBuffer()
+{
+	return &(m_frameBuffer[0].B);
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include "math/vector2.h"
-
+#include "core/color.h"
 class Object;
 class Scene;
 
@@ -16,5 +16,7 @@ class Renderer
 {
 public:
 	void Render(const Scene& scene);
+	uint8_t* GetBuffer();
 private:
+	std::vector<core::FColor> m_frameBuffer;
 };

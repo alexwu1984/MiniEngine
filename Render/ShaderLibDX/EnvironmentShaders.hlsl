@@ -186,6 +186,12 @@ float4 PS_ShowTexture2D(in VertexOutput_Texture2D In) : SV_Target0
 	return float4(ToneMapping(Color * Exposure), 1.0);
 }
 
+float4 PS_ShowTexture2DNormal(in VertexOutput_Texture2D In) : SV_Target0
+{
+	float3 Color = InputTexture.Sample(LinearSampler, In.Tex).xyz;
+	return float4(Color, 1.0);
+}
+
 //-------------------------------------------------------
 // CubeMap Cross View
 //-------------------------------------------------------

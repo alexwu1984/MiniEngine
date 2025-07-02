@@ -11,6 +11,4 @@ public:
 	virtual ~DirectionalLight() = default;
 
 	math::Vector3 illuminate(const math::Vector3& lightDir, const math::Vector3& N, bool inShadow) const override;
-	math::Vector3 position;
-	math::Vector3 intensity;
 };

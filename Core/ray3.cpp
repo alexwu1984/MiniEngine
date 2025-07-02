@@ -85,7 +85,7 @@ namespace math
 		return Intersect::E_Intersect;
 	}
 
-	HitResult RayTriangleIntersect(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Ray3& ray, float& tnear, float& u, float& v)
+	HitResult RayTriangleIntersect(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Ray3& ray)
 	{
 		HitResult hitResult{};
 		// 计算边向量
@@ -108,19 +108,19 @@ namespace math
 		Vector3 s = ray.GetOrig() - v0;
 		// 计算 u 并判断范围
 		hitResult.u = Vector3::Dot(s, s1) * invDet;
-		if (u < 0 || u > 1)
+		if (hitResult.u < 0 || hitResult.u > 1)
 			return hitResult;
 
 		// 计算叉乘 s2 = s × edge1
 		Vector3 s2 = Vector3::Cross(s, edge1);
 		// 计算 v 并判断范围
 		hitResult.v = Vector3::Dot(ray.GetDir(), s2) * invDet;
-		if (v < 0 || u + v > 1)
+		if (hitResult.v < 0 || hitResult.u + hitResult.v > 1)
 			return hitResult;
 
 		// 计算 t（交点距离）并判断范围
 		hitResult.tNear = Vector3::Dot(edge2, s2) * invDet;
-		if (tnear < 0)
+		if (hitResult.tNear < 0)
 			return hitResult;
 
 		// 所有条件满足，光线与三角形相交

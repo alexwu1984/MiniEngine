@@ -16,6 +16,7 @@ class Renderer
 {
 public:
 	void Render(const Scene& scene);
+	void Exercise4(const Scene& scene);
 	uint8_t* GetBuffer();
 private:
 	std::vector<core::FColor> m_frameBuffer;

@@ -213,7 +213,7 @@ void Renderer::Render(const Scene& scene)
 	float imageAspectRatio = scene.width / (float)scene.height;
 
 	// Use this variable as the eye position to start your rays.
-	math::Vector3 eye_pos(0);
+	math::Vector3 eye_pos(0,0,0);
 	int m = 0;
 	for (int j = 0; j < scene.height; ++j)
 	{
@@ -241,6 +241,17 @@ void Renderer::Render(const Scene& scene)
 		}
 	}
 }
+
+void Renderer::Exercise4(const Scene& scene)
+{
+	// Use this variable as the eye position to start your rays.
+	math::Vector3 eye_pos(1, 1, 1);
+
+	math::Vector3 dir = math::Vector3(1, 1, 1); // Don't forget to normalize this direction!
+	dir = dir.Normalize();
+	castRay(eye_pos, dir, scene, 0);
+}
+
 
 uint8_t* Renderer::GetBuffer()
 {

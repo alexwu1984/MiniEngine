@@ -29,15 +29,15 @@ namespace Engine
 
 		bool IsValid = false;
 
-		if (Type == sizeof(float))
+		if (sizeof(Type) == sizeof(float))
 		{
 			IsValid = true;
 		}
-		else if (Type == sizeof(int))
+		else if (sizeof(Type) == sizeof(int))
 		{
 			IsValid = true;
 		}
-		else if (Type == sizeof(bool))
+		else if (sizeof(Type) == sizeof(bool))
 		{
 			IsValid = true;
 		}

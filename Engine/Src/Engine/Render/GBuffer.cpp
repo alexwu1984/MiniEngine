@@ -18,6 +18,7 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> MotionVector;
 		std::shared_ptr<RHITexture2D> NormalBuffer;
 		std::shared_ptr<RHITexture2D> EmissiveBuffer;
+		std::shared_ptr<RHITexture2D> MetallicSpecularRoughness;
 	};
 
 	GBuffer::GBuffer(DynamicRHI* RHI)
@@ -57,6 +58,10 @@ namespace Engine
 		{
 			d->EmissiveBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height, 1);
 		}
+		if (Flag & GBUFFER_METALLIC_ROUGHNESS_BUFFER)
+		{
+			d->MetallicSpecularRoughness = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height, 1);
+		}
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetDepth() const
@@ -95,10 +100,17 @@ namespace Engine
 		return d->NormalBuffer;
 	}
 
-	std::shared_ptr<RenderCore::RHITexture2D> GBuffer::GetEmissiveBuffer() const
+	std::shared_ptr<RHITexture2D> GBuffer::GetEmissiveBuffer() const
 	{
 		C_P(const GBuffer);
 		return d->EmissiveBuffer;
+	}
+
+
+	std::shared_ptr<RHITexture2D> GBuffer::GetMetallicRoughnessBuffer() const
+	{
+		C_P(const GBuffer);
+		return d->MetallicSpecularRoughness;
 	}
 
 }

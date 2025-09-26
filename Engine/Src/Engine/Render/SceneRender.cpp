@@ -90,7 +90,8 @@ namespace Engine
 				d->TargetBuffer = std::make_shared<GBuffer>(RHI);
 			}
 			auto Size = d->MainViewPort->GetSize();
-			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER),
+			d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS | 
+				                          GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER | GBufferFlagBits::GBUFFER_METALLIC_ROUGHNESS_BUFFER),
 				Size.cx, Size.cy);
 
 			if (!d->ShadowRender)
@@ -131,7 +132,7 @@ namespace Engine
 			if (d->TargetBuffer)
 				d->TargetBuffer->InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH | GBufferFlagBits::GBUFFER_MOTION_VECTORS |
 					GBufferFlagBits::GBUFFER_SCENE_COLOR | GBufferFlagBits::GBUFFER_NORMAL_BUFFER |
-					GBufferFlagBits::GBUFFER_EMISSIVE_BUFFER), InSizeX, InSizeY);
+					GBufferFlagBits::GBUFFER_EMISSIVE_BUFFER | GBUFFER_METALLIC_ROUGHNESS_BUFFER), InSizeX, InSizeY);
 			if (d->PostProcess)
 				d->PostProcess->InitResource();
 			
@@ -238,7 +239,8 @@ namespace Engine
 			int32_t height = GEngine->GetAppWindow()->GetHeight();
 			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
 
-			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),d->TargetBuffer->GetEmissiveBuffer() };
+			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),
+				d->TargetBuffer->GetEmissiveBuffer(),d->TargetBuffer->GetMetallicRoughnessBuffer()};
 			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
 

@@ -21,6 +21,7 @@ namespace Engine
 		GBUFFER_SCENE_COLOR = 0x7,
 		GBUFFER_NORMAL_BUFFER = 0xf,
 		GBUFFER_EMISSIVE_BUFFER = 0x1f,
+		GBUFFER_METALLIC_ROUGHNESS_BUFFER = 0x3f,
 	};
 
 	class GBuffer
@@ -37,6 +38,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetMotionVector() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetNormalBuffer() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveBuffer() const;
+		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessBuffer() const;
 	private:
 		GBufferPrivate* d_ptr = nullptr;
 	};

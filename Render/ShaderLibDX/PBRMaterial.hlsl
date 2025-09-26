@@ -16,10 +16,11 @@ SamplerState SampleShadow : register(s1);
 
 struct PS_OUTPUT_SCENE
 {
-    float4 Target0 : SV_Target0;
-    float2 Target1 : SV_Target1;
-    float4 Target2 : SV_Target2;
-    float4 Target3 : SV_Target3;
+    float4 Target0 : SV_Target0; //Scene color
+    float2 Target1 : SV_Target1; //Velocity buffer
+    float4 Target2 : SV_Target2; //Normal
+    float4 Target3 : SV_Target3; //Emissive
+    float4 Target4 : SV_Target4; //metallSpecularRoughness
 };
 
 struct MaterialInfo
@@ -457,5 +458,6 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     Output.Target1 = Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition); 
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
     Output.Target3 = EmissMap.Sample(SampleLinear, Input.UV0);
+    Output.Target4 = float4(metallic, 0.5, perceptualRoughness, 1.0);
     return Output;
 }

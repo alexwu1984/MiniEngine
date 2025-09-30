@@ -11,6 +11,7 @@
 #include "Render/TemporalAA.h"
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
+#include "Render/SSRProcessor.h"
 
 namespace Engine
 {
@@ -18,11 +19,11 @@ namespace Engine
 	struct PostProcessorPrivate
 	{
 		DynamicRHI* RHI = nullptr;
-		std::shared_ptr< RHIVertexShader> VertexShader;
-		std::shared_ptr< RHIPixelShader> PixelShader;
-		std::shared_ptr< RHIPixelShader> AppalyBloomShader;
-		std::shared_ptr< TemporallAA> TAA;
-		std::shared_ptr< Bloom> BloomEffect;
+		std::shared_ptr<RHIVertexShader> VertexShader;
+		std::shared_ptr<RHIPixelShader> PixelShader;
+		std::shared_ptr<RHIPixelShader> AppalyBloomShader;
+		std::shared_ptr<TemporallAA> TAA;
+		std::shared_ptr<Bloom> BloomEffect;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI), RHI(_RHI)
@@ -63,21 +64,28 @@ namespace Engine
 						     std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(PostProcessor);
-		ViewPort->SetRenderTarget();
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-		d->BloomEffect->Draw(RHIContext, TargetBuffer);
-		ApplyBloom(RHIContext, TargetBuffer);
-		ViewPort->SetRenderTarget();
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 
-		d->TAA->Draw(RHIContext, TargetBuffer, Camera);
-		Tonemapping(RHIContext, TargetBuffer);
+		{
+			ViewPort->SetRenderTarget();
+			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+			d->BloomEffect->Draw(RHIContext, TargetBuffer);
+			ApplyBloom(RHIContext, TargetBuffer);
+		}
+
+		{
+			ViewPort->SetRenderTarget();
+			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+			d->TAA->Draw(RHIContext, TargetBuffer, Camera);
+			Tonemapping(RHIContext, TargetBuffer);
+		}
+
 	}
 
 	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(PostProcessor);
 		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
+
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;

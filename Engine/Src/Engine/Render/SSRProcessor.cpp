@@ -63,8 +63,8 @@ namespace Engine
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_ScreenQuad", {}, {});
 	}
 
-	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, 
-							std::shared_ptr<GBuffer> TargetBuffer,std::shared_ptr<RHITexture2D> HistorySceneColor,
+	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,std::shared_ptr<RHIViewPort> ViewPort,
+							std::shared_ptr<RHITexture2D> HistorySceneColor,
 		                    std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(SSRProcessor);
@@ -78,6 +78,7 @@ namespace Engine
 		}
 
 		RHIContext.SetRenderTarget(d->SSRBuffer, nullptr);
+		RHIContext.Clear(d->SSRBuffer, nullptr, core::FLinearColor::Transparent, 1.f, 0);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->SSRShader;
@@ -102,6 +103,12 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);
+	}
+
+	std::shared_ptr<RenderCore::RHITexture2D> SSRProcessor::GetSSRBuffer() const
+	{
+		C_P(SSRProcessor);
+		return d->SSRBuffer;
 	}
 
 }

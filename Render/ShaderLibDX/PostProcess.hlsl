@@ -51,6 +51,14 @@ float4 PS_ApplyBloom(in VertexOutput Input) : SV_Target0
     return float4(Color + Bloom * BloomIntensity, 1.0);
 }
 
+Texture2D SSRBuffer : register(t1);
+float4 PS_ApplySSR(in VertexOutput Input) : SV_Target0
+{
+    float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
+    float4 SSR = SSRBuffer.Sample(LinearSampler, Input.Tex);
+    return float4(Color * (1-SSR.a) + SSR.rgb, 1.0);
+}
+
 static float2 offsets[9] =
 {
     float2(1, 1), float2(0, 1), float2(-1, 1),

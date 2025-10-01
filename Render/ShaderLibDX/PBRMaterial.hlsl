@@ -448,80 +448,12 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float3 specularColor;
     float metallic;
     GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness,metallic, alpha);
-    float ao = AoMap.Sample(SampleLinear, Input.UV0).r;
 
     float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness,metallic);
-    Output.Target0 = float4(HDRColor, ao);
+    Output.Target0 = float4(HDRColor, alpha);
     Output.Target1 = Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition); 
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
     Output.Target3 = EmissMap.Sample(SampleLinear, Input.UV0);
     Output.Target4 = float4(metallic, 0.5, perceptualRoughness, 1.0);
     return Output;
-}
-
-Texture2D GBufferA		: register(t0); // normal
-Texture2D GBufferB		: register(t1); // metallSpecularRoughness
-Texture2D GBufferC		: register(t2); // AlbedoAO
-Texture2D SceneDepthZ	: register(t3); // Depth
-Texture2D SSRBuffer		: register(t4); // SSR
-
-float3 F_schlickR(float cosTheta, float3 F0, float roughness)
-{
-	return F0 + (max(1.0 - roughness, F0) - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-//Moving Frostbite to PBR
-float GetSpecularOcclusion(float NoV, float AO, float roughness)
-{
-	return saturate(pow(NoV + AO, exp2(-16.0 * roughness - 1.0)) - 1.0 + AO);
-}
-
-float3 CalcIBL(float3 N, float3 V, float3 Albedo, float Metallic, float Roughness, float AO, float4 SSR)
-{
-	float3 R = reflect(-V, N); //incident ray, surface normal
-
-	float NoV = saturate(dot(N, V));
-	float3 F0 = lerp(0.04, Albedo.rgb, Metallic);
-	float3 F = F_schlickR(NoV, F0, Roughness);
-
-	float3 Irradiance = IrradianceTex.SampleLevel(SampleLinear, N, 0).xyz;
-
-	float3 DiffuseColor = (1.0 - Metallic) * Albedo;
-	float3 Diffuse = DiffuseColor * Irradiance; // no need to multiply "(1 - F)"
-
-	float Mip = ComputeReflectionCaptureMipFromRoughness(Roughness, MaxMipLevel - 1);
-	float2 BRDF = BrdfLut.SampleLevel(SampleLinear, float2(NoV, Roughness), 0).rg;
-
-	float3 PrefilteredColor = PrefliterCubeMap.SampleLevel(SampleLinear, R, Mip).rgb;
-	float3 Specular = PrefilteredColor * (F * BRDF.x + BRDF.y);
-
-	float SpecAO = GetSpecularOcclusion(NoV, AO, Roughness);
-	float3 Final = (Diffuse * AO + Specular * SpecAO) * (1-SSR.a) + SSR.rgb;
-	return Final;
-}
-
-float4 PS_IBL(float2 Tex : TEXCOORD, float4 ScreenPos : SV_Position) : SV_Target
-{
-	float3 N = GBufferA.Sample(SampleLinear, Tex).xyz;
-	N = 2.0 * N - 1.0;
-
-	float3 PBRParameters = GBufferB.SampleLevel(SampleLinear, Tex, 0).xyz;
-	float Metallic = PBRParameters.x;
-	float Roughness = PBRParameters.z;
-
-	float4 AlbedoAo = GBufferC.SampleLevel(SampleLinear, Tex, 0);
-	float AO = AlbedoAo.w;
-
-	float Depth = SceneDepthZ.SampleLevel(SampleLinear, Tex, 0).x;
-	float4 SSR = SSRBuffer.SampleLevel(SampleLinear, Tex, 0);
-
-	float2 ScreenCoord = ViewportUVToScreenPos(Tex);
-
-	float4 NDCPos = float4(ScreenCoord, Depth, 1.0f);
-	float4 WorldPos = mul(NDCPos, myPerFrame.CameraCurrViewProjInverse);
-	WorldPos /= WorldPos.w;
-
-	float3 V = normalize(myPerFrame.CameraPos - WorldPos.xyz);
-	float3 IBL = CalcIBL(N, V, AlbedoAo.xyz, Metallic, Roughness, AO, SSR);
-	return float4(IBL, 1.0);
 }

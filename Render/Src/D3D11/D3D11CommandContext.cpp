@@ -219,15 +219,17 @@ namespace RenderCore
 			DeviceContex->ClearRenderTargetView(RTV, &Color.R);
 		}
 
-		auto DepthTargetRHI = RHIResourceCast(DepthTarget.get());
-		auto DSV = DepthTargetRHI->GetDSV();
-		if (DSV != nullptr)
+		if (DepthTarget)
 		{
-			DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
+			auto DepthTargetRHI = RHIResourceCast(DepthTarget.get());
+			auto DSV = DepthTargetRHI->GetDSV();
+			if (DSV != nullptr)
+			{
+				DeviceContex->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, Depth, Stencil);
+			}
 		}
+
 	}
-
-
 
 	void D3D11CommandContext::Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)
 	{
@@ -459,9 +461,7 @@ namespace RenderCore
 		D3D11UnorderedAccessView* UAVRHI = RHIResourceCast(UAV.get());
 		if (UAVRHI)
 		{
-
 			win32::com_ptr<ID3D11UnorderedAccessView> D3D11UAV = UAVRHI->GetNativeUAV();
-
 			uint32_t InitialCount = -1;
 			Impl->D3D11RHI->GetDeviceContext()->CSSetUnorderedAccessViews(UAVIndex, 1, &D3D11UAV, &InitialCount);
 		}
@@ -478,7 +478,6 @@ namespace RenderCore
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
 		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
-
 	}
 
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
@@ -491,7 +490,6 @@ namespace RenderCore
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
 		StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
 		Impl->D3D11RHI->GetDeviceContext()->Draw(VertexBuffer->GetCount(), 0);
-
 	}
 
 	void D3D11CommandContext::DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
@@ -558,7 +556,6 @@ namespace RenderCore
 		}
 
 		StateCache.SetComputeShader(nullptr);
-		
 	}
 
 	void D3D11CommandContext::RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex)
@@ -570,12 +567,10 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDeviceContext()->Flush();
 	}
 
-
 	bool D3D11CommandContext::UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool,std::shared_ptr< RHITexture2D> TexRHI)
 	{
 		return TilePool->UpdateTileMappings(TexRHI);
 	}
-
 
 	void D3D11CommandContext::UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data)
 	{
@@ -600,5 +595,4 @@ namespace RenderCore
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		StateCache.ClearState();
 	}
-
 }

@@ -31,10 +31,10 @@ namespace Engine
 		RenderCore::DynamicRHI* RHI = nullptr;
 		std::shared_ptr<RenderCore::RHIComputeShader> TAAMain;
 		std::shared_ptr<RenderCore::RHIComputeShader> TAASharpener;
-
 		std::shared_ptr<RenderCore::RHIUnorderedAccessView> TemporalColor[2];
 
 		bool First = true;
+		uint32_t FrameIndexMod2 = 0;
 		DECLARE_SHADER_STRUCT_MEMBER(TAAContants);
 	};
 
@@ -62,11 +62,10 @@ namespace Engine
 	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(TemporallAA);
-
 		RenderCore::RHICommandMark Mark(RHIContext,"TAA");
 
-		uint32_t Src = Camera->GetFrameIndexMod2();
-		uint32_t Dst = Src ^ 1;
+		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
+		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
 		auto SceneColor = TargetBuffer->GetSceneColorWithBloom();
 		const float width = static_cast<float>(SceneColor->GetSize().w);
@@ -98,7 +97,7 @@ namespace Engine
 			RHIContext.RHISetComputePipelineState(Init);
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::BoderLinerSampler);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 1, d->TemporalColor[Src]->GetTexture2D());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 1, d->TemporalColor[d->FrameIndexMod2]->GetTexture2D());
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 2, TargetBuffer->GetMotionVector());
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 3, TargetBuffer->GetDepth());
 			RHIContext.RHISetUAVParameter(0, d->TemporalColor[Dst]);
@@ -119,4 +118,11 @@ namespace Engine
 		}
 	}
 
+	std::shared_ptr<RenderCore::RHITexture2D> TemporallAA::GetHistoryBuffer()
+	{
+		C_P(TemporallAA);
+		if (!d->TemporalColor[d->FrameIndexMod2])
+			return {};
+		return d->TemporalColor[d->FrameIndexMod2]->GetTexture2D();
+	}
 }

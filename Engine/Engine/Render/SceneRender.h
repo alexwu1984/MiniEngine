@@ -12,6 +12,7 @@ namespace RenderCore
 namespace Engine
 {
 	class PreProcessor;
+	class PostProcessor;
 	class SceneView;
 	struct SceneRenderPrivate;
 	class ShadowRenderPass;
@@ -32,9 +33,9 @@ namespace Engine
 		void Render(float DeltaTime);
 		void SetIBLRotate(float x, float y);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
+		std::shared_ptr<PostProcessor> GetPostProcessor() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
-
 		void SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor);
 	private:
 		void RenderSimple(float DeltaTime);

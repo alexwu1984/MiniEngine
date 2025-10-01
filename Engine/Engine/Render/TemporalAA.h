@@ -5,6 +5,7 @@ namespace RenderCore
 {
 	class RHICommandContext;
 	class DynamicRHI;
+	class RHITexture2D;
 }
 
 namespace Engine
@@ -21,6 +22,7 @@ namespace Engine
 
 		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera);
+		std::shared_ptr<RenderCore::RHITexture2D> GetHistoryBuffer();
 	private:
 		TemporallAAPrivate* d_ptr = nullptr;
 	};

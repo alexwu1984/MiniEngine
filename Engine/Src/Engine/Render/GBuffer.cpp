@@ -14,6 +14,7 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> Depth;
 		std::shared_ptr<RHITexture2D> SceneColor;
 		std::shared_ptr<RHITexture2D> SceneColorWithBloom;
+		std::shared_ptr<RHITexture2D> SceneColorWithSSR;
 		std::shared_ptr<RHIUnorderedAccessView> SceneColorUAV;
 		std::shared_ptr<RHITexture2D> MotionVector;
 		std::shared_ptr<RHITexture2D> NormalBuffer;
@@ -49,6 +50,7 @@ namespace Engine
 			d->SceneColor = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource | ETextureCreateFlags::TexCreate_UAV, Width, Height, 1);
 			d->SceneColorUAV = d->RHI->RHICreateUnorderedAccessView(d->SceneColor);
 			d->SceneColorWithBloom = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource , Width, Height, 1);
+			d->SceneColorWithSSR = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA, ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource, Width, Height, 1);
 		}
 		if (Flag & GBUFFER_NORMAL_BUFFER)
 		{
@@ -74,6 +76,12 @@ namespace Engine
 	{
 		C_P(const GBuffer);
 		return d->SceneColor;
+	}
+
+	std::shared_ptr<RHITexture2D> GBuffer::GetSceneColorWithSSR() const
+	{
+		C_P(const GBuffer);
+		return d->SceneColorWithSSR;
 	}
 
 	std::shared_ptr<RHITexture2D> GBuffer::GetSceneColorWithBloom() const

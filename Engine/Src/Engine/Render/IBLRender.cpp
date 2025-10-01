@@ -28,34 +28,25 @@ namespace Engine
 		return HighBit + 1;
 	}
 
-	BEGIN_SHADER_STRUCT(PSContant, 5)
-		DECLARE_PARAM(float, Exposure)
-		DECLARE_PARAM(int32_t, MipLevel)
-		DECLARE_PARAM(int32_t, MaxMipLevel)
-		DECLARE_PARAM(int32_t, NumSamplesPerDir)
-		BEGIN_STRUCT_CONSTRUCT(PSContant)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
-
 	struct IBLRenderPrivate
 	{
 		std::shared_ptr<RenderCore::RHITextureCube> PreFilterCube;
 		std::shared_ptr<RenderCore::RHITextureCube> IrrCube;
-		std::shared_ptr< RenderCore::RHITextureCube> EvnCube;
+		std::shared_ptr<RenderCore::RHITextureCube> EvnCube;
 		std::shared_ptr<RenderCore::RHITexture2D> HDRTex;
 		std::shared_ptr<RenderCore::RHITexture2D> PreBRDF;
 
-		std::shared_ptr< RenderCore::RHIVertexShader> VertexShader;
-		std::shared_ptr< RenderCore::RHIPixelShader> IrrPixelShader;
-		std::shared_ptr< RenderCore::RHIVertexShader> VSLongLatToCube;
-		std::shared_ptr< RenderCore::RHIPixelShader> PSLongLatToCube;
-		std::shared_ptr< RenderCore::RHIPixelShader> PSGenPrefiltered;
-		std::shared_ptr< CubeRender>  CubeR;
+		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
+		std::shared_ptr<RenderCore::RHIPixelShader> IrrPixelShader;
+		std::shared_ptr<RenderCore::RHIVertexShader> VSLongLatToCube;
+		std::shared_ptr<RenderCore::RHIPixelShader> PSLongLatToCube;
+		std::shared_ptr<RenderCore::RHIPixelShader> PSGenPrefiltered;
+		std::shared_ptr<CubeRender>  CubeR;
 		RenderCore::DynamicRHI* RHI;
-		std::array< Matrix4x4, 6> CaptureViews;
+		std::array<Matrix4x4, 6> CaptureViews;
 
 		IBLRenderPrivate(RenderCore::DynamicRHI* _RHI)
-			:GET_SHADER_STRUCT_MEMBER(PSContant)(_RHI),
+			:GET_SHADER_STRUCT_MEMBER(ENVContant)(_RHI),
 			 GET_SHADER_STRUCT_MEMBER(CBPerFrame)(_RHI),
 			 GET_SHADER_STRUCT_MEMBER(CBPerObject)(_RHI),
 			 RHI(_RHI)
@@ -63,7 +54,7 @@ namespace Engine
 
 		}
 
-		DECLARE_SHADER_STRUCT_MEMBER(PSContant);
+		DECLARE_SHADER_STRUCT_MEMBER(ENVContant);
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame);
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
 		bool bInitRender = false;
@@ -239,9 +230,9 @@ namespace Engine
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 
-			d->GET_UNIFORMDATA(PSContant).NumSamplesPerDir = 10;
-			d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+			d->GET_UNIFORMDATA(ENVContant).NumSamplesPerDir = 10;
+			d->GET_SHADER_STRUCT_MEMBER(ENVContant).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(ENVContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 			RHIContext.SetRenderTarget(d->IrrCube, IndexView, 0);
 			RHIContext.Clear(d->IrrCube, IndexView,0,core::FLinearColor::Black);
@@ -275,7 +266,7 @@ namespace Engine
 
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		uint32_t NumMips = d->PreFilterCube->GetNumMips();
-		d->GET_UNIFORMDATA(PSContant).MaxMipLevel = d->PreFilterCube->GetNumMips();
+		d->GET_UNIFORMDATA(ENVContant).MaxMipLevel = d->PreFilterCube->GetNumMips();
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 
@@ -283,7 +274,7 @@ namespace Engine
 		{
 			uint32_t Size = d->PreFilterCube->GetSize().cx >> MipLevel;
 			
-			d->GET_UNIFORMDATA(PSContant).MipLevel = MipLevel;
+			d->GET_UNIFORMDATA(ENVContant).MipLevel = MipLevel;
 
 			for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 			{
@@ -291,8 +282,8 @@ namespace Engine
 				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 	
-				d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
-				d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+				d->GET_SHADER_STRUCT_MEMBER(ENVContant).UpdateUniformBuffer();
+				d->GET_SHADER_STRUCT_MEMBER(ENVContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 				RHIContext.SetRenderTarget(d->PreFilterCube, IndexView, MipLevel);
 				RHIContext.SetViewPort(0, 0, Size, Size);

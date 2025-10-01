@@ -13,6 +13,7 @@
 #include "Engine/Render/IBLRender.h"
 #include "Engine/Render/Shadow/ShadowRenderPass.h"
 #include "Engine/Render/SceneRender.h"
+#include "Engine/Render/PostProcessor.h"
 
 namespace Engine
 {
@@ -200,9 +201,7 @@ namespace Engine
 		{
 			auto shadowMap = GEngine->GetSceneRender()->GetShadowRenderPass()->GetShadowMap();
 			if (shadowMap)
-			{
 				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 8, shadowMap->GetTex());
-			}
 		}
 		
 		DrawMesh(RHIContext);

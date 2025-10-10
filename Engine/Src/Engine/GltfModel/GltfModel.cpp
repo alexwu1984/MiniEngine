@@ -235,6 +235,13 @@ namespace Engine
 
 			ModelMaterial.push_back(PBRMaterial);
 		}
+
+		if (d->GltfMode.materials.empty())
+		{
+			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<GltfFurMaterial>(this, &d->GltfMode);
+			PBRMaterial->InitMaterial(0);
+			ModelMaterial.push_back(PBRMaterial);
+		}
 		return ModelMaterial;
 	}
 

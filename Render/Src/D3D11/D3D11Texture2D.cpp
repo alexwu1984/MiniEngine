@@ -389,14 +389,23 @@ namespace RenderCore
 
 	bool D3D11Texture2D::CreateFromFile(const std::wstring& FileName)
 	{
-		int32_t SizeX = 0;
-		int32_t SizeY = 0;
-		std::shared_ptr<uint8_t> ImageBuffer = GetImageData(FileName,SizeX,SizeY);
-		if (ImageBuffer)
+		DirectX::ScratchImage image;
+		HRESULT hr = DirectX::LoadFromWICFile(FileName.c_str(), DirectX::WIC_FLAGS_NONE, nullptr, image);
+		if (FAILED(hr))
 		{
-			return CreateTexture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1,1,ImageBuffer.get(), 4 * SizeX * sizeof(uint8_t));
+			return false;
 		}
-		return false;
+
+		C_P(D3D11Texture2D);
+		d->Size.cx = static_cast<int32_t>(image.GetImages()->width);
+		d->Size.cy = static_cast<int32_t>(image.GetImages()->height);
+		hr = DirectX::CreateTexture(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), reinterpret_cast<ID3D11Resource**>(d->Tex2D.getpp()));
+		if (FAILED(hr))
+		{
+			return false;
+		}
+		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.getpp());
+		return SUCCEEDED(hr);
 	}
 
 	bool D3D11Texture2D::CreateHDRFromFile(const std::wstring& FileName)

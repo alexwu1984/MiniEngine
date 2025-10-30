@@ -10,6 +10,7 @@
 #include "Imgui/imgui.h"
 #include "PostProcessDemo.h"
 #include "IBLRenderDemo.h"
+#include "LuquidClassDemo.h"
 #include "Thread/RenderThread.h"
 
 using namespace Engine;
@@ -26,12 +27,12 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-	if (0)
+	if (1)
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
 			if (!_Demo)
 			{
-				_Demo = std::make_shared<IBLRenderDemo>(RHI);
+				_Demo = std::make_shared<PostProcessorDemo>(RHI);
 			}
 			_Demo->InitResource();
 			auto sceneRender = Engine::GEngine->GetSceneRender();
@@ -39,7 +40,7 @@ bool GltfViewApp::Init()
 			});
 	}
 
-	if (1)
+	if (0)
 	{
 		core::filesystem::path Path = core::process_directory();
 		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";

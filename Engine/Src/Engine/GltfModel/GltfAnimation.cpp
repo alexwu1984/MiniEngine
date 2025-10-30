@@ -1,6 +1,7 @@
 #include "GLTFModel/GltfAnimation.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfNode.h"
+#include "GltfModel/GltfMesh.h"
 #include "math/vector4.h"
 #include "math/quaternion.h"
 
@@ -93,7 +94,7 @@ namespace Engine
 			auto pInfo = _ChannelInfo[i];
 			if (pInfo->eType == TARGET_WEIGHT)
 			{
-				//playBlendShape(fSecond, pModel, pInfo);
+				playBlendShape(fSecond, pInfo);
 			}
 			else
 			{
@@ -135,6 +136,44 @@ namespace Engine
 			}
 		}
 		_hasModelAnimate = true;
+	}
+
+
+	void GltfAnimation::playBlendShape(float fSecond, std::shared_ptr< AnimationChannelInfo> ChannelInfo)
+	{
+		uint32_t nNodeID = ChannelInfo->nNodeID;
+
+		if (nNodeID >= _GltfModel->nodes.size())
+		{
+			return;
+		}
+
+		auto pNode = _GltfModel->nodes[nNodeID];
+		if (pNode.mesh >= 0 && pNode.mesh < _Model->GetModelMesh().size())
+		{
+			int nBlendShape = ChannelInfo->nOutCount / ChannelInfo->nKeyFrame;
+			int nKeyL = -1, nKeyR = -1;
+			float alpha;
+			ChannelInfo->findKey(fSecond, nKeyL, nKeyR, alpha);
+			std::vector<float>vWeight(nBlendShape);
+			if (nKeyL >= 0)
+			{
+				float* pL = ChannelInfo->pOutputAnimateValue + nKeyL * nBlendShape;
+				float* pR = ChannelInfo->pOutputAnimateValue + nKeyR * nBlendShape;
+
+				for (int i = 0; i < nBlendShape; i++)
+				{
+					vWeight[i] = pL[i] * (1.0 - alpha) + pR[i] * alpha;
+				}
+			}
+			for (int i = 0; i < _Model->GetModelMesh().size(); i++)
+			{
+				if (_Model->GetModelMesh()[i]->GetNodeId() == nNodeID)
+				{
+					_Model->GetModelMesh()[i]->GenVertWithWeights(vWeight);
+				}
+			}
+		}
 	}
 
 }

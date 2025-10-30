@@ -11,10 +11,13 @@ namespace Engine
 	void* GltfModelBase::Getdata(int32_t attributeIndex, uint32_t& nCount, int32_t& CommpontType)
 	{
 		const auto& indicesAccessor = _GltfModel->accessors[attributeIndex];
+		if (indicesAccessor.bufferView < 0)
+			return nullptr;
 		const auto& bufferView = _GltfModel->bufferViews[indicesAccessor.bufferView];
 		const auto& buffer = _GltfModel->buffers[bufferView.buffer];
 		const auto dataAddress = buffer.data.data() + bufferView.byteOffset + indicesAccessor.byteOffset;
 		const auto byteStride = indicesAccessor.ByteStride(bufferView);
+
 		nCount = uint32_t(indicesAccessor.count);
 		CommpontType = indicesAccessor.componentType;
 

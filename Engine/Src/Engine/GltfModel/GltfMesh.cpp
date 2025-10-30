@@ -24,6 +24,10 @@ namespace Engine
 
 		Matrix4x4 MeshMat;
 		GltfModel* Owner;
+
+		std::vector<Vector3*> BlendShapes;
+		std::vector<std::string> BlendShapeNames;
+		std::shared_ptr<Vector3> BlendVerts;
 	};
 
 	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
@@ -105,6 +109,35 @@ namespace Engine
 			{
 				d->Mesh->BoneWeights = (VertexBoneWeight*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
+		}
+
+		for (int i = 0; i < meshPrimitive.targets.size(); i++)
+		{
+			auto& target = meshPrimitive.targets[i];
+			int type = 0;
+			for (const auto& attribute : target) {
+				if (attribute.first == "POSITION")
+				{
+					Vector3* pVertices = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+					if(pVertices)
+						d->BlendShapes.push_back(pVertices);
+				}
+
+			}
+		}
+
+		if (d->BlendShapes.size() > 0)
+		{
+			auto& BlendShapeName = d->Model->meshes[MeshIndex].extras.Get("targetNames");
+			d->BlendShapeNames.resize(d->BlendShapes.size());
+			for (int i = 0; i < d->BlendShapes.size(); i++)
+			{
+				std::string name = BlendShapeName.Get(i).Get<std::string>();
+				std::string subName = name.substr(name.find('.') + 1);
+				d->BlendShapeNames[i] = subName;
+				//m_pBlendShapeName[i] = BlendShapeName.Get(i).Get<std::string>();
+			}
+
 		}
 
 		int nMaterial = meshPrimitive.material >= 0 ? meshPrimitive.material : 0;
@@ -191,6 +224,38 @@ namespace Engine
 		C_P(GltfMesh);
 		assert(d->Owner->GetSkeleton());
 		return d->Owner->GetSkeleton()->GetBoneNodeArray();
+	}
+
+
+	void GltfMesh::GenVertWithWeights(std::vector<float>& weight)
+	{
+		C_P(GltfMesh);
+		if (/*weight.size() != d->BlendShapes.size() ||*/ d->BlendShapes.size() == 0)
+		{
+			return;
+		}
+
+		if (d->BlendVerts == NULL)
+		{
+			d->BlendVerts.reset(new Vector3[d->Mesh->nNumVertices], [](Vector3* p) {delete[]p; });
+		}
+
+		memcpy(d->BlendVerts.get(), d->Mesh->Vertices, sizeof(Vector3) * d->Mesh->nNumVertices);
+
+		for (int i = 0; i < d->BlendShapes.size(); i++)
+		{
+			float w = weight[i];
+			Vector3* pBlendShape = d->BlendShapes[i];
+			if (w < 0.001 && w>-0.001)
+			{
+				continue;
+			}
+			for (int j = 0; j < d->Mesh->nNumVertices; j++)
+			{
+				d->BlendVerts.get()[j] += w * pBlendShape[j];
+			}
+		}
+		d->MeshBuffer->UpdateVert(d->BlendVerts.get(), d->Mesh->nNumVertices);
 	}
 
 }

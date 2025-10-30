@@ -30,6 +30,7 @@ namespace Engine
 		virtual int32_t GetSkinId() const override;
 		void SetMeshMat(const math::Matrix4x4& Mat);
 		virtual std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray() override;
+		void GenVertWithWeights(std::vector<float>& weight);
 
 	private:
 		GltfMeshPrivate* d_ptr;

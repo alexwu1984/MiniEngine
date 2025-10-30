@@ -32,7 +32,7 @@ namespace Engine
 		std::shared_ptr<TemporallAA> TAA;
 		std::shared_ptr<Bloom> BloomEffect;
 		std::shared_ptr<SSRProcessor> SSREffect;
-		bool EnableSSR = true;
+		bool EnableSSR = false;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)

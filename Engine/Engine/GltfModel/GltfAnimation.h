@@ -16,8 +16,8 @@ namespace Engine
 		bool HasModelAnimatie() const;
 		void Play(float fSecond, GltfModel* Model);
 	private:
-		
 		void PlaySkeleton(float fSecond, std::shared_ptr< AnimationChannelInfo> ChannelInfo);
+		void playBlendShape(float fSecond, std::shared_ptr< AnimationChannelInfo> ChannelInfo);
 	private:
 		
 		GltfModel* _Model = nullptr;

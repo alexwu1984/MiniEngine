@@ -121,6 +121,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir = Dir;
 		d->GET_UNIFORMDATA(CBBlurParam).Param.Resulution.Set(d->Size.cx, d->Size.cy);
 		RHIContext.SetRenderTarget(OutTex);
+		RHIContext.Clear(OutTex, core::FLinearColor::Black);
 		RHIContext.SetViewPort(0, 0, d->Size.cx, d->Size.cy);
 
 		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);

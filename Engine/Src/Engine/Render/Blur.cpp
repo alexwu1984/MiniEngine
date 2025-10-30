@@ -19,8 +19,9 @@ namespace Engine
 	struct BlurParam
 	{
 		math::Vector2 Dir;
-		int32_t MipLevel = 0;
-		int32_t pad = 0;
+		math::Vector2 Resulution;
+		int32_t MipLevel{ 0 };
+		int32_t Padding[3]{0};
 	};
 
 	BEGIN_SHADER_STRUCT(CBBlurParam, 0)
@@ -34,9 +35,9 @@ namespace Engine
 		DynamicRHI* RHI = nullptr;
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
-		std::shared_ptr< RHIRenderTarget> BlurHorizontalTarget;
-		std::shared_ptr< RHIRenderTarget> BlurVerticalTarget;
-		int32_t MipLevel = 5;
+		std::shared_ptr< RHIRenderTarget> IntermediateTarget;
+		std::shared_ptr< RHIRenderTarget> OutTarget;
+		int32_t MipLevel{ 0 };
 		core::vec2i Size;
 
 		BlurPSPrivate(DynamicRHI* _RHI) :
@@ -68,63 +69,55 @@ namespace Engine
 		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_Blur", {});
 	}
 
-	void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext,std::shared_ptr<RHITexture2D> SrcTex)
+	//void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext,std::shared_ptr<RHITexture2D> SrcTex)
+	//{
+	//	C_P(BlurPS);
+	//	d->Size = SrcTex->GetSize();
+	//	if (!d->IntermediateTarget)
+	//	{
+	//		d->IntermediateTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
+	//			d->Size.cx , d->Size.cy , 1, false, true);
+	//	}
+
+	//	if (!d->OutTarget)
+	//	{
+	//		d->OutTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
+	//			d->Size.cx , d->Size.cy , 1, false, true);
+	//	}
+	//}
+
+	void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex, std::shared_ptr<RenderCore::RHITexture2D> TargetTex, math::Vector2 direction)
 	{
-		C_P(BlurPS);
-		d->Size = SrcTex->GetSize();
-		if (!d->BlurHorizontalTarget)
-		{
-			d->BlurHorizontalTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
-				d->Size.cx , d->Size.cy , d->MipLevel, false, true);
-		}
 
-		if (!d->BlurVerticalTarget)
-		{
-			d->BlurVerticalTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
-				d->Size.cx , d->Size.cy , d->MipLevel, false, true);
-		}
-
-		for (int IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)
-		{
-			if (IndexMip == 0)
-			{
-				Draw(RHIContext, SrcTex, IndexMip);
-			}
-			else
-			{
-				Draw(RHIContext, d->BlurVerticalTarget->GetTex(), IndexMip);
-			}
-			
-		}
 	}
 
-	void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex, int32_t IndexMip)
-	{
-		C_P(BlurPS);
-		d->GET_UNIFORMDATA(CBBlurParam).Param.MipLevel = IndexMip == 0 ? 0 : IndexMip - 1;
+	//void BlurPS::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex, int32_t IndexMip)
+	//{
+	//	C_P(BlurPS);
+	//	d->GET_UNIFORMDATA(CBBlurParam).Param.MipLevel = IndexMip == 0 ? 0 : IndexMip - 1;
 
-		{
-			RHIContext.SetRenderTarget(d->BlurHorizontalTarget, IndexMip);
-			RHIContext.SetViewPort(0, 0, d->Size.cx >> IndexMip, d->Size.cy >> IndexMip);
+	//	{
+	//		RHIContext.SetRenderTarget(d->BlurHorizontalTarget, IndexMip);
+	//		RHIContext.SetViewPort(0, 0, d->Size.cx >> IndexMip, d->Size.cy >> IndexMip);
 
-			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 1.0f / (float)(d->Size.cx >> IndexMip);
-			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 0.0f / (float)(d->Size.cy >> IndexMip);
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-			Engine::RenderUtil::RenderFullQuad(RHIContext, SrcTex, d->VertexShader, d->PixelShader);
-		}
+	//		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 1.0f / (float)(d->Size.cx >> IndexMip);
+	//		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 0.0f / (float)(d->Size.cy >> IndexMip);
+	//		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	//		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
+	//		Engine::RenderUtil::RenderFullQuad(RHIContext, SrcTex, d->VertexShader, d->PixelShader);
+	//	}
 
-		{
-			RHIContext.SetRenderTarget(d->BlurVerticalTarget, IndexMip);
-			RHIContext.SetViewPort(0, 0, d->Size.cx >> IndexMip, d->Size.cy >> IndexMip);
+	//	{
+	//		RHIContext.SetRenderTarget(d->BlurVerticalTarget, IndexMip);
+	//		RHIContext.SetViewPort(0, 0, d->Size.cx >> IndexMip, d->Size.cy >> IndexMip);
 
-			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 0.0f / (float)(d->Size.cx >> IndexMip);
-			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 1.0f / (float)(d->Size.cy >> IndexMip);
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-			Engine::RenderUtil::RenderFullQuad(RHIContext, d->BlurHorizontalTarget->GetTex(), d->VertexShader, d->PixelShader);
-		}
-	}
+	//		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 0.0f / (float)(d->Size.cx >> IndexMip);
+	//		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 1.0f / (float)(d->Size.cy >> IndexMip);
+	//		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	//		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
+	//		Engine::RenderUtil::RenderFullQuad(RHIContext, d->BlurHorizontalTarget->GetTex(), d->VertexShader, d->PixelShader);
+	//	}
+	//}
 
 	struct BlurCSPrivate
 	{

@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inc.h"
+#include "math/vector2.h"
 
 namespace RenderCore
 {
@@ -22,8 +23,7 @@ namespace Engine
 		~BlurPS();
 
 		void InitResource(int32_t MipLevel);
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex);
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex,int32_t IndexMip);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SrcTex, std::shared_ptr<RenderCore::RHITexture2D> TargetTex, math::Vector2 direction);
 	private:
 		BlurPSPrivate* d_ptr = nullptr;
 	};

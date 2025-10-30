@@ -97,8 +97,9 @@ float4 PS_DownSample(in VertexOutput Input) : SV_Target0
 struct BlurParam
 {
     float2 u_dir;
+    float2 u_resolution;
     int u_mipLevel;
-    int pad;
+    int3 pad;
 };
 
 cbuffer cbBlurParam : register(b0)
@@ -106,10 +107,24 @@ cbuffer cbBlurParam : register(b0)
     BlurParam blureParam;
 };
 
-float4 PS_Blur(in VertexOutput Input) : SV_Target0
+float4 blur13(Texture2D image, float2 uv, float2 resolution, float2 direction,int mipLivel) 
 {
-        //int s_lenght = 3; float s_coeffs[] = { 0.382971, 0.241842, 0.060654, }; // norm = 0.987962
-    //int s_lenght = 4; float s_coeffs[] = { 0.292360, 0.223596, 0.099952, 0.026085, }; // norm = 0.991625
+	float4 color = float4(0.0,0.0,0.0,0.0);
+	float2 off1 = float2(1.411764705882353,1.411764705882353) * direction;
+	float2 off2 = float2(3.2941176470588234,3.2941176470588234) * direction;
+	float2 off3 = float2(5.176470588235294,5.176470588235294) * direction;
+	color += image.SampleLevel(LinearSampler, uv, mipLivel) * 0.1964825501511404;
+	color += image.SampleLevel(LinearSampler, uv + (off1 / resolution), mipLivel) * 0.2969069646728344;
+	color += image.SampleLevel(LinearSampler, uv - (off1 / resolution), mipLivel) * 0.2969069646728344;
+	color += image.SampleLevel(LinearSampler, uv + (off2 / resolution), mipLivel) * 0.09447039785044732;
+	color += image.SampleLevel(LinearSampler, uv - (off2 / resolution), mipLivel) * 0.09447039785044732;
+	color += image.SampleLevel(LinearSampler, uv + (off3 / resolution), mipLivel) * 0.010381362401148057;
+	color += image.SampleLevel(LinearSampler, uv - (off3 / resolution), mipLivel) * 0.010381362401148057;
+	return color;
+}
+
+float4 PS_Blur_old(in VertexOutput Input) : SV_Target0
+{
     int s_lenght = 5;
     float s_coeffs[] = { 0.235833, 0.198063, 0.117294, 0.048968, 0.014408, }; // norm = 0.993299
     //int s_lenght = 6; float s_coeffs[] = { 0.197419, 0.174688, 0.121007, 0.065615, 0.027848, 0.009250, }; // norm = 0.994236
@@ -133,6 +148,13 @@ float4 PS_Blur(in VertexOutput Input) : SV_Target0
 
     return accum;
 }
+
+float4 PS_Blur(in VertexOutput Input) : SV_Target0
+{
+    float4 accum = blur13(SceneColorTexture,Input.Tex,u_resolution,u_dir,u_mipLevel);
+    return accum;
+}
+
 
 RWTexture2D<float3> BloomResult : register(u0);
 

@@ -405,6 +405,18 @@ namespace RenderCore
 			return false;
 		}
 		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.getpp());
+		D3D11_TEXTURE2D_DESC desc{};
+		d->Tex2D->GetDesc(&desc);
+
+		for (int32_t index = 1; index < EPixelFormat::PF_MAX_COUT; ++index)
+		{
+			if (desc.Format == FindSharedResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[index].PlatformFormat,false))
+			{
+				d->Format = static_cast<EPixelFormat>(index);
+				break;
+			}
+		}
+
 		return SUCCEEDED(hr);
 	}
 

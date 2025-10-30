@@ -13,6 +13,7 @@
 #include "Engine/Engine.h"
 #include "Engine/Render/SceneRender.h"
 #include "Imgui/imgui.h"
+#include "Render/Blur.h"
 
 LuquidClassDemo::LuquidClassDemo(RenderCore::DynamicRHI* RHI)
 	:m_RHI(RHI)
@@ -36,20 +37,25 @@ void LuquidClassDemo::InitResource()
 
 	std::wstring TexPath = core::process_directory().wstring() + L"/GLTFModel/";
 	m_BackgroundTex = m_RHI->RHICreateTexture2D(TexPath + L"anime.png");
+	m_BlurPs = std::make_shared<Engine::BlurPS>(m_RHI);
+	m_BlurPs->InitResource(0);
 }
 
 void LuquidClassDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)
 {
-	if (m_ViewPort)
-		m_ViewPort->SetRenderTarget();
-	if(m_BackgroundTex)
-		ShowTexture2D(RHIContext, m_BackgroundTex);
+	if (m_BackgroundTex)
+	{
+		m_BlurPs->Draw(RHIContext, m_BackgroundTex);
+		ShowTexture2D(RHIContext, m_BlurPs->GetResult());
+	}
 }
 
 void LuquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
 {
 	if (!Tex2D)
 		return;
+	if (m_ViewPort)
+		m_ViewPort->SetRenderTarget();
 	std::shared_ptr<Engine::AppWindow> AppWin = Engine::GEngine->GetAppWindow();
 	float AspectRatio = Tex2D->GetSize().w * 1.f / Tex2D->GetSize().h;
 	int Width = std::min(AppWin->GetWidth(), Tex2D->GetSize().w);

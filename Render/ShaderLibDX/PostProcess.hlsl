@@ -151,7 +151,7 @@ float4 PS_Blur_old(in VertexOutput Input) : SV_Target0
 
 float4 PS_Blur(in VertexOutput Input) : SV_Target0
 {
-    float4 accum = blur13(SceneColorTexture,Input.Tex,u_resolution,u_dir,u_mipLevel);
+    float4 accum = blur13(SceneColorTexture,Input.Tex,blureParam.u_resolution,blureParam.u_dir,blureParam.u_mipLevel);
     return accum;
 }
 

@@ -32,7 +32,7 @@ bool GltfViewApp::Init()
 		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
 			if (!_Demo)
 			{
-				_Demo = std::make_shared<PostProcessorDemo>(RHI);
+				_Demo = std::make_shared<LuquidClassDemo>(RHI);
 			}
 			_Demo->InitResource();
 			auto sceneRender = Engine::GEngine->GetSceneRender();

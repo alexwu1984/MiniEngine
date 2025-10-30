@@ -2,6 +2,11 @@
 #include "Render/SimplePostProcessor.h"
 #include "ShaderCommon.h"
 
+namespace Engine
+{
+	class BlurPS;
+}
+
 class LuquidClassDemo : public Engine::SimplePostProcessor
 {
 public:
@@ -19,6 +24,7 @@ private:
 	std::shared_ptr<RenderCore::RHIPixelShader>  m_ShowTexture2DPS;
 	std::shared_ptr<RenderCore::RHIViewPort> m_ViewPort;
 	std::shared_ptr<RenderCore::RHITexture2D> m_BackgroundTex;
+	std::shared_ptr<Engine::BlurPS> m_BlurPs;
 	RenderCore::DynamicRHI* m_RHI = nullptr;
 	DECLARE_SHADER_STRUCT_MEMBER(PSRenderDemoContant);
 };

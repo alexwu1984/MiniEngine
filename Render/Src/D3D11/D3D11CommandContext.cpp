@@ -567,7 +567,29 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDeviceContext()->Flush();
 	}
 
-	bool D3D11CommandContext::UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool,std::shared_ptr< RHITexture2D> TexRHI)
+	void D3D11CommandContext::RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect)
+	{
+		D3D11Texture2D* DstTexRHI = RHIResourceCast(DstTex.get());
+		D3D11Texture2D* SrcTexRHI = RHIResourceCast(SrcTex.get());
+		D3D11_BOX srcBox;
+		srcBox.left = rect.left();
+		srcBox.top = rect.top();
+		srcBox.front = 0;
+		srcBox.right = rect.right();
+		srcBox.bottom = rect.bottom();
+		srcBox.back = 1;
+
+		Impl->D3D11RHI->GetDeviceContext()->CopySubresourceRegion(
+			DstTexRHI->GetNativeTex(),
+			0,    
+			0, 0, 0,  
+			SrcTexRHI->GetNativeTex(),
+			0, 
+			&srcBox
+		);
+	}
+
+	bool D3D11CommandContext::UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI)
 	{
 		return TilePool->UpdateTileMappings(TexRHI);
 	}

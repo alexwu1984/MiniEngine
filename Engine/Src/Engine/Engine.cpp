@@ -74,6 +74,7 @@ namespace Engine
 		{
 			d->RThread->Stop();
 		}
+<<<<<<< .mine
 		if (d->DynamicRHI)
 		{
 			d->DynamicRHI->Wait();
@@ -82,11 +83,24 @@ namespace Engine
 		d->SeRender = {};
 		d->Scene = {};
 		d->RThread = {};
+=======
+
+
+
+
+
+
+
+
+>>>>>>> .theirs
 		if (d->DynamicRHI)
 		{
 			d->DynamicRHI->Shutdown();
 		}
+		d->SeRender = {};
+		d->Scene = {};
 		d->DynamicRHI = {};
+		d->RThread = {};
 		
 	}
 

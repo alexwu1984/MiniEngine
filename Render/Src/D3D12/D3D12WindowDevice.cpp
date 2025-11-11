@@ -37,12 +37,6 @@ namespace RenderCore
 		DefaultCommandContext->Initialize();
 		AsyncComputeContext = std::make_shared<D3D12CommandContext>(this->shared_from_this(), false, true);
 		AsyncComputeContext->Initialize();
-
-		D3D12MA::ALLOCATOR_DESC desc = {};
-		desc.Flags = D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED;
-		desc.pDevice = GetDevice();
-		desc.pAdapter = GetParentAdapter()->GetAdapter();
-		D3D12MA::CreateAllocator(&desc, &Allocator);
 	}
 
 	void FD3D12Device::InitPlatformSpecific()
@@ -104,18 +98,11 @@ namespace RenderCore
 
 		FD3D12ResourceAllocator::DestroyAll();
 		FDynamicDescriptorHeap::DestroyAll();
-
-		Allocator = {};
 	}
 
-	ID3D12Device* FD3D12Device::GetDevice() const
+	ID3D12Device* FD3D12Device::GetDevice()
 	{
 		return GetParentAdapter()->GetD3DDevice();
-	}
-
-	win32::com_ptr<D3D12MA::Allocator> FD3D12Device::GetAMDAllocator() const
-	{
-		return Allocator;
 	}
 
 	ID3D12CommandQueue* FD3D12Device::GetD3DCommandQueue(ED3D12CommandQueueType InQueueType /*= ED3D12CommandQueueType::Default*/) const

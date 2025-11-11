@@ -327,19 +327,16 @@ namespace RenderCore
 		}
 
 		//LLM_PLATFORM_SCOPE(ELLMTag::GraphicsPlatform);
-		D3D12MA::ALLOCATION_DESC MAHeapProps = {};
-		MAHeapProps.HeapType = HeapProps.Type;
 
 		win32::com_ptr<ID3D12Resource> pResource;
-		win32::com_ptr<D3D12MA::Allocation> pAllocation;
-		const HRESULT hr = GetDevice()->GetAMDAllocator()->CreateResource(&MAHeapProps, &InDesc, InitialUsage, ClearValue, pAllocation.get_init_ref(), IID_PPV_ARGS(pResource.get_init_ref()));
+		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));
 
 		if (SUCCEEDED(hr))
 		{
 			// Set a default name (can override later).
 			pResource->SetName(Name);
 			// Set the output pointer
-			*ppOutResource = new FD3D12Resource(GetDevice(), pAllocation.get(), pResource.get(), InitialUsage, InDesc, HeapProps.Type);
+			*ppOutResource = new FD3D12Resource(GetDevice(), pResource.get(), InitialUsage, InDesc, HeapProps.Type);
 			(*ppOutResource)->AddRef();
 		}
 

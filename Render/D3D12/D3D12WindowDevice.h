@@ -1,8 +1,6 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include <d3d12.h>
-#include "win/com_ptr.h"
-#include "D3D12/D3D12MemAlloc.h"
 
 namespace RenderCore
 {
@@ -25,8 +23,8 @@ namespace RenderCore
 		*/
 		virtual void Cleanup();
 
-		ID3D12Device* GetDevice() const;
-		win32::com_ptr<D3D12MA::Allocator> GetAMDAllocator() const;
+		ID3D12Device* GetDevice();
+
 		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		FD3D12CommandListManager& GetCommandListManager(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext() const { return DefaultCommandContext;}
@@ -52,6 +50,5 @@ namespace RenderCore
 
 		std::shared_ptr<FD3D12ResourceAllocator> DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 		std::shared_ptr<LinearAllocationPageManager> PageManager[ELinearAllocatorType::NumAllocatorTypes];
-		win32::com_ptr<D3D12MA::Allocator> Allocator;
 	};
 }

@@ -56,7 +56,7 @@ namespace RenderCore
 	{
 	private:
 		win32::com_ptr<ID3D12Resource> Resource;
-		win32::com_ptr<D3D12MA::Allocation> Allocation;
+
 		D3D12_RESOURCE_DESC Desc;
 		uint8_t PlaneCount;
 		uint16_t SubresourceCount;
@@ -75,7 +75,6 @@ namespace RenderCore
 
 	public:
 		explicit FD3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice,
-			D3D12MA::Allocation* Allocation,
 			ID3D12Resource* InResource,
 			D3D12_RESOURCE_STATES InitialState,
 			D3D12_RESOURCE_DESC const& InDesc,

@@ -52,10 +52,10 @@ namespace RenderCore
 		return descriptorHeap.get();
 	}
 
-	LinearAllocationPage::LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice, D3D12MA::Allocation* InAllocation, ID3D12Resource* InResource,
+	LinearAllocationPage::LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource, 
 												D3D12_RESOURCE_STATES InitialState, D3D12_RESOURCE_DESC const& InDesc, 
 												D3D12_HEAP_TYPE InHeapType /*= D3D12_HEAP_TYPE_DEFAULT*/)
-		:FD3D12Resource(ParentDevice, InAllocation,InResource,InitialState,InDesc,InHeapType)
+		:FD3D12Resource(ParentDevice,InResource,InitialState,InDesc,InHeapType)
 	{
 		Map();
 	}
@@ -130,14 +130,12 @@ namespace RenderCore
 
 	LinearAllocationPage* LinearAllocationPageManager::CreateNewPage(size_t PageSize /*= 0*/)
 	{
-		//D3D12_HEAP_PROPERTIES HeapProps;
-		//HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-		//HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-		//HeapProps.CreationNodeMask = 1;
-		//HeapProps.VisibleNodeMask = 1;
+		D3D12_HEAP_PROPERTIES HeapProps;
+		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+		HeapProps.CreationNodeMask = 1;
+		HeapProps.VisibleNodeMask = 1;
 
-		D3D12MA::ALLOCATION_DESC HeapProps = {};
-		
 		D3D12_RESOURCE_DESC ResourceDesc;
 		ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 		ResourceDesc.Alignment = 0;
@@ -154,32 +152,31 @@ namespace RenderCore
 		D3D12_RESOURCE_STATES DefaultUsage;
 		if (AllocatorType == ELinearAllocatorType::GpuExclusive)
 		{
-			HeapProps.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+			HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 			ResourceDesc.Width = PageSize == 0 ? GpuAllocatorPageSize : PageSize;
 			ResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			DefaultUsage = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		}
 		else
 		{
-			HeapProps.HeapType = D3D12_HEAP_TYPE_UPLOAD;
+			HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
 			ResourceDesc.Width = PageSize == 0 ? CpuAllocatorPageSize : PageSize;
 			ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 			DefaultUsage = D3D12_RESOURCE_STATE_GENERIC_READ;
 		}
-		win32::com_ptr<D3D12MA::Allocation> LinearAllocation;
+
 		win32::com_ptr<ID3D12Resource> pBuffer;
-		VERIFYD3DRESULT(GetParentDevice()->GetAMDAllocator()->CreateResource(
+		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(
 			&HeapProps,
+			D3D12_HEAP_FLAG_NONE,
 			&ResourceDesc,
 			DefaultUsage,
 			nullptr,
-			LinearAllocation.get_init_ref(),
 			IID_PPV_ARGS(&pBuffer)));
 
 		pBuffer->SetName(L"LinearAllocatorPage");
-		LinearAllocation->SetName(L"LinearAllocatorPage");
 
-		LinearAllocationPage * AllocationPage =  new LinearAllocationPage(GetParentDevice(), LinearAllocation.get(), pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.HeapType);
+		LinearAllocationPage * AllocationPage =  new LinearAllocationPage(GetParentDevice(),pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.Type);
 		AllocationPage->AddRef();
 		return AllocationPage;
 	}

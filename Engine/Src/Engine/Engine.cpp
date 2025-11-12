@@ -82,6 +82,11 @@ namespace Engine
 		d->SeRender = {};
 		d->Scene = {};
 		d->RThread = {};
+		if (d->DynamicRHI)
+		{
+			d->DynamicRHI->Shutdown();
+		}
+		d->DynamicRHI = {};
 	}
 
 	void MainEngine::LoadConfig(const std::wstring& FileName)

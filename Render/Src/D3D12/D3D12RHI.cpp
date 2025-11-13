@@ -18,6 +18,7 @@
 #include "RHI/RHICachedStates.h"
 #include "Imgui/imgui_impl_win32.h"
 #include "Imgui/imgui_impl_dx12.h"
+#include "common/crc.h"
 
 namespace RenderCore
 {
@@ -528,25 +529,55 @@ namespace RenderCore
 	std::shared_ptr<RHIVertexShader> D3D12DynamicRHI::RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, 
 																			const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		auto Key = core::ucs2_u8(FileName) + VSMain;
+		auto HashCode = core::Crc::MemCrc32(Key.c_str(), Key.length());
+		HashCode = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), HashCode);
+		auto It = ShaderCache.VertexShaderCache.find(HashCode);
+		if (It != ShaderCache.VertexShaderCache.end())
+		{
+			return It->second;
+		}
+
 		std::shared_ptr<FD3D12VertexShader>  VertexShaderRHI = std::make_shared<FD3D12VertexShader>();
 		if (VertexShaderRHI->CreateShader(FileName, VSMain, VertexDeclare, MacroDefines))
+		{
+			ShaderCache.VertexShaderCache.insert({ HashCode,VertexShaderRHI });
 			return VertexShaderRHI;
+		}
 		return {};
 	}
 
 	std::shared_ptr<RHIPixelShader> D3D12DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + PSMain);
+		auto It = ShaderCache.PixelShaderCache.find(HashCode);
+		if (It != ShaderCache.PixelShaderCache.end())
+		{
+			return It->second;
+		}
 		std::shared_ptr<FD3D12PixelShader>  PixelShaderRHI = std::make_shared<FD3D12PixelShader>();
 		if (PixelShaderRHI->CreateShader(FileName, PSMain,MacroDefines))
+		{
+			ShaderCache.PixelShaderCache.insert({ HashCode,PixelShaderRHI });
 			return PixelShaderRHI;
+		}
 		return {};
 	}
 
 	std::shared_ptr<RHIComputeShader> D3D12DynamicRHI::RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + CSMain);
+		auto It = ShaderCache.ComputeShaderCache.find(HashCode);
+		if (It != ShaderCache.ComputeShaderCache.end())
+		{
+			return It->second;
+		}
 		std::shared_ptr<FD3D12ComputeShader>  ComputeShaderRHI = std::make_shared<FD3D12ComputeShader>();
 		if (ComputeShaderRHI->CreateShader(FileName, CSMain, MacroDefines))
+		{
+			ShaderCache.ComputeShaderCache.insert({ HashCode,ComputeShaderRHI });
 			return ComputeShaderRHI;
+		}
 		return {};
 	}
 

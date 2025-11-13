@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIShdader.h"
 #include "win/com_ptr.h"
 #include "d3dx12.h"
 
@@ -76,5 +77,6 @@ namespace RenderCore
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;
 		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;
+		RHIShaderCache ShaderCache;
 	};
 }

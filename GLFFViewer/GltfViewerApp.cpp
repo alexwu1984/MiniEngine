@@ -10,7 +10,7 @@
 #include "Imgui/imgui.h"
 #include "PostProcessDemo.h"
 #include "IBLRenderDemo.h"
-#include "LuquidClassDemo.h"
+#include "LiquidClassDemo.h"
 #include "Thread/RenderThread.h"
 
 using namespace Engine;
@@ -32,7 +32,7 @@ bool GltfViewApp::Init()
 		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
 			if (!_Demo)
 			{
-				_Demo = std::make_shared<LuquidClassDemo>(RHI);
+				_Demo = std::make_shared<LiquidClassDemo>(RHI);
 			}
 			_Demo->InitResource();
 			auto sceneRender = Engine::GEngine->GetSceneRender();
@@ -44,10 +44,10 @@ bool GltfViewApp::Init()
 	{
 		core::filesystem::path Path = core::process_directory();
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model5.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/BS_Model5.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();

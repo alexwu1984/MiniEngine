@@ -505,6 +505,56 @@ namespace RenderCore
 		++numDispatches;
 	}
 
+	void D3D12CommandContext::RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex)
+	{
+		auto D3D12Src = RHIResourceCast(SrcTex.get());
+		auto D3D12Dst = RHIResourceCast(DstTex.get());
+		if (!D3D12Src || !D3D12Dst)
+			return;
+		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
+		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, true);
+		CommandListHandle->CopyResource(D3D12Dst->GetResource()->GetResource(), D3D12Src->GetResource()->GetResource());
+	}
+
+	void D3D12CommandContext::RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect)
+	{
+		auto D3D12Src = RHIResourceCast(SrcTex.get());
+		auto D3D12Dst = RHIResourceCast(DstTex.get());
+		if (!D3D12Src || !D3D12Dst)
+			return;
+		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
+		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, true);
+
+		// 1. 描述源纹理的复制位置
+		D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
+		srcLocation.pResource = D3D12Src->GetResource()->GetResource();
+		srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		srcLocation.SubresourceIndex = 0;  // 子资源索引（mipmap 级别，若为数组纹理需计算）
+
+		// 2. 描述目标纹理的复制位置
+		D3D12_TEXTURE_COPY_LOCATION dstLocation = {};
+		dstLocation.pResource = D3D12Dst->GetResource()->GetResource();
+		dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		dstLocation.SubresourceIndex = 0;  // 假设目标使用第 0 级 mipmap
+
+		// 3. 描述复制的区域（源纹理中的矩形）
+		D3D12_BOX srcBox = {};
+		srcBox.left = rect.left();
+		srcBox.top = rect.top();
+		srcBox.front = 0;  // 3D 纹理用，2D 纹理设为 0
+		srcBox.right = rect.right();  // 注意：right = left + width
+		srcBox.bottom = rect.bottom();  // bottom = top + height
+		srcBox.back = 1;  // 3D 纹理用，2D 纹理设为 1（表示只复制一层）
+
+		// 4. 执行复制命令
+		CommandListHandle->CopyTextureRegion(
+			&dstLocation,  // 目标位置
+			0, 0, 0,  // 目标偏移量（z 轴为 0）
+			&srcLocation,   // 源位置
+			&srcBox         // 源区域（若为 nullptr，则复制整个子资源）
+		);
+	}
+
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();

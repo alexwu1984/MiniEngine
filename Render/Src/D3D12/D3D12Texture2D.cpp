@@ -114,14 +114,14 @@ namespace RenderCore
 
 	bool D3D12Texture2D::CreateFromFile(const std::wstring& FileName)
 	{
-		int32_t SizeX = 0;
-		int32_t SizeY = 0;
-		std::shared_ptr<uint8_t> ImageBuffer = GetImageData(FileName, SizeX, SizeY);
-		if (ImageBuffer)
+		C_P(D3D12Texture2D);
+		DirectX::ScratchImage Image;
+		HRESULT hr = DirectX::LoadFromWICFile(FileName.c_str(),0, nullptr, Image);
+		if (FAILED(hr))
 		{
-			return CreateTexture2D(PF_B8G8R8A8, TexCreate_ShaderResource, SizeX, SizeY, 1, 1, ImageBuffer.get());
+			return false;
 		}
-		return false;
+		return CreateFromImage(Image, FileName);
 	}
 
 	bool D3D12Texture2D::CreateHDRFromFile(const std::wstring& FileName)
@@ -391,7 +391,7 @@ namespace RenderCore
 
 		for (int32_t index = 1; index < EPixelFormat::PF_MAX_COUT; ++index)
 		{
-			if (GPixelFormats[index].PlatformFormat == Image.GetMetadata().format)
+			if (FindSharedResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[index].PlatformFormat,false) == Image.GetMetadata().format)
 			{
 				d->PixFormat = static_cast<EPixelFormat>(index);
 				break;

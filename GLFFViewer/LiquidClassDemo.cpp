@@ -1,4 +1,4 @@
-#include "LuquidClassDemo.h"
+#include "LiquidClassDemo.h"
 #include "core/system.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
@@ -43,7 +43,7 @@ void SceneCamera::RecalculateProjection()
 		orthoBottom, orthoTop, m_OrthographicNearClip, m_OrthographicFarClip);
 }
 
-LuquidClassDemo::LuquidClassDemo(RenderCore::DynamicRHI* RHI)
+LiquidClassDemo::LiquidClassDemo(RenderCore::DynamicRHI* RHI)
 	:m_RHI(RHI)
 	, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant)(RHI)
 	, GET_SHADER_STRUCT_MEMBER(LuquidClassContant)(RHI)
@@ -51,12 +51,12 @@ LuquidClassDemo::LuquidClassDemo(RenderCore::DynamicRHI* RHI)
 
 }
 
-LuquidClassDemo::~LuquidClassDemo()
+LiquidClassDemo::~LiquidClassDemo()
 {
 
 }
 
-void LuquidClassDemo::InitResource()
+void LiquidClassDemo::InitResource()
 {
 	m_ViewPort = Engine::GEngine->GetSceneRender()->GetViewPort();
 	std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
@@ -81,7 +81,7 @@ void LuquidClassDemo::InitResource()
 	m_Camera.SetViewportSize(m_BackgroundTex->GetSize().cx, m_BackgroundTex->GetSize().cy);
 }
 
-void LuquidClassDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)
+void LiquidClassDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)
 {
 	if (m_BackgroundTex && m_LuquidSrcTex)
 	{
@@ -110,7 +110,7 @@ void LuquidClassDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::share
 	}
 }
 
-core::vec2f LuquidClassDemo::GetWorldPos(const core::vec2f& PicPos, const core::vec2f& ScreenSize)
+core::vec2f LiquidClassDemo::GetWorldPos(const core::vec2f& PicPos, const core::vec2f& ScreenSize)
 {
 	core::vec2f ScreenPos = core::vec2f(2.f) * (PicPos / ScreenSize) - core::vec2f(1.f);
 	//ScreenPos.y *= -1.0f;
@@ -120,7 +120,7 @@ core::vec2f LuquidClassDemo::GetWorldPos(const core::vec2f& PicPos, const core::
 	return core::vec2f(PosInWorld.x, PosInWorld.y);
 }
 
-void LuquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
+void LiquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
 {
 	if (!Tex2D)
 		return;
@@ -150,7 +150,7 @@ void LuquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, s
 	RHIContext.Draw(3);
 }
 
-void LuquidClassDemo::LuquidClass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
+void LiquidClassDemo::LuquidClass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
 {
 	RHIContext.SetRenderTarget(m_LuquidClassRT);
 	RHIContext.SetViewPort(0, 0, m_LuquidClassRT->GetSize().x, m_LuquidClassRT->GetSize().y);

@@ -106,7 +106,6 @@ void LiquidClassDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::share
 		LuquidClass(RHIContext, m_BlurPs->GetResult());
 		//ShowTexture2D(RHIContext, m_BlurPs->GetResult());
 		ShowTexture2D(RHIContext, m_LuquidClassRT->GetTex());
-		//ShowTexture2D(RHIContext, m_LuquidSrcTex);
 	}
 }
 

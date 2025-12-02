@@ -27,7 +27,7 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-	if (0)
+	if (1)
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
 			if (!_Demo)
@@ -40,7 +40,7 @@ bool GltfViewApp::Init()
 			});
 	}
 
-	if (1)
+	if (0)
 	{
 		core::filesystem::path Path = core::process_directory();
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";

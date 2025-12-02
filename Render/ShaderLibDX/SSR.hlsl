@@ -69,7 +69,7 @@ bool CastSimpleRay(float3 Start, float3 Direction, float ScreenDistance, out flo
 			return true;
 		}
 	}
-	return true;
+	return false;
 }
 
 float ComputeHitVignetteFromScreenPos(float2 ScreenPos)

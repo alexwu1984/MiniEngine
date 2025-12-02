@@ -1,6 +1,7 @@
 #pragma once
 #include "core/inc.h"
 #include "math/vector3.h"
+#include "math/vector4.h"
 #include "json.h"
 
 namespace Engine
@@ -25,7 +26,10 @@ namespace Engine
 
 	struct MaterialConfig
 	{
+		bool UseConfig{ false };
 		float Metallic{ 0.0 };
+		float Roughness{ 1.0 };
+		math::Vector4 BaseColor{ 1.0f,1.0f,1.0f,1.0f };
 	};
 
 	class GltfModelConfig

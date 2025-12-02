@@ -78,6 +78,7 @@ namespace Engine
 		}
 
 		RHIContext.SetRenderTarget(d->SSRBuffer, nullptr);
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().cx, ViewPort->GetSize().cy);
 		RHIContext.Clear(d->SSRBuffer, nullptr, core::FLinearColor::Transparent, 1.f, 0);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
@@ -98,7 +99,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(SSRContants).ViewProj = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		d->GET_UNIFORMDATA(SSRContants).InvViewProj = d->GET_UNIFORMDATA(SSRContants).ViewProj.Inverse();
 		d->GET_UNIFORMDATA(SSRContants).CameraPos = Camera->GetCameraPos();
-		d->GET_UNIFORMDATA(SSRContants).NumRays = 1;
+		d->GET_UNIFORMDATA(SSRContants).NumRays = 1; 
 		d->GET_UNIFORMDATA(SSRContants).FrameIndexMod8 = Camera->GetFrameIndex() % 8;
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);

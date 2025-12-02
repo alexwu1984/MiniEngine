@@ -108,9 +108,9 @@ namespace Engine
 		C_P(SceneRender);
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, FileName](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
-			{
 				d->PreProcess->LoadConfig(FileName);
-			}
+			if (d->PostProcess)
+				d->PostProcess->LoadConfig(FileName);
 		});
 	}
 

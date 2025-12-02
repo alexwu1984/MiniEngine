@@ -124,9 +124,24 @@ namespace Engine
 		RHIContext.Clear(OutTex, core::FLinearColor::Black);
 		RHIContext.SetViewPort(0, 0, d->Size.cx, d->Size.cy);
 
-		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+		// Update uniform buffer data first
 		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-		Engine::RenderUtil::RenderFullQuad(RHIContext, InTex, d->VertexShader, d->PixelShader);
+		
+		// Set up pipeline state (this will clear the state cache)
+		RenderCore::GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = d->VertexShader;
+		Init.PixelShader = d->PixelShader;
+		Init.BlendState = RenderCore::RHICachedStates::BlendDisable;
+		Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, InTex);
+		// Set UniformBuffer after PipelineState to ensure it's not cleared
+		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+		
+		RHIContext.Draw(3);
 	}
 
 	struct BlurCSPrivate

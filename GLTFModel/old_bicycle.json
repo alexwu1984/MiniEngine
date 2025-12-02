@@ -10,7 +10,7 @@
         "LightType": 0
       }
     ],
-
+    "EnableSSR": true,
     "RotateIBL": "0,0"
   },
   "Modles": [
@@ -18,8 +18,11 @@
       "Model": "floor.glb",
       "Scale": 0.05,
       "Material": {
-        "Metallic": 0.0
-      }
+        "Metallic": 0.5,
+        "Roughness": 0.1,
+        "BaseColor": "0.5,0.5,0.5,1.0"
+      },
+      "UseMaterial": true
     },
     {
       "Model": "old_bicycle.glb",

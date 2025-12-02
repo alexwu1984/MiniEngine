@@ -48,11 +48,11 @@ namespace Engine
 	{
 		C_P(GltfMaterial);
 
-		auto CreateTexture = [this](int32_t Index, const core::FLinearColor& Color) {
+		auto CreateTexture = [this](int32_t Index, const core::FLinearColor& Color,bool useColor) {
 			C_P(GltfMaterial);
 			auto& gltfTexture = d->Model->textures;
 			std::shared_ptr<RHITexture2D> TexRHI;
-			if (Index > -1 && Index < gltfTexture.size())
+			if (Index > -1 && Index < gltfTexture.size() && !useColor)
 			{
 				int32_t Source = gltfTexture[Index].source;
 				auto& ModelImage = d->Model->images[Source];
@@ -71,11 +71,11 @@ namespace Engine
 		{
 			auto CreateTexCommand = [this,CreateTexture](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
-				d->BaseColorTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));
-				d->MetallicRoughnessTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0));
-				d->EmissiveTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0));
-				d->NormalTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0));
-				d->OcclusionTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0));
+				d->BaseColorTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.0f, 1.f, 1.f), true);
+				d->MetallicRoughnessTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0), true);
+				d->EmissiveTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0), true);
+				d->NormalTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0), true);
+				d->OcclusionTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.f, 1.f, 1.0), true);
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
@@ -94,20 +94,21 @@ namespace Engine
 			auto CreateTexCommand = [this, Material, CreateTexture](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
 				int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
-				d->BaseColorTexture = CreateTexture(Index, core::FLinearColor(1.f, 1.0f, 1.f, 1.f));
+				d->BaseColorTexture = CreateTexture(Index, core::FLinearColor(GetMaterialConfig().BaseColor), GetMaterialConfig().UseConfig);
 
 				Index = Material.pbrMetallicRoughness.metallicRoughnessTexture.index;
-				d->MetallicRoughnessTexture = CreateTexture(Index, core::FLinearColor(1.f, float(Material.pbrMetallicRoughness.roughnessFactor), float(Material.pbrMetallicRoughness.metallicFactor), 1.0));
+				d->MetallicRoughnessTexture = CreateTexture(Index, core::FLinearColor(1.f, float(GetMaterialConfig().Roughness), float(GetMaterialConfig().Metallic), 1.0)
+																, GetMaterialConfig().UseConfig);
 
 				auto EmissiveColor = Material.emissiveFactor;
 				Index = Material.emissiveTexture.index;
-				d->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])));
+				d->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])), GetMaterialConfig().UseConfig);
 
 				Index = Material.normalTexture.index;
-				d->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
+				d->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f),false);
 
 				Index = Material.occlusionTexture.index;
-				d->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f));
+				d->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f),false);
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);

@@ -18,6 +18,7 @@
 #include "Render/SceneRender.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
+#include "tinygltf/json.h"
 
 namespace Engine
 {
@@ -58,6 +59,29 @@ namespace Engine
 		delete d_ptr;
 	}
 
+
+	void PostProcessor::LoadConfig(const std::wstring& FileName)
+	{
+		try
+		{
+			C_P(PostProcessor);
+			nlohmann::json Root;
+			std::ifstream input_json_file(FileName);
+			if (!input_json_file.is_open())
+			{
+				return;
+			}
+
+			input_json_file >> Root;
+			nlohmann::json EvnJson = Root["Evn"];
+			d->EnableSSR = EvnJson.value("EnableSSR", false);
+		}
+		catch (const std::exception&)
+		{
+
+		}
+	}
+
 	void PostProcessor::InitResource()
 	{
 		C_P(PostProcessor);
@@ -74,11 +98,8 @@ namespace Engine
 		d->BloomEffect = std::make_shared<Bloom>(d->RHI);
 		d->BloomEffect->InitResource();
 
-		if (d->EnableSSR)
-		{
-			d->SSREffect = std::make_shared<SSRProcessor>(d->RHI);
-			d->SSREffect->InitResource();
-		}
+		d->SSREffect = std::make_shared<SSRProcessor>(d->RHI);
+		d->SSREffect->InitResource();
 	}
 
 	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
@@ -86,7 +107,7 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 
-		if (d->SSREffect && d->TAA->GetHistoryBuffer())
+		if (d->EnableSSR && d->SSREffect && d->TAA->GetHistoryBuffer())
 			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, d->TAA->GetHistoryBuffer(), Camera);
 
 		{

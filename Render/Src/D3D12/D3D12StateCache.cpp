@@ -381,6 +381,8 @@ namespace RenderCore
 		FShaderCodePackedResourceCounts VertexResCount = itVertexShader->second->ResourceCounts;
 		FShaderCodePackedResourceCounts PixelResCount = itPixelShader->second->ResourceCounts;
 
+		CommandList.FlushResourceBarriers();
+
 		if (bNeedSetBlendFactor)
 		{
 			CommandList->OMSetBlendFactor(CurrentBlendFactor);

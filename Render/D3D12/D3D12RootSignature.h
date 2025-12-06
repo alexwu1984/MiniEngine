@@ -131,6 +131,8 @@ namespace RenderCore
 		uint32_t GetSamplerTableBitMap() const { return m_SamplerTableBitMap; }
 		uint32_t GetDescriptorTableBitMap() const { return m_DescriptorTableBitMap; }
 		uint32_t GetDescriptorTableSize(uint32_t RootIndex) const { return m_DescriptorTableSize[RootIndex]; }
+		uint32_t GetPipelineStateHash() const { return m_PipelineStateHash; }
+		void SetPipelineStateHash(uint32_t hash) { m_PipelineStateHash = hash; }
 
 		int32_t CBRootIndex[SF_NumStandardFrequencies]{-1};
 		int32_t SRVRootIndex[SF_NumStandardFrequencies]{-1};
@@ -147,5 +149,7 @@ namespace RenderCore
 		std::vector<FRootParameter> m_ParamArray;
 		std::vector< D3D12_STATIC_SAMPLER_DESC> m_StaticSamplerArray;
 		win32::com_ptr<ID3D12RootSignature> m_D3DRootSignature;
+
+		uint32_t m_PipelineStateHash{ 0 };
 	};
 }

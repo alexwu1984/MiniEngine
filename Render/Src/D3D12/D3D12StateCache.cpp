@@ -244,11 +244,9 @@ namespace RenderCore
 			ComputeResCount = ComputeShader->ResourceCounts;
 			KeyName += itFindComputeShader->second->CSEntryPoint;
 		}
-		
-		CurrentRootHash = core::Crc::MemCrc32(KeyName.data(), (int32_t)KeyName.size());
 
 		std::shared_ptr<FRootSignature> RootSignature;
-		auto ItRootSignature = RootSignatures.find(CurrentRootHash);
+		auto ItRootSignature = RootSignatures.find(KeyName);
 		if (ItRootSignature != RootSignatures.end())
 			return ItRootSignature->second;
 		RootSignature = std::make_shared<FRootSignature>(GetParentDevice());
@@ -350,7 +348,7 @@ namespace RenderCore
 
 		if (RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))
 		{
-			RootSignatures.insert({ CurrentRootHash,RootSignature });
+			RootSignatures.insert({ KeyName,RootSignature });
 			return RootSignature;
 		}
 		else
@@ -382,8 +380,6 @@ namespace RenderCore
 
 		FShaderCodePackedResourceCounts VertexResCount = itVertexShader->second->ResourceCounts;
 		FShaderCodePackedResourceCounts PixelResCount = itPixelShader->second->ResourceCounts;
-
-		CommandList.FlushResourceBarriers();
 
 		if (bNeedSetBlendFactor)
 		{
@@ -425,9 +421,14 @@ namespace RenderCore
 		else
 			PSDesc.InputLayout.pInputElementDescs = nullptr;
 
-		size_t HashCode = core::Crc::HashState(&PSDesc);
-		HashCode = core::Crc::HashState(InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
-		
+		size_t HashCode = RootSignature->GetPipelineStateHash();
+		if (HashCode == 0)
+		{
+			HashCode = core::Crc::HashState(&PSDesc);
+			HashCode = core::Crc::HashState(InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
+			RootSignature->SetPipelineStateHash(HashCode);
+		}
+
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
 			auto iter = GraphicsPSHashMap.find(HashCode);

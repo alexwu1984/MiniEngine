@@ -303,8 +303,6 @@ namespace RenderCore
 		if (!StateCache)
 			return;
 
-		StateCache->ClearRenderState();
-
 		if (Initializer.BlendState)
 			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 		if (Initializer.DepthStencilState)

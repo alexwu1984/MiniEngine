@@ -197,7 +197,7 @@ namespace RenderCore
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12VertexShader>> VertexShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12PixelShader>> PixelShaders;
 		std::unordered_map<uint32_t, std::shared_ptr<FD3D12ComputeShader>> ComputeShaders;
-		std::unordered_map<uint32_t, std::shared_ptr<FRootSignature>> RootSignatures;
+		std::unordered_map<std::string, std::shared_ptr<FRootSignature>> RootSignatures;
 
 		uint32_t CurrentVertexHash = 0;
 		uint32_t CurrentPixelHash = 0;

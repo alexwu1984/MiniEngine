@@ -200,7 +200,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
 		}
-		RHIContext.FlushCommands(true);
+		RHIContext.FlushCommands(false);
 		RHIContext.GenerateMips(d->EvnCube);
 	}
 
@@ -241,7 +241,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 			RenderCube(RHIContext);
 		}
-		RHIContext.FlushCommands(true);
+		RHIContext.FlushCommands(false);
 		RHIContext.GenerateMips(d->IrrCube);
 	}
 
@@ -292,7 +292,7 @@ namespace Engine
 				RenderCube(RHIContext);
 			}
 		}
-		RHIContext.FlushCommands(true);
+		RHIContext.FlushCommands(false);
 	}
 
 	// Appoximation of joint Smith term for GGX

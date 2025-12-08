@@ -128,8 +128,7 @@ void IBLRenderDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_
 		return;
 	GenerateIBLMaps();
 	m_IBLRender->Draw(RHIContext);
-	if (m_ViewPort)
-		m_ViewPort->SetRenderTarget();
+
 	switch (m_ShowMode)
 	{
 	case SM_LongLat:
@@ -179,6 +178,9 @@ void IBLRenderDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	RHIContext.RHISetGraphicsPipelineState(Init);
 
+	if (m_ViewPort)
+		m_ViewPort->SetRenderTarget();
+
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
@@ -202,6 +204,9 @@ void IBLRenderDemo::ShowSHCubeMapDebugView(RenderCore::RHICommandContext& RHICon
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	RHIContext.RHISetGraphicsPipelineState(Init);
+
+	if (m_ViewPort)
+		m_ViewPort->SetRenderTarget();
 
 	GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
 	GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();

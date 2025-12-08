@@ -213,9 +213,6 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHIEndDrawing()
 	{
-		if (!StateCache)
-			return;
-		StateCache->ClearState();
 	}
 
 	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)

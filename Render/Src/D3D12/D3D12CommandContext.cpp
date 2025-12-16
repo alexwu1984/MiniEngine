@@ -28,7 +28,7 @@ namespace RenderCore
 
 	D3D12CommandContext::~D3D12CommandContext()
 	{
-		StateCache = {};
+		CurrentStateCache = {};
 		
 	}
 
@@ -50,7 +50,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::SetRenderTarget(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto DepthRHI = RHIResourceCast(Depth.get());
@@ -72,7 +72,7 @@ namespace RenderCore
 		}
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
-		StateCache->SetRenderTargetFormats(Targets, Depth);	
+		CurrentStateCache->SetRenderTargetFormats(Targets, Depth);	
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth)
@@ -83,7 +83,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget, int32_t IndexMip /*= 0*/)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
@@ -97,14 +97,14 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
 													RenderTargetRHI->GetDepthResource() ? &DSV : nullptr);
-			StateCache->SetRenderTargetFormat(RenderTargetRHI);
+			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
 		}
 
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
@@ -118,13 +118,13 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
 				TextureCubeRHI->GetDepthResource() ? &DSV : nullptr);
-			StateCache->SetRenderTargetFormat(TextureCubeRHI);
+			CurrentStateCache->SetRenderTargetFormat(TextureCubeRHI);
 		}
 	}
 
 	void D3D12CommandContext::SetRenderTarget(D3D12TextureCube* TextureCube, int32_t IndexView, int32_t IndexMip)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		if (TextureCube && TextureCube->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
@@ -133,7 +133,7 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCube->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE,
 				TextureCube->GetDepthResource() ? &DSV : nullptr);
-			StateCache->SetRenderTargetFormat(TextureCube);
+			CurrentStateCache->SetRenderTargetFormat(TextureCube);
 		}
 	}
 
@@ -143,6 +143,16 @@ namespace RenderCore
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto TargetRHI = RHIResourceCast(RenderTarget.get());
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
+		// Ensure resources are in the correct state for clear operations.
+		if (TargetRHI)
+		{
+			TransitionResource(TargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+		}
+		if (DepthRHI)
+		{
+			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+		}
+		CommandListHandle.FlushResourceBarriers();
 		if (TargetRHI)
 			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TargetRHI->GetRTV(), &Color.R, 0, nullptr);
 		if (DepthRHI)
@@ -158,11 +168,28 @@ namespace RenderCore
 		{
 			auto TargetRHI = RHIResourceCast(Target.get());
 			if (TargetRHI)
-				CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TargetRHI->GetRTV(), &Color.R, 0, nullptr);
+			{
+				TransitionResource(TargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			}
 		}
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
 		if (DepthRHI)
+		{
+			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+		}
+		CommandListHandle.FlushResourceBarriers();
+		for (std::shared_ptr<RHITexture2D> Target: Targets)
+		{
+			auto TargetRHI = RHIResourceCast(Target.get());
+			if (TargetRHI)
+			{
+				CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(TargetRHI->GetRTV(), &Color.R, 0, nullptr);
+			}
+		}
+		if (DepthRHI)
+		{
 			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DepthRHI->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+		}
 		++numClears;
 	}
 
@@ -174,6 +201,14 @@ namespace RenderCore
 			return;
 		if (TextureCubeRHI->GetRTV(Face, Mip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
+			// Only transition the specific face/mip we are clearing.
+			const uint32_t SubresourceIndex = TextureCubeRHI->GetSubresourceIndex(Face, Mip);
+			TransitionSubResource(TextureCubeRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, SubresourceIndex, false);
+			if (TextureCubeRHI->GetDepthResource())
+			{
+				TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+			}
+			CommandListHandle.FlushResourceBarriers();
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(Face, Mip);
 			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(RTV, &Color.R, 0, nullptr);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
@@ -189,6 +224,12 @@ namespace RenderCore
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
 		if (!RenderTargetRHI)
 			return;
+		TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+		if (RenderTargetRHI->GetDepthResource())
+		{
+			TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+		}
+		CommandListHandle.FlushResourceBarriers();
 		if (RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetRTV();
@@ -217,7 +258,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		auto SampleState = RHIResourceCast(NewState.get());
 		if (!SampleState)
@@ -226,22 +267,22 @@ namespace RenderCore
 		switch (ShaderType)
 		{
 		case SF_Vertex:
-			StateCache->SetSamplerState<SF_Vertex>(SampleState->GetSampleDesc(), SamplerIndex);
+			CurrentStateCache->SetSamplerState<SF_Vertex>(SampleState->GetSampleDesc(), SamplerIndex);
 			break;
 		case SF_Hull:
-			StateCache->SetSamplerState<SF_Hull>(SampleState->GetSampleDesc(), SamplerIndex);
+			CurrentStateCache->SetSamplerState<SF_Hull>(SampleState->GetSampleDesc(), SamplerIndex);
 			break;
 		case SF_Domain:
-			StateCache->SetSamplerState<SF_Domain>(SampleState->GetSampleDesc(), SamplerIndex);
+			CurrentStateCache->SetSamplerState<SF_Domain>(SampleState->GetSampleDesc(), SamplerIndex);
 			break;
 		case SF_Pixel:
-			StateCache->SetSamplerState<SF_Pixel>(SampleState->GetSampleDesc(), SamplerIndex);
+			CurrentStateCache->SetSamplerState<SF_Pixel>(SampleState->GetSampleDesc(), SamplerIndex);
 			break;
 		case SF_Geometry:
-			StateCache->SetSamplerState<SF_Geometry>(SampleState->GetSampleDesc(), SamplerIndex);
+			CurrentStateCache->SetSamplerState<SF_Geometry>(SampleState->GetSampleDesc(), SamplerIndex);
 			break;
 		case SF_Compute:
-			StateCache->SetSamplerState<SF_Compute>(SampleState->GetSampleDesc(), SamplerIndex);
+			CurrentStateCache->SetSamplerState<SF_Compute>(SampleState->GetSampleDesc(), SamplerIndex);
 			break;
 		default:
 			Assert(false);
@@ -251,56 +292,74 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetRasterizerState(std::shared_ptr<RHIRasterizerState> NewStateRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		auto RasterizerState = RHIResourceCast(NewStateRHI.get());
 		if (!RasterizerState)
 			return;
-		StateCache->SetRasterizerState(RasterizerState->GetRasterizerDesc());
+		CurrentStateCache->SetRasterizerState(RasterizerState->GetRasterizerDesc());
 	}
 
 	void D3D12CommandContext::RHISetBlendState(std::shared_ptr<RHIBlendState> NewState, const core::FLinearColor& BlendFactor)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		auto BlendState = RHIResourceCast(NewState.get());
 		if (BlendState)
 		{
-			StateCache->SetBlendState(BlendState->GetBlendDesc());
+			CurrentStateCache->SetBlendState(BlendState->GetBlendDesc());
 		}
-		StateCache->SetBlendFactor(&BlendFactor.R);
+		CurrentStateCache->SetBlendFactor(&BlendFactor.R);
 	}
 
 	void D3D12CommandContext::RHISetBlendFactor(const core::FLinearColor& BlendFactor)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
-		StateCache->SetBlendFactor(&BlendFactor.R);
+		CurrentStateCache->SetBlendFactor(&BlendFactor.R);
 	}
 
 	void D3D12CommandContext::RHISetDepthStencilState(std::shared_ptr< RHIDepthStencilState> NewState, uint32_t StencilRef)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		auto DepthStencilState = RHIResourceCast(NewState.get());
 		if (DepthStencilState)
-			StateCache->SetDepthStencilState(DepthStencilState->GetDepthStencilDesc());
-		StateCache->SetStencilRef(StencilRef);
+			CurrentStateCache->SetDepthStencilState(DepthStencilState->GetDepthStencilDesc());
+		CurrentStateCache->SetStencilRef(StencilRef);
 	}
 
 	void D3D12CommandContext::RHISetStencilRef(uint32_t StencilRef)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
-		StateCache->SetStencilRef(StencilRef);
+		CurrentStateCache->SetStencilRef(StencilRef);
 	}
 
 	void D3D12CommandContext::RHISetGraphicsPipelineState(const GraphicsPipelineStateInitializer& Initializer)
 	{
-		if (!StateCache)
-			return;
+		//if (!CurrentStateCache)
+		//	return;
 
-		StateCache->ClearRenderState();
+		//CurrentStateCache->ClearRenderState();
+
+		auto d3d12VertexShader = std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader);
+		auto d3d12PixelShader = std::static_pointer_cast<FD3D12PixelShader>(Initializer.PixelShader);
+
+		std::string key; 
+		if (d3d12VertexShader)
+			key = d3d12VertexShader->KeyName;
+		if (d3d12PixelShader)
+			key += d3d12VertexShader->KeyName;
+		
+		auto itFind = StateCacheMap.find(key);
+		if (itFind != StateCacheMap.end())
+			CurrentStateCache = itFind->second;
+		else
+		{
+			CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
+			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
+		}
 
 		if (Initializer.BlendState)
 			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
@@ -310,17 +369,17 @@ namespace RenderCore
 			RHISetRasterizerState(Initializer.RasterizerState);
 
 		if (Initializer.VertexShader)
-			StateCache->SetVertexShader(std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader));
+			CurrentStateCache->SetVertexShader(d3d12VertexShader);
 		else
-			StateCache->SetVertexShader(nullptr);
+			CurrentStateCache->SetVertexShader(nullptr);
 
 		if (Initializer.PixelShader)
-			StateCache->SetPixelShader(std::static_pointer_cast<FD3D12PixelShader>(Initializer.PixelShader));
+			CurrentStateCache->SetPixelShader(d3d12PixelShader);
 		else
-			StateCache->SetPixelShader(nullptr);
-		StateCache->SetComputeShader(nullptr);
+			CurrentStateCache->SetPixelShader(nullptr);
+		CurrentStateCache->SetComputeShader(nullptr);
 
-		StateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType,false));
+		CurrentStateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType,false));
 	}
 
 	void D3D12CommandContext::RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents)
@@ -334,7 +393,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
@@ -344,13 +403,13 @@ namespace RenderCore
 				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, false);
 			if(ShaderType == SF_Compute)
 				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, false);
-			StateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
+			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
 	}
 
 	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
@@ -359,13 +418,13 @@ namespace RenderCore
 				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, false);
 			if (ShaderType == SF_Compute)
 				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, false);
-			StateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
+			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
 
 	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<RHITextureCube> TextureCubeRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
@@ -374,32 +433,32 @@ namespace RenderCore
 				TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, Mip, false);
 			if (ShaderType == SF_Compute)
 				TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, Mip, false);
-			StateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
+			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
 
 	void D3D12CommandContext::RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 		auto TexRHI = std::static_pointer_cast<D3D12Texture2D>(UAV->GetTexture2D());
 		TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
-		StateCache->SetUAV(UAVIndex, TexRHI);
+		CurrentStateCache->SetUAV(UAVIndex, TexRHI);
 	}
 
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 
 		D3D12UniformBuffer* UniformBuffer = RHIResourceCast(UniformBufferRHI.get());
 		if (UniformBuffer)
-			StateCache->SetDynamicConstantBuffer(ShaderType,BufferIndex, std::static_pointer_cast<D3D12UniformBuffer>(UniformBufferRHI));
+			CurrentStateCache->SetDynamicConstantBuffer(ShaderType,BufferIndex, std::static_pointer_cast<D3D12UniformBuffer>(UniformBufferRHI));
 	}
 
 	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 
 		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
@@ -407,9 +466,9 @@ namespace RenderCore
 		if (!VertexBuffer || !IndexBuffer)
 			return;
 
-		StateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
-		StateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
-		if (!StateCache->ApplyGraphicState(CommandListHandle))
+		CurrentStateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
+		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
+		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1, 0, 0,0);
 		++numDraws;
@@ -417,18 +476,18 @@ namespace RenderCore
 
 	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 
 		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
 		if (!VertexBuffer)
 			return;
 
-		StateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
+		CurrentStateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
 		D3D12_INDEX_BUFFER_VIEW IndexView{};
 		IndexView.Format = DXGI_FORMAT_UNKNOWN;
-		StateCache->SetIndexBuffer(CommandListHandle, IndexView);
-		if (!StateCache->ApplyGraphicState(CommandListHandle))
+		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexView);
+		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawInstanced(VertexBuffer->GetCount(),1,0,0);
 		++numDraws;
@@ -436,7 +495,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
 
 		int32_t StreamIndex = 0;
@@ -445,14 +504,14 @@ namespace RenderCore
 			if (BufferRHI)
 			{
 				D3D12VertexBffer* VertexBuffer = RHIResourceCast(BufferRHI.get());
-				StateCache->SetVertexBuffer(CommandListHandle, StreamIndex++, VertexBuffer->VertexBufferView());
+				CurrentStateCache->SetVertexBuffer(CommandListHandle, StreamIndex++, VertexBuffer->VertexBufferView());
 			}
 		}
 		D3D12IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
 		if (!IndexBuffer)
 			return;
-		StateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
-		if (!StateCache->ApplyGraphicState(CommandListHandle))
+		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
+		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1,0,0,0);
 		++numDraws;
@@ -460,9 +519,9 @@ namespace RenderCore
 
 	void D3D12CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
-		if (!StateCache->ApplyGraphicState(CommandListHandle))
+		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 		++numDraws;
@@ -480,23 +539,23 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
-		StateCache->ClearComputeState();
+		CurrentStateCache->ClearComputeState();
 
 		if (Initializer.ComputeShader)
-			StateCache->SetComputeShader(std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader));
+			CurrentStateCache->SetComputeShader(std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader));
 		else
-			StateCache->SetComputeShader(nullptr);
-		StateCache->SetVertexShader(nullptr);
-		StateCache->SetPixelShader(nullptr);
+			CurrentStateCache->SetComputeShader(nullptr);
+		CurrentStateCache->SetVertexShader(nullptr);
+		CurrentStateCache->SetPixelShader(nullptr);
 	}
 
 	void D3D12CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
-		if (!StateCache->ApplyComputeState(CommandListHandle))
+		if (!CurrentStateCache->ApplyComputeState(CommandListHandle))
 			return;
 		CommandListHandle->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 		++numDispatches;
@@ -530,34 +589,29 @@ namespace RenderCore
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, true);
 		
-
-		// 1. 描述源纹理的复制位置
 		D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
 		srcLocation.pResource = D3D12Src->GetResource()->GetResource();
 		srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		srcLocation.SubresourceIndex = 0;  // 子资源索引（mipmap 级别，若为数组纹理需计算）
+		srcLocation.SubresourceIndex = 0; 
 
-		// 2. 描述目标纹理的复制位置
 		D3D12_TEXTURE_COPY_LOCATION dstLocation = {};
 		dstLocation.pResource = D3D12Dst->GetResource()->GetResource();
 		dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		dstLocation.SubresourceIndex = 0;  // 假设目标使用第 0 级 mipmap
+		dstLocation.SubresourceIndex = 0; 
 
-		// 3. 描述复制的区域（源纹理中的矩形）
 		D3D12_BOX srcBox = {};
 		srcBox.left = rect.left();
 		srcBox.top = rect.top();
-		srcBox.front = 0;  // 3D 纹理用，2D 纹理设为 0
-		srcBox.right = rect.right();  // 注意：right = left + width
-		srcBox.bottom = rect.bottom();  // bottom = top + height
-		srcBox.back = 1;  // 3D 纹理用，2D 纹理设为 1（表示只复制一层）
+		srcBox.front = 0;  
+		srcBox.right = rect.right();
+		srcBox.bottom = rect.bottom(); 
+		srcBox.back = 1;
 
-		// 4. 执行复制命令
 		CommandListHandle->CopyTextureRegion(
-			&dstLocation,  // 目标位置
-			0, 0, 0,  // 目标偏移量（z 轴为 0）
-			&srcLocation,   // 源位置
-			&srcBox         // 源区域（若为 nullptr，则复制整个子资源）
+			&dstLocation,
+			0, 0, 0,
+			&srcLocation,
+			&srcBox
 		);
 
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
@@ -614,9 +668,9 @@ namespace RenderCore
 
 	void D3D12CommandContext::SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
-		if (!StateCache)
+		if (!CurrentStateCache)
 			return;
-		StateCache->SetDescriptorHeap(CommandListHandle, Type, HeapPtr);
+		CurrentStateCache->SetDescriptorHeap(CommandListHandle, Type, HeapPtr);
 	}
 
 	void D3D12CommandContext::ConditionalObtainCommandAllocator()
@@ -659,23 +713,27 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
-		bool NeedTransition = false;
-		for (uint16_t i = 0; i < Resource->GetSubresourceCount(); ++i)
+		// NOTE:
+		// We can't safely use a single ALL_SUBRESOURCES transition barrier with the "before" state
+		// coming from just subresource 0. If subresources are in different states, that will produce
+		// RESOURCE_BARRIER_BEFORE_AFTER_MISMATCH (#527) and also desync state tracking.
+		//
+		// Instead, emit correct per-subresource transitions based on tracked state.
+		bool bAnyTransition = false;
+		const uint16_t SubresourceCount = Resource->GetSubresourceCount();
+		for (uint16_t Subresource = 0; Subresource < SubresourceCount; ++Subresource)
 		{
-			D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(i);
-			if (NewState != OldState)
+			const D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(Subresource);
+			if (OldState != NewState)
 			{
-				NeedTransition = true;
-				break;
+				CommandListHandle.AddTransitionBarrier(Resource, OldState, NewState, Subresource);
+				Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
+				bAnyTransition = true;
 			}
 		}
-
-		if (NeedTransition)
+		if (bAnyTransition && Flush)
 		{
-			CommandListHandle.AddTransitionBarrier(Resource, Resource->GetResourceState().GetSubresourceState(0), NewState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
-			if (Flush)
-				CommandListHandle.FlushResourceBarriers();
-			Resource->GetResourceState().SetResourceState(NewState);
+			CommandListHandle.FlushResourceBarriers();
 		}
 	}
 
@@ -745,12 +803,13 @@ namespace RenderCore
 
 	void D3D12CommandContext::Initialize(void)
 	{
-		StateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(),this->shared_from_this());
+		//CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(),this->shared_from_this());
 	}
 
 	void D3D12CommandContext::Destroy()
 	{
-		StateCache = {};
+		StateCacheMap.clear();
+		CurrentStateCache = {};
 		D3D12GenerateMips = {};
 		if(CommandAllocator)
 			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
@@ -759,14 +818,14 @@ namespace RenderCore
 
 	void D3D12CommandContext::ClearState()
 	{
-		if (StateCache)
-			StateCache->ClearState();
+		if (CurrentStateCache)
+			CurrentStateCache->ClearState();
 	}
 
-	FD3D12StateCache& D3D12CommandContext::GetD3D12StateCache() const
+	std::shared_ptr<FD3D12StateCache> D3D12CommandContext::GetD3D12StateCache() const
 	{
-		Assert(StateCache.get());
-		return *StateCache;
+		//Assert(CurrentStateCache.get());
+		return CurrentStateCache;
 	}
 
 	D3D12CommandListHandle& D3D12CommandContext::GetCurrentCommandListHandle()

@@ -95,7 +95,8 @@ namespace RenderCore
 		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID);
 			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID);
-			GetCurrentOwningContext()->GetD3D12StateCache().CleanupUsedHeaps(FenceID);
+			if(GetCurrentOwningContext()->GetD3D12StateCache())
+				GetCurrentOwningContext()->GetD3D12StateCache()->CleanupUsedHeaps(FenceID);
 			}, WaitForCompletion);
 	}
 

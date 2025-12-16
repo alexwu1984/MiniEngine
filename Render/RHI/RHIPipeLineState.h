@@ -14,8 +14,8 @@ namespace RenderCore
 		std::shared_ptr<RHIRasterizerState> RasterizerState;
 		std::shared_ptr<RHIDepthStencilState> DepthStencilState;
 		EPrimitiveType	PrimitiveType = PT_TriangleList;
-		std::shared_ptr< RHIVertexShader> VertexShader;
-		std::shared_ptr< RHIPixelShader> PixelShader;
+		std::shared_ptr<RHIVertexShader> VertexShader;
+		std::shared_ptr<RHIPixelShader> PixelShader;
 	};
 
 	struct ComputePipelineStateInitializer

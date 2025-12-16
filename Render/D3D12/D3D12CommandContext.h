@@ -94,7 +94,7 @@ namespace RenderCore
 		void Initialize(void);
 		void Destroy();
 		void ClearState();
-		FD3D12StateCache& GetD3D12StateCache() const;
+		std::shared_ptr<FD3D12StateCache> GetD3D12StateCache() const;
 		D3D12CommandListHandle& GetCurrentCommandListHandle();
 	private:
 		// If necessary, this gets a new command allocator for this context.
@@ -106,7 +106,8 @@ namespace RenderCore
 		D3D12CommandAllocator* CommandAllocator = nullptr;
 		FD3D12CommandAllocatorManager CommandAllocatorManager;
 
-		std::shared_ptr<FD3D12StateCache> StateCache;
+		std::shared_ptr<FD3D12StateCache> CurrentStateCache;
+		std::map<std::string, std::shared_ptr<FD3D12StateCache> > StateCacheMap;
 		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
 
 	};

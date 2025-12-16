@@ -125,10 +125,8 @@ namespace RenderCore
 	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
 		if (CurrentDescriptorHeaps[Type] != HeapPtr)
-		{
 			CurrentDescriptorHeaps[Type] = HeapPtr;
-			BindDescriptorHeaps(CommandList);
-		}
+		BindDescriptorHeaps(CommandList);
 	}
 
 	void FD3D12StateCache::BindDescriptorHeaps(D3D12CommandListHandle& CommandList)
@@ -142,6 +140,7 @@ namespace RenderCore
 				HeapsToBind[NonNullHeaps++] = CurrentDescriptorHeaps[i].get();
 			}
 		}
+
 		if (NonNullHeaps > 0)
 		{
 			CommandList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind);

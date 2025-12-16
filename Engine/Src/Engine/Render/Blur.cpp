@@ -117,6 +117,14 @@ namespace Engine
 		              std::shared_ptr<RenderCore::RHIRenderTarget> OutTex, math::Vector2 Dir)
 	{
 		C_P(BlurPS);
+		RenderCore::GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = d->VertexShader;
+		Init.PixelShader = d->PixelShader;
+		Init.BlendState = RenderCore::RHICachedStates::BlendDisable;
+		Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+
 		d->GET_UNIFORMDATA(CBBlurParam).Param.MipLevel = 0;
 		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir = Dir;
 		d->GET_UNIFORMDATA(CBBlurParam).Param.Resulution.Set(d->Size.cx, d->Size.cy);
@@ -126,15 +134,6 @@ namespace Engine
 
 		// Update uniform buffer data first
 		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-		
-		// Set up pipeline state (this will clear the state cache)
-		RenderCore::GraphicsPipelineStateInitializer Init;
-		Init.VertexShader = d->VertexShader;
-		Init.PixelShader = d->PixelShader;
-		Init.BlendState = RenderCore::RHICachedStates::BlendDisable;
-		Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
-		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
-		RHIContext.RHISetGraphicsPipelineState(Init);
 		
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, InTex);

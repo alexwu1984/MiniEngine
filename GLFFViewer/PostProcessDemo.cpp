@@ -46,7 +46,7 @@ void PostProcessorDemo::InitResource()
 
 void PostProcessorDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)
 {
-	if (!_Texture1 || !_Texture2)
+	if (!_Texture1 || !_Texture2 || !ViewPort)
 	{
 		return;
 	}
@@ -60,6 +60,8 @@ void PostProcessorDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::sha
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 	RHIContext.RHISetGraphicsPipelineState(Init);
+	ViewPort->SetRenderTarget();
+
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, _Texture1);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, _Texture2);

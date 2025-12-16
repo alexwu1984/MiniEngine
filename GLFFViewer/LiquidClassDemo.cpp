@@ -121,10 +121,9 @@ core::vec2f LiquidClassDemo::GetWorldPos(const core::vec2f& PicPos, const core::
 
 void LiquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
 {
-	if (!Tex2D)
+	if (!Tex2D || !m_ViewPort)
 		return;
-	if (m_ViewPort)
-		m_ViewPort->SetRenderTarget();
+
 	std::shared_ptr<Engine::AppWindow> AppWin = Engine::GEngine->GetAppWindow();
 	float AspectRatio = Tex2D->GetSize().w * 1.f / Tex2D->GetSize().h;
 	int Width = std::min(AppWin->GetWidth(), Tex2D->GetSize().w);
@@ -140,7 +139,8 @@ void LiquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, s
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	RHIContext.RHISetGraphicsPipelineState(Init);
-
+	m_ViewPort->SetRenderTarget();
+		
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Tex2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
@@ -151,7 +151,7 @@ void LiquidClassDemo::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, s
 
 void LiquidClassDemo::LuquidClass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D)
 {
-	RHIContext.SetRenderTarget(m_LuquidClassRT);
+	
 	RHIContext.SetViewPort(0, 0, m_LuquidClassRT->GetSize().x, m_LuquidClassRT->GetSize().y);
 
 	RenderCore::GraphicsPipelineStateInitializer Init;
@@ -161,6 +161,7 @@ void LiquidClassDemo::LuquidClass(RenderCore::RHICommandContext& RHIContext, std
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	RHIContext.RHISetGraphicsPipelineState(Init);
+	RHIContext.SetRenderTarget(m_LuquidClassRT);
 
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Tex2D);

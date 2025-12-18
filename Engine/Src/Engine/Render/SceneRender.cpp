@@ -190,7 +190,6 @@ namespace Engine
 		C_P(SceneRender);
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d,this, DeltaTime](RenderCore::DynamicRHI* RHI) {
-			d->MainViewPort->SetRenderTarget();
 			d->MainViewPort->Clear(d->Color);
 			d->MainViewPort->Prepare();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
@@ -247,13 +246,12 @@ namespace Engine
 
 			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),
 				d->TargetBuffer->GetEmissiveBuffer(),d->TargetBuffer->GetMetallicRoughnessBuffer()};
-			RHI->GetDefaultCommandContext()->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-
+			
 			auto IBL = d->PreProcess->GetIBLRender();
 			auto EvnCube = IBL->GetEvnCube();
 			d->BackgroundRender->SetTextureCube(EvnCube);
-			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext());
+			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
 		});
 
 		d->MeshesInfo.clear();
@@ -273,7 +271,7 @@ namespace Engine
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this, MeshesInfo = d->MeshesInfo](RenderCore::DynamicRHI* RHI) {
 			if (MeshesInfo.size())
-				d->BaseRender->Render(RHI,MeshesInfo, GetOwner());
+				d->BaseRender->Render(RHI,MeshesInfo, GetOwner(),d->TargetBuffer);
 			d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, GetOwner()->GetMainCamera());
 			sigGuiEvent();
 			d->MainViewPort->Present();

@@ -33,7 +33,7 @@ namespace Engine
 		virtual void Tick(float deltaTime) override;
 		virtual void OnUpdateWorldTransform(float deltaTime) override;
 
-		bool GatherMesh(GltfSceneMeshInfo & SceneMeshInfo, std::shared_ptr<CameraComponent> Camera);
+		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, std::shared_ptr<CameraComponent> Camera);
 	private:
 		GltfMeshComponentPrivate* d_ptr = nullptr;
 	};

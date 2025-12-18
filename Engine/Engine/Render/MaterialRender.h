@@ -10,6 +10,7 @@ namespace RenderCore
 namespace Engine
 {
 	class PreProcessor;
+	class GBuffer;
 
 	struct MaterialRenderParam
 	{
@@ -25,6 +26,7 @@ namespace Engine
 		bool HasSkin = false;
 		std::weak_ptr<PreProcessor> preProcessor;
 		std::vector< Light> lightInfos;
+		std::shared_ptr<GBuffer> TargetBuffer;
 	};
 
 	class GltfModelConfig;

@@ -111,7 +111,6 @@ namespace Engine
 			float CameraSizeExtent = 1.0f;
 			mainLight.LightViewProj = mainLight.LightView * math::Matrix4x4::MatrixOrthographicOffCenterLH(-CameraSizeExtent, CameraSizeExtent, -CameraSizeExtent, CameraSizeExtent, nearValue, farValue);
 
-			RHIContext.SetRenderTarget(d->DepthRenderBuffer);
 			RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
 			auto TargetSize = d->DepthRenderBuffer->GetSize();
 			RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
@@ -137,7 +136,7 @@ namespace Engine
 						}
 					}
 
-					shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight);
+					shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight, d->DepthRenderBuffer);
 				}
 			}
 		});

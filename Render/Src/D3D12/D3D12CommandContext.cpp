@@ -427,7 +427,7 @@ namespace RenderCore
 		if (!CurrentStateCache)
 			return;
 		auto TexRHI = std::static_pointer_cast<D3D12Texture2D>(UAV->GetTexture2D());
-		TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
+		TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, false);
 		CurrentStateCache->SetUAV(UAVIndex, TexRHI);
 	}
 
@@ -524,16 +524,23 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer)
 	{
-		if (!CurrentStateCache)
+		auto computeShader = std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader);
+		if (!computeShader)
 			return;
-		CurrentStateCache->ClearComputeState();
+		std::string key = computeShader->KeyName;
 
-		if (Initializer.ComputeShader)
-			CurrentStateCache->SetComputeShader(std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader));
+		auto itFind = StateCacheMap.find(key);
+		if (itFind != StateCacheMap.end())
+		{
+			return;
+		}
 		else
-			CurrentStateCache->SetComputeShader(nullptr);
-		CurrentStateCache->SetVertexShader(nullptr);
-		CurrentStateCache->SetPixelShader(nullptr);
+		{
+			auto CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
+			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
+			CurrentStateCache->SetComputeShader(computeShader);
+		}
+
 	}
 
 	void D3D12CommandContext::RHIDispatchComputeShader(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)

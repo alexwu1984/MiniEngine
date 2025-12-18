@@ -11,7 +11,7 @@ namespace Engine
 	class PBRMaterialRender : public MaterialRender
 	{
 	public:
-		PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer,std::shared_ptr< MaterialBase> MeshMaterial);
+		PBRMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer,std::shared_ptr<MaterialBase> MeshMaterial);
 		virtual ~PBRMaterialRender();
 
 		virtual void InitRenderResource();
@@ -29,7 +29,7 @@ namespace Engine
 		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro> & ShaderMacros);
 	private:
 		void InitShader(const std::wstring& Path);
-		void SetPipeLineState(RenderCore::RHICommandContext& RHIContext);
+		void SetPipeLineState(RenderCore::RHICommandContext& RHIContext,std::shared_ptr<GBuffer> TargetBuffer);
 	private:
 		PBRMaterialRenderPrivate* d_ptr;
 	};

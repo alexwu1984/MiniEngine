@@ -12,6 +12,7 @@ namespace Engine
 	class  MaterialRender;
 	struct GltfSceneMeshInfo;
 	struct MeshDistanceInfo;
+	class GBuffer;
 
 	class BasePassRender
 	{
@@ -19,7 +20,7 @@ namespace Engine
 		BasePassRender();
 		~BasePassRender();
 
-		void Render(RenderCore::DynamicRHI* RHI,const std::vector<GltfSceneMeshInfo> &MeshesPair,std::shared_ptr<SceneView> View);
+		void Render(RenderCore::DynamicRHI* RHI,const std::vector<GltfSceneMeshInfo> &MeshesPair,std::shared_ptr<SceneView> View, std::shared_ptr<GBuffer> TargetBuffer);
 		void SetIBLRotate(float x, float y);
 	private:
 		//对Mesh进行排序，按顺序渲染

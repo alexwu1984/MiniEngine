@@ -70,13 +70,13 @@ namespace Engine
 		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS", {});
 	}
 
-	void CubeBackground::Render(RenderCore::RHICommandContext& RHIContext)
+	void CubeBackground::Render(RenderCore::RHICommandContext& RHIContext, 
+								const std::vector <std::shared_ptr<RenderCore::RHITexture2D>>& Targets, 
+								std::shared_ptr<RenderCore::RHITexture2D> Depth)
 	{
 		C_P(CubeBackground);
 		if (!d->TexCube)
-		{
 			return;
-		}
 		RenderCore::RHICommandMark Mark(RHIContext, "CubeBackground");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
@@ -87,6 +87,7 @@ namespace Engine
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.SetRenderTarget(Targets, Depth);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
 		int32_t w = GEngine->GetAppWindow()->GetWidth();

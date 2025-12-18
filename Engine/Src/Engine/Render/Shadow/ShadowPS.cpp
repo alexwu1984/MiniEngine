@@ -11,6 +11,7 @@
 #include "Engine/GltfModel/GltfMesh.h"
 #include "Engine/GltfModel/GltfMeshBuffer.h"
 #include "Engine/Material/GltfMaterial.h"
+#include "RHI/RHIRenderTarget.h"
 
 namespace Engine
 {
@@ -91,7 +92,9 @@ namespace Engine
 		d->PixelShader = d->RHI->RHICreatePixelShader(PSPath, "MainPS", ShaderMacros);
 	}
 
-	void ShadowPS::Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform, const Light& mainLight)
+
+	void ShadowPS::Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,
+		const Light& mainLight, std::shared_ptr<RenderCore::RHIRenderTarget> renderTarget)
 	{
 		C_P(ShadowPS);
 		RenderCore::RHICommandMark Mark(RHIContext, "Shadow_Depth");
@@ -105,7 +108,7 @@ namespace Engine
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-
+		RHIContext.SetRenderTarget(renderTarget);
 		//to do,set uniform buffer
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();

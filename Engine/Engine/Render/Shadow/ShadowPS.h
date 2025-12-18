@@ -9,6 +9,7 @@ namespace RenderCore
 	class DynamicRHI;
 	class RHITextureCube;
 	class RHITexture2D;
+	class RHIRenderTarget;
 }
 
 namespace Engine
@@ -23,7 +24,8 @@ namespace Engine
 		~ShadowPS();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,const Light& mainLight);
+		void Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,
+			const Light& mainLight, std::shared_ptr<RenderCore::RHIRenderTarget> renderTarget);
 		void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index);
 	private:
 		ShadowPSPrivate* d_ptr = nullptr;

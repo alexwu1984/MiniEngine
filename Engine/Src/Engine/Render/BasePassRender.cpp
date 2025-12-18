@@ -30,6 +30,7 @@ namespace Engine
 		std::vector<MeshDistanceInfo> SortMesh;
 		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<MaterialRender>> Renders;
 		std::shared_ptr<SceneView> sceneView;
+		std::shared_ptr<GBuffer> TargetBuffer;
 		float xHDRRotate{ 0.f };
 		float yHDRRotate{ 1.f };
 	};
@@ -45,11 +46,12 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	void BasePassRender::Render(RenderCore::DynamicRHI* RHI,const std::vector<GltfSceneMeshInfo>& MeshInfos,std::shared_ptr<SceneView> View)
+	void BasePassRender::Render(RenderCore::DynamicRHI* RHI,const std::vector<GltfSceneMeshInfo>& MeshInfos,std::shared_ptr<SceneView> View, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(BasePassRender);
 		d->SortMesh.clear();
 		d->sceneView = View;
+		d->TargetBuffer = TargetBuffer;
 		ActualDraw(RHI, MeshInfos, View->GetMainCamera(), true);
 		ActualDraw(RHI, MeshInfos, View->GetMainCamera(), false);
 	}
@@ -180,6 +182,7 @@ namespace Engine
 		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(d->xHDRRotate));
 		Rotate *= math::Matrix4x4::RotateY(math::Radians(d->yHDRRotate));
 		RenderParam.RotateIBL = Rotate;
+		RenderParam.TargetBuffer = d->TargetBuffer;
 
 		if (Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
 		{

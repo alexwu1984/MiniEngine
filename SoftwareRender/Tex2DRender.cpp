@@ -47,11 +47,11 @@ void Tex2DRender::InitTex(const core::vec2u& texSize, const uint8_t* buffer)
 
 void Tex2DRender::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)
 {
-	ShowTexture2D(RHIContext, m_tex2D);
+	ShowTexture2D(RHIContext, m_tex2D, ViewPort);
 }
 
 
-void Tex2DRender::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Texture2D)
+void Tex2DRender::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Texture2D, std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 {
 	if (!Texture2D)
 		return;
@@ -70,6 +70,7 @@ void Tex2DRender::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	RHIContext.RHISetGraphicsPipelineState(Init);
+	ViewPort->SetRenderTarget();
 
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Texture2D);

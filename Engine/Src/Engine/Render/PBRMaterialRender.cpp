@@ -14,6 +14,7 @@
 #include "Engine/Render/Shadow/ShadowRenderPass.h"
 #include "Engine/Render/SceneRender.h"
 #include "Engine/Render/PostProcessor.h"
+#include "Render/GBuffer.h"
 
 namespace Engine
 {
@@ -120,7 +121,7 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext)
+	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(PBRMaterialRender);
 		GraphicsPipelineStateInitializer Init;
@@ -140,6 +141,10 @@ namespace Engine
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		std::vector <std::shared_ptr<RenderCore::RHITexture2D>> Targets = { TargetBuffer->GetSceneColor(),TargetBuffer->GetMotionVector(),TargetBuffer->GetNormalBuffer(),
+					TargetBuffer->GetEmissiveBuffer(),TargetBuffer->GetMetallicRoughnessBuffer() };
+		RHIContext.SetRenderTarget(Targets, TargetBuffer->GetDepth());
+
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
 
@@ -173,7 +178,7 @@ namespace Engine
 		C_P(PBRMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPass");
 		d->RenderParam = RenderParam;
-		SetPipeLineState(RHIContext);
+		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)RenderParam.lightInfos.size();
 		for (int32_t index = 0; index < RenderParam.lightInfos.size(); ++index)
@@ -217,7 +222,7 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPrePass");
 		d->RenderParam = RenderParam;
 
-		SetPipeLineState(RHIContext);
+		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		PreDrawMesh(RHIContext);
 	}

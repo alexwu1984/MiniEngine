@@ -517,7 +517,13 @@ namespace RenderCore
 			return false;
 		}
 
-		size_t HashCode = core::Crc::HashState(&CSDesc);
+		size_t HashCode = RootSignature->GetPipelineStateHash();
+		if (HashCode == 0)
+		{
+			HashCode = core::Crc::HashState(&CSDesc);
+			RootSignature->SetPipelineStateHash(HashCode);
+		}
+
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
 			auto iter = ComputePSHashMap.find(HashCode);
@@ -610,10 +616,6 @@ namespace RenderCore
 
 	void FD3D12StateCache::ClearComputeState()
 	{
-		ConstantBufferCache.Clear();
-		SamplerCache.Clear();
-		ShaderResourceViewCache.Clear();
-		UAVCache.Clear();
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
 	}

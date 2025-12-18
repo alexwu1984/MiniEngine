@@ -25,7 +25,7 @@ public:
 	void InitTex(const core::vec2u& texSize, const uint8_t* buffer);
 	void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime) override;
 private:
-	void ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D);
+	void ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> Tex2D, std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 private:
 	std::shared_ptr<RenderCore::RHITexture2D> m_tex2D;
 	math::Vector3 m_ClearColor = math::Vector3(0.2f);

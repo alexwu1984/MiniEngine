@@ -77,7 +77,7 @@ namespace Engine
 				ViewPort->GetSize().cx, ViewPort->GetSize().cy, 1);
 		}
 
-		RHIContext.SetRenderTarget(d->SSRBuffer, nullptr);
+		
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().cx, ViewPort->GetSize().cy);
 		RHIContext.Clear(d->SSRBuffer, nullptr, core::FLinearColor::Transparent, 1.f, 0);
 		RenderCore::GraphicsPipelineStateInitializer Init;
@@ -89,6 +89,8 @@ namespace Engine
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.SetRenderTarget(d->SSRBuffer, nullptr);
+
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RenderCore::RHICachedStates::ClampPointSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetNormalBuffer());

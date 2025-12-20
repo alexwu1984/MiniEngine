@@ -91,14 +91,14 @@ namespace Engine
 		//DownSample
 
 		{
-			for (int Index = 1; Index < 5; ++Index)
+			for (int Index = 0; Index < 5; ++Index)
 			{
 				RenderCore::ComputePipelineStateInitializer Init;
 				Init.ComputeShader = d->Downsample;
 
 				RHIContext.RHISetComputePipelineState(Init);
 				RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
-				if (Index == 1)
+				if (Index == 0)
 				{
 					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, TargetBuffer->GetEmissiveBuffer());
 				}

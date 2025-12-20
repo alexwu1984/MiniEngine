@@ -546,6 +546,9 @@ namespace RenderCore
 		DynamicViewDescriptorHeap.ParseComputeRootSignature(*RootSignature);
 		CommandList->SetPipelineState(PipelineState.get());
 
+		// Flush resource barriers before setting descriptors to ensure all resource state transitions are applied
+		CommandList.FlushResourceBarriers();
+
 		FShaderCodePackedResourceCounts ComputeResCount = itComputeShader->second->ResourceCounts;
 
 		int32_t StartIndex = RootSignature->CBRootIndex[SF_Compute];

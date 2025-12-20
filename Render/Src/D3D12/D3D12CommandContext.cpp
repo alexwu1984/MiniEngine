@@ -532,11 +532,11 @@ namespace RenderCore
 		auto itFind = StateCacheMap.find(key);
 		if (itFind != StateCacheMap.end())
 		{
-			return;
+			CurrentStateCache = itFind->second;
 		}
 		else
 		{
-			auto CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
+			CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
 			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
 			CurrentStateCache->SetComputeShader(computeShader);
 		}

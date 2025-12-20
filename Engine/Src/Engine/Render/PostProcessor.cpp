@@ -111,7 +111,7 @@ namespace Engine
 			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, d->TAA->GetHistoryBuffer(), Camera);
 
 		{
-			ViewPort->SetRenderTarget();
+			//ViewPort->SetRenderTarget();
 			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 			if (d->SSREffect && d->SSREffect->GetSSRBuffer())
 				ApplySSR(RHIContext, TargetBuffer);
@@ -123,7 +123,7 @@ namespace Engine
 			ViewPort->SetRenderTarget();
 			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 			d->TAA->Draw(RHIContext, TargetBuffer, Camera);
-			Tonemapping(RHIContext, TargetBuffer);
+			Tonemapping(RHIContext, TargetBuffer, ViewPort);
 		}
 
 	}
@@ -136,7 +136,8 @@ namespace Engine
 		return {};
 	}
 
-	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
+	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
+									std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);
 		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
@@ -150,6 +151,7 @@ namespace Engine
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		ViewPort->SetRenderTarget();
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 
@@ -162,7 +164,6 @@ namespace Engine
 		if (!d->BloomEffect->GetResult())
 			return;
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
-		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->AppalyBloomShader;
@@ -172,6 +173,7 @@ namespace Engine
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EnableSSR ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->BloomEffect->GetResult());
@@ -185,7 +187,6 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplySSR");
-		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithSSR(), nullptr);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->AppalySSRShader;
@@ -195,6 +196,7 @@ namespace Engine
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithSSR(), nullptr);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->SSREffect->GetSSRBuffer());

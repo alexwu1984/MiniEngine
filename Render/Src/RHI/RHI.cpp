@@ -251,7 +251,7 @@ namespace RenderCore
 		return bSame;
 	}
 
-	static bool bCreateWithD3DDebug = true;
+	static bool bCreateWithD3DDebug = false;
 	void D3D12RHI_SetShouldCreateWithD3DDebug(bool debug)
 	{
 		bCreateWithD3DDebug = debug;

@@ -101,6 +101,9 @@ namespace RenderCore
 
 	void D3D12DynamicRHIModule::FindAdapter()
 	{
+#ifdef _DEBUG
+		D3D12RHI_SetShouldCreateWithD3DDebug(true);
+#endif
 		Assert(_ChosenAdapters.size() == 0);
 
 		// Try to create the DXGIFactory.  This will fail if we're not running Vista.

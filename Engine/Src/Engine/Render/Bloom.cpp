@@ -97,7 +97,7 @@ namespace Engine
 				Init.ComputeShader = d->Downsample;
 
 				RHIContext.RHISetComputePipelineState(Init);
-				RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
+				
 				if (Index == 0)
 				{
 					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, TargetBuffer->GetEmissiveBuffer());
@@ -106,7 +106,7 @@ namespace Engine
 				{
 					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BloomBuffers[Index-1]->GetTexture2D());
 				}
-				
+				RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 				RHIContext.RHISetUAVParameter(0, d->BloomBuffers[Index]);
 
 				auto TexSize = d->BloomBuffers[Index]->GetTexture2D()->GetSize();

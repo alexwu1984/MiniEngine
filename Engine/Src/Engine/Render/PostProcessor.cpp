@@ -111,7 +111,7 @@ namespace Engine
 			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, d->TAA->GetHistoryBuffer(), Camera);
 
 		{
-			//ViewPort->SetRenderTarget();
+			ViewPort->SetRenderTarget();
 			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 			if (d->SSREffect && d->SSREffect->GetSSRBuffer())
 				ApplySSR(RHIContext, TargetBuffer);
@@ -152,6 +152,7 @@ namespace Engine
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		ViewPort->SetRenderTarget();
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 

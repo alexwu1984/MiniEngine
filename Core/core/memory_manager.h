@@ -165,28 +165,52 @@ namespace win32
 
 inline void* operator new(size_t uiSize)
 {
+#ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(uiSize, 0, false);
+#else
+	return malloc(uiSize);
+#endif
 }
 inline void* operator new[](size_t uiSize)
 {
+#ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(uiSize, 0, true);
+#else
+	return malloc(uiSize);
+#endif
 }
 
 inline void* __cdecl operator new(size_t _Size, const std::nothrow_t&) noexcept
 {
+#ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(_Size, 0, false);
+#else
+	return malloc(_Size);
+#endif
 }
 
 inline void* __cdecl operator new[](size_t _Size, const std::nothrow_t&) noexcept
 {
+#ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(_Size, 0, true);
+#else
+	return malloc(_Size);
+#endif
 }
 
 inline void operator delete (void* pvAddr)
 {
+#ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, false);
+#else
+	free(pvAddr);
+#endif
 }
 inline void operator delete[](void* pvAddr)
 {
-	return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, true);
+#ifdef _DEBUG
+		return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, true);
+#else
+		free(pvAddr);
+#endif
 }

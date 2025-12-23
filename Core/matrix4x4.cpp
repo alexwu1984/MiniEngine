@@ -339,7 +339,7 @@ namespace math
 	Matrix4x4 Matrix4x4::MatrixLookAtLH(const Vector3& EyePosition, const Vector3& FocusPosition, const Vector3& UpDirection)
 	{
 		// 定义最小距离阈值，避免距离过近导致的数值问题
-		const float MIN_DISTANCE = 0.001;
+		const float MIN_DISTANCE = 0.001f;
 
 		// 计算前向向量并归一化
 		Vector3 Forward = FocusPosition - EyePosition;

@@ -126,13 +126,13 @@ namespace Engine
 			{
 				Vector3* pL = (Vector3*)ChannelInfo->pOutputAnimateValue;
 				Vector3* pR = (Vector3*)ChannelInfo->pOutputAnimateValue;
-				pNodeInfo->Scale = pL[nKeyL] * (1.0 - alpha) + pR[nKeyR] * alpha;
+				pNodeInfo->Scale = pL[nKeyL] * (1.0f - alpha) + pR[nKeyR] * alpha;
 			}
 			else if (ChannelInfo->eType == TARGET_TRANSLATE)
 			{
 				Vector3* pL = (Vector3*)ChannelInfo->pOutputAnimateValue;
 				Vector3* pR = (Vector3*)ChannelInfo->pOutputAnimateValue;
-				pNodeInfo->Translate = pL[nKeyL] * (1.0 - alpha) + pR[nKeyR] * alpha;
+				pNodeInfo->Translate = pL[nKeyL] * (1.0f - alpha) + pR[nKeyR] * alpha;
 			}
 		}
 		_hasModelAnimate = true;
@@ -163,7 +163,7 @@ namespace Engine
 
 				for (int i = 0; i < nBlendShape; i++)
 				{
-					vWeight[i] = pL[i] * (1.0 - alpha) + pR[i] * alpha;
+					vWeight[i] = pL[i] * (1.0f - alpha) + pR[i] * alpha;
 				}
 			}
 			for (int i = 0; i < _Model->GetModelMesh().size(); i++)

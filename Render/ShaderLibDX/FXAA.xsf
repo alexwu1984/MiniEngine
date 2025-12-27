@@ -1,6 +1,7 @@
 #include "FXAA.xsh"
 
 Texture2D Source;
+SamplerState LinearClampSampler;
 
 cbuffer ShaderParameter
 {

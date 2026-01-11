@@ -217,6 +217,11 @@ namespace RenderCore
 		return core::vec2u(d->SizeX,d->SizeY);
 	}
 
+	std::shared_ptr<RHITexture2D> D3D11ViewPort::GetBackBuffer() const
+	{
+		return {};
+	}
+
 	DXGI_MODE_DESC D3D11ViewPort::SetupDXGI_MODE_DESC() const
 	{
 		C_P(const D3D11ViewPort);

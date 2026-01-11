@@ -2105,7 +2105,7 @@ half4 FxaaPixelShader(
 /*==========================================================================*/
 #endif
 
-struct VVSOutput
+/*struct VVSOutput
 {
     float4 Pos : SV_Position;
     float2 tex : TEXCOORD0;
@@ -2125,6 +2125,6 @@ float4 FXAAPS(VVSOutput input) : SV_Target
     t.tex = g_txProcessed;
 
     return FxaaPixelShader(input.tex, 0, t, t, t, rcpro, 0, 0, 0, 1.0, 0.166, 0.0312, 0, 0, 0, 0);
-}
+}*/
 
 #endif // _XIN_SHADER_FXAA_3_11_H_

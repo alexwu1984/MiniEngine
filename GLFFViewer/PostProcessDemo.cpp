@@ -11,7 +11,6 @@
 #include "Render/TemporalAA.h"
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
-#include "Render/FXAA.h"
 
 using namespace Engine;
 
@@ -24,7 +23,6 @@ namespace RenderCore
 PostProcessorDemo::PostProcessorDemo(RenderCore::DynamicRHI* RHI)
 	:_RHI(RHI), GET_SHADER_STRUCT_MEMBER(cbTransition1)(RHI)
 {
-	_FXAA = std::make_shared<Engine::FXAA>(RHI);
 }
 
 PostProcessorDemo::~PostProcessorDemo()
@@ -43,7 +41,6 @@ void PostProcessorDemo::InitResource()
 	_Texture1 = _RHI->RHICreateTexture2D(TexPath + L"tifa_wallpaper_3840x2160.png");
 	_Texture2 = _RHI->RHICreateTexture2D(TexPath + L"aerith_wallpaper_3840x2160.jpg");
 
-	_FXAA->InitResource();
 }
 
 void PostProcessorDemo::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime)

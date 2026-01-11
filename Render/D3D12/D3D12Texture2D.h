@@ -24,8 +24,8 @@ namespace RenderCore
 		bool CreateHDRFromFile(const std::wstring& FileName) override;
 		bool IsMultisampled() const override { return false; }
 		core::vec2i GetSize()const override;
-		virtual uint32_t GetNumMips() const override;
-		virtual EPixelFormat GetPixelFormat() const;
+		uint32_t GetNumMips() const override;
+		EPixelFormat GetPixelFormat() const override;
 		DXGI_FORMAT GetPlatformResourceFormat() const;
 
 		void CreateFromSwapChain(const std::wstring& Name, ID3D12Resource* BaseResource);

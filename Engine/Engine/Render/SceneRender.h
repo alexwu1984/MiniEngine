@@ -19,7 +19,7 @@ namespace Engine
 	class SimplePostProcessor;
 	class CubeBackground;
 
-	class SceneRender
+	class SceneRender : public std::enable_shared_from_this<SceneRender>
 	{
 	public:
 		SceneRender(std::weak_ptr<SceneView> Owner);

@@ -82,6 +82,12 @@ namespace Engine
 		d->CameraPos = Pos;
 	}
 
+	math::Matrix4x4 CameraComponent::GetPrevProjMatrix() const
+	{
+		C_P(const CameraComponent);
+		return d->PrevProjMatrix;
+	}
+
 	Matrix4x4 CameraComponent::GetProjMatrix() const
 	{
 		C_P(const CameraComponent);

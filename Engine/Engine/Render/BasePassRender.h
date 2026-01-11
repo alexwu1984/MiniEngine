@@ -12,7 +12,7 @@ namespace Engine
 	class  MaterialRender;
 	struct GltfSceneMeshInfo;
 	struct MeshDistanceInfo;
-	class GBuffer;
+	class  GBuffer;
 
 	class BasePassRender
 	{

@@ -10,6 +10,7 @@
 #include "Engine/Engine.h"
 #include "Render/GBuffer.h"
 #include "Render/TemporalAA.h"
+#include "Render/FXAA.h"
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
 #include "Render/SSRProcessor.h"
@@ -31,9 +32,11 @@ namespace Engine
 		std::shared_ptr<RHIPixelShader> AppalyBloomShader;
 		std::shared_ptr<RHIPixelShader> AppalySSRShader;
 		std::shared_ptr<TemporallAA> TAA;
+		std::shared_ptr<RenderCore::FXAA> FXaa;
 		std::shared_ptr<Bloom> BloomEffect;
 		std::shared_ptr<SSRProcessor> SSREffect;
 		bool EnableSSR = false;
+		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -58,7 +61,6 @@ namespace Engine
 	{
 		delete d_ptr;
 	}
-
 
 	void PostProcessor::LoadConfig(const std::wstring& FileName)
 	{
@@ -93,8 +95,18 @@ namespace Engine
 		d->AppalyBloomShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ApplyBloom", {});
 		d->AppalySSRShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ApplySSR", {});
 
-		d->TAA = std::make_shared<TemporallAA>(d->RHI);
-		d->TAA->InitResource();
+		switch (d->AAType)
+		{
+		case EPostProcessorAAType::TAA:
+			d->TAA = std::make_shared<TemporallAA>(d->RHI);
+			d->TAA->InitResource();
+			break;
+		case EPostProcessorAAType::FXAA:
+			d->FXaa = std::make_shared<FXAA>(d->RHI);
+			d->FXaa->InitResource();
+			break;
+		}
+
 		d->BloomEffect = std::make_shared<Bloom>(d->RHI);
 		d->BloomEffect->InitResource();
 
@@ -102,13 +114,24 @@ namespace Engine
 		d->SSREffect->InitResource();
 	}
 
-	void PostProcessor::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
+	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
 						     std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(PostProcessor);
 
-		if (d->EnableSSR && d->SSREffect && d->TAA->GetHistoryBuffer())
-			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, d->TAA->GetHistoryBuffer(), Camera);
+		std::shared_ptr<RHITexture2D> AABuffer;
+		switch (d->AAType)
+		{
+		case EPostProcessorAAType::TAA:
+			AABuffer = d->TAA->GetHistoryBuffer();
+			break;
+		case EPostProcessorAAType::FXAA:
+			AABuffer = d->FXaa->GetResult();
+			break;
+		}
+
+		if (d->EnableSSR && d->SSREffect && AABuffer)
+			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, AABuffer, Camera);
 
 		{
 			ViewPort->SetRenderTarget();
@@ -122,7 +145,17 @@ namespace Engine
 		{
 			ViewPort->SetRenderTarget();
 			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-			d->TAA->Draw(RHIContext, TargetBuffer, Camera);
+
+			switch (d->AAType)
+			{
+			case EPostProcessorAAType::TAA:
+				d->TAA->Draw(RHIContext, TargetBuffer, Camera);
+				break;
+			case EPostProcessorAAType::FXAA:
+				d->FXaa->Draw(RHIContext, TargetBuffer->GetSceneColor());
+				break;
+			}
+
 			Tonemapping(RHIContext, TargetBuffer, ViewPort);
 		}
 
@@ -136,7 +169,13 @@ namespace Engine
 		return {};
 	}
 
-	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
+	Engine::EPostProcessorAAType PostProcessor::GetPostProcessorAAType() const
+	{
+		C_P(PostProcessor);
+		return d->AAType;
+	}
+
+	void PostProcessor::Tonemapping(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 									std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);

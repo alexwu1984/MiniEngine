@@ -21,6 +21,7 @@ namespace RenderCore
 		void SetRenderTarget() override;
 		void Present() override;
 		void Prepare() override;
+		std::shared_ptr<RHITexture2D> GetBackBuffer() const override;
 	private:
 		// Determine how deep the swapchain should be (based on AFR or not)
 		void CalculateSwapChainDepth(int32_t DefaultSwapChainDepth);

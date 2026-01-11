@@ -10,6 +10,7 @@
 #include "Render/FurMaterialRender.h"
 #include "Material/GltfFurMaterial.h"
 #include "Engine/Scene/SceneView.h"
+#include "Engine/Render/PostProcessor.h"
 
 namespace Engine
 {
@@ -38,7 +39,6 @@ namespace Engine
 	BasePassRender::BasePassRender()
 		:d_ptr( new BasePassRenderPrivate())
 	{
-
 	}
 
 	BasePassRender::~BasePassRender()
@@ -167,18 +167,27 @@ namespace Engine
 		std::shared_ptr<CameraComponent> Camera, bool IsPreDraw)
 	{
 		C_P(BasePassRender);
+
+		auto Scene = GEngine->GetSceneRender();
+
 		MaterialRenderParam RenderParam;
 		RenderParam.lightInfos = d->sceneView->GetLights();
 		RenderParam.CameraPos = Camera->GetCameraPos();
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;
-		RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(false);
+		if (Scene->GetPostProcessor()->GetPostProcessorAAType() == EPostProcessorAAType::TAA)
+			RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(false);
+		else
+			RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
-		RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(true);
+		if (Scene->GetPostProcessor()->GetPostProcessorAAType() == EPostProcessorAAType::TAA)
+			RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(true);
+		else
+			RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->GetPrevProjMatrix();
 		RenderParam.PrevViewProjInverseMatrix = RenderParam.PrevViewProjMatrix.Inverse();
 		RenderParam.TemporalAAJitter = Camera->GetTemporalAAJitter();
 		RenderParam.HasSkin = Mesh->HasSkin();
-		RenderParam.preProcessor = GEngine->GetSceneRender()->GetPreProcessor();
+		RenderParam.preProcessor = Scene->GetPreProcessor();
 		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(d->xHDRRotate));
 		Rotate *= math::Matrix4x4::RotateY(math::Radians(d->yHDRRotate));
 		RenderParam.RotateIBL = Rotate;

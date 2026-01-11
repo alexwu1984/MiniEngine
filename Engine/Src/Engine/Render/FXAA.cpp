@@ -7,24 +7,37 @@
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderTarget.h"
 #include "Render/GBuffer.h"
+#include "math/vector2.h"
 
-namespace Engine
+namespace RenderCore
 {
-	using namespace RenderCore;
+
+	BEGIN_SHADER_STRUCT(ShaderParameter, 0)
+		DECLARE_PARAM(math::Vector2, FXAATexelSize)
+		DECLARE_PARAM_VALUE(float, FXAAEdgeThresholdMin, 0.166f)
+		DECLARE_PARAM_VALUE(float, FXAAEdgeThreshold, 0.0833f)
+		DECLARE_PARAM_VALUE(float, FXAASubpix, 0.75f)
+		DECLARE_PARAM(math::Vector3, pad)
+	BEGIN_STRUCT_CONSTRUCT(ShaderParameter)
+		END_STRUCT_CONSTRUCT
+	END_SHADER_STRUCT
 
 	struct FXAAPrivate
 	{
 		FXAAPrivate(DynamicRHI* _RHI)
-			:RHI(_RHI)
+			:RHI(_RHI),
+			GET_SHADER_STRUCT_MEMBER(ShaderParameter)(_RHI)
 		{
 
 		}
 		DynamicRHI* RHI;
-		std::shared_ptr< RHIVertexShader> VertexShader;
-		std::shared_ptr< RHIPixelShader> PixelShader;
+		std::shared_ptr<RHIVertexShader> VertexShader;
+		std::shared_ptr<RHIPixelShader> PixelShader;
+		std::shared_ptr<RHIRenderTarget> FxaaRT;
+		DECLARE_SHADER_STRUCT_MEMBER(ShaderParameter);
 	};
 
-	FXAA::FXAA(RenderCore::DynamicRHI* RHI)
+	FXAA::FXAA(DynamicRHI* RHI)
 		:d_ptr(new FXAAPrivate(RHI))
 	{
 		
@@ -42,7 +55,46 @@ namespace Engine
 		std::wstring VSShaderPath = ShaderPath + L"PostProcess.hlsl";
 		d->VertexShader = d->RHI->RHICreateVertexShader(VSShaderPath, "VS_ScreenQuad", {}, {});
 		std::wstring PSShaderPath = ShaderPath + L"FXAA.xsf";
-		d->PixelShader = d->RHI->RHICreatePixelShader(PSShaderPath, "FXAA_3_11_PixelShader", {});
+		std::vector< RHIShaderMacro> ShaderMacros;
+		ShaderMacros.push_back({"XIN_FXAA_QUALITY_LEVEL","16"});
+		ShaderMacros.push_back({"XIN_FXAA_CONSOLE","1"});
+		d->PixelShader = d->RHI->RHICreatePixelShader(PSShaderPath, "FXAA_3_11_PixelShader", ShaderMacros);
+	}
+
+	void FXAA::Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> TargetBuffer)
+	{
+		C_P(FXAA);
+		RHICommandMark Mark(RHIContext, "FXAA");
+		if (!TargetBuffer)
+			return;
+		if (!d->FxaaRT)
+			d->FxaaRT = d->RHI->RHICreateRenderTarget(TargetBuffer->GetPixelFormat(),
+				TargetBuffer->GetSize().x, TargetBuffer->GetSize().y, 1, false, false);
+
+		GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = d->VertexShader;
+		Init.PixelShader = d->PixelShader;
+		Init.BlendState = RHICachedStates::BlendDisable;
+		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.SetRenderTarget(d->FxaaRT);
+
+		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampPointSampler);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 0, TargetBuffer);
+		d->GET_UNIFORMDATA(ShaderParameter).FXAATexelSize = { static_cast<float>(TargetBuffer->GetSize().x),
+															  static_cast<float>(TargetBuffer->GetSize().y) };
+		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).SetShaderUniformBuffer(EShaderFrequency::SF_Pixel);
+		RHIContext.Draw(3);
+	}
+
+	std::shared_ptr<RHITexture2D> FXAA::GetResult() const
+	{
+		C_P(const FXAA);
+		if (!d->FxaaRT)
+			return {};
+		return d->FxaaRT->GetTex();
 	}
 
 }

@@ -23,6 +23,7 @@ namespace RenderCore
 		virtual void Present() override;
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
 		virtual core::vec2u GetSize()const override;
+		std::shared_ptr<RHITexture2D> GetBackBuffer() const override;
 	private:
 		DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 		void GetSwapChainSurface();

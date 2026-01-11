@@ -4,21 +4,20 @@
 
 namespace RenderCore
 {
+	class GBuffer;
 	class RHICommandContext;
 	class DynamicRHI;
 	class RHITexture2D;
-}
-
-namespace Engine
-{
 	struct FXAAPrivate;
+
 	class FXAA
 	{
 	public:
-		FXAA(RenderCore::DynamicRHI* RHI);
+		FXAA(DynamicRHI* RHI);
 		~FXAA();
-
 		void InitResource();
+		void Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> TargetBuffer);
+		std::shared_ptr<RHITexture2D> GetResult() const;
 	private:
 		FXAAPrivate* d_ptr;
 	};

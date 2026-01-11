@@ -13,11 +13,6 @@ BEGIN_SHADER_STRUCT(cbTransition1, 0)
 	END_STRUCT_CONSTRUCT
 END_SHADER_STRUCT
 
-namespace Engine
-{
-	class FXAA;
-}
-
 class PostProcessorDemo : public Engine::SimplePostProcessor
 {
 public:
@@ -34,6 +29,5 @@ private:
 	std::shared_ptr< RenderCore::RHITexture2D>  _Texture1;
 	std::shared_ptr< RenderCore::RHITexture2D>  _Texture2;
 	std::shared_ptr< RenderCore::RHITilePool> _TilePool;
-	std::shared_ptr< Engine::FXAA> _FXAA;
 	DECLARE_SHADER_STRUCT_MEMBER(cbTransition1);
 };

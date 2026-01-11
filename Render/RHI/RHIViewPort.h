@@ -5,6 +5,8 @@
 
 namespace RenderCore
 {
+	class RHITexture2D;
+
 	class RHIViewPort
 	{
 	public:
@@ -48,5 +50,6 @@ namespace RenderCore
 		virtual void Present() {};
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) = 0;
 		virtual core::vec2u GetSize() const = 0;
+		virtual std::shared_ptr<RHITexture2D> GetBackBuffer() const = 0;
 	};
 }

@@ -199,6 +199,13 @@ namespace RenderCore
 		ImGui::NewFrame();
 	}
 
+	std::shared_ptr<RHITexture2D> D3D12ViewPort::GetBackBuffer() const
+	{
+		if (BackBuffers.empty())
+			return {};
+		return BackBuffers[FrameIndex];
+	}
+
 	void D3D12ViewPort::CalculateSwapChainDepth(int32_t DefaultSwapChainDepth)
 	{
 		NumBackBuffers = DefaultSwapChainDepth;

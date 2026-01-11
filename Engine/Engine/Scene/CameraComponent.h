@@ -24,6 +24,7 @@ namespace Engine
 		math::Matrix4x4 GetPrevViewMatrix()const;
 		math::Vector3 GetCameraPos() const;
 	 
+		math::Matrix4x4 GetPrevProjMatrix() const;
 		math::Matrix4x4 GetProjMatrix() const;
 		math::Vector4 GetTemporalAAJitter() const;
 

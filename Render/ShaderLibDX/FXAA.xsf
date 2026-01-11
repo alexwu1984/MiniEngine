@@ -222,7 +222,11 @@ float4 MainPS(float4 Position : SV_POSITION, float2 Texcoord : TEXCOORD) : SV_Ta
     float4 FxaaConsoleCoord = { -FXAATexelSize.x, -FXAATexelSize.y, FXAATexelSize.x, FXAATexelSize.y };
     float4 FxaaConsoleTexelSize = FxaaConsoleCoord * 0.5;
     float4 FxaaConsoleTexelSize2 = FxaaConsoleCoord * 2;
-    return FXAAConsolePixelShader(Texcoord, FxaaConsoleCoord, FxaaConsoleTexelSize, FxaaConsoleTexelSize2, 4, 0.125, 0.05);
+    // Use ShaderParameter values for better control
+    // FXAAEdgeThreshold is used as EdgeThreshold, FXAAEdgeThresholdMin as EdgeThresholdMin
+    // FXAASubpix is converted to EdgeSharpness (higher subpix = higher sharpness for better quality)
+    float EdgeSharpness = lerp(2.0, 8.0, FXAASubpix); // Map 0.5-1.0 to 2.0-8.0
+    return FXAAConsolePixelShader(Texcoord, FxaaConsoleCoord, FxaaConsoleTexelSize, FxaaConsoleTexelSize2, EdgeSharpness, FXAAEdgeThreshold, FXAAEdgeThresholdMin);
 #else
     return FXAAPixelShader(Texcoord);
 #endif
@@ -288,12 +292,15 @@ float3 FXAA_3_11_PixelShader(VertexOutput psInput) : SV_Target
     FxaaFloat4 FxaaConsoleCoord = { -FXAATexelSize.x, -FXAATexelSize.y, FXAATexelSize.x, FXAATexelSize.y };
     FxaaFloat4 FxaaConsoleTexelSize = FxaaConsoleCoord * 0.5;
     FxaaFloat4 FxaaConsoleTexelSize2 = FxaaConsoleCoord * 2;
+    // Convert FXAASubpix to EdgeSharpness: higher subpix = more aggressive (higher sharpness)
+    // Map 0.5-1.0 to 2.0-8.0 for better quality control
+    FxaaFloat EdgeSharpness = lerp(2.0, 8.0, FXAASubpix);
     return FxaaPixelShader(psInput.Tex, FxaaConsoleCoord, Input,
 		fxaaConsole360TexExpBiasNegOne, fxaaConsole360TexExpBiasNegTwo, 
 		FXAATexelSize, // Quality
 		FxaaConsoleTexelSize, FxaaConsoleTexelSize2, 0, // Console
         FXAASubpix, FXAAEdgeThreshold, FXAAEdgeThresholdMin, // Quality
-		4, 0.125, 0.05, 0); // Console
+		EdgeSharpness, FXAAEdgeThreshold, FXAAEdgeThresholdMin, 0); // Console - use ShaderParameter values
 #else
     return FxaaPixelShader(psInput.Tex, 0, Input, fxaaConsole360TexExpBiasNegOne, fxaaConsole360TexExpBiasNegTwo, FXAATexelSize, 0, 0, 0,
         FXAASubpix, FXAAEdgeThreshold, FXAAEdgeThresholdMin, 0, 0, 0, 0);

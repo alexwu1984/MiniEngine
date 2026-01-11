@@ -14,9 +14,15 @@ namespace RenderCore
 
 	BEGIN_SHADER_STRUCT(ShaderParameter, 0)
 		DECLARE_PARAM(math::Vector2, FXAATexelSize)
-		DECLARE_PARAM_VALUE(float, FXAAEdgeThresholdMin, 0.166f)
-		DECLARE_PARAM_VALUE(float, FXAAEdgeThreshold, 0.0833f)
-		DECLARE_PARAM_VALUE(float, FXAASubpix, 0.75f)
+		// FXAAEdgeThresholdMin: 0.0833 (default) - 0.0625 (high quality) - 0.0312 (visible limit)
+		// Lower values process more pixels (more aggressive anti-aliasing)
+		DECLARE_PARAM_VALUE(float, FXAAEdgeThresholdMin, 0.0625f)
+		// FXAAEdgeThreshold: 0.166 (default) - 0.125 (high quality) - 0.063 (overkill)
+		// Lower values detect more edges (more aggressive anti-aliasing)
+		DECLARE_PARAM_VALUE(float, FXAAEdgeThreshold, 0.125f)
+		// FXAASubpix: 0.75 (default) - 0.90 (softer, more anti-aliasing) - 1.00 (upper limit)
+		// Higher values provide more sub-pixel anti-aliasing
+		DECLARE_PARAM_VALUE(float, FXAASubpix, 0.90f)
 		DECLARE_PARAM(math::Vector3, pad)
 	BEGIN_STRUCT_CONSTRUCT(ShaderParameter)
 		END_STRUCT_CONSTRUCT
@@ -82,8 +88,8 @@ namespace RenderCore
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampPointSampler);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 0, TargetBuffer);
-		d->GET_UNIFORMDATA(ShaderParameter).FXAATexelSize = { static_cast<float>(TargetBuffer->GetSize().x),
-															  static_cast<float>(TargetBuffer->GetSize().y) };
+		d->GET_UNIFORMDATA(ShaderParameter).FXAATexelSize = { 1.0f/static_cast<float>(TargetBuffer->GetSize().x),
+															  1.0f/static_cast<float>(TargetBuffer->GetSize().y) };
 		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).SetShaderUniformBuffer(EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);

@@ -36,7 +36,7 @@ namespace Engine
 		std::shared_ptr<Bloom> BloomEffect;
 		std::shared_ptr<SSRProcessor> SSREffect;
 		bool EnableSSR = false;
-		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
+		EPostProcessorAAType AAType = EPostProcessorAAType::FXAA;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -152,7 +152,7 @@ namespace Engine
 				d->TAA->Draw(RHIContext, TargetBuffer, Camera);
 				break;
 			case EPostProcessorAAType::FXAA:
-				d->FXaa->Draw(RHIContext, TargetBuffer->GetSceneColor());
+				d->FXaa->Draw(RHIContext, TargetBuffer->GetSceneColorWithBloom());
 				break;
 			}
 
@@ -193,7 +193,14 @@ namespace Engine
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
+		
+		// Use FXAA result if FXAA is enabled, otherwise use original scene color
+		std::shared_ptr<RenderCore::RHITexture2D> SourceTexture = TargetBuffer->GetSceneColor();
+		if (d->AAType == EPostProcessorAAType::FXAA && d->FXaa)
+		{
+			SourceTexture = d->FXaa->GetResult();
+		}
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture);
 
 		RHIContext.Draw(3);
 	}

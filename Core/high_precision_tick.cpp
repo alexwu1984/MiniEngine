@@ -105,7 +105,7 @@ namespace win32
 		uint64_t FrameTimeNS = 1000000000 / Impl->_Fps;
 		uint64_t SleepTargetTime = win32::cpu_clock::os_gettime_ns();
 
-		float Delta = Impl->_Fps / 1000.f;
+		uint64_t LastTickTimeNS = win32::cpu_clock::os_gettime_ns();
 
 		while (!Impl->_Quit.load())
 		{
@@ -114,6 +114,11 @@ namespace win32
 			{
 				break;
 			}
+
+			uint64_t CurrentTimeNS = win32::cpu_clock::os_gettime_ns();
+			uint64_t DeltaNS = CurrentTimeNS - LastTickTimeNS;
+			float Delta = static_cast<float>(DeltaNS) / 1000000000.0f;
+			LastTickTimeNS = CurrentTimeNS;
 
 			UpdateRenderFPS(L"=====Tick=====");
 			auto TStart = std::chrono::high_resolution_clock::now();

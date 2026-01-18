@@ -138,7 +138,7 @@ namespace Engine
 	void GltfMeshComponent::Tick(float deltaTime)
 	{
 		C_P(GltfMeshComponent);
-		d->TotalDeltaTime += deltaTime / 5.f;
+		d->TotalDeltaTime += deltaTime;
 		if (d->isGltfModel)
 		{
 			d->gltfModel.Play(d->TotalDeltaTime, deltaTime);

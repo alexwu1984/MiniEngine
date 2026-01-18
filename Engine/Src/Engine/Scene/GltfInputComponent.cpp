@@ -80,14 +80,16 @@ namespace Engine
 			break;
 			case MET_Move:
 			{
+				static const float RotationSensitivity = 0.15f;
+				static const float TranslationSensitivity = 0.01f;
 
 				if (Impl->LeftButtonPressed)
 				{
-					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) * State.DeltaTime;
+					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) * RotationSensitivity;
 				}
 				else if (Impl->RightButtonPressed)
 				{
-					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint) * State.DeltaTime / 20.f;
+					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint) * TranslationSensitivity;
 				}
 
 				float xAngle = -1 * math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;

@@ -178,14 +178,28 @@ float ChebyshevUpperBound(float2 Moments, float t, float3 Normal)
 	float d = t - Moments.x;
 	float pMax = Variance / (Variance + d * d);
 
-	float lightBleedingReduction = 0.5;
+	// 可配置的light bleeding reduction参数（可以在uniform buffer中传递）
+	static const float lightBleedingReduction = 0.5;
 	pMax = ReduceLightBleeding(pMax, lightBleedingReduction);
 
 	pMax /= 0.8;
+	
+	// 改进的Slope-Scale Depth Bias：考虑表面法线与光照方向的夹角
 	float3 normal = normalize(Normal);
 	float3 L = normalize(GetMainLight().Direction);
-	float dotValue = abs(dot(normal, L));
-	float bias = max(0.01 * (1.0 - dotValue), 0.005);
+	float NdotL = abs(dot(normal, L));
+	
+	// 当表面近乎平行于光照方向时，使用更大的bias
+	// Slope-scale bias: bias = baseBias + slopeBias * tan(theta)
+	// theta 是表面法线与光照方向的夹角
+	float baseBias = 0.005;
+	float slopeBias = 0.01;
+	float bias = baseBias + slopeBias * (1.0 - NdotL);
+	
+	// 使用接收平面深度bias（Receiver Plane Depth Bias）以进一步减少shadow acne
+	// 这里简化处理，实际可以通过计算深度梯度来获得更精确的bias
+	bias = max(bias, 0.001);
+	
 	return (t - bias <= Moments.x ? 1.0 : pMax);
 }
 

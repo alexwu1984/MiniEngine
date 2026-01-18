@@ -89,11 +89,14 @@ namespace RenderCore
 				RetiredPages.pop();
 			}
 		}
-		else
+
+		if (Page == nullptr)
 		{
 			Page = CreateNewPage();
 			StandardPagePool.push(Page);
 		}
+		
+		Assert(Page != nullptr);
 		return Page;
 	}
 

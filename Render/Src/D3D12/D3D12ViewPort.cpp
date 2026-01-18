@@ -185,9 +185,20 @@ namespace RenderCore
 		GetDefaultCommandContext()->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
-		GetDefaultCommandContext()->FlushCommands(true);
-		GetDefaultAsyncComputeContext()->FlushCommands(true);
-		SwapChain4->Present(1, 0);
+		
+		// Flush commands without waiting for completion to maximize performance
+		// D3D11 doesn't wait, so D3D12 should match this behavior
+		GetDefaultCommandContext()->FlushCommands(false);
+		GetDefaultAsyncComputeContext()->FlushCommands(false);
+		
+		// Use SyncInterval = 0 to disable VSync and match D3D11 behavior
+		// This allows frame rates above the display refresh rate (e.g., 120 FPS)
+		UINT PresentFlags = 0;
+		if (bAllowTearing)
+		{
+			PresentFlags |= DXGI_PRESENT_ALLOW_TEARING;
+		}
+		SwapChain4->Present(0, PresentFlags);
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 	}

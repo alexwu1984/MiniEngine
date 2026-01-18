@@ -63,7 +63,7 @@ namespace Engine
 	{
 		C_P(MainEngine);
 		d->RThread->Start();
-		d->GameTick.Start("GameThread", 60, win32::HighPrecisionTick::ThreadPriority::Highest);
+		d->GameTick.Start("GameThread", 120, win32::HighPrecisionTick::ThreadPriority::Highest);
 	}
 
 	void MainEngine::ShutDown()

@@ -21,10 +21,14 @@ cbuffer CB0 : register(b0)
 
 //------------------------------------------------------- PARAMETERS
 static const float Exposure = 10;
-static const float BlendWeightLowerBound = 0.04f;
-static const float BlendWeightUpperBound = 0.2f;
-static const float MIN_VARIANCE_GAMMA = 0.75f;              // under motion
-static const float MAX_VARIANCE_GAMMA = 2.f;                // no motion
+// Reduce blend weight to minimize ghosting during motion
+// Lower values = less history = less ghosting but more flickering
+// Balance between ghosting reduction and noise suppression
+static const float BlendWeightLowerBound = 0.04f;           
+static const float BlendWeightUpperBound = 0.18f;           
+// Variance clipping - balance between ghosting prevention and avoiding black pixels
+static const float MIN_VARIANCE_GAMMA = 0.85f;             
+static const float MAX_VARIANCE_GAMMA = 1.75f;             
 static const float FRAME_VELOCITY_IN_PIXELS_DIFF = 128.0f;  // valid for 1920x1080
 
 static const int2 SampleOffsets[9] =
@@ -57,7 +61,9 @@ float Luma4(float3 Color)
 // Optimized HDR weighting function.
 float HdrWeight4(float3 Color, float Exposure)
 {
-    return rcp(Luma4(Color) * Exposure + 4.0);
+    // Ensure Luma4 is non-negative to prevent invalid weights
+    float luma = max(Luma4(Color), 0.0);
+    return rcp(luma * Exposure + 4.0);
 }
 
 float3 ToneMap(float3 color)
@@ -69,7 +75,12 @@ float3 ToneMap(float3 color)
 float3 UnToneMap(float3 color)
 {
     // luma weight' untonemap
-    return color / (1 - Luminance(color));
+    // Prevent division by zero or near-zero (which causes black pixels/flickering)
+    float luma = Luminance(color);
+    float denom = 1 - luma;
+    // Clamp denominator to prevent division by zero or very small values
+    denom = max(denom, 0.001f);
+    return color / denom;
 }
 
 float3 RGBToYCoCg(float3 RGB)
@@ -169,7 +180,9 @@ float2 WeightedLerpFactors(float WeightA, float WeightB, float Blend)
 {
     float BlendA = (1.0 - Blend) * WeightA;
     float BlendB = Blend * WeightB;
-    float RcpBlend = rcp(BlendA + BlendB);
+    float TotalWeight = BlendA + BlendB;
+    // Prevent division by zero - use epsilon to avoid black pixels
+    float RcpBlend = rcp(max(TotalWeight, 0.0001f));
     BlendA *= RcpBlend;
     BlendB *= RcpBlend;
     return float2(BlendA, BlendB);
@@ -247,8 +260,11 @@ void TAA_Main(
 
 
     float2 velocity = GetVelocity(screenST);
+    float velocityMagnitude = length(velocity);
     // calculate confidence factor based on the velocity of current pixel, everything moving faster than FRAME_VELOCITY_IN_PIXELS_DIFF frame-to-frame will be marked as no-history
-    const float velocityConfidenceFactor = saturate(1.f - length(velocity) / FRAME_VELOCITY_IN_PIXELS_DIFF);
+    // Use quadratic falloff for faster rejection of history during high-speed motion
+    const float velocityNormalized = saturate(velocityMagnitude / FRAME_VELOCITY_IN_PIXELS_DIFF);
+    const float velocityConfidenceFactor = saturate(1.f - velocityNormalized * velocityNormalized);
 
     const float2 historyScreenST = screenST - velocity;
     const float2 historyScreenUV = GetUV(historyScreenST);
@@ -345,11 +361,6 @@ void TAA_Main(
     FilteredColor += highFreq * 0.1f;
 
    float LumaHistory = Luma4(prevColor);
-    // simplest clip
-    //prevColor = clamp(prevColor, neighborMin, neighborMax);
-
-    // neighborhood clamping
-    //prevColor = ClampHistory(neighborMin, neighborMax, prevColor, (neighborMin + neighborMax) / 2.0f);
 
     // variance clip
     float3 mu = m1 / N;
@@ -364,7 +375,8 @@ void TAA_Main(
     {
         float LumaFiltered = Luma4(FilteredColor);
         BlendFinal = lerp(BlendWeightLowerBound, BlendWeightUpperBound, saturate(1 - velocityConfidenceFactor));
-        //BlendFinal = max(BlendFinal, saturate(0.01 * LumaHistory / abs(LumaFiltered - LumaHistory)));
+        // Ensure blend weight is within valid range
+        BlendFinal = saturate(BlendFinal);
     }
 
     float FilterWeight = HdrWeight4(FilteredColor, Exposure);
@@ -375,6 +387,6 @@ void TAA_Main(
 
     color = YCoCgToRGB(color);
     color = UnToneMap(color);
-
+    
     OutTemporal[DTid.xy] = float4(color, 1);
 }

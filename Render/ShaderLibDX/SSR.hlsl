@@ -3,8 +3,9 @@
 Texture2D GBufferA		: register(t0); // normal
 Texture2D GBufferB		: register(t1); // MetallicSpecularRoughness
 Texture2D SceneDepthZ	: register(t2); // Depth
-Texture2D HistorySceneColor	: register(t3); // history scene buffer
+Texture2D HistorySceneColor	: register(t3); // history scene buffer (for reprojecting hit points)
 Texture2D VelocityBuffer	: register(t4); // velocity buffer
+Texture2D SSRHistoryBuffer	: register(t5); // SSR history buffer (for temporal accumulation denoising)
 
 SamplerState LinearSampler	: register(s0);
 SamplerState PointSampler	: register(s1);
@@ -16,8 +17,9 @@ cbuffer PSContant : register(b0)
 	float3	CameraPos;
 	float WorldThickness;
 	int NumRays;
-	int FrameIndexMod8;
-	float2 Pad0;
+	int FrameIndex; // Random seed for temporal dimension (replaces FrameIndexMod8)
+	float TemporalBlendFactor; // Temporal blend factor (0-1), higher = smoother but slower response
+	float2 Resolution;
 };
 
 float3 ProjectWorldPos(float3 WorldPos)
@@ -109,12 +111,13 @@ float4 PS_SSR(float2 Tex : TEXCOORD, float4 SVPosition : SV_Position) : SV_Targe
 	float a2 = a * a;
 
 	uint2 PixelPos = (uint2)SVPosition.xy;
-	uint2 Random = Rand3DPCG16(int3(PixelPos, FrameIndexMod8)).xy;
+	uint2 Random = Rand3DPCG16(int3(PixelPos, FrameIndex)).xy;
 
 	float3x3 TangentBasis = GetTangentBasis(N);
 	float3 TangentV = mul(TangentBasis, V);
 
-	float4 OutColor = 0;
+	float4 CurrentFrameColor = 0;
+	int HitCount = 0;
 	for (int i = 0; i < NumRays; i++)
 	{
 		float2 E = Hammersley16(i, NumRays, Random);
@@ -136,10 +139,49 @@ float4 PS_SSR(float2 Tex : TEXCOORD, float4 SVPosition : SV_Position) : SV_Targe
 			float Vignette;
 			float2 PrevUV;
 			ReprojectHit(HitUVz, PrevUV, Vignette);
-			OutColor += HistorySceneColor.SampleLevel(LinearSampler, PrevUV, 0) * Vignette;
+			CurrentFrameColor += HistorySceneColor.SampleLevel(LinearSampler, PrevUV, 0) * Vignette;
+			HitCount++;
 		}
 	}
 
-	OutColor /= NumRays;
-	return OutColor;
+	// Average current frame sampling results
+	if (HitCount > 0)
+	{
+		CurrentFrameColor /= HitCount;
+	}
+
+	// Temporal accumulation denoising: blend current and history frames
+	float4 FinalColor = CurrentFrameColor;
+	if (FrameIndex > 1 && HitCount > 0)
+	{
+		// Use motion vector to reproject history frame SSR result
+		float2 Velocity = VelocityBuffer.SampleLevel(PointSampler, Tex, 0).xy;
+		float2 HistoryUV = Tex - Velocity;
+		
+		// Check if history UV is within valid range
+		bool bValidHistory = all(HistoryUV >= 0.0) && all(HistoryUV <= 1.0);
+		
+		if (bValidHistory)
+		{
+			float4 HistoryColor = SSRHistoryBuffer.SampleLevel(LinearSampler, HistoryUV, 0);
+			
+			// Calculate blend weight: confidence based on velocity
+			float VelocityMagnitude = length(Velocity * Resolution);
+			float VelocityConfidence = saturate(1.0 - VelocityMagnitude / 10.0); // Higher velocity = lower history weight
+			
+			// Color difference detection: if current and history frames differ too much, reduce history weight
+			float ColorDiff = length(CurrentFrameColor.rgb - HistoryColor.rgb);
+			float ColorDiffThreshold = 0.1;
+			float ColorDiffFactor = saturate(1.0 - ColorDiff / ColorDiffThreshold);
+			
+			// Combined blend factor
+			float BlendWeight = TemporalBlendFactor * VelocityConfidence * ColorDiffFactor;
+			BlendWeight = saturate(BlendWeight);
+			
+			// Blend current frame and history frame
+			FinalColor = lerp(CurrentFrameColor, HistoryColor, BlendWeight);
+		}
+	}
+
+	return FinalColor;
 }

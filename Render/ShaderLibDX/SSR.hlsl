@@ -18,8 +18,9 @@ cbuffer PSContant : register(b0)
 	float WorldThickness;
 	int NumRays;
 	int FrameIndex; // Random seed for temporal dimension (replaces FrameIndexMod8)
+    float2 Resolution;
 	float TemporalBlendFactor; // Temporal blend factor (0-1), higher = smoother but slower response
-	float2 Resolution;
+    float3 Pad0;
 };
 
 float3 ProjectWorldPos(float3 WorldPos)

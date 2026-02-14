@@ -22,7 +22,8 @@ float3 Reinhard(float3 color)
 
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
-	PS_OUTPUT_SCENE Output;
+	// Initialize all output members to avoid "reading uninitialized value" error in Release mode
+	PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;
     
     float3 BaseColor = AlbedoMap.Sample(SampleLinear, Input.UV1).rgb;
     if(DrawSolid.x == 1)
@@ -41,17 +42,17 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     
     float3 LightDir = float3(0.f, 0.f, 1.f);
   
-    //Ì«Ñô¹â
+    //å¤ªé˜³å…‰
     float3 L = normalize(LightDir.xyz);
     float NoL = dot(L, normalize(Input.Normal));
     float LightFilter = 1.6f;
     float DirLight = clamp(NoL + LightFilter + FurOffset, 0.0, 1.0);
     
-    //ÂÖÀª¹â
+    //è½®å»“å…‰
     float FresnelLV = 2.0f;
     float3 V = normalize(myPerFrame.CameraPos.xyz - Input.WorldPos);
     float Fresnel = 1.0 - max(0.0, dot(Input.Normal, V));
-    float3 RimLight = float3(Fresnel * Occlusion, Fresnel * Occlusion, Fresnel * Occlusion); //Õâ¸öÖµ»áºÜÐ¡£¬ÒòÎªOcclusionÌ«Ð¡ÁË£¬ËùÒÔ¶Ô×îÖÕÐ§¹ûÓ°Ïì±È½ÏÐ¡
+    float3 RimLight = float3(Fresnel * Occlusion, Fresnel * Occlusion, Fresnel * Occlusion); //ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ÎªOcclusionÌ«Ð¡ï¿½Ë£ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Ó°ï¿½ï¿½È½ï¿½Ð¡
     RimLight *= RimLight;
     RimLight *= FresnelLV * Input.SH * BaseColor;
     SHL += RimLight;
@@ -60,8 +61,9 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
     float Tming = 0.5;
     float Alpha = clamp((Noise * 2.0 - (FurOffset * FurOffset + (FurOffset * FurMask * 5.0))) * Tming, 0.0, 1.0);
 
-    float3 OutColor = Output.Target0.rgb * FurLightExposure * FurAmbientStrength + SHL * FurLightExposure;
+    // Fix: Use BaseColor instead of uninitialized Output.Target0.rgb
+    float3 OutColor = BaseColor * FurLightExposure * FurAmbientStrength + SHL * FurLightExposure;
 
-    Output.Target0 = float4(Reinhard(Output.Target0.rgb), Alpha);
+    Output.Target0 = float4(Reinhard(OutColor), Alpha);
     return Output;
 }

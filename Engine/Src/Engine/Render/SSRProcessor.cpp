@@ -22,8 +22,9 @@ namespace Engine
 		DECLARE_PARAM_VALUE(float, WorldThickness, 0.06f)
 		DECLARE_PARAM_VALUE(int32_t, NumRays, 16)
 		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0) // 用于时间维度随机种子
-		DECLARE_PARAM_VALUE(float, TemporalBlendFactor, 0.85f) // ʱ���ۻ�������ӣ�ֵԽ��Խƽ������ӦԽ��
 		DECLARE_PARAM(math::Vector2, Resolution)
+		DECLARE_PARAM_VALUE(float, TemporalBlendFactor, 0.85f)
+		DECLARE_PARAM(math::Vector3, Pad0)
 	BEGIN_STRUCT_CONSTRUCT(SSRContants)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
@@ -41,7 +42,7 @@ namespace Engine
 		std::shared_ptr<RHIPixelShader> SSRShader;
 		std::shared_ptr<RHIVertexShader> VertexShader;
 		std::shared_ptr<RHITexture2D> SSRBuffer;
-		std::shared_ptr<RHITexture2D> SSRHistoryBuffer[2]; // ��ʷ����������ʱ���ۻ�����
+		std::shared_ptr<RHITexture2D> SSRHistoryBuffer[2];
 		uint32_t FrameIndexMod2 = 0;
 		bool First = true;
 		DECLARE_SHADER_STRUCT_MEMBER(SSRContants);
@@ -74,7 +75,6 @@ namespace Engine
 		C_P(SSRProcessor);
 		RenderCore::RHICommandMark Mark(RHIContext, "SSR");
 
-		// ����֡����
 		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
@@ -85,7 +85,6 @@ namespace Engine
 				ViewPort->GetSize().cx, ViewPort->GetSize().cy, 1);
 		}
 
-		// ��ʼ����ʷ������
 		if (!d->SSRHistoryBuffer[0])
 		{
 			d->SSRHistoryBuffer[0] = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA,
@@ -117,9 +116,9 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetNormalBuffer());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, TargetBuffer->GetMetallicRoughnessBuffer());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, TargetBuffer->GetDepth());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, HistorySceneColor); // ������ͶӰ���е�
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, HistorySceneColor);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, TargetBuffer->GetMotionVector());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, d->SSRHistoryBuffer[d->FrameIndexMod2] ? d->SSRHistoryBuffer[d->FrameIndexMod2] : d->SSRBuffer); // SSR ��ʷ������
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, d->SSRHistoryBuffer[d->FrameIndexMod2] ? d->SSRHistoryBuffer[d->FrameIndexMod2] : d->SSRBuffer);
 		
 		d->GET_UNIFORMDATA(SSRContants).ViewProj = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		d->GET_UNIFORMDATA(SSRContants).InvViewProj = d->GET_UNIFORMDATA(SSRContants).ViewProj.Inverse();
@@ -133,7 +132,6 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);
 
-		// ����ǰ֡������Ƶ���ʷ������
 		if (d->SSRHistoryBuffer[Dst])
 		{
 			RHIContext.RHICopyResource(d->SSRHistoryBuffer[Dst], d->SSRBuffer);

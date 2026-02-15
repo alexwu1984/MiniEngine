@@ -561,13 +561,15 @@ namespace RenderCore
 			return;
 		
 		auto SrcOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
-		auto DstOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
+		auto DstOldState = D3D12Dst->GetResource()->GetResourceState().GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
-		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, true);
-		
+		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
+		FlushCommands();
 		CommandListHandle->CopyResource(D3D12Dst->GetResource()->GetResource(), D3D12Src->GetResource()->GetResource());
+		
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
-		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, true);
+		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
+		FlushCommands();
 	}
 
 	void D3D12CommandContext::RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect)
@@ -579,8 +581,9 @@ namespace RenderCore
 		auto SrcOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
 		auto DstOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
-		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, true);
-		
+		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
+		FlushCommands();
+
 		D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
 		srcLocation.pResource = D3D12Src->GetResource()->GetResource();
 		srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -607,7 +610,8 @@ namespace RenderCore
 		);
 
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
-		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, true);
+		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
+		FlushCommands();
 	}
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)

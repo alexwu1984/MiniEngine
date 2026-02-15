@@ -133,9 +133,7 @@ namespace Engine
 		RHIContext.Draw(3);
 
 		if (d->SSRHistoryBuffer[Dst])
-		{
 			RHIContext.RHICopyResource(d->SSRHistoryBuffer[Dst], d->SSRBuffer);
-		}
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> SSRProcessor::GetSSRBuffer() const

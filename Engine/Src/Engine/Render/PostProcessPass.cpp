@@ -4,7 +4,10 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
+#include "Render/FXAA.h"
 #include "Render/GBuffer.h"
+#include "Render/TemporalAA.h"
+#include "Scene/CameraComponent.h"
 
 namespace Engine
 {
@@ -153,5 +156,72 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, SSRTexture());
 		RHIContext.Draw(3);
+	}
+
+	TAAPass::TAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
+					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<CameraComponent> InCamera,
+					 std::shared_ptr<TemporallAA> InTAA,
+					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
+		: RHIContext(InRHIContext)
+		, TargetBuffer(std::move(InTargetBuffer))
+		, ViewPort(std::move(InViewPort))
+		, Camera(std::move(InCamera))
+		, TAA(std::move(InTAA))
+		, SourceTexture(std::move(InSourceTexture))
+	{
+	}
+
+	RenderPassDesc TAAPass::BuildDesc() const
+	{
+		return {
+			"TAA",
+			{
+				{ "SceneColorWithBloom", SourceTexture },
+				{ "MotionVector", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetMotionVector(); } },
+				{ "Depth", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetDepth(); } }
+			},
+			{
+				{ "SceneColor", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetSceneColor(); } }
+			},
+			[Pass = *this]() { Pass.Execute(); }
+		};
+	}
+
+	void TAAPass::Execute() const
+	{
+		ViewPort->SetRenderTarget();
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		TAA->Draw(RHIContext, TargetBuffer, Camera);
+	}
+
+	FXAAPass::FXAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<RenderCore::RHIViewPort> InViewPort,
+					   std::shared_ptr<RenderCore::FXAA> InFXAA,
+					   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
+		: RHIContext(InRHIContext)
+		, ViewPort(std::move(InViewPort))
+		, FXAA(std::move(InFXAA))
+		, SourceTexture(std::move(InSourceTexture))
+	{
+	}
+
+	RenderPassDesc FXAAPass::BuildDesc() const
+	{
+		return {
+			"FXAA",
+			{
+				{ "SceneColorWithBloom", SourceTexture }
+			},
+			{
+				{ "FXAAResult", [FXAA = FXAA]() { return FXAA ? FXAA->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
+			},
+			[Pass = *this]() { Pass.Execute(); }
+		};
+	}
+
+	void FXAAPass::Execute() const
+	{
+		ViewPort->SetRenderTarget();
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		FXAA->Draw(RHIContext, SourceTexture());
 	}
 }

@@ -255,39 +255,27 @@ namespace Engine
 		switch (d->AAType)
 		{
 		case EPostProcessorAAType::TAA:
-			Graph.AddPass({
-				"TAA",
-				{
-					{ "SceneColorWithBloom", [AntiAliasingColor]() { return AntiAliasingColor; } },
-					{ "MotionVector", [TargetBuffer]() { return TargetBuffer->GetMotionVector(); } },
-					{ "Depth", [TargetBuffer]() { return TargetBuffer->GetDepth(); } }
-				},
-				{
-					{ "SceneColor", [TargetBuffer]() { return TargetBuffer->GetSceneColor(); } }
-				},
-				[d, &RHIContext, TargetBuffer, ViewPort, Camera]() {
-					ViewPort->SetRenderTarget();
-					RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-					d->TAA->Draw(RHIContext, TargetBuffer, Camera);
-				}
-			});
+		{
+			TAAPass Pass(
+				RHIContext,
+				TargetBuffer,
+				ViewPort,
+				Camera,
+				d->TAA,
+				[AntiAliasingColor]() { return AntiAliasingColor; });
+			Graph.AddPass(Pass.BuildDesc());
 			break;
+		}
 		case EPostProcessorAAType::FXAA:
-			Graph.AddPass({
-				"FXAA",
-				{
-					{ "SceneColorWithBloom", [AntiAliasingColor]() { return AntiAliasingColor; } }
-				},
-				{
-					{ "FXAAResult", [d]() { return d->FXaa ? d->FXaa->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
-				},
-				[d, &RHIContext, ViewPort, AntiAliasingColor]() {
-					ViewPort->SetRenderTarget();
-					RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-					d->FXaa->Draw(RHIContext, AntiAliasingColor);
-				}
-			});
+		{
+			FXAAPass Pass(
+				RHIContext,
+				ViewPort,
+				d->FXaa,
+				[AntiAliasingColor]() { return AntiAliasingColor; });
+			Graph.AddPass(Pass.BuildDesc());
 			break;
+		}
 		}
 	}
 

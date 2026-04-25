@@ -79,11 +79,12 @@ namespace Engine
 
 	void GltfMeshBuffer::UpdateVert(math::Vector3* pVert, int nVert)
 	{
-		auto UpdateVertFun = [pVert, nVert, this](RenderCore::DynamicRHI * RHI) {
+		auto Vertices = std::make_shared<std::vector<math::Vector3>>(pVert, pVert + nVert);
+		auto UpdateVertFun = [Vertices, nVert, this](RenderCore::DynamicRHI * RHI) {
 			C_P(GltfMeshBuffer);
 			if (d->VerticesBuffer[RenderCore::EVertexType::VT_Position])
 			{
-				RHI->RHIUpdateVertexBuffer(d->VerticesBuffer[RenderCore::EVertexType::VT_Position], pVert, nVert, sizeof(math::Vector3));
+				RHI->RHIUpdateVertexBuffer(d->VerticesBuffer[RenderCore::EVertexType::VT_Position], Vertices->data(), nVert, sizeof(math::Vector3));
 			}
 		};
 		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateVertFun);

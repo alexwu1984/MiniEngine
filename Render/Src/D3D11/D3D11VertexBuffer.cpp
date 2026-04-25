@@ -83,12 +83,12 @@ namespace RenderCore
 	{
 		C_P(D3D11VertexBuffer);
 		D3D11_MAPPED_SUBRESOURCE mapSubResource;
-		HRESULT hr = d->D3D11RHI->GetDeviceContext()->Map(d->Buffer.get(), 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &mapSubResource);
+		HRESULT hr = d->D3D11RHI->GetDeviceContext()->Map(d->Buffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapSubResource);
 		if (FAILED(hr))
 		{
 			return;
 		}
-		memcpy((uint8_t*)mapSubResource.pData + sizePerVertex, InData, nVertex * sizePerVertex);
+		memcpy(mapSubResource.pData, InData, nVertex * sizePerVertex);
 		d->D3D11RHI->GetDeviceContext()->Unmap(d->Buffer.get(), 0);
 	}
 

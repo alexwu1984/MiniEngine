@@ -287,7 +287,7 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 #endif
 
     float3 n = getNormalTexture(Input);
-    n = normalize(mul(transpose(tbn), (n /* * float3(u_NormalScale, u_NormalScale, 1.0) */)));
+    n = normalize(mul((n /* * float3(u_NormalScale, u_NormalScale, 1.0) */), tbn));
 
     return n * (bIsFontFacing ? -1 : 1);
 }

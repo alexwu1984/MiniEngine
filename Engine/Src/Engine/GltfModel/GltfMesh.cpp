@@ -26,8 +26,12 @@ namespace Engine
 		GltfModel* Owner;
 
 		std::vector<Vector3*> BlendShapes;
+		std::vector<Vector3*> BlendShapeNormals;
+		std::vector<Vector3*> BlendShapeTangents;
 		std::vector<std::string> BlendShapeNames;
 		std::shared_ptr<Vector3> BlendVerts;
+		std::shared_ptr<Vector3> BlendNormals;
+		std::shared_ptr<Vector4> BlendTangents;
 	};
 
 	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
@@ -115,14 +119,30 @@ namespace Engine
 		{
 			auto& target = meshPrimitive.targets[i];
 			int type = 0;
+			Vector3* BlendPosition = nullptr;
+			Vector3* BlendNormal = nullptr;
+			Vector3* BlendTangent = nullptr;
 			for (const auto& attribute : target) {
 				if (attribute.first == "POSITION")
 				{
-					Vector3* pVertices = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
-					if(pVertices)
-						d->BlendShapes.push_back(pVertices);
+					BlendPosition = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+				}
+				else if (attribute.first == "NORMAL")
+				{
+					BlendNormal = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+				}
+				else if (attribute.first == "TANGENT")
+				{
+					BlendTangent = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 				}
 
+			}
+
+			if (BlendPosition)
+			{
+				d->BlendShapes.push_back(BlendPosition);
+				d->BlendShapeNormals.push_back(BlendNormal);
+				d->BlendShapeTangents.push_back(BlendTangent);
 			}
 		}
 
@@ -239,14 +259,32 @@ namespace Engine
 		{
 			d->BlendVerts.reset(new Vector3[d->Mesh->nNumVertices], [](Vector3* p) {delete[]p; });
 		}
+		if (d->Mesh->Normals && d->BlendNormals == NULL)
+		{
+			d->BlendNormals.reset(new Vector3[d->Mesh->nNumVertices], [](Vector3* p) {delete[]p; });
+		}
+		if (d->Mesh->Tangents && d->BlendTangents == NULL)
+		{
+			d->BlendTangents.reset(new Vector4[d->Mesh->nNumVertices], [](Vector4* p) {delete[]p; });
+		}
 
 		memcpy(d->BlendVerts.get(), d->Mesh->Vertices, sizeof(Vector3) * d->Mesh->nNumVertices);
+		if (d->BlendNormals)
+		{
+			memcpy(d->BlendNormals.get(), d->Mesh->Normals, sizeof(Vector3) * d->Mesh->nNumVertices);
+		}
+		if (d->BlendTangents)
+		{
+			memcpy(d->BlendTangents.get(), d->Mesh->Tangents, sizeof(Vector4) * d->Mesh->nNumVertices);
+		}
 
 		size_t BlendShapeCount = (std::min)(d->BlendShapes.size(), weight.size());
 		for (size_t i = 0; i < BlendShapeCount; i++)
 		{
 			float w = weight[i];
 			Vector3* pBlendShape = d->BlendShapes[i];
+			Vector3* pBlendNormal = d->BlendShapeNormals[i];
+			Vector3* pBlendTangent = d->BlendShapeTangents[i];
 			if (w < 0.001 && w>-0.001)
 			{
 				continue;
@@ -254,9 +292,39 @@ namespace Engine
 			for (int j = 0; j < d->Mesh->nNumVertices; j++)
 			{
 				d->BlendVerts.get()[j] += w * pBlendShape[j];
+				if (d->BlendNormals && pBlendNormal)
+				{
+					d->BlendNormals.get()[j] += w * pBlendNormal[j];
+				}
+				if (d->BlendTangents && pBlendTangent)
+				{
+					d->BlendTangents.get()[j].x += w * pBlendTangent[j].x;
+					d->BlendTangents.get()[j].y += w * pBlendTangent[j].y;
+					d->BlendTangents.get()[j].z += w * pBlendTangent[j].z;
+				}
 			}
 		}
 		d->MeshBuffer->UpdateVert(d->BlendVerts.get(), d->Mesh->nNumVertices);
+		if (d->BlendNormals)
+		{
+			for (int j = 0; j < d->Mesh->nNumVertices; j++)
+			{
+				d->BlendNormals.get()[j].Normalize();
+			}
+			d->MeshBuffer->UpdateNormal(d->BlendNormals.get(), d->Mesh->nNumVertices);
+		}
+		if (d->BlendTangents)
+		{
+			for (int j = 0; j < d->Mesh->nNumVertices; j++)
+			{
+				Vector3 Tangent(d->BlendTangents.get()[j].x, d->BlendTangents.get()[j].y, d->BlendTangents.get()[j].z);
+				Tangent.Normalize();
+				d->BlendTangents.get()[j].x = Tangent.x;
+				d->BlendTangents.get()[j].y = Tangent.y;
+				d->BlendTangents.get()[j].z = Tangent.z;
+			}
+			d->MeshBuffer->UpdateTangent(d->BlendTangents.get(), d->Mesh->nNumVertices);
+		}
 	}
 
 }

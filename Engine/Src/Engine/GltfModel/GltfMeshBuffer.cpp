@@ -90,6 +90,32 @@ namespace Engine
 		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateVertFun);
 	}
 
+	void GltfMeshBuffer::UpdateNormal(math::Vector3* Normal, int nVert)
+	{
+		auto Normals = std::make_shared<std::vector<math::Vector3>>(Normal, Normal + nVert);
+		auto UpdateNormalFun = [Normals, nVert, this](RenderCore::DynamicRHI* RHI) {
+			C_P(GltfMeshBuffer);
+			if (d->VerticesBuffer[RenderCore::EVertexType::VT_Normal])
+			{
+				RHI->RHIUpdateVertexBuffer(d->VerticesBuffer[RenderCore::EVertexType::VT_Normal], Normals->data(), nVert, sizeof(math::Vector3));
+			}
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateNormalFun);
+	}
+
+	void GltfMeshBuffer::UpdateTangent(math::Vector4* Tangent, int nVert)
+	{
+		auto Tangents = std::make_shared<std::vector<math::Vector4>>(Tangent, Tangent + nVert);
+		auto UpdateTangentFun = [Tangents, nVert, this](RenderCore::DynamicRHI* RHI) {
+			C_P(GltfMeshBuffer);
+			if (d->VerticesBuffer[RenderCore::EVertexType::VT_Tangent])
+			{
+				RHI->RHIUpdateVertexBuffer(d->VerticesBuffer[RenderCore::EVertexType::VT_Tangent], Tangents->data(), nVert, sizeof(math::Vector4));
+			}
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(UpdateTangentFun);
+	}
+
 	std::array<std::shared_ptr<RenderCore::RHIVertexBuffer>, RenderCore::EVertexType::VT_Max>& GltfMeshBuffer::GetVerticesBuffer()
 	{
 		C_P(GltfMeshBuffer);

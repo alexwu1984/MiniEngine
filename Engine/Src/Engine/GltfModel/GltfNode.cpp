@@ -52,7 +52,7 @@ namespace Engine
 		Matrix4x4 mat4Rotation = Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
 		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
 
-		Matrix4x4 NodeTransformation = mat4Translation * mat4Rotation * mat4Scaling;
+		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation;
 		auto ParentNode = NodeInfo->ParentNode.lock();
 		if (ParentNode)
 		{
@@ -141,7 +141,7 @@ namespace Engine
 
 	void GltfNode::DFSNodeTree(std::shared_ptr<GltfNodeInfo> NodeInfo, math::Matrix4x4& ParentMatrix)
 	{
-		Matrix4x4 NodeTransformation = ParentMatrix * NodeInfo->FinalMeshMat;
+		Matrix4x4 NodeTransformation = NodeInfo->FinalMeshMat * ParentMatrix;
 
 		NodeInfo->FinalMeshMat = NodeTransformation;
 

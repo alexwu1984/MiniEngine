@@ -131,7 +131,7 @@ namespace Engine
 		{
 			for (uint32_t j = 0; j < (uint32_t)d->_BoneNodeArray[i].size(); j++)
 			{
-				d->_BoneNodeArray[i][j].FinalMat = d->_BoneNodeArray[i][j].Node->FinalTransformation * d->_BoneNodeArray[i][j].InverseBindMat;
+				d->_BoneNodeArray[i][j].FinalMat = d->_BoneNodeArray[i][j].InverseBindMat * d->_BoneNodeArray[i][j].Node->FinalTransformation;
 			}
 		}
 	}
@@ -279,7 +279,7 @@ namespace Engine
 		if ((BoneNodeInfo->TargetRotation - math::Vector4(0, 0, 0, 1)).GetLength() < 0.0001)
 			mat4Rotation = BoneNodeInfo->InitMat;
 
-		math::Matrix4x4 NodeTransformation = ParentMatrix * mat4Translation * mat4Rotation * mat4Scaling;
+		math::Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
 
 		auto TransformBone = d->_DynamicBoneMgr->GetTransformNode(BoneNodeInfo->BoneName);
 		if (TransformBone)

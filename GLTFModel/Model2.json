@@ -10,7 +10,7 @@
         "LightType": 0
       }
     ],
-    "AAType": "FXAA",
+    "AAType": "TAA",
     "RotateIBL": "0,0"
   },
   "Modles": [

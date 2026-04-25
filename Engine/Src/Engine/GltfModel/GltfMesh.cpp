@@ -227,10 +227,10 @@ namespace Engine
 	}
 
 
-	void GltfMesh::GenVertWithWeights(std::vector<float>& weight)
+	void GltfMesh::GenVertWithWeights(const std::vector<float>& weight)
 	{
 		C_P(GltfMesh);
-		if (/*weight.size() != d->BlendShapes.size() ||*/ d->BlendShapes.size() == 0)
+		if (d->BlendShapes.size() == 0 || weight.empty())
 		{
 			return;
 		}
@@ -242,7 +242,8 @@ namespace Engine
 
 		memcpy(d->BlendVerts.get(), d->Mesh->Vertices, sizeof(Vector3) * d->Mesh->nNumVertices);
 
-		for (int i = 0; i < d->BlendShapes.size(); i++)
+		size_t BlendShapeCount = (std::min)(d->BlendShapes.size(), weight.size());
+		for (size_t i = 0; i < BlendShapeCount; i++)
 		{
 			float w = weight[i];
 			Vector3* pBlendShape = d->BlendShapes[i];

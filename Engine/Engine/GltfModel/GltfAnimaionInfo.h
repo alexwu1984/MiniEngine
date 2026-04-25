@@ -1,15 +1,18 @@
 #pragma once
+#include "math/vector3.h"
 #include "math/vector4.h"
+#include <unordered_map>
+#include <vector>
 
 
 namespace Engine
 {
-	//关键帧动画（Translation、Rotation、Scaling）信息
+	// Keyframe data for translation, rotation, scaling, and weights.
 	struct AnimationKey
 	{
-		//时间戳
+		// Timestamp.
 		float fTime = 0;
-		//四维变化信息
+		// Animated value.
 		math::Vector4 value{};
 	};
 
@@ -20,7 +23,7 @@ namespace Engine
 		TARGET_TRANSLATE,
 		TARGET_WEIGHT
 	};
-	//一个动画中某部分（对应某个Mesh、Bone）的信息
+	// Animation channel targeting a node, mesh, or bone.
 	struct AnimationChannelInfo
 	{
 		AnimationChannelInfo()
@@ -43,14 +46,15 @@ namespace Engine
 			{
 				nKeyL = 0;
 				nKeyR = 0;
-				alpha = 1.0;
+				alpha = 0.0f;
 				return;
 			}
 
 			if (during > pInputTime[nKeyFrame - 1])
 			{
-				nKeyL = -1;
-				nKeyR = -1;
+				nKeyL = nKeyFrame - 1;
+				nKeyR = nKeyFrame - 1;
+				alpha = 1.0f;
 				return;
 			}
 
@@ -84,5 +88,22 @@ namespace Engine
 		float* pOutputAnimateValue;
 		uint32_t nKeyFrame;
 		uint32_t nOutCount;
+	};
+
+	struct AnimationTRSInfo
+	{
+		math::Vector4 Rotation = math::Vector4(0, 0, 0, 1);
+		bool EnableRotate = false;
+		math::Vector3 Scale = math::Vector3(1, 1, 1);
+		bool EnableScale = false;
+		math::Vector3 Translate = math::Vector3(0, 0, 0);
+		bool EnableTranslate = false;
+	};
+
+	struct AnimationBlendInfo
+	{
+		std::unordered_map<int32_t, AnimationTRSInfo> TransformMap;
+		std::unordered_map<int32_t, std::vector<float>> WeightMap;
+		int32_t AnimationIndex = -1;
 	};
 }

@@ -15,6 +15,8 @@ namespace Engine
 		float GetAnimationTime() const;
 		bool HasModelAnimatie() const;
 		void Play(float fSecond, GltfModel* Model);
+		bool GetBlendShapeWeights(float fSecond, AnimationBlendInfo& BlendInfo);
+		bool GetAnimationBlendInfo(float fSecond, AnimationBlendInfo& BlendInfo);
 	private:
 		void PlaySkeleton(float fSecond, std::shared_ptr< AnimationChannelInfo> ChannelInfo);
 		void playBlendShape(float fSecond, std::shared_ptr< AnimationChannelInfo> ChannelInfo);

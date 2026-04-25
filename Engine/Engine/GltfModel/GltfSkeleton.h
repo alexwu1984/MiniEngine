@@ -24,6 +24,7 @@ namespace Engine
 		bool HasDynamicBone() const;
 		std::vector<std::vector<BoneSkinInfo>>& GetBoneNodeArray();
 		std::vector<std::shared_ptr<GltfBoneNodeInfo>>& GetRootNode();
+		std::shared_ptr<GltfBoneNodeInfo> GetBoneNodeByNodeId(int32_t NodeID) const;
 
 	private:
 		void CreateModelBoneTree(int32_t NodeID);

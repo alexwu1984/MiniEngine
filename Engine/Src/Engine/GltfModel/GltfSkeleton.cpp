@@ -25,6 +25,16 @@ namespace Engine
 		memcpy(NodeInfo->InitMat.m, m, sizeof(float) * 16);
 		NodeInfo->Translate = math::Vector3(NodeInfo->InitMat[3][0], NodeInfo->InitMat[3][1], NodeInfo->InitMat[3][2]);
 		NodeInfo->InitMat[3][0] = 0.0; NodeInfo->InitMat[3][1] = 0.0; NodeInfo->InitMat[3][2] = 0.0; NodeInfo->InitMat[3][3] = 1.0;
+		math::Vector3 ScaleAxis(NodeInfo->InitMat[0][0], NodeInfo->InitMat[0][1], NodeInfo->InitMat[0][2]);
+		float Scale = ScaleAxis.GetLength();
+		if (Scale > 0.0001f)
+		{
+			NodeInfo->Scale = math::Vector3(Scale, Scale, Scale);
+			for (int i = 0; i < 15; ++i)
+			{
+				NodeInfo->InitMat.m[i] /= Scale;
+			}
+		}
 	}
 
 	GltfSkeleton::GltfSkeleton(tinygltf::Model* gltfModel, std::shared_ptr<GltfNode> Node)
@@ -121,7 +131,7 @@ namespace Engine
 		{
 			for (uint32_t j = 0; j < (uint32_t)d->_BoneNodeArray[i].size(); j++)
 			{
-				d->_BoneNodeArray[i][j].FinalMat = d->_BoneNodeArray[i][j].InverseBindMat* d->_BoneNodeArray[i][j].Node->FinalTransformation ;
+				d->_BoneNodeArray[i][j].FinalMat = d->_BoneNodeArray[i][j].Node->FinalTransformation * d->_BoneNodeArray[i][j].InverseBindMat;
 			}
 		}
 	}
@@ -184,6 +194,18 @@ namespace Engine
 	{
 		C_P(GltfSkeleton);
 		return d->_RootNode;
+	}
+
+	std::shared_ptr<GltfBoneNodeInfo> GltfSkeleton::GetBoneNodeByNodeId(int32_t NodeID) const
+	{
+		C_P(const GltfSkeleton);
+		auto Iter = d->_NodeBoneMap.find(NodeID);
+		if (Iter == d->_NodeBoneMap.end())
+		{
+			return nullptr;
+		}
+
+		return d->_BoneNode[Iter->second];
 	}
 
 	void GltfSkeleton::CreateModelBoneTree(int32_t NodeID)
@@ -257,7 +279,7 @@ namespace Engine
 		if ((BoneNodeInfo->TargetRotation - math::Vector4(0, 0, 0, 1)).GetLength() < 0.0001)
 			mat4Rotation = BoneNodeInfo->InitMat;
 
-		math::Matrix4x4 NodeTransformation =  mat4Scaling * mat4Rotation * mat4Translation * ParentMatrix;
+		math::Matrix4x4 NodeTransformation = ParentMatrix * mat4Translation * mat4Rotation * mat4Scaling;
 
 		auto TransformBone = d->_DynamicBoneMgr->GetTransformNode(BoneNodeInfo->BoneName);
 		if (TransformBone)

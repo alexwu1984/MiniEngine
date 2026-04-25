@@ -36,6 +36,7 @@ namespace Engine
 		std::shared_ptr<Bloom> BloomEffect;
 		std::shared_ptr<SSRProcessor> SSREffect;
 		bool EnableSSR = false;
+		float AmbientIBLScale = 1.f;
 		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
@@ -77,11 +78,18 @@ namespace Engine
 			input_json_file >> Root;
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
+			d->AmbientIBLScale = EvnJson.value("AmbientStrength", 1.0f);
 		}
 		catch (const std::exception&)
 		{
 
 		}
+	}
+
+	float PostProcessor::GetAmbientIBLScale() const
+	{
+		C_P(PostProcessor);
+		return d->AmbientIBLScale;
 	}
 
 	void PostProcessor::InitResource()

@@ -37,9 +37,9 @@ namespace Engine
 	struct MaterialPerFrame
 	{
 		float Metallic{ 0.f };
-		int padding0{ 0 };
-		int padding1{ 0 };
-		int padding2{ 0 };
+		float Roughness{ 1.f };
+		float IBLMaterialScale{ 1.f };
+		uint32_t MROverride{ 0 };
 	};
 
 	struct PerFrame

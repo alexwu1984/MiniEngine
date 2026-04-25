@@ -54,12 +54,17 @@ float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
     float2 BRDF = BrdfLut.Sample(SampleLinear, brdfSamplePoint).rg;
 
     float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, n).rgb;
+    // 压掉 HDR 漫反射环境在局部法线上的尖峰，减轻「一片白」的 IBL 观感，同时保留暗部能量
+    float diffLum = dot(DiffuseLight, float3(0.2126, 0.7152, 0.0722));
+    DiffuseLight *= rcp(1.0 + diffLum * 0.38);
+
     float3 SpecularLight = PrefliterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
 
     float3 Diffuse = DiffuseLight * MaterialInfo.diffuseColor * (1.0 - MaterialInfo.Metallic);
     float3 Specular = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y) * MaterialInfo.Metallic;
 
-    return Diffuse + Specular;
+    float iblScale = myPerFrame.Material.IBLMaterialScale * myPerFrame.IBLFactor;
+    return (Diffuse + Specular) * iblScale;
 }
 
 // Lambert lighting
@@ -122,6 +127,9 @@ float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Norm
         // Calculation of analytical lighting contribution
         float3 diffuseContrib = (1.0 - F) * Diffuse(MaterialInfo);
         float3 specContrib = F * Vis * D;
+        // 高粗糙度电介质上法线贴图易把解析高光拉成窄条，略衰减以减轻「镜面感」
+        float roughAtten = saturate((MaterialInfo.perceptualRoughness - 0.5) / 0.48);
+        specContrib *= lerp(1.0, 0.42, roughAtten * (1.0 - MaterialInfo.Metallic));
 
         // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
         return angularInfo.NdotL * (diffuseContrib + specContrib);
@@ -206,7 +214,12 @@ float ChebyshevUpperBound(float2 Moments, float t, float3 Normal)
 float ComputeShadow(float4 ShadowCoord, float3 Normal)
 {
 	float3 position = ShadowCoord.xyz / ShadowCoord.w;
+	// Outside shadow clip: treat as lit (avoid broken banding at frustum edges).
+	if (position.z <= 0.0 || position.z >= 1.0)
+		return 1.0;
 	position = position * float3(0.5, -0.5, 0.5) + float3(0.5, 0.5, 0.5);
+	if (any(position.xy < 0.0) || any(position.xy > 1.0))
+		return 1.0;
 
 	float3 Moments = ShadowMap.Sample(SampleShadow, position.xy).xyz;
 	float shadow =  ChebyshevUpperBound(Moments.xy, clamp(position.z, 0.0, 1.0), Normal);
@@ -256,7 +269,9 @@ float3 ComputeF0(const float4 baseColor, float metallic, float reflectance)
 float3 getNormalTexture(VS_OUTPUT_SCENE Input)
 {
     float2 xy = 2.0 * NormalMap.SampleBias(SampleLinear, Input.UV0, myPerFrame.LodBias).rg - 1.0;
-    float z = sqrt(1.0f - dot(xy, xy));
+    float len2 = dot(xy, xy);
+    len2 = min(len2, 0.999999);
+    float z = sqrt(1.0 - len2);
     return float3(xy, z);
 }
 
@@ -271,19 +286,34 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
     float3 pos_dy = ddy(Input.WorldPos);
     float3 tex_dx = ddx(float3(UV, 0.0));
     float3 tex_dy = ddy(float3(UV, 0.0));
-    float3 t = (tex_dy.y * pos_dx - tex_dx.y * pos_dy) / (tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y);
-
+    float denom = (tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y);
     float3 ng = normalize(Input.Normal);
-
-    t = normalize(t - ng * dot(ng, t));
-    float3 b = normalize(cross(ng, t));
+    float3 t, b;
+    if (abs(denom) < 1e-5)
+    {
+        float3 ref = abs(ng.y) < 0.999f ? float3(0, 1, 0) : float3(1, 0, 0);
+        t = normalize(cross(ref, ng));
+        b = normalize(cross(ng, t));
+    }
+    else
+    {
+        t = (tex_dy.y * pos_dx - tex_dx.y * pos_dy) / denom;
+        t = normalize(t - ng * dot(ng, t));
+        b = normalize(cross(ng, t));
+    }
     float3x3 tbn = float3x3(t, b, ng);
-#else // HAS_TANGENTS
-    float3x3 tbn = float3x3(Input.Tangent, Input.Binormal, Input.Normal);
+#else // HAS_TANGENT
+    float3 N = normalize(Input.Normal);
+    float3 Tw = Input.Tangent;
+    float3 T = normalize(Tw - N * dot(N, Tw));
+    float3 B = cross(N, T);
+    if (dot(B, Input.Binormal) < 0.0)
+        B = -B;
+    float3x3 tbn = float3x3(T, B, N);
 #endif
 
     float3 n = getNormalTexture(Input);
-    n = normalize(mul(transpose(tbn), (n /* * float3(u_NormalScale, u_NormalScale, 1.0) */)));
+    n = normalize(mul(tbn, n));
 
     return n * (bIsFontFacing ? -1 : 1);
 }
@@ -314,9 +344,8 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
         metallic,
     };
 
-    // LIGHTING
-
-    float3 color = float3(0.0, 0.0, 0.0);
+    // LIGHTING（AO 只乘 IBL，与 glTF 常见用法一致，避免主光被 AO 压成死黑）
+    float3 directLighting = float3(0.0, 0.0, 0.0);
     float3 normal = getPixelNormal(Input);
     float3 worldPos = Input.WorldPos;
     float3 view = normalize(perFrame.CameraPos.xyz - worldPos);
@@ -335,25 +364,24 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
        // float shadowFactor = CalcShadows(Input.WorldPos.xyz, int2(Input.svPosition.xy), light);
         if (light.Type == LightType_Directional)
         {
-            color += ApplyDirectionalLight(Input,light, materialInfo, normal, view) * shadowFactor;
+            directLighting += ApplyDirectionalLight(Input,light, materialInfo, normal, view) * shadowFactor;
         }
         else if (light.Type == LightType_Point)
         {
-            color += ApplyPointLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+            directLighting += ApplyPointLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
         }
         else if (light.Type == LightType_Spot)
         {
-            color += ApplySpotLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+            directLighting += ApplySpotLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
         }
     }
 
-    // Calculate lighting contribution from image based lighting source (IBL)
-    color += GetIBLContribution(materialInfo, normal, view);
+    float3 iblLighting = GetIBLContribution(materialInfo, normal, view);
 
     float ao = 1.0;
     // Apply optional PBR terms for additional (optional) shading
     ao = AoMap.Sample(SampleLinear, Input.UV0).r;
-    color = color * ao;
+    float3 color = directLighting + iblLighting * ao;
 
 
 #ifndef DEBUG_OUTPUT // no debug
@@ -420,6 +448,11 @@ void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 spec
     float4 mr = Roughness_metallicMap.Sample(SampleLinear, Input.UV0);
     perceptualRoughness = mr.g;
     metallic = mr.b;
+    if (myPerFrame.Material.MROverride != 0)
+    {
+        perceptualRoughness = myPerFrame.Material.Roughness;
+        metallic = myPerFrame.Material.Metallic;
+    }
 
     // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
     // This layout intentionally reserves the 'r' channel for (optional) occlusion map data

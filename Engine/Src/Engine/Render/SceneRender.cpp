@@ -217,24 +217,28 @@ namespace Engine
 		});
 
 		d->MeshesInfo.clear();
+		std::vector<GltfSceneMeshInfo> shadowFrustumBounds;
+		std::vector<GltfSceneMeshInfo> shadowCasters;
 
 		const auto& Actors = GetOwner()->GetAllActors();
 		for (const auto& ActorItem : Actors)
 		{
-			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible() && ActorItem->IsProjectShadow())
+			if (ActorItem->GetState() != Actor::EActive || !ActorItem->IsVisible())
+				continue;
+			auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+			for (auto& ComponentItem : Components)
 			{
-				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-				for (auto& ComponentItem : Components)
-				{
-					GltfSceneMeshInfo SceneMeshInfo;
-					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
-						d->MeshesInfo.push_back(SceneMeshInfo);
-				}
+				GltfSceneMeshInfo SceneMeshInfo;
+				if (!ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+					continue;
+				shadowFrustumBounds.push_back(SceneMeshInfo);
+				if (ActorItem->IsProjectShadow())
+					shadowCasters.push_back(SceneMeshInfo);
 			}
 		}
 
-		if (d->MeshesInfo.size())
-			d->ShadowRender->Render(d->MeshesInfo, *CommandContext, GetOwner());
+		if (shadowCasters.size())
+			d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, GetOwner());
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->SetRenderTarget();

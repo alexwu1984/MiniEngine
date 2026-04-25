@@ -94,8 +94,13 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
     Output.svPrevPosition = mul(float4(worldPrevPos, 1),GetPrevCameraViewProj());
     
     #ifdef HAS_TANGENT
-        Output.Tangent = normalize(mul(float4(input.Tangent.xyz, 0),transMatrix).xyz);
-        Output.Binormal = cross(Output.Normal, Output.Tangent) *input.Tangent.w;
+        float3 T = normalize(mul(float4(input.Tangent.xyz, 0.0), transMatrix).xyz);
+        float3 N = Output.Normal;
+        T = normalize(T - N * dot(N, T));
+        float handedness = (input.Tangent.w >= 0.0) ? 1.0 : -1.0;
+        float3 B = cross(N, T) * handedness;
+        Output.Tangent = T;
+        Output.Binormal = B;
     #endif
     return Output;
 }

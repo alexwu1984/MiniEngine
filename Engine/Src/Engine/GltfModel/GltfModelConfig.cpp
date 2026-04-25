@@ -68,13 +68,21 @@ namespace Engine
 			{
 				const auto& MaterialJson = d->Config["Material"];
 				d->MaterialConfig.Metallic = MaterialJson["Metallic"];
-				if(MaterialJson.count("Roughness"))
+				if (MaterialJson.count("Roughness"))
 					d->MaterialConfig.Roughness = MaterialJson["Roughness"];
 				if (MaterialJson.count("BaseColor"))
 				{
 					std::string BaseColor = MaterialJson["BaseColor"];
 					sscanf_s(BaseColor.c_str(), "%f,%f,%f,%f", &d->MaterialConfig.BaseColor.x, &d->MaterialConfig.BaseColor.y, &d->MaterialConfig.BaseColor.z, &d->MaterialConfig.BaseColor.w);
 				}
+				if (MaterialJson.count("IBLMaterialScale"))
+					d->MaterialConfig.IBLMaterialScale = MaterialJson["IBLMaterialScale"].get<float>();
+				else if (MaterialJson.count("IBLScale"))
+					d->MaterialConfig.IBLMaterialScale = MaterialJson["IBLScale"].get<float>();
+				if (MaterialJson.count("OverrideMR"))
+					d->MaterialConfig.OverrideMRForLighting = MaterialJson["OverrideMR"].get<bool>();
+				else if (MaterialJson.count("OverrideMRForLighting"))
+					d->MaterialConfig.OverrideMRForLighting = MaterialJson["OverrideMRForLighting"].get<bool>();
 			}
 			if(d->Config.find("UseMaterial") != d->Config.end())
 				d->MaterialConfig.UseConfig = d->Config["UseMaterial"];

@@ -21,7 +21,10 @@ namespace Engine
 		~ShadowRenderPass();
 
 		void InitResource();
-		void Render(const std::vector<GltfSceneMeshInfo>& MeshesPair,
+		// ShadowCasterMeshes: drawn into the shadow map (ProjShadow actors only).
+		// FrustumBoundsMeshes: union AABB for light frustum; use all visible receivers (e.g. floor) or casters-only breaks shadows on large surfaces.
+		void Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
+			const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
 			RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View);
 
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetShadowMap() const;

@@ -14,6 +14,7 @@
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
 #include "Render/SSRProcessor.h"
+#include "Render/PostProcessGraph.h"
 #include "Render/MaterialPreFrame.h"
 #include "Scene/CameraComponent.h"
 #include "Render/SceneRender.h"
@@ -161,35 +162,84 @@ namespace Engine
 			break;
 		}
 
+		PostProcessGraph Graph;
 		if (d->EnableSSR && d->SSREffect && PassInputs.SSRReflectionColor)
-			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, PassInputs.SSRReflectionColor, Camera);
-
 		{
-			ViewPort->SetRenderTarget();
-			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-			if (d->SSREffect && d->SSREffect->GetSSRBuffer())
-				ApplySSR(RHIContext, TargetBuffer);
-			d->BloomEffect->Draw(RHIContext, TargetBuffer);
-			ApplyBloom(RHIContext, TargetBuffer);
+			Graph.AddPass({
+				"SSR",
+				{ TargetBuffer->GetNormalBuffer(), TargetBuffer->GetMetallicRoughnessBuffer(), TargetBuffer->GetDepth(), PassInputs.SSRReflectionColor },
+				{},
+				[&]() { d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, PassInputs.SSRReflectionColor, Camera); }
+			});
+
+			Graph.AddPass({
+				"ApplySSR",
+				{ TargetBuffer->GetSceneColor(), d->SSREffect->GetSSRBuffer() },
+				{ TargetBuffer->GetSceneColorWithSSR() },
+				[&]() {
+					if (!d->SSREffect->GetSSRBuffer())
+						return;
+					ViewPort->SetRenderTarget();
+					RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+					ApplySSR(RHIContext, TargetBuffer);
+				}
+			});
 		}
 
-		{
-			ViewPort->SetRenderTarget();
-			RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-
-			switch (d->AAType)
-			{
-			case EPostProcessorAAType::TAA:
-				d->TAA->Draw(RHIContext, TargetBuffer, Camera);
-				break;
-			case EPostProcessorAAType::FXAA:
-				d->FXaa->Draw(RHIContext, PassInputs.AntiAliasingColor);
-				break;
+		Graph.AddPass({
+			"Bloom",
+			{ d->EnableSSR ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor() },
+			{},
+			[&]() {
+				ViewPort->SetRenderTarget();
+				RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+				d->BloomEffect->Draw(RHIContext, TargetBuffer);
 			}
+		});
 
-			Tonemapping(RHIContext, TargetBuffer, ViewPort);
+		Graph.AddPass({
+			"ApplyBloom",
+			{ d->EnableSSR ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(), d->BloomEffect->GetResult() },
+			{ TargetBuffer->GetSceneColorWithBloom() },
+			[&]() { ApplyBloom(RHIContext, TargetBuffer); }
+		});
+
+		switch (d->AAType)
+		{
+		case EPostProcessorAAType::TAA:
+			Graph.AddPass({
+				"TAA",
+				{ PassInputs.AntiAliasingColor, TargetBuffer->GetMotionVector(), TargetBuffer->GetDepth() },
+				{ TargetBuffer->GetSceneColor() },
+				[&]() {
+					ViewPort->SetRenderTarget();
+					RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+					d->TAA->Draw(RHIContext, TargetBuffer, Camera);
+				}
+			});
+			break;
+		case EPostProcessorAAType::FXAA:
+			Graph.AddPass({
+				"FXAA",
+				{ PassInputs.AntiAliasingColor },
+				{ d->FXaa->GetResult() },
+				[&]() {
+					ViewPort->SetRenderTarget();
+					RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+					d->FXaa->Draw(RHIContext, PassInputs.AntiAliasingColor);
+				}
+			});
+			break;
 		}
 
+		Graph.AddPass({
+			"Tonemapping",
+			{ d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : TargetBuffer->GetSceneColor() },
+			{},
+			[&]() { Tonemapping(RHIContext, TargetBuffer, ViewPort); }
+		});
+
+		Graph.Execute();
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> PostProcessor::GetSSRBuffer() const

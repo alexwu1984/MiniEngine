@@ -62,6 +62,23 @@ endif ()
 set_target_properties(GLFFViewer PROPERTIES
 	PROJECT_LABEL "GLFFViewer")
 
+function(copy_runtime_assets target_name)
+	set(runtime_output_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>")
+	add_custom_target(${target_name}_RuntimeAssets
+		COMMAND ${CMAKE_COMMAND} -E make_directory
+				"${runtime_output_dir}"
+		COMMAND ${CMAKE_COMMAND} -E copy_directory
+				"${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel"
+				"${runtime_output_dir}/GLTFModel"
+		COMMAND ${CMAKE_COMMAND} -E copy_directory
+				"${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+				"${runtime_output_dir}/ShaderLibDX"
+		COMMENT "Copying runtime assets for ${target_name}")
+	add_dependencies(${target_name} ${target_name}_RuntimeAssets)
+endfunction()
+
+copy_runtime_assets(GLFFViewer)
+
 file(GLOB SoftwareRender_Headers "SoftwareRender/*.h")
 file(GLOB SoftwareRender_Sources "SoftwareRender/*.cpp")
 
@@ -72,41 +89,10 @@ target_link_libraries(SoftwareRender LINK_PUBLIC Core DirectXTex Render Engine )
 set_target_properties(SoftwareRender PROPERTIES
 	PROJECT_LABEL "SoftwareRender")
 
+copy_runtime_assets(SoftwareRender)
+
 set_target_properties(
 	GLFFViewer
 	PROPERTIES
 	FOLDER Projects
 )
-
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel
-     DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG}
-          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                      GROUP_READ GROUP_EXECUTE
-                      WORLD_READ WORLD_EXECUTE
-          DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                        GROUP_READ GROUP_EXECUTE
-                           WORLD_READ WORLD_EXECUTE
-     USE_SOURCE_PERMISSIONS
-     FOLLOW_SYMLINK_CHAIN)  
-
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel
-     DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}
-          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                      GROUP_READ GROUP_EXECUTE
-                      WORLD_READ WORLD_EXECUTE
-     DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                           GROUP_READ GROUP_EXECUTE
-                           WORLD_READ WORLD_EXECUTE
-     USE_SOURCE_PERMISSIONS
-     FOLLOW_SYMLINK_CHAIN)
-	
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel
-     DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO}
-          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                      GROUP_READ GROUP_EXECUTE
-                      WORLD_READ WORLD_EXECUTE
-     DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                           GROUP_READ GROUP_EXECUTE
-                           WORLD_READ WORLD_EXECUTE
-     USE_SOURCE_PERMISSIONS
-     FOLLOW_SYMLINK_CHAIN)

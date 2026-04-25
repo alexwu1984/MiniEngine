@@ -66,6 +66,17 @@ namespace Engine
 		}
 	}
 
+	void GBuffer::InitDefaultSceneTargets(uint32_t Width, uint32_t Height)
+	{
+		InitResource(static_cast<GBufferFlagBits>(GBufferFlagBits::GBUFFER_DEPTH |
+												  GBufferFlagBits::GBUFFER_MOTION_VECTORS |
+												  GBufferFlagBits::GBUFFER_SCENE_COLOR |
+												  GBufferFlagBits::GBUFFER_NORMAL_BUFFER |
+												  GBufferFlagBits::GBUFFER_EMISSIVE_BUFFER |
+												  GBufferFlagBits::GBUFFER_METALLIC_ROUGHNESS_BUFFER),
+					 Width, Height);
+	}
+
 	std::shared_ptr<RHITexture2D> GBuffer::GetDepth() const
 	{
 		C_P(const GBuffer);

@@ -51,6 +51,16 @@ namespace Engine
 		DECLARE_SHADER_STRUCT_MEMBER(ENVContant);
 	};
 
+	struct PostProcessPassInputs
+	{
+		// SSR samples this texture at the reflected hit point.
+		// TAA can provide stable history; FXAA uses current scene color to avoid SSR/FXAA feedback.
+		std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor;
+
+		// Anti-aliasing runs after SSR and bloom have been composed into SceneColorWithBloom.
+		std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor;
+	};
+
 	PostProcessor::PostProcessor(RenderCore::DynamicRHI* RHI)
 		:d_ptr(new PostProcessorPrivate(RHI))
 	{
@@ -139,19 +149,20 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 
-		std::shared_ptr<RHITexture2D> AABuffer;
+		PostProcessPassInputs PassInputs;
+		PassInputs.AntiAliasingColor = TargetBuffer->GetSceneColorWithBloom();
 		switch (d->AAType)
 		{
 		case EPostProcessorAAType::TAA:
-			AABuffer = d->TAA->GetHistoryBuffer();
+			PassInputs.SSRReflectionColor = d->TAA->GetHistoryBuffer();
 			break;
 		case EPostProcessorAAType::FXAA:
-			AABuffer = TargetBuffer->GetSceneColor();
+			PassInputs.SSRReflectionColor = TargetBuffer->GetSceneColor();
 			break;
 		}
 
-		if (d->EnableSSR && d->SSREffect && AABuffer)
-			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, AABuffer, Camera);
+		if (d->EnableSSR && d->SSREffect && PassInputs.SSRReflectionColor)
+			d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, PassInputs.SSRReflectionColor, Camera);
 
 		{
 			ViewPort->SetRenderTarget();
@@ -172,7 +183,7 @@ namespace Engine
 				d->TAA->Draw(RHIContext, TargetBuffer, Camera);
 				break;
 			case EPostProcessorAAType::FXAA:
-				d->FXaa->Draw(RHIContext, TargetBuffer->GetSceneColorWithBloom());
+				d->FXaa->Draw(RHIContext, PassInputs.AntiAliasingColor);
 				break;
 			}
 

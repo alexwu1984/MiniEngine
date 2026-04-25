@@ -10,7 +10,6 @@
 #include "Render/FurMaterialRender.h"
 #include "Material/GltfFurMaterial.h"
 #include "Engine/Scene/SceneView.h"
-#include "Engine/Render/PostProcessor.h"
 
 namespace Engine
 {
@@ -103,7 +102,7 @@ namespace Engine
 				math::Vector4 TargetPoint = Point4 * Mesh->GetMeshMat() ;
 				TargetPoint = TargetPoint / TargetPoint.w;
 
-				//计算两个向量Z的距离
+				//????????????Z?????
 				float Distance = math::Abs(TargetPoint.z - CameraPos.z);
 
 				if (Distance < distanceMin)
@@ -175,12 +174,12 @@ namespace Engine
 		RenderParam.CameraPos = Camera->GetCameraPos();
 		RenderParam.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		RenderParam.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;
-		if (Scene->GetPostProcessor()->GetPostProcessorAAType() == EPostProcessorAAType::TAA)
+		if (Scene->UsesTemporalAAProjectionJitter())
 			RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(false);
 		else
 			RenderParam.CurrViewProjMatrix = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		RenderParam.CurrViewProjInverseMatrix = RenderParam.CurrViewProjMatrix.Inverse();
-		if (Scene->GetPostProcessor()->GetPostProcessorAAType() == EPostProcessorAAType::TAA)
+		if (Scene->UsesTemporalAAProjectionJitter())
 			RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->HackAddTemporalAAProjectionJitter(true);
 		else
 			RenderParam.PrevViewProjMatrix = Camera->GetPrevViewMatrix() * Camera->GetPrevProjMatrix();

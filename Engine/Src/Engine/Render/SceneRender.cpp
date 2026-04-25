@@ -164,6 +164,14 @@ namespace Engine
 		return d->PostProcess;
 	}
 
+	bool SceneRender::UsesTemporalAAProjectionJitter() const
+	{
+		C_P(const SceneRender);
+		if (!d->PostProcess)
+			return false;
+		return d->PostProcess->GetPostProcessorAAType() == EPostProcessorAAType::TAA;
+	}
+
 	std::shared_ptr<ShadowRenderPass> SceneRender::GetShadowRenderPass() const
 	{
 		C_P(const SceneRender);

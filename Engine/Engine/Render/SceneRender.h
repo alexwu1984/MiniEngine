@@ -35,6 +35,8 @@ namespace Engine
 		void SetIBLRotate(float x, float y);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<PostProcessor> GetPostProcessor() const;
+		// True when the main post chain uses TAA (geometry must use jittered projection for motion vectors).
+		bool UsesTemporalAAProjectionJitter() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 		void SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor);

@@ -11,6 +11,7 @@
 #include "RHI/RHICommandContext.h"
 #include "RHI/DynamicRHI.h"
 #include "Procedural/ProceduralFloor.h"
+#include "Procedural/ProceduralModel.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
 #include "Thread/RenderThread.h"
@@ -18,6 +19,7 @@
 #include "Engine/Engine.h"
 #include "Scene/SceneView.h"
 #include "Render/SceneRender.h"
+#include <variant>
 
 namespace Engine
 {
@@ -26,14 +28,10 @@ namespace Engine
 
 	struct GltfMeshComponentPrivate
 	{
-		GltfModel gltfModel;
-		ObjModel objModel;
-		bool isGltfModel = true;
-		bool isProcedural = false;
+		using ModelVariant = std::variant<GltfModel, ObjModel, ProceduralModel>;
+		ModelVariant Model;
 		float TotalDeltaTime = 0.f;
 		std::shared_ptr< GltfModelConfig>  ModelConfig;
-		std::vector<std::shared_ptr<MeshBase>> ProceduralMeshes;
-		math::AABB3 ProceduralBox;
 	};
 
 	GltfMeshComponent::GltfMeshComponent(std::weak_ptr<Actor> Owner)
@@ -73,13 +71,14 @@ namespace Engine
 				Path += L"/" + d->ModelConfig->GetModelName();
 				if (Path.find(L".glb") != std::wstring::npos)
 				{
-					if (!d->gltfModel.Load(Path, d->ModelConfig))
+					d->Model.emplace<GltfModel>();
+					if (!std::get<GltfModel>(d->Model).Load(Path, d->ModelConfig))
 						return false;
 				}
 				else
 				{
-					d->isGltfModel = false;
-					if (!d->objModel.Load(Path, d->ModelConfig))
+					d->Model.emplace<ObjModel>();
+					if (!std::get<ObjModel>(d->Model).Load(Path, d->ModelConfig))
 						return false;
 				}
 			}
@@ -90,7 +89,8 @@ namespace Engine
 		}
 		else
 		{
-			if (!d->gltfModel.Load(FileName,nullptr))
+			d->Model.emplace<GltfModel>();
+			if (!std::get<GltfModel>(d->Model).Load(FileName, nullptr))
 			{
 				return false;
 			}
@@ -111,10 +111,10 @@ namespace Engine
 				ProceduralBuildResult BuildResult;
 				if (BuildProceduralFloor(GltfJson["ProceduralFloor"], BuildResult))
 				{
-					d->ProceduralMeshes = std::move(BuildResult.Meshes);
-					d->ProceduralBox = BuildResult.Box;
-					d->isProcedural = true;
-					d->isGltfModel = false;
+					ProceduralModel PM;
+					PM.Meshes = std::move(BuildResult.Meshes);
+					PM.Box = BuildResult.Box;
+					d->Model = std::move(PM);
 					return true;
 				}
 			}
@@ -130,13 +130,14 @@ namespace Engine
 			Path += L"/" + d->ModelConfig->GetModelName();
 			if (Path.find(L".glb") != std::wstring::npos)
 			{
-				if (!d->gltfModel.Load(Path, d->ModelConfig))
+				d->Model.emplace<GltfModel>();
+				if (!std::get<GltfModel>(d->Model).Load(Path, d->ModelConfig))
 					return false;
 			}
 			else
 			{
-				d->isGltfModel = false;
-				if (!d->objModel.Load(Path, d->ModelConfig))
+				d->Model.emplace<ObjModel>();
+				if (!std::get<ObjModel>(d->Model).Load(Path, d->ModelConfig))
 					return false;
 			}
 			return true;
@@ -150,17 +151,25 @@ namespace Engine
 	GltfModel& GltfMeshComponent::GetModel() const
 	{
 		C_P(GltfMeshComponent);
-		return d->gltfModel;
+		// Backward compatibility: this component historically exposed gltfModel directly.
+		// If current model isn't GLTF, return a default-constructed temporary stored in variant.
+		if (!std::holds_alternative<GltfModel>(d->Model))
+		{
+			const_cast<GltfMeshComponentPrivate*>(d)->Model.emplace<GltfModel>();
+		}
+		return std::get<GltfModel>(d->Model);
 	}
 
 	math::AABB3 GltfMeshComponent::GetModelBox() const
 	{
 		C_P(const GltfMeshComponent);
-		if (d->isProcedural)
-		{
-			return d->ProceduralBox;
-		}
-		return d->gltfModel.GetModelBox();
+		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
+			return PM->Box;
+		if (auto GM = std::get_if<GltfModel>(&d->Model))
+			return GM->GetModelBox();
+		if (auto OM = std::get_if<ObjModel>(&d->Model))
+			return OM->GetModelBox();
+		return {};
 	}
 
 
@@ -168,13 +177,9 @@ namespace Engine
 	{
 		C_P(GltfMeshComponent);
 		d->TotalDeltaTime += deltaTime;
-		if (d->isProcedural)
+		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
-			return;
-		}
-		if (d->isGltfModel)
-		{
-			d->gltfModel.Play(d->TotalDeltaTime, deltaTime);
+			GM->Play(d->TotalDeltaTime, deltaTime);
 		}
 		
 	}
@@ -182,13 +187,9 @@ namespace Engine
 	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
 	{
 		C_P(GltfMeshComponent);
-		if (d->isProcedural)
+		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
-			return;
-		}
-		if (d->isGltfModel)
-		{
-			auto& RootNodes = d->gltfModel.GetSkeleton()->GetRootNode();
+			auto& RootNodes = GM->GetSkeleton()->GetRootNode();
 			if (!RootNodes.empty())
 			{
 				math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
@@ -203,26 +204,24 @@ namespace Engine
 		C_P(GltfMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
 		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
-		if (d->isProcedural)
+		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
 		{
-			math::AABB3 Box = d->ProceduralBox.Transform(SceneMeshInfo.WorldTransform);
+			math::AABB3 Box = PM->Box.Transform(SceneMeshInfo.WorldTransform);
 			bool Render = Camera->GetFrustum().Intersects(Box);
 			if (Render)
 			{
-				for (auto& Mesh : d->ProceduralMeshes)
-				{
+				for (auto& Mesh : PM->Meshes)
 					SceneMeshInfo.Meshes.push_back(Mesh);
-				}
 			}
 			return Render;
 		}
-		if (d->isGltfModel)
+		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
-			math::AABB3 Box = d->gltfModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+			math::AABB3 Box = GM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 			bool Render = Camera->GetFrustum().Intersects(Box);
 			if (Render)
 			{
-				auto& TmpMeshs = d->gltfModel.GetModelMesh();
+				auto& TmpMeshs = GM->GetModelMesh();
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
 					SceneMeshInfo.Meshes.push_back(Item);
 					});
@@ -230,13 +229,13 @@ namespace Engine
 			}
 			return Render;
 		}
-		else
+		if (auto OM = std::get_if<ObjModel>(&d->Model))
 		{
-			math::AABB3 Box = d->objModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+			math::AABB3 Box = OM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 			bool Render = Camera->GetFrustum().Intersects(Box);
 			if (Render)
 			{
-				auto& TmpMeshs = d->objModel.GetModelMesh();
+				auto& TmpMeshs = OM->GetModelMesh();
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<ObjMesh> Item) {
 					SceneMeshInfo.Meshes.push_back(Item);
 					});
@@ -244,6 +243,7 @@ namespace Engine
 			}
 			return Render;
 		}
+		return false;
 
 	}
 

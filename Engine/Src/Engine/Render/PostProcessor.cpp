@@ -28,10 +28,10 @@ namespace Engine
 	struct PostProcessorPrivate
 	{
 		DynamicRHI* RHI = nullptr;
-		std::shared_ptr<RHIVertexShader> VertexShader;
-		std::shared_ptr<RHIPixelShader> PixelShader;
-		std::shared_ptr<RHIPixelShader> AppalyBloomShader;
-		std::shared_ptr<RHIPixelShader> AppalySSRShader;
+		std::shared_ptr<PostProcessFullscreenShaders> FullscreenShaders;
+		std::shared_ptr<TonemappingPass> Tonemapping;
+		std::shared_ptr<ApplyBloomPass> ApplyBloom;
+		std::shared_ptr<ApplySSRPass> ApplySSR;
 		std::shared_ptr<TemporallAA> TAA;
 		std::shared_ptr<RenderCore::FXAA> FXaa;
 		std::shared_ptr<Bloom> BloomEffect;
@@ -43,14 +43,10 @@ namespace Engine
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
 			, RHI(_RHI)
-			, GET_SHADER_STRUCT_MEMBER(CBPerFrame)(_RHI)
-			, GET_SHADER_STRUCT_MEMBER(ENVContant)(_RHI)
 		{
 
 		}
 		DECLARE_SHADER_STRUCT_MEMBER(BloomContants);
-		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame);
-		DECLARE_SHADER_STRUCT_MEMBER(ENVContant);
 	};
 
 	struct PostProcessPassInputs
@@ -62,17 +58,6 @@ namespace Engine
 		// Anti-aliasing runs after SSR and bloom have been composed into SceneColorWithBloom.
 		std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor;
 	};
-
-	FullscreenPostProcessPassResources GetFullscreenPassResources(PostProcessorPrivate* PrivateData)
-	{
-		FullscreenPostProcessPassResources Resources;
-		Resources.VertexShader = PrivateData->VertexShader;
-		Resources.TonemappingShader = PrivateData->PixelShader;
-		Resources.ApplyBloomShader = PrivateData->AppalyBloomShader;
-		Resources.ApplySSRShader = PrivateData->AppalySSRShader;
-		Resources.BloomConstants = &PrivateData->GET_SHADER_STRUCT_MEMBER(BloomContants);
-		return Resources;
-	}
 
 	PostProcessor::PostProcessor(RenderCore::DynamicRHI* RHI)
 		:d_ptr(new PostProcessorPrivate(RHI))
@@ -129,13 +114,22 @@ namespace Engine
 	void PostProcessor::InitResource()
 	{
 		C_P(PostProcessor);
-		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
-		ShaderPath += L"PostProcess.hlsl";
+		if (!d->FullscreenShaders)
+			d->FullscreenShaders = std::make_shared<PostProcessFullscreenShaders>(d->RHI);
+		d->FullscreenShaders->InitResource();
+		std::shared_ptr<RHIVertexShader> FullscreenVertexShader = d->FullscreenShaders->GetVertexShader();
 
-		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_ScreenQuad", {}, {});
-		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_Tonemapping", {});
-		d->AppalyBloomShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ApplyBloom", {});
-		d->AppalySSRShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_ApplySSR", {});
+		d->Tonemapping = std::make_shared<TonemappingPass>(d->RHI, FullscreenVertexShader);
+		d->Tonemapping->InitResource();
+
+		d->ApplyBloom = std::make_shared<ApplyBloomPass>(
+			d->RHI,
+			FullscreenVertexShader,
+			&d->GET_SHADER_STRUCT_MEMBER(BloomContants));
+		d->ApplyBloom->InitResource();
+
+		d->ApplySSR = std::make_shared<ApplySSRPass>(d->RHI, FullscreenVertexShader);
+		d->ApplySSR->InitResource();
 
 		switch (d->AAType)
 		{
@@ -202,13 +196,11 @@ namespace Engine
 			[SSRReflectionColor]() { return SSRReflectionColor; });
 		Graph.AddPass(SSRPassNode.BuildDesc());
 
-		ApplySSRPass Pass(
+		Graph.AddPass(d->ApplySSR->BuildDesc(
 			RHIContext,
 			TargetBuffer,
 			ViewPort,
-			GetFullscreenPassResources(d),
-			[d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; });
-		Graph.AddPass(Pass.BuildDesc());
+			[d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
 	void PostProcessor::BuildBloomPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
@@ -223,14 +215,12 @@ namespace Engine
 			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); });
 		Graph.AddPass(BloomPassNode.BuildDesc());
 
-		ApplyBloomPass Pass(
+		Graph.AddPass(d->ApplyBloom->BuildDesc(
 			RHIContext,
 			TargetBuffer,
 			ViewPort,
-			GetFullscreenPassResources(d),
 			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); },
-			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; });
-		Graph.AddPass(Pass.BuildDesc());
+			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
 	void PostProcessor::BuildAAPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
@@ -269,13 +259,11 @@ namespace Engine
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);
-		TonemappingPass Pass(
+		Graph.AddPass(d->Tonemapping->BuildDesc(
 			RHIContext,
 			TargetBuffer,
 			ViewPort,
-			GetFullscreenPassResources(d),
-			[d, TargetBuffer]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : TargetBuffer->GetSceneColor(); });
-		Graph.AddPass(Pass.BuildDesc());
+			[d, TargetBuffer]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : TargetBuffer->GetSceneColor(); }));
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> PostProcessor::GetSSRBuffer() const

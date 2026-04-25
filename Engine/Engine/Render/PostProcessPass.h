@@ -1,10 +1,12 @@
 #pragma once
 #include "core/inc.h"
 #include "Render/Bloom.h"
+#include "Render/PostProcessFullscreenShaders.h"
 #include "Render/PostProcessGraph.h"
 
 namespace RenderCore
 {
+	class DynamicRHI;
 	class FXAA;
 	class RHICommandContext;
 	class RHIPixelShader;
@@ -21,33 +23,24 @@ namespace Engine
 	class SSRProcessor;
 	class TemporallAA;
 
-	struct FullscreenPostProcessPassResources
-	{
-		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
-		std::shared_ptr<RenderCore::RHIPixelShader> TonemappingShader;
-		std::shared_ptr<RenderCore::RHIPixelShader> ApplyBloomShader;
-		std::shared_ptr<RenderCore::RHIPixelShader> ApplySSRShader;
-		BloomContantsWrap* BloomConstants = nullptr;
-	};
-
 	class TonemappingPass
 	{
 	public:
-		TonemappingPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-						std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
-						FullscreenPostProcessPassResources Resources,
-						std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
+		TonemappingPass(RenderCore::DynamicRHI* RHI, std::shared_ptr<RenderCore::RHIVertexShader> VertexShader);
 
-		RenderPassDesc BuildDesc() const;
+		void InitResource();
+		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const;
 
 	private:
-		void Execute() const;
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const;
 
-		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<GBuffer> TargetBuffer;
-		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
-		FullscreenPostProcessPassResources Resources;
-		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
+		RenderCore::DynamicRHI* RHI = nullptr;
+		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
+		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
 	};
 
 	class SSRPass
@@ -93,43 +86,45 @@ namespace Engine
 	class ApplyBloomPass
 	{
 	public:
-		ApplyBloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-					   std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
-					   FullscreenPostProcessPassResources Resources,
-					   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
-					   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture);
+		ApplyBloomPass(RenderCore::DynamicRHI* RHI, std::shared_ptr<RenderCore::RHIVertexShader> VertexShader,
+					   BloomContantsWrap* BloomConstants);
 
-		RenderPassDesc BuildDesc() const;
+		void InitResource();
+		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const;
 
 	private:
-		void Execute() const;
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const;
 
-		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<GBuffer> TargetBuffer;
-		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
-		FullscreenPostProcessPassResources Resources;
-		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
-		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture;
+		RenderCore::DynamicRHI* RHI = nullptr;
+		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
+		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
+		BloomContantsWrap* BloomConstants = nullptr;
 	};
 
 	class ApplySSRPass
 	{
 	public:
-		ApplySSRPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
-					 FullscreenPostProcessPassResources Resources,
-					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture);
+		ApplySSRPass(RenderCore::DynamicRHI* RHI, std::shared_ptr<RenderCore::RHIVertexShader> VertexShader);
 
-		RenderPassDesc BuildDesc() const;
+		void InitResource();
+		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const;
 
 	private:
-		void Execute() const;
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const;
 
-		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<GBuffer> TargetBuffer;
-		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
-		FullscreenPostProcessPassResources Resources;
-		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture;
+		RenderCore::DynamicRHI* RHI = nullptr;
+		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
+		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
 	};
 
 	class TAAPass

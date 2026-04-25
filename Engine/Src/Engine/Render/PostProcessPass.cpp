@@ -1,4 +1,6 @@
 #include "Render/PostProcessPass.h"
+#include "core/system.h"
+#include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIPipeLineState.h"
@@ -15,32 +17,62 @@ namespace Engine
 	namespace
 	{
 		RenderCore::GraphicsPipelineStateInitializer CreateFullscreenPipelineState(
-			const FullscreenPostProcessPassResources& Resources,
+			std::shared_ptr<RenderCore::RHIVertexShader> VertexShader,
 			std::shared_ptr<RenderCore::RHIPixelShader> PixelShader)
 		{
 			RenderCore::GraphicsPipelineStateInitializer Init;
-			Init.VertexShader = Resources.VertexShader;
+			Init.VertexShader = VertexShader;
 			Init.PixelShader = PixelShader;
 			Init.BlendState = RenderCore::RHICachedStates::BlendTraditional;
 			Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 			Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 			return Init;
 		}
+
+		std::wstring GetPostProcessShaderPath()
+		{
+			return core::process_directory().wstring() + L"/ShaderLibDX/PostProcess.hlsl";
+		}
 	}
 
-	TonemappingPass::TonemappingPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-									 std::shared_ptr<RenderCore::RHIViewPort> InViewPort,
-									 FullscreenPostProcessPassResources InResources,
-									 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
-		: RHIContext(InRHIContext)
-		, TargetBuffer(std::move(InTargetBuffer))
-		, ViewPort(std::move(InViewPort))
-		, Resources(std::move(InResources))
-		, SourceTexture(std::move(InSourceTexture))
+	TonemappingPass::TonemappingPass(RenderCore::DynamicRHI* InRHI, std::shared_ptr<RenderCore::RHIVertexShader> InVertexShader)
+		: RHI(InRHI)
+		, VertexShader(std::move(InVertexShader))
 	{
 	}
 
-	RenderPassDesc TonemappingPass::BuildDesc() const
+	void TonemappingPass::InitResource()
+	{
+		PixelShader = RHI->RHICreatePixelShader(GetPostProcessShaderPath(), "PS_Tonemapping", {});
+	}
+
+	ApplyBloomPass::ApplyBloomPass(RenderCore::DynamicRHI* InRHI, std::shared_ptr<RenderCore::RHIVertexShader> InVertexShader,
+								   BloomContantsWrap* InBloomConstants)
+		: RHI(InRHI)
+		, VertexShader(std::move(InVertexShader))
+		, BloomConstants(InBloomConstants)
+	{
+	}
+
+	void ApplyBloomPass::InitResource()
+	{
+		PixelShader = RHI->RHICreatePixelShader(GetPostProcessShaderPath(), "PS_ApplyBloom", {});
+	}
+
+	ApplySSRPass::ApplySSRPass(RenderCore::DynamicRHI* InRHI, std::shared_ptr<RenderCore::RHIVertexShader> InVertexShader)
+		: RHI(InRHI)
+		, VertexShader(std::move(InVertexShader))
+	{
+	}
+
+	void ApplySSRPass::InitResource()
+	{
+		PixelShader = RHI->RHICreatePixelShader(GetPostProcessShaderPath(), "PS_ApplySSR", {});
+	}
+
+	RenderPassDesc TonemappingPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const
 	{
 		return {
 			"Tonemapping",
@@ -48,14 +80,16 @@ namespace Engine
 				{ "SourceColor", SourceTexture }
 			},
 			{},
-			[Pass = *this]() { Pass.Execute(); }
+			[this, &RHIContext, TargetBuffer, ViewPort, SourceTexture]() { Execute(RHIContext, TargetBuffer, ViewPort, SourceTexture); }
 		};
 	}
 
-	void TonemappingPass::Execute() const
+	void TonemappingPass::Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+								  std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+								  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const
 	{
 		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(Resources, Resources.TonemappingShader));
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
@@ -130,21 +164,10 @@ namespace Engine
 		BloomEffect->Draw(RHIContext, TargetBuffer);
 	}
 
-	ApplyBloomPass::ApplyBloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-								   std::shared_ptr<RenderCore::RHIViewPort> InViewPort,
-								   FullscreenPostProcessPassResources InResources,
-								   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture,
-								   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InBloomTexture)
-		: RHIContext(InRHIContext)
-		, TargetBuffer(std::move(InTargetBuffer))
-		, ViewPort(std::move(InViewPort))
-		, Resources(std::move(InResources))
-		, SourceTexture(std::move(InSourceTexture))
-		, BloomTexture(std::move(InBloomTexture))
-	{
-	}
-
-	RenderPassDesc ApplyBloomPass::BuildDesc() const
+	RenderPassDesc ApplyBloomPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const
 	{
 		return {
 			"ApplyBloom",
@@ -155,17 +178,20 @@ namespace Engine
 			{
 				{ "SceneColorWithBloom", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetSceneColorWithBloom(); } }
 			},
-			[Pass = *this]() { Pass.Execute(); }
+			[this, &RHIContext, TargetBuffer, ViewPort, SourceTexture, BloomTexture]() { Execute(RHIContext, TargetBuffer, ViewPort, SourceTexture, BloomTexture); }
 		};
 	}
 
-	void ApplyBloomPass::Execute() const
+	void ApplyBloomPass::Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const
 	{
 		if (!BloomTexture())
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(Resources, Resources.ApplyBloomShader));
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
@@ -173,29 +199,19 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, BloomTexture());
 
-		if (Resources.BloomConstants)
+		if (BloomConstants)
 		{
-			Resources.BloomConstants->Data.BloomIntensity = 1.0f;
-			Resources.BloomConstants->UpdateUniformBuffer();
-			Resources.BloomConstants->SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+			BloomConstants->Data.BloomIntensity = 1.0f;
+			BloomConstants->UpdateUniformBuffer();
+			BloomConstants->SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 		}
 
 		RHIContext.Draw(3);
 	}
 
-	ApplySSRPass::ApplySSRPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-							   std::shared_ptr<RenderCore::RHIViewPort> InViewPort,
-							   FullscreenPostProcessPassResources InResources,
-							   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSSRTexture)
-		: RHIContext(InRHIContext)
-		, TargetBuffer(std::move(InTargetBuffer))
-		, ViewPort(std::move(InViewPort))
-		, Resources(std::move(InResources))
-		, SSRTexture(std::move(InSSRTexture))
-	{
-	}
-
-	RenderPassDesc ApplySSRPass::BuildDesc() const
+	RenderPassDesc ApplySSRPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+										   std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+										   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const
 	{
 		return {
 			"ApplySSR",
@@ -206,17 +222,19 @@ namespace Engine
 			{
 				{ "SceneColorWithSSR", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetSceneColorWithSSR(); } }
 			},
-			[Pass = *this]() { Pass.Execute(); }
+			[this, &RHIContext, TargetBuffer, ViewPort, SSRTexture]() { Execute(RHIContext, TargetBuffer, ViewPort, SSRTexture); }
 		};
 	}
 
-	void ApplySSRPass::Execute() const
+	void ApplySSRPass::Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+							   std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+							   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const
 	{
 		if (!SSRTexture())
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplySSR");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(Resources, Resources.ApplySSRShader));
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithSSR(), nullptr);

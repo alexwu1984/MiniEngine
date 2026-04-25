@@ -11,6 +11,7 @@
       }
     ],
 
+    "AAType": "FXAA",
     "RotateIBL": "0,0"
   },
   "Modles": [

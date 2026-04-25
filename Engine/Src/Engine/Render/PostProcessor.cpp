@@ -37,6 +37,7 @@ namespace Engine
 		std::shared_ptr<SSRProcessor> SSREffect;
 		bool EnableSSR = false;
 		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
+		bool IsResourceInitialized = false;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -77,6 +78,33 @@ namespace Engine
 			input_json_file >> Root;
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
+
+			EPostProcessorAAType ConfigAAType = d->AAType;
+			if (EvnJson.find("AAType") != EvnJson.end())
+			{
+				const auto& AATypeJson = EvnJson["AAType"];
+				if (AATypeJson.is_string())
+				{
+					const std::string AAType = AATypeJson.get<std::string>();
+					if (AAType == "FXAA" || AAType == "fxaa")
+						ConfigAAType = EPostProcessorAAType::FXAA;
+					else if (AAType == "TAA" || AAType == "taa")
+						ConfigAAType = EPostProcessorAAType::TAA;
+				}
+				else if (AATypeJson.is_number_integer())
+				{
+					ConfigAAType = AATypeJson.get<int>() == 1 ? EPostProcessorAAType::FXAA : EPostProcessorAAType::TAA;
+				}
+			}
+
+			if (d->AAType != ConfigAAType)
+			{
+				d->AAType = ConfigAAType;
+				d->TAA.reset();
+				d->FXaa.reset();
+				if (d->IsResourceInitialized)
+					InitResource();
+			}
 		}
 		catch (const std::exception&)
 		{
@@ -112,6 +140,7 @@ namespace Engine
 
 		d->SSREffect = std::make_shared<SSRProcessor>(d->RHI);
 		d->SSREffect->InitResource();
+		d->IsResourceInitialized = true;
 	}
 
 	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
@@ -126,7 +155,7 @@ namespace Engine
 			AABuffer = d->TAA->GetHistoryBuffer();
 			break;
 		case EPostProcessorAAType::FXAA:
-			AABuffer = d->FXaa->GetResult();
+			AABuffer = TargetBuffer->GetSceneColor();
 			break;
 		}
 

@@ -23,7 +23,7 @@ namespace Engine
 		DECLARE_PARAM_VALUE(int32_t, NumRays, 16)
 		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0) // 用于时间维度随机种子
 		DECLARE_PARAM(math::Vector2, Resolution)
-		DECLARE_PARAM_VALUE(float, TemporalBlendFactor, 0.85f)
+		DECLARE_PARAM_VALUE(float, TemporalBlendFactor, 0.93f)
 		DECLARE_PARAM(math::Vector3, Pad0)
 	BEGIN_STRUCT_CONSTRUCT(SSRContants)
 		END_STRUCT_CONSTRUCT
@@ -126,6 +126,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(SSRContants).NumRays = 1;
 		d->GET_UNIFORMDATA(SSRContants).FrameIndex = d->First ? 1 : Camera->GetFrameIndex();
 		d->GET_UNIFORMDATA(SSRContants).Resolution = math::Vector2(static_cast<float>(ViewPort->GetSize().cx), static_cast<float>(ViewPort->GetSize().cy));
+		d->GET_UNIFORMDATA(SSRContants).TemporalBlendFactor = 0.93f;
 		d->First = false;
 		
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).UpdateUniformBuffer();

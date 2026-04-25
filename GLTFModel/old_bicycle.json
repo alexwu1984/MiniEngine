@@ -11,6 +11,7 @@
       }
     ],
     "EnableSSR": true,
+    "AAType": "TAA",
     "RotateIBL": "0,0"
   },
   "Modles": [

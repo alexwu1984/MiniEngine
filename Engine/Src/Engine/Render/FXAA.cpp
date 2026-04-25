@@ -63,7 +63,8 @@ namespace RenderCore
 		std::wstring PSShaderPath = ShaderPath + L"FXAA.xsf";
 		std::vector< RHIShaderMacro> ShaderMacros;
 		ShaderMacros.push_back({"XIN_FXAA_QUALITY_LEVEL","16"});
-		ShaderMacros.push_back({"XIN_FXAA_CONSOLE","1"});
+		ShaderMacros.push_back({"XIN_FXAA_CONSOLE","0"});
+		ShaderMacros.push_back({"FXAA_GREEN_AS_LUMA","0"});
 		d->PixelShader = d->RHI->RHICreatePixelShader(PSShaderPath, "FXAA_3_11_PixelShader", ShaderMacros);
 	}
 
@@ -90,6 +91,9 @@ namespace RenderCore
 		RHIContext.RHISetShaderTexture(SF_Pixel, 0, TargetBuffer);
 		d->GET_UNIFORMDATA(ShaderParameter).FXAATexelSize = { 1.0f/static_cast<float>(TargetBuffer->GetSize().x),
 															  1.0f/static_cast<float>(TargetBuffer->GetSize().y) };
+		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThresholdMin = 0.0156f;
+		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThreshold = 0.0312f;
+		d->GET_UNIFORMDATA(ShaderParameter).FXAASubpix = 1.0f;
 		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).SetShaderUniformBuffer(EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);

@@ -195,6 +195,8 @@ float4 PS_SSR(float2 Tex : TEXCOORD, float4 SVPosition : SV_Position) : SV_Targe
 	{
 		CurrentFrameColor /= AccumWeight;
 	}
+	float HitMask = NumRays > 0 ? AccumWeight / NumRays : 0.0;
+	CurrentFrameColor.a = saturate(HitMask * (1.0 - Roughness));
 
 	// Temporal accumulation denoising: blend current and history frames
 	float4 FinalColor = CurrentFrameColor;
@@ -228,8 +230,6 @@ float4 PS_SSR(float2 Tex : TEXCOORD, float4 SVPosition : SV_Position) : SV_Targe
 			FinalColor = lerp(CurrentFrameColor, HistoryColor, BlendWeight);
 		}
 	}
-	float HitMask = NumRays > 0 ? AccumWeight / NumRays : 0.0;
-	FinalColor.a = saturate(HitMask * (1.0 - Roughness));
 
 	return FinalColor;
 }

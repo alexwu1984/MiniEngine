@@ -27,71 +27,72 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-	if (0)
-	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND([this](RenderCore::DynamicRHI* RHI) {
-			if (!_Demo)
-			{
-				_Demo = std::make_shared<PostProcessorDemo>(RHI);
-			}
-			_Demo->InitResource();
-			auto sceneRender = Engine::GEngine->GetSceneRender();
-			sceneRender->SetSamplePostProcessor(_Demo);
-			});
-	}
+	// Mutually exclusive: exclusive fullscreen post effect only, or normal GLTF viewer.
+	const bool bExclusiveFullscreenPostEffect = false;
 
-	if (1)
+	core::filesystem::path Path = core::process_directory();
+	auto Scene = Engine::GEngine->GetScene();
+
+	if (bExclusiveFullscreenPostEffect)
 	{
-		core::filesystem::path Path = core::process_directory();
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model5.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
-		SelIndex = 0;
-		auto Scene = Engine::GEngine->GetScene();
+		SceneRender::RegisterExclusiveFullscreenEffect(
+			"PostProcessorDemo",
+			[](RenderCore::DynamicRHI* RHI) -> std::shared_ptr<SimplePostProcessor>
+			{ return std::make_shared<PostProcessorDemo>(RHI); });
+		const std::wstring ModelFile = Path.wstring() + L"/GLTFModel/FullscreenPostDemo.json";
 		Scene->LoadScene(ModelFile);
-
-		auto Camera = Scene->GetMainCamera();
-		if (Camera)
-		{
-			auto CameraPos = Camera->GetCameraPos();
-			Camera->SetCameraPos(CameraPos);
-		}
-
-		mDirectLight = Scene->GetLights()[0].Direction;
-
-		if (Engine::GEngine)
-		{
-			if (auto sr = Engine::GEngine->GetSceneRender())
-				sr->sigGuiEvent.unbind(this);
-			Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
-
-			ImGui::SetNextWindowPos(ImVec2(1, 1));
-			if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
-			{
-				auto& Lights = Scene->GetLights();
-				auto& DirectLight = Lights[0];
-
-				ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
-				ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
-				ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
-
-				DirectLight.Direction = mDirectLight;
-				DirectLight.Direction.Normalize();
-
-				ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
-				ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
-				Engine::GEngine->GetSceneRender()->SetIBLRotate(xHDRRotate,yHDRRotate);
-			}
-
-			ImGui::End();
-
-			}, this);
-		}
+		return true;
 	}
 
+	SceneRender::UnregisterExclusiveFullscreenEffect("PostProcessorDemo");
+
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/BS_Model5.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model5.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
+	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+	SelIndex = 0;
+	Scene->LoadScene(ModelFile);
+
+	auto Camera = Scene->GetMainCamera();
+	if (Camera)
+	{
+		auto CameraPos = Camera->GetCameraPos();
+		Camera->SetCameraPos(CameraPos);
+	}
+
+	mDirectLight = Scene->GetLights()[0].Direction;
+
+	if (Engine::GEngine)
+	{
+		if (auto sr = Engine::GEngine->GetSceneRender())
+			sr->sigGuiEvent.unbind(this);
+		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
+
+		ImGui::SetNextWindowPos(ImVec2(1, 1));
+		if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			auto& Lights = Scene->GetLights();
+			auto& DirectLight = Lights[0];
+
+			ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
+			ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
+			ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
+
+			DirectLight.Direction = mDirectLight;
+			DirectLight.Direction.Normalize();
+
+			ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
+			ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
+			Engine::GEngine->GetSceneRender()->SetIBLRotate(xHDRRotate,yHDRRotate);
+		}
+
+		ImGui::End();
+
+		}, this);
+	}
 
 	return true;
 }

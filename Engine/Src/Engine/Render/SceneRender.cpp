@@ -19,8 +19,27 @@
 #include "Render/GBuffer.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/SimplePostProcessor.h"
+#include "core/logger.h"
+#include <mutex>
+#include <optional>
+#include <unordered_map>
 
 using namespace RenderCore;
+
+namespace
+{
+	std::mutex GExclusiveFullscreenEffectRegistryMutex;
+	std::unordered_map<std::string, Engine::SceneRender::ExclusiveFullscreenEffectFactory> GExclusiveFullscreenEffectFactories;
+
+	std::shared_ptr<Engine::SimplePostProcessor> CreateExclusiveFullscreenEffectFromRegistry(const std::string& Id, DynamicRHI* RHI)
+	{
+		std::lock_guard<std::mutex> Lock(GExclusiveFullscreenEffectRegistryMutex);
+		const auto It = GExclusiveFullscreenEffectFactories.find(Id);
+		if (It == GExclusiveFullscreenEffectFactories.end())
+			return nullptr;
+		return It->second(RHI);
+	}
+}
 
 namespace Engine
 {
@@ -102,14 +121,74 @@ namespace Engine
 			});
 	}
 
+	void SceneRender::RegisterExclusiveFullscreenEffect(std::string Id, ExclusiveFullscreenEffectFactory Factory)
+	{
+		std::lock_guard<std::mutex> Lock(GExclusiveFullscreenEffectRegistryMutex);
+		GExclusiveFullscreenEffectFactories[std::move(Id)] = std::move(Factory);
+	}
+
+	void SceneRender::UnregisterExclusiveFullscreenEffect(const std::string& Id)
+	{
+		std::lock_guard<std::mutex> Lock(GExclusiveFullscreenEffectRegistryMutex);
+		GExclusiveFullscreenEffectFactories.erase(Id);
+	}
+
 	void SceneRender::LoadConfig(const nlohmann::json& Root)
 	{
 		C_P(SceneRender);
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root](RenderCore::DynamicRHI* RHI) {
+		std::optional<std::string> ExclusiveFullscreenEffectId;
+		try
+		{
+			if (Root.find("Evn") != Root.end() && Root["Evn"].is_object())
+			{
+				const auto& Evn = Root["Evn"];
+				const nlohmann::json* EffectNode = nullptr;
+				if (Evn.find("ExclusiveFullscreenPostEffect") != Evn.end())
+					EffectNode = &Evn["ExclusiveFullscreenPostEffect"];
+				else if (Evn.find("ExclusiveFullscreenPostDemo") != Evn.end())
+					EffectNode = &Evn["ExclusiveFullscreenPostDemo"];
+				if (EffectNode)
+				{
+					ExclusiveFullscreenEffectId = std::string{};
+					const auto& V = *EffectNode;
+					if (V.is_string())
+						*ExclusiveFullscreenEffectId = V.get<std::string>();
+					else if (V.is_boolean() && V.get<bool>())
+						*ExclusiveFullscreenEffectId = "PostProcessorDemo";
+				}
+			}
+		}
+		catch (const std::exception&)
+		{
+		}
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root, ExclusiveFullscreenEffectId](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 				d->PreProcess->LoadConfig(Root);
 			if (d->PostProcess)
 				d->PostProcess->LoadConfig(Root);
+
+			if (!ExclusiveFullscreenEffectId.has_value())
+				return;
+
+			if (ExclusiveFullscreenEffectId->empty())
+			{
+				d->SimplePostProc.reset();
+				return;
+			}
+
+			std::shared_ptr<SimplePostProcessor> Effect = CreateExclusiveFullscreenEffectFromRegistry(*ExclusiveFullscreenEffectId, RHI);
+			if (Effect)
+			{
+				Effect->InitResource();
+				d->SimplePostProc = std::move(Effect);
+			}
+			else
+			{
+				core::LOG(core::log_war, L"ExclusiveFullscreenPostEffect: no factory registered for id \"%S\"",
+						  ExclusiveFullscreenEffectId->c_str());
+				d->SimplePostProc.reset();
+			}
 		});
 	}
 

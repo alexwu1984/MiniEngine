@@ -103,14 +103,14 @@ namespace Engine
 			});
 	}
 
-	void SceneRender::LoadConfig(const std::wstring& FileName)
+	void SceneRender::LoadConfig(const nlohmann::json& Root)
 	{
 		C_P(SceneRender);
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, FileName](RenderCore::DynamicRHI* RHI) {
+		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
-				d->PreProcess->LoadConfig(FileName);
+				d->PreProcess->LoadConfig(Root);
 			if (d->PostProcess)
-				d->PostProcess->LoadConfig(FileName);
+				d->PostProcess->LoadConfig(Root);
 		});
 	}
 

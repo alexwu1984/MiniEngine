@@ -1,5 +1,6 @@
 #pragma once
 #include "RHI/DynamicRHI.h"
+#include "tinygltf/json.h"
 
 namespace core
 {
@@ -27,7 +28,7 @@ namespace Engine
 		void Init(std::shared_ptr< AppWindow> AppWin,RenderCore::RHIAPIType ApiType);
 		void StartThread();
 		void ShutDown();
-		void LoadConfig(const std::wstring& FileName);
+		void LoadConfig(const std::wstring& FileName, const nlohmann::json& Root);
 		std::wstring GetModelPath() const;
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
 		std::shared_ptr<AppWindow> GetAppWindow()const;

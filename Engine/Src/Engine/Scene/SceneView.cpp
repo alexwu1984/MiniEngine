@@ -55,14 +55,13 @@ namespace Engine
 	void SceneView::LoadScene(const std::wstring& ModelFile)
 	{
 		C_P(SceneView);
-		Engine::GEngine->LoadConfig(ModelFile);
+		nlohmann::json Root;
+		if (!LoadJsonFile(ModelFile, Root))
+			return;
+		Engine::GEngine->LoadConfig(ModelFile, Root);
 
 		try
 		{
-			nlohmann::json Root;
-			if (!LoadJsonFile(ModelFile, Root))
-				return;
-
 			nlohmann::json Models = Root["Modles"];
 			for (const auto &Model: Models)
 			{

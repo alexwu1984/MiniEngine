@@ -308,7 +308,7 @@ void TAA_Main(
 
     const float2 historyScreenST = screenST - velocity;
     const float2 historyScreenUV = GetUV(historyScreenST);
-    const float uvWeight = (historyScreenUV >= float2(0.f, 0.f) && historyScreenUV <= float2(1.f, 1.f)) ? 1.0f : 0.f;
+    const float uvWeight = (all(historyScreenUV >= float2(0.f, 0.f)) && all(historyScreenUV <= float2(1.f, 1.f))) ? 1.0f : 0.f;
     const bool hasValidHistory = (velocityConfidenceFactor * uvWeight) > 0.f;
 
     if (hasValidHistory == false)
@@ -345,9 +345,9 @@ void TAA_Main(
         TotalWeight += SampleWeights[i];
 #endif
     }
-    for (int i = 0; i < 9; i++)
+    for (int WeightIndex = 0; WeightIndex < 9; WeightIndex++)
     {
-        SampleWeights[i] /= TotalWeight;
+        SampleWeights[WeightIndex] /= TotalWeight;
     }
 
     // sample neighborhoods

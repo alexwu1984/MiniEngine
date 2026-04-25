@@ -34,7 +34,7 @@ struct VS_INPUT_SCENE
 //--------------------------------------------------------------------------------------
 VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
 {
-    VS_OUTPUT_SCENE Output;
+    VS_OUTPUT_SCENE Output = (VS_OUTPUT_SCENE)0;
 #ifdef HAS_WEIGHTS_0
     matrix skinningMatrix;
     skinningMatrix  = GetCurrentSkinningMatrix(input.JointsWeights0, input.JointsIndices0);
@@ -108,7 +108,7 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
 //shadow vs
 VS_OUTPUT_SCENE gltfVertexFactoryForLight(VS_INPUT_SCENE input)
 {
-    VS_OUTPUT_SCENE Output;
+    VS_OUTPUT_SCENE Output = (VS_OUTPUT_SCENE)0;
 #ifdef HAS_WEIGHTS_0
     matrix skinningMatrix;
     skinningMatrix  = GetCurrentSkinningMatrix(input.JointsWeights0, input.JointsIndices0);

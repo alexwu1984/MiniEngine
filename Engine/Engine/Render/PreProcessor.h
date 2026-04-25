@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inc.h"
+#include "tinygltf/json.h"
 
 namespace RenderCore
 {
@@ -19,7 +20,7 @@ namespace Engine
 		~PreProcessor();
 
 		void InitResource();
-		void LoadConfig(const std::wstring& FileName);
+		void LoadConfig(const nlohmann::json& Root);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
 		std::shared_ptr<IBLRender> GetIBLRender();

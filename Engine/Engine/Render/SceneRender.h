@@ -2,6 +2,7 @@
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
+#include "tinygltf/json.h"
 
 namespace RenderCore
 {
@@ -27,7 +28,7 @@ namespace Engine
 		std::shared_ptr<SceneView> GetOwner() const;
 
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
-		void LoadConfig(const std::wstring& FileName);
+		void LoadConfig(const nlohmann::json& Root);
 		void SetBackgroundColor(const core::FLinearColor& Color);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render(float DeltaTime);

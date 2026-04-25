@@ -92,12 +92,12 @@ namespace Engine
 		d->DynamicRHI = {};
 	}
 
-	void MainEngine::LoadConfig(const std::wstring& FileName)
+	void MainEngine::LoadConfig(const std::wstring& FileName, const nlohmann::json& Root)
 	{
 		C_P(MainEngine);
 		if (d->SeRender)
 		{
-			d->SeRender->LoadConfig(FileName);
+			d->SeRender->LoadConfig(Root);
 		}
 		d->ModelPath = std::filesystem::path(FileName).parent_path();
 	}

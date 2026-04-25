@@ -9,7 +9,6 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
-#include "Engine/JsonConfig.h"
 #include "Render/CubeRender.h"
 
 using namespace math;
@@ -93,15 +92,11 @@ namespace Engine
 		PreIntegrateBRDF();
 	}
 
-	void IBLRender::LoadConfig(const std::wstring& FileName)
+	void IBLRender::LoadConfig(const nlohmann::json& Root)
 	{
 		try
 		{
 			C_P(IBLRender);
-			nlohmann::json Root;
-			if (!LoadJsonFile(FileName, Root))
-				return;
-
 			nlohmann::json EvnJson = Root["Evn"];
 			std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(EvnJson["Hdr"]);
 			d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);

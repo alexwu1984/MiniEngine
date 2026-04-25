@@ -455,9 +455,9 @@ float3 Calculate3DVelocity(float4 CurrentVelocity, float4 PreVelocity)
 }
 
 
-PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
+PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 {
-	PS_OUTPUT_SCENE Output;
+	PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;
     
     float alpha;
     float perceptualRoughness;

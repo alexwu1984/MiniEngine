@@ -20,7 +20,7 @@ float3 Reinhard(float3 color)
     return color / (1 + color);
 }
 
-PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input) : SV_Target
+PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 {
 	// Initialize all output members to avoid "reading uninitialized value" error in Release mode
 	PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;

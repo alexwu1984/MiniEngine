@@ -19,7 +19,6 @@
 #include "Render/SceneRender.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
-#include "Engine/JsonConfig.h"
 
 namespace Engine
 {
@@ -63,15 +62,11 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	void PostProcessor::LoadConfig(const std::wstring& FileName)
+	void PostProcessor::LoadConfig(const nlohmann::json& Root)
 	{
 		try
 		{
 			C_P(PostProcessor);
-			nlohmann::json Root;
-			if (!LoadJsonFile(FileName, Root))
-				return;
-
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
 

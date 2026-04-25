@@ -243,8 +243,6 @@ float4 MainPS(float4 Position : SV_POSITION, float2 Texcoord : TEXCOORD) : SV_Ta
 #endif
 #define FXAA_HLSL_5 1
 
-#include "FXAA_3_11.xsh"
-
 #if XIN_FXAA_QUALITY_LEVEL == 0
 	#define FXAA_QUALITY__PRESET 10
 #elif XIN_FXAA_QUALITY_LEVEL == 1
@@ -281,9 +279,9 @@ float4 MainPS(float4 Position : SV_POSITION, float2 Texcoord : TEXCOORD) : SV_Ta
 	#define FXAA_QUALITY__PRESET 39
 #endif
 
-const int InnerFXAAPresetIDs[] = { 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 39 };
+#include "FXAA_3_11.xsh"
 
-float3 FXAA_3_11_PixelShader(VertexOutput psInput) : SV_Target
+float4 FXAA_3_11_PixelShader(VertexOutput psInput) : SV_Target
 {
     FxaaTex Input = { LinearClampSampler, Source };
     FxaaTex fxaaConsole360TexExpBiasNegOne;

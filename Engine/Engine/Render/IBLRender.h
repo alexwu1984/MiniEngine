@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inc.h"
+#include "tinygltf/json.h"
 
 namespace RenderCore
 {
@@ -20,7 +21,7 @@ namespace Engine
 		~IBLRender();
 
 		void InitResource();
-		void LoadConfig(const std::wstring& FileName);
+		void LoadConfig(const nlohmann::json& Root);
 		void LoadTex(const std::wstring& FileName);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 		std::shared_ptr<RenderCore::RHITextureCube> GetPreFilterCube();

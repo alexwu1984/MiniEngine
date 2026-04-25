@@ -1,6 +1,6 @@
 #include "RHI/RHI.h"
 #include "win/win32.h"
-
+#include "core/commandline.h"
 
 namespace RenderCore
 {
@@ -251,14 +251,9 @@ namespace RenderCore
 		return bSame;
 	}
 
-	static bool bCreateWithD3DDebug = false;
-	void D3D12RHI_SetShouldCreateWithD3DDebug(bool debug)
-	{
-		bCreateWithD3DDebug = debug;
-	}
-
 	bool D3D12RHI_ShouldCreateWithD3DDebug()
 	{
-		return bCreateWithD3DDebug;
+		return core::CommandLine::Get().GetName("d3ddebug") ||
+			core::CommandLine::Get().GetName("dxdebug");
 	}
 }

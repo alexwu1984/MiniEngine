@@ -193,13 +193,12 @@ namespace RenderCore
 		{
 			TableParams ^= (1 << RootIndex);
 			UINT TableSize = RootSignature.GetDescriptorTableSize(RootIndex);
-			CurrentOffset += TableSize;
 			Assert(TableSize > 0);
 
 			FDescriptorTableCache& DescriptorTable = m_RootDescriptorTable[RootIndex];
 			DescriptorTable.AssignedHandlesBitMap = 0;
 			DescriptorTable.TableStart = m_HandleCache + CurrentOffset;
-			DescriptorTable.TableSize += TableSize;
+			DescriptorTable.TableSize = TableSize;
 
 			CurrentOffset += TableSize;
 		}

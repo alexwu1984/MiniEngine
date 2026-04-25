@@ -217,11 +217,26 @@ namespace Engine
 		}
 		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
-			math::AABB3 Box = GM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
-			bool Render = Camera->GetFrustum().Intersects(Box);
+			// Use merged per-mesh WORLD bounds for culling.
+			// Reason: the final draw matrix is MeshMat * WorldTransform, and MeshMat may change at runtime
+			// (e.g. node animation). Using only the precomputed model AABB can incorrectly cull animated meshes.
+			math::AABB3 mergedWorldAabb;
+			bool mergedValid = false;
+			auto& TmpMeshs = GM->GetModelMesh();
+			for (const auto& Mesh : TmpMeshs)
+			{
+				if (!Mesh) continue;
+				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(Mesh->GetMeshMat() * SceneMeshInfo.WorldTransform);
+				mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
+				mergedValid = true;
+			}
+			// Fallback to model box if mesh list is empty.
+			if (!mergedValid)
+				mergedWorldAabb = GM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+
+			bool Render = Camera->GetFrustum().Intersects(mergedWorldAabb);
 			if (Render)
 			{
-				auto& TmpMeshs = GM->GetModelMesh();
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
 					SceneMeshInfo.Meshes.push_back(Item);
 					});
@@ -231,11 +246,22 @@ namespace Engine
 		}
 		if (auto OM = std::get_if<ObjModel>(&d->Model))
 		{
-			math::AABB3 Box = OM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
-			bool Render = Camera->GetFrustum().Intersects(Box);
+			math::AABB3 mergedWorldAabb;
+			bool mergedValid = false;
+			auto& TmpMeshs = OM->GetModelMesh();
+			for (const auto& Mesh : TmpMeshs)
+			{
+				if (!Mesh) continue;
+				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(Mesh->GetMeshMat() * SceneMeshInfo.WorldTransform);
+				mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
+				mergedValid = true;
+			}
+			if (!mergedValid)
+				mergedWorldAabb = OM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
+
+			bool Render = Camera->GetFrustum().Intersects(mergedWorldAabb);
 			if (Render)
 			{
-				auto& TmpMeshs = OM->GetModelMesh();
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<ObjMesh> Item) {
 					SceneMeshInfo.Meshes.push_back(Item);
 					});

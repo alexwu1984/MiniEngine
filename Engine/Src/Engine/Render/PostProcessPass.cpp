@@ -72,12 +72,13 @@ namespace Engine
 
 	RenderPassDesc TonemappingPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
-											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const
+											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+											 const std::string& SourceResourceName) const
 	{
 		return {
 			"Tonemapping",
 			{
-				{ "SourceColor", SourceTexture }
+				{ SourceResourceName, SourceTexture }
 			},
 			{},
 			[this, &RHIContext, TargetBuffer, ViewPort, SourceTexture]() { Execute(RHIContext, TargetBuffer, ViewPort, SourceTexture); }
@@ -134,12 +135,14 @@ namespace Engine
 
 	BloomPass::BloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
 						 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<Bloom> InBloomEffect,
-						 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
+						 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture,
+						 std::string InSceneColorDependencyName)
 		: RHIContext(InRHIContext)
 		, TargetBuffer(std::move(InTargetBuffer))
 		, ViewPort(std::move(InViewPort))
 		, BloomEffect(std::move(InBloomEffect))
 		, SourceTexture(std::move(InSourceTexture))
+		, SceneColorDependencyName(std::move(InSceneColorDependencyName))
 	{
 	}
 
@@ -148,7 +151,7 @@ namespace Engine
 		return {
 			"Bloom",
 			{
-				{ "SourceColor", SourceTexture }
+				{ SceneColorDependencyName, SourceTexture }
 			},
 			{
 				{ "BloomResult", [BloomEffect = BloomEffect]() { return BloomEffect ? BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
@@ -165,14 +168,14 @@ namespace Engine
 	}
 
 	RenderPassDesc ApplyBloomPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::string& SceneColorDependencyName,
 											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 											 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const
 	{
 		return {
 			"ApplyBloom",
 			{
-				{ "SourceColor", SourceTexture },
+				{ SceneColorDependencyName, SourceTexture },
 				{ "BloomResult", BloomTexture }
 			},
 			{

@@ -1,5 +1,7 @@
 #pragma once
 #include "core/inc.h"
+#include <cstddef>
+#include <vector>
 
 namespace RenderCore
 {
@@ -25,14 +27,15 @@ namespace Engine
 		bool ValidateOutputs = false;
 	};
 
-	// Phase 1: ordered pass list + optional import registry for future compile/validation.
-	// Execution order matches AddPass order; no automatic scheduling yet.
+	// Phase 1: ordered pass list + ImportTexture registry.
+	// Phase 2: edges from resource names (last writer before reader), Kahn topo sort;
+	//          ties broken by original pass index to preserve declaration order when unconstrained.
 	class FrameGraph
 	{
 	public:
 		void Clear();
 
-		// Records a persistent texture (e.g. GBuffer, swapchain). Not executed; used for documentation and later dependency checks.
+		// Available before the first pass (no producer in this graph), e.g. external history for SSR.
 		void ImportTexture(std::string Name, std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve, bool Required = true);
 
 		void AddPass(FramePassDesc Pass);
@@ -40,6 +43,7 @@ namespace Engine
 
 	private:
 		bool ValidatePass(const FramePassDesc& Pass) const;
+		bool BuildExecutionOrder(std::vector<std::size_t>& OutOrder) const;
 
 		std::vector<FrameGraphResource> Imports;
 		std::vector<FramePassDesc> Passes;

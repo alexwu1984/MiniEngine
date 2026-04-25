@@ -25,6 +25,18 @@
 namespace Engine
 {
 	using namespace RenderCore;
+
+	static void RegisterPostOnlyGBufferImports(FrameGraph& Graph, std::shared_ptr<GBuffer> TB)
+	{
+		if (!TB)
+			return;
+		Graph.ImportTexture("SceneColor", [TB]() { return TB->GetSceneColor(); }, false);
+		Graph.ImportTexture("MotionVector", [TB]() { return TB->GetMotionVector(); }, false);
+		Graph.ImportTexture("Normal", [TB]() { return TB->GetNormalBuffer(); }, false);
+		Graph.ImportTexture("MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); }, false);
+		Graph.ImportTexture("Depth", [TB]() { return TB->GetDepth(); }, false);
+	}
+
 	struct PostProcessorPrivate
 	{
 		DynamicRHI* RHI = nullptr;
@@ -155,6 +167,7 @@ namespace Engine
 						     std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
 	{
 		FrameGraph Graph;
+		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, Camera);
 		Graph.Execute();
 	}
@@ -176,6 +189,12 @@ namespace Engine
 		case EPostProcessorAAType::FXAA:
 			PassInputs.SSRReflectionColor = TargetBuffer->GetSceneColor();
 			break;
+		}
+
+		if (PassInputs.SSRReflectionColor)
+		{
+			std::shared_ptr<RHITexture2D> ReflectionSnap = PassInputs.SSRReflectionColor;
+			Graph.ImportTexture("ReflectionColor", [ReflectionSnap]() { return ReflectionSnap; }, false);
 		}
 
 		const bool UseSSRComposite = d->EnableSSR && d->SSREffect && PassInputs.SSRReflectionColor;
@@ -213,18 +232,21 @@ namespace Engine
 										 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite)
 	{
 		C_P(PostProcessor);
+		const std::string bloomSceneInput = UseSSRComposite ? "SceneColorWithSSR" : "SceneColor";
 		BloomPass BloomPassNode(
 			RHIContext,
 			TargetBuffer,
 			ViewPort,
 			d->BloomEffect,
-			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); });
+			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); },
+			bloomSceneInput);
 		Graph.AddPass(BloomPassNode.BuildDesc());
 
 		Graph.AddPass(d->ApplyBloom->BuildDesc(
 			RHIContext,
 			TargetBuffer,
 			ViewPort,
+			bloomSceneInput,
 			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); },
 			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
@@ -265,11 +287,13 @@ namespace Engine
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);
+		const std::string tonemapInput = (d->AAType == EPostProcessorAAType::FXAA && d->FXaa) ? "FXAAResult" : "SceneColor";
 		Graph.AddPass(d->Tonemapping->BuildDesc(
 			RHIContext,
 			TargetBuffer,
 			ViewPort,
-			[d, TargetBuffer]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : TargetBuffer->GetSceneColor(); }));
+			[d, TargetBuffer]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : TargetBuffer->GetSceneColor(); },
+			tonemapInput));
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> PostProcessor::GetSSRBuffer() const

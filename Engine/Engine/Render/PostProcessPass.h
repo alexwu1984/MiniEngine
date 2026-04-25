@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inc.h"
+#include <string>
 #include "Render/Bloom.h"
 #include "Render/PostProcessFullscreenShaders.h"
 #include "Render/PostProcessGraph.h"
@@ -31,7 +32,8 @@ namespace Engine
 		void InitResource();
 		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
-								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const;
+								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+								 const std::string& SourceResourceName) const;
 
 	private:
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
@@ -69,7 +71,8 @@ namespace Engine
 	public:
 		BloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<Bloom> BloomEffect,
-				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
+				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
+				  std::string SceneColorDependencyName);
 
 		RenderPassDesc BuildDesc() const;
 
@@ -81,6 +84,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<Bloom> BloomEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
+		std::string SceneColorDependencyName;
 	};
 
 	class ApplyBloomPass
@@ -91,7 +95,7 @@ namespace Engine
 
 		void InitResource();
 		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::string& SceneColorDependencyName,
 								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const;
 

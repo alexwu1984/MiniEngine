@@ -35,7 +35,7 @@ namespace Engine
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::vector<GltfSceneMeshInfo> MeshesInfo;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
-		std::shared_ptr<SimplePostProcessor> SimplePostProc;//??DEMO
+		std::shared_ptr<SimplePostProcessor> SimplePostProc; // Optional fullscreen sample pass (bypasses main scene graph).
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
 	};
@@ -253,11 +253,6 @@ namespace Engine
 				FrameGraph Graph;
 				auto TB = d->TargetBuffer;
 
-				Graph.ImportTexture("GBuffer.SceneColor", [TB]() { return TB->GetSceneColor(); }, false);
-				Graph.ImportTexture("GBuffer.Depth", [TB]() { return TB->GetDepth(); }, false);
-				Graph.ImportTexture("GBuffer.Motion", [TB]() { return TB->GetMotionVector(); }, false);
-				Graph.ImportTexture("GBuffer.Normal", [TB]() { return TB->GetNormalBuffer(); }, false);
-
 				Graph.AddPass(FramePassDesc{
 					"PreProcess",
 					{},
@@ -281,7 +276,14 @@ namespace Engine
 				Graph.AddPass(FramePassDesc{
 					"ClearGBufferAndBackground",
 					{},
-					{},
+					{
+						{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
+						{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
+						{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
+						{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
+						{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
+						{ "Depth", [TB]() { return TB->GetDepth(); } },
+					},
 					[d, RHI]()
 					{
 						d->MainViewPort->SetRenderTarget();
@@ -304,8 +306,22 @@ namespace Engine
 
 				Graph.AddPass(FramePassDesc{
 					"Geometry",
-					{},
-					{},
+					{
+						{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
+						{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
+						{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
+						{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
+						{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
+						{ "Depth", [TB]() { return TB->GetDepth(); } },
+					},
+					{
+						{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
+						{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
+						{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
+						{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
+						{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
+						{ "Depth", [TB]() { return TB->GetDepth(); } },
+					},
 					[d, RHI, MeshesInfo, Owner]()
 					{
 						if (MeshesInfo.size())

@@ -29,6 +29,16 @@ namespace Engine
 
 	SceneView::~SceneView()
 	{
+		if (GEngine)
+		{
+			if (auto win = GEngine->GetAppWindow())
+			{
+				win->EvtMouseButtonDown.unbind(this);
+				win->EvtMouseButtonUp.unbind(this);
+				win->EvtMouseMove.unbind(this);
+				win->EvtMouseWheel.unbind(this);
+			}
+		}
 		delete d_ptr;
 	}
 

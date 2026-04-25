@@ -22,7 +22,7 @@ GltfViewApp::GltfViewApp()
 
 GltfViewApp::~GltfViewApp()
 {
-
+	ShutDown();
 }
 
 bool GltfViewApp::Init()
@@ -47,8 +47,8 @@ bool GltfViewApp::Init()
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
 		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model5.json";
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
-		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+		//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
+		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 		SelIndex = 0;
 		auto Scene = Engine::GEngine->GetScene();
 		Scene->LoadScene(ModelFile);
@@ -62,7 +62,11 @@ bool GltfViewApp::Init()
 
 		mDirectLight = Scene->GetLights()[0].Direction;
 
-		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
+		if (Engine::GEngine)
+		{
+			if (auto sr = Engine::GEngine->GetSceneRender())
+				sr->sigGuiEvent.unbind(this);
+			Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
 
 			ImGui::SetNextWindowPos(ImVec2(1, 1));
 			if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
@@ -85,6 +89,7 @@ bool GltfViewApp::Init()
 			ImGui::End();
 
 			}, this);
+		}
 	}
 
 
@@ -93,6 +98,9 @@ bool GltfViewApp::Init()
 
 void GltfViewApp::ShutDown()
 {
+	if (Engine::GEngine)
+		if (auto sr = Engine::GEngine->GetSceneRender())
+			sr->sigGuiEvent.unbind(this);
 	_Demo = {};
 	AGltfModel = {};
 }

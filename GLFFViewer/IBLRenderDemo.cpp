@@ -27,7 +27,9 @@ IBLRenderDemo::IBLRenderDemo(RenderCore::DynamicRHI* RHI)
 
 IBLRenderDemo::~IBLRenderDemo()
 {
-
+	if (Engine::GEngine)
+		if (auto sr = Engine::GEngine->GetSceneRender())
+			sr->sigGuiEvent.unbind(this);
 }
 
 void IBLRenderDemo::InitResource()
@@ -68,7 +70,11 @@ void IBLRenderDemo::InitResource()
 	m_GenIrradiancePS = m_RHI->RHICreatePixelShader(ShaderPath, "PS_GenIrradiance", {});
 	m_GenPrefilterPS = m_RHI->RHICreatePixelShader(ShaderPath, "PS_GenPrefiltered", {});
 
-	Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this] {
+	if (Engine::GEngine)
+		if (auto sr = Engine::GEngine->GetSceneRender())
+			sr->sigGuiEvent.unbind(this);
+	if (Engine::GEngine)
+		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this] {
 
 		static bool ShowConfig = true;
 		if (!ShowConfig)

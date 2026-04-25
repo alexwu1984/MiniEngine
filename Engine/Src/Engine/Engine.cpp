@@ -69,6 +69,9 @@ namespace Engine
 	void MainEngine::ShutDown()
 	{
 		C_P(MainEngine);
+		d->GameTick.SigTick.unbind(this);
+		if (d->AppWin)
+			d->AppWin->EvtSizeChanged.unbind(this);
 		d->GameTick.Stop();
 		if (d->RThread)
 		{

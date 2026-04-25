@@ -1,7 +1,7 @@
 {
   "Evn": {
     "Hdr": "HDR/delta_2_2k.hdr",
-    "AmbientStrength": 1.48,
+    "AmbientStrength": 0.72,
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
@@ -18,8 +18,10 @@
       "Model": "floor.glb",
       "Scale": 0.05,
       "Material": {
-        "Metallic": 0.5,
-        "Roughness": 0.1,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "IBLMaterialScale": 0.22,
+        "OverrideMR": true,
         "BaseColor": "0.5,0.5,0.5,1.0"
       },
       "UseMaterial": true

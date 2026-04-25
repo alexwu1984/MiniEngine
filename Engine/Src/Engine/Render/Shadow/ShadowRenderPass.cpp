@@ -15,6 +15,7 @@
 #include "Engine/Scene/Actor.h"
 #include "math/aabb3.h"
 #include "math/vector2.h"
+#include <unordered_set>
 
 namespace Engine
 {
@@ -58,6 +59,7 @@ namespace Engine
 		RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
 	{
 		C_P(ShadowRenderPass);
+		(void)RHIContext;
 		d->ShadowMgr->Update(View);
 
 		std::shared_ptr<Actor> projActor;
@@ -77,8 +79,29 @@ namespace Engine
 
 		const std::vector<GltfSceneMeshInfo>& boundsMeshes = FrustumBoundsMeshes.empty() ? ShadowCasterMeshes : FrustumBoundsMeshes;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([this, projActor, View, ShadowCasterMeshes, boundsMeshes, &RHIContext](RenderCore::DynamicRHI* RHI) {
+		std::unordered_set<const MeshBase*> casterMeshPtrs;
+		for (const auto& MeshInfo : ShadowCasterMeshes)
+		{
+			for (const auto& Mesh : MeshInfo.Meshes)
+			{
+				if (Mesh)
+					casterMeshPtrs.insert(Mesh.get());
+			}
+		}
+		for (auto it = d->ShadowRenders.begin(); it != d->ShadowRenders.end(); )
+		{
+			if (!it->first || casterMeshPtrs.find(it->first.get()) == casterMeshPtrs.end())
+				it = d->ShadowRenders.erase(it);
+			else
+				++it;
+		}
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND([this, projActor, View, ShadowCasterMeshes, boundsMeshes](RenderCore::DynamicRHI* RHI) {
 			C_P(ShadowRenderPass);
+
+			auto shadowCtx = RHI->GetDefaultCommandContext();
+			if (!shadowCtx)
+				return;
 
 			auto& Lights = View->GetLights();
 			Light& mainLight = Lights[0];
@@ -152,9 +175,9 @@ namespace Engine
 				centerY - sizeY, centerY + sizeY,
 				nearValue, farValue);
 
-			RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+			shadowCtx->Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
 			auto TargetSize = d->DepthRenderBuffer->GetSize();
-			RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
+			shadowCtx->SetViewPort(0, 0, TargetSize.x, TargetSize.y);
 
 			for (const auto& MeshInfo : ShadowCasterMeshes)
 			{
@@ -177,7 +200,7 @@ namespace Engine
 						}
 					}
 
-					shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight, d->DepthRenderBuffer);
+					shadowRender->Draw(*shadowCtx, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight, d->DepthRenderBuffer);
 				}
 			}
 		});

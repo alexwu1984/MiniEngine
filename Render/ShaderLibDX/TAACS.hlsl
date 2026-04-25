@@ -13,6 +13,7 @@ cbuffer CB0 : register(b0)
     float4  Resolution;                     // width, height, 1/width, 1/height
     int     FrameIndex;
     float3  Pad0;
+    float4  CurrentJitterPixels;
 }
 
 //------------------------------------------------------- MACRO DEFINITION
@@ -21,14 +22,9 @@ cbuffer CB0 : register(b0)
 
 //------------------------------------------------------- PARAMETERS
 static const float Exposure = 10;
-// Reduce blend weight to minimize ghosting during motion
-// Lower values = less history = less ghosting but more flickering
-// Balance between ghosting reduction and noise suppression
-static const float BlendWeightLowerBound = 0.04f;           
-static const float BlendWeightUpperBound = 0.18f;           
-// Variance clipping - balance between ghosting prevention and avoiding black pixels
-static const float MIN_VARIANCE_GAMMA = 0.85f;             
-static const float MAX_VARIANCE_GAMMA = 1.75f;             
+// Filament default feedback: current-frame contribution.
+static const float Feedback = 0.08f;
+static const float VarianceGamma = 1.0f;
 static const float FRAME_VELOCITY_IN_PIXELS_DIFF = 128.0f;  // valid for 1920x1080
 
 static const int2 SampleOffsets[9] =
@@ -116,6 +112,17 @@ static float CatmullRom(float x)
         return (1.5f * ax - 2.5f) * ax * ax + 1.0f;
 }
 
+// 1-D Lanczos-2 filter, matching Filament's jitter-aware input reconstruction.
+float Lanczos2(float x)
+{
+    float x2 = x * x;
+    float wA = x2 - 4.0f;
+    float wB = x2 * wA - wA;
+    wA *= wA;
+    wB *= wA;
+    return wB * (1.0f / 64.0f);
+}
+
 // Helper to convert ST coords to UV
 float2 GetUV(float2 inST)
 {
@@ -135,11 +142,44 @@ float3 GetCurrentColour(float2 screenST)
 float3 SampleHistory(float2 inHistoryST)
 {
     float2 historyScreenUV = GetUV(inHistoryST);
-    // TODO: Sample the history using Catmull-Rom to reduce blur on motion.
-    // https://www.shadertoy.com/view/4tyGDD
 
-    float3 history = InTemporal.SampleLevel(MinMagLinearMipPointClamp, historyScreenUV, 0).rgb;
-    //float3 history = InTemporal[inHistoryST].rgb;
+    float2 samplePos = historyScreenUV * Resolution.xy;
+    float2 texPos1 = floor(samplePos - 0.5f.xx) + 0.5f.xx;
+    float2 f = samplePos - texPos1;
+    float2 f2 = f * f;
+    float2 f3 = f2 * f;
+
+    float2 w0 = f2 - 0.5f * (f3 + f);
+    float2 w1 = 1.5f * f3 - 2.5f * f2 + 1.0f;
+    float2 w3 = 0.5f * (f3 - f2);
+    float2 w2 = 1.0f - w0 - w1 - w3;
+    float2 w12 = w1 + w2;
+
+    float2 texPos0 = texPos1 - 1.0f.xx;
+    float2 texPos3 = texPos1 + 2.0f.xx;
+    float2 texPos12 = texPos1 + w2 / w12;
+
+    texPos0 *= Resolution.zw;
+    texPos3 *= Resolution.zw;
+    texPos12 *= Resolution.zw;
+
+    float k0 = w12.x * w0.y;
+    float k1 = w0.x * w12.y;
+    float k2 = w12.x * w12.y;
+    float k3 = w3.x * w12.y;
+    float k4 = w12.x * w3.y;
+
+    float3 s0 = InTemporal.SampleLevel(MinMagLinearMipPointClamp, float2(texPos12.x, texPos0.y), 0).rgb;
+    float3 s1 = InTemporal.SampleLevel(MinMagLinearMipPointClamp, float2(texPos0.x, texPos12.y), 0).rgb;
+    float3 s2 = InTemporal.SampleLevel(MinMagLinearMipPointClamp, float2(texPos12.x, texPos12.y), 0).rgb;
+    float3 s3 = InTemporal.SampleLevel(MinMagLinearMipPointClamp, float2(texPos3.x, texPos12.y), 0).rgb;
+    float3 s4 = InTemporal.SampleLevel(MinMagLinearMipPointClamp, float2(texPos12.x, texPos3.y), 0).rgb;
+
+    float3 history = (k0 * s0 + k1 * s1 + k2 * s2 + k3 * s3 + k4 * s4) * rcp(max(k0 + k1 + k2 + k3 + k4, 0.0001f));
+    float3 boxMin = min(min(min(s0, s1), min(s2, s3)), s4);
+    float3 boxMax = max(max(max(s0, s1), max(s2, s3)), s4);
+    history = clamp(history, boxMin, boxMax);
+
     history = ToneMap(history);
     history = RGBToYCoCg(history);
     return history;
@@ -284,6 +324,11 @@ void TAA_Main(
     float3 prevColor = SampleHistory(historyScreenST);
     
     // SetupSampleWeight
+    float2 reconstructedSamplePos = screenST + 0.5f.xx;
+    float2 closestInputSampleST = floor(reconstructedSamplePos - CurrentJitterPixels.xy);
+    float2 closestInputSamplePos = closestInputSampleST + 0.5f.xx;
+    float2 dcenter = closestInputSamplePos + CurrentJitterPixels.xy - reconstructedSamplePos;
+
     float SampleWeights[9];
     float TotalWeight = 0.0f;
     for (int i = 0; i < 9; i++)
@@ -292,7 +337,7 @@ void TAA_Main(
         float PixelOffsetY = SampleOffsets[i].y;
 
 #if SPATIAL_WEIGHT_CATMULLROM
-        SampleWeights[i] = CatmullRom(PixelOffsetX) * CatmullRom(PixelOffsetY);
+        SampleWeights[i] = Lanczos2(dcenter.x + PixelOffsetX) * Lanczos2(dcenter.y + PixelOffsetY);
         TotalWeight += SampleWeights[i];
 #else
         // Normal distribution, Sigma = 0.47
@@ -306,9 +351,6 @@ void TAA_Main(
     }
 
     // sample neighborhoods
-    uint N = 9;
-    float3 m1 = 0.0f;
-    float3 m2 = 0.0f;
     float3 neighborMin = float3(9999999.0f, 9999999.0f, 9999999.0f);
     float3 neighborMax = float3(-99999999.0f, -99999999.0f, -99999999.0f);
 
@@ -327,7 +369,7 @@ void TAA_Main(
 
             // offset
             float2 sampleOffset = float2(x, y);
-            float2 sampleST = screenST + sampleOffset;
+            float2 sampleST = closestInputSampleST + sampleOffset;
 
             // sample
             float3 NeighborhoodSamp = GetCurrentColour(sampleST);
@@ -339,14 +381,7 @@ void TAA_Main(
             neighborMin = min(neighborMin, NeighborhoodSamp);
             neighborMax = max(neighborMax, NeighborhoodSamp);
 
-            m1 += NeighborhoodSamp;
-            m2 += NeighborhoodSamp * NeighborhoodSamp;
-
-            float SampleSpatialWeight = SampleWeights[i];
-            float SampleHdrWeight = HdrWeight4(NeighborhoodSamp, Exposure);
-
-            // combine two weight
-            float SampleFinalWeight = SampleSpatialWeight * SampleHdrWeight;
+            float SampleFinalWeight = SampleWeights[i];
             
             NeighborsColor += SampleFinalWeight * NeighborhoodSamp;
             NeighborsFinalWeight += SampleFinalWeight;
@@ -355,26 +390,30 @@ void TAA_Main(
 
     // compute filteredColor
     FilteredColor = NeighborsColor * rcp(max(NeighborsFinalWeight, 0.0001));
+    FilteredColor = clamp(FilteredColor, neighborMin, neighborMax);
 
-    // shappen 
-    float3 highFreq = neighborhood[1] + neighborhood[3] + neighborhood[5] + neighborhood[7] - 4 * neighborhood[4];
-    FilteredColor += highFreq * 0.1f;
-
-   float LumaHistory = Luma4(prevColor);
+    float3 box5Min = min(neighborhood[4], min(min(neighborhood[1], neighborhood[3]), min(neighborhood[5], neighborhood[7])));
+    float3 box5Max = max(neighborhood[4], max(max(neighborhood[1], neighborhood[3]), max(neighborhood[5], neighborhood[7])));
+    float3 aabbMin = lerp(box5Min, neighborMin, 0.5f);
+    float3 aabbMax = lerp(box5Max, neighborMax, 0.5f);
 
     // variance clip
-    float3 mu = m1 / N;
-    float3 sigma = sqrt(abs(m2 / N - mu * mu));
-    float VarianceClipGamma = lerp(MIN_VARIANCE_GAMMA, MAX_VARIANCE_GAMMA, velocityConfidenceFactor);
-    neighborMin = mu - VarianceClipGamma * sigma;
-    neighborMax = mu + VarianceClipGamma * sigma;
+    float3 m1 = neighborhood[4] + neighborhood[1] + neighborhood[3] + neighborhood[5] + neighborhood[7];
+    float3 m2 = neighborhood[4] * neighborhood[4] +
+        neighborhood[1] * neighborhood[1] +
+        neighborhood[3] * neighborhood[3] +
+        neighborhood[5] * neighborhood[5] +
+        neighborhood[7] * neighborhood[7];
+    float3 mu = m1 * 0.2f;
+    float3 sigma = sqrt(abs(m2 * 0.2f - mu * mu));
+    neighborMin = max(aabbMin, mu - VarianceGamma * sigma);
+    neighborMax = min(aabbMax, mu + VarianceGamma * sigma);
     prevColor = ClampHistory(neighborMin, neighborMax, prevColor, mu);
 
     // compute blend amount 
     float BlendFinal;
     {
-        float LumaFiltered = Luma4(FilteredColor);
-        BlendFinal = lerp(BlendWeightLowerBound, BlendWeightUpperBound, saturate(1 - velocityConfidenceFactor));
+        BlendFinal = Feedback;
         // Ensure blend weight is within valid range
         BlendFinal = saturate(BlendFinal);
     }

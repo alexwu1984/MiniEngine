@@ -26,7 +26,7 @@ float3 ApplySharpening(in float3 center, in float3 top, in float3 left, in float
     unsharpenMask -= RGBToYCoCg(bottom).x;
     unsharpenMask -= RGBToYCoCg(left).x;
     unsharpenMask -= RGBToYCoCg(right).x;
-    result.x = min(result.x + 0.25f * unsharpenMask, 1.1f * result.x);
+    result.x = min(result.x + 0.12f * unsharpenMask, 1.05f * result.x);
     return YCoCgToRGB(result);
 }
 
@@ -38,14 +38,15 @@ float3 ReinhardInverse(in float3 sdr)
 [numthreads(8, 8, 1)]
 void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThreadID, uint localIndex : SV_GroupIndex, uint3 groupID : SV_GroupID)
 {
-    const float3 center = TAABuffer[globalID.xy].xyz;
-    const float3 top = TAABuffer[globalID.xy + uint2(0, 1)].xyz;
-    const float3 left = TAABuffer[globalID.xy + uint2(1, 0)].xyz;
-    const float3 right = TAABuffer[globalID.xy + uint2(-1, 0)].xyz;
-    const float3 bottom = TAABuffer[globalID.xy + uint2(0, -1)].xyz;
+    uint width;
+    uint height;
+    TAABuffer.GetDimensions(width, height);
+    if (globalID.x >= width || globalID.y >= height)
+    {
+        return;
+    }
 
-    const float3 color = ApplySharpening(center, top, left, right, bottom);
-
-    HDR[globalID.xy] = float4(ReinhardInverse(color), 1.0f);
+    const int2 pixel = int2(globalID.xy);
+    HDR[globalID.xy] = float4(TAABuffer[pixel].xyz, 1.0f);
    // History[globalID.xy] = float4(center, 1.0f);
 }

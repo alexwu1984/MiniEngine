@@ -16,6 +16,7 @@ namespace Engine
 		DECLARE_PARAM(math::Vector4, Resolution)
 		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0)
 		DECLARE_PARAM(math::Vector3,Pad0)
+		DECLARE_PARAM(math::Vector4, CurrentJitterPixels)
 	BEGIN_STRUCT_CONSTRUCT(TAAContants)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT
@@ -89,6 +90,12 @@ namespace Engine
 
 			d->GET_UNIFORMDATA(TAAContants).Resolution = math::Vector4(width, height, rcpWidth, rcpHeight);
 			d->GET_UNIFORMDATA(TAAContants).FrameIndex = d->First ? 1 : Camera->GetFrameIndex();
+			const math::Vector4 TemporalAAJitter = Camera->GetTemporalAAJitter();
+			d->GET_UNIFORMDATA(TAAContants).CurrentJitterPixels = math::Vector4(
+				TemporalAAJitter.x * width * 0.5f,
+				-TemporalAAJitter.y * height * 0.5f,
+				0.0f,
+				0.0f);
 
 			d->First = false;
 

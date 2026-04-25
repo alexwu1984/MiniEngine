@@ -82,11 +82,12 @@ namespace Engine
 
 	void Actor::ComputeWorldTransform(float deltaTime)
 	{
+		ImplActorP->PrevWorldTransform = ImplActorP->WorldTransform;
+
 		if (ImplActorP->RecomputeWorldTransform)
 		{
 			ImplActorP->RecomputeWorldTransform = false;
 
-			ImplActorP->PrevWorldTransform = ImplActorP->WorldTransform;
 			// Scale, then rotate, then translate
 			ImplActorP->WorldTransform = Matrix4x4::ScaleMatrix(ImplActorP->Scale);  
 			

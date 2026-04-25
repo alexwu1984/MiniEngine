@@ -200,31 +200,14 @@ namespace Engine
 		d->FrameIndex++;
 		d->FrameIndexMod2 = d->FrameIndex % 2;
 
-		// Uniformly distribute temporal jittering in [-.5; .5], because there is no longer any alignement of input and output pixels.
-		//s_JitterX = Halton(s_FrameIndex , 2) - 0.5f;
-		//s_JitterX = Halton(s_FrameIndex , 3) - 0.5f;
-		float u1 = Halton(d->FrameIndex, 2);
-		float u2 = Halton(d->FrameIndex, 3);
+		// Match Filament's default HALTON_23_X16 pattern. The 409 offset keeps
+		// the short sequence centered around 0.5 and avoids an obvious first sample.
+		const int32_t JitterIndex = static_cast<int32_t>((d->FrameIndex - 1) % 16) + 409;
+		const float JitterX = Halton(JitterIndex, 2) - 0.5f;
+		const float JitterY = Halton(JitterIndex, 3) - 0.5f;
 
-		// Generates samples in normal distribution
-		// exp( x^2 / Sigma^2 )
-		float FilterSize = 1;
-
-		// Scale distribution to set non-unit variance
-		// Variance = Sigma^2
-		float Sigma = 0.47f * FilterSize;
-
-		// Window to [-0.5, 0.5] output
-		// Without windowing we could generate samples far away on the infinite tails.
-		float OutWindow = 0.5f;
-		float InWindow = std::exp(-0.5f * (float)std::pow(OutWindow / Sigma, 2));
-
-		// Box-Muller transform
-		float Theta = 2.0f * MATH_PI * u2;
-		float r = Sigma * std::sqrt(-2.0f * std::log((1.0f - u1) * InWindow + u1));
-
-		d->jitterX = r * std::cos(Theta) * 2.f / static_cast<float>(width);
-		d->jitterY = r * std::sin(Theta) * -2.f / static_cast<float>(height);
+		d->jitterX = JitterX * 2.f / static_cast<float>(width);
+		d->jitterY = JitterY * -2.f / static_cast<float>(height);
 	}
 
 	math::Matrix4x4 CameraComponent::HackAddTemporalAAProjectionJitter(bool PrevFrame /*= false*/)

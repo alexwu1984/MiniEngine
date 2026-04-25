@@ -193,7 +193,7 @@ namespace Engine
 		RenderParam.RotateIBL = Rotate;
 		RenderParam.TargetBuffer = d->TargetBuffer;
 
-		if (Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
+		if (!IsPreDraw && Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
 		{
 			auto& Bone = Mesh->GetBoneNodeArray()[Mesh->GetSkinId()];
 			for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)

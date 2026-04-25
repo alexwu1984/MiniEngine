@@ -28,7 +28,6 @@ namespace Engine
 		~PostProcessor();
 
 		void LoadConfig(const std::wstring& FileName);
-		float GetAmbientIBLScale() const;
 		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
 				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera);

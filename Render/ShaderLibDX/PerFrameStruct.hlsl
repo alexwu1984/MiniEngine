@@ -34,9 +34,7 @@ static const int LightType_Spot = 2;
 struct MaterialPerFrame
 {
     float Metallic;
-    float Roughness;
-    float IBLMaterialScale;
-    uint MROverride;
+    int3 Padding;
 };
 
 struct PerFrame

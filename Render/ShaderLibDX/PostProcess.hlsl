@@ -56,7 +56,8 @@ float4 PS_ApplySSR(in VertexOutput Input) : SV_Target0
 {
     float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
     float4 SSR = SSRBuffer.Sample(LinearSampler, Input.Tex);
-    return float4(Color * (1-SSR.a) + SSR.rgb, 1.0);
+    float ReflectMask = saturate(SSR.a);
+    return float4(Color + SSR.rgb * ReflectMask, 1.0);
 }
 
 static float2 offsets[9] =

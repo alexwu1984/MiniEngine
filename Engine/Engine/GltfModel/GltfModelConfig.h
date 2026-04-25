@@ -30,10 +30,6 @@ namespace Engine
 		float Metallic{ 0.0 };
 		float Roughness{ 1.0 };
 		math::Vector4 BaseColor{ 1.0f,1.0f,1.0f,1.0f };
-		// Scale IBL specular/diffuse for this draw (e.g. dull floor with visible albedo).
-		float IBLMaterialScale{ 1.f };
-		// When true, use Roughness/Metallic from config instead of MR texture for lighting.
-		bool OverrideMRForLighting{ false };
 	};
 
 	class GltfModelConfig

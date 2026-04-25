@@ -161,9 +161,6 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.RotateIBL = d->RenderParam.RotateIBL;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.TemporalAAJitter = d->RenderParam.TemporalAAJitter;
-		if (auto scene = GEngine->GetSceneRender())
-			if (auto post = scene->GetPostProcessor())
-				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLFactor = post->GetAmbientIBLScale();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
@@ -189,15 +186,7 @@ namespace Engine
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = RenderParam.lightInfos[index];
 		}
 
-		const auto& MatCfg = d->MeshMaterial->GetMaterialConfig();
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = MatCfg.Metallic;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Roughness = MatCfg.Roughness;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.IBLMaterialScale = MatCfg.IBLMaterialScale;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.MROverride = MatCfg.OverrideMRForLighting ? 1u : 0u;
-
-		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());

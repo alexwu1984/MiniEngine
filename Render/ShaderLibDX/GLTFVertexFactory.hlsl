@@ -143,8 +143,6 @@ VS_OUTPUT_SCENE gltfVertexFactoryForLight(VS_INPUT_SCENE input)
    
  #endif
     Output.svPosition = mul(float4(Output.WorldPos, 1.0f), GetMainLightViewProj());
-	Output.svPosition/= Output.svPosition.w;
-    Output.svPosition.z = Output.svPosition.z*0.5+0.5;
     
     return Output;
 }

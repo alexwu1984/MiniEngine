@@ -217,7 +217,7 @@ float ComputeShadow(float4 ShadowCoord, float3 Normal)
 	// Outside shadow clip: treat as lit (avoid broken banding at frustum edges).
 	if (position.z <= 0.0 || position.z >= 1.0)
 		return 1.0;
-	position = position * float3(0.5, -0.5, 0.5) + float3(0.5, 0.5, 0.5);
+	position.xy = position.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
 	if (any(position.xy < 0.0) || any(position.xy > 1.0))
 		return 1.0;
 

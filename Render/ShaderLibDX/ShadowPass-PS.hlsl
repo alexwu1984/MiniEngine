@@ -3,6 +3,6 @@
 
 float4 MainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
-	float depth = Input.svPosition.z/Input.svPosition.w;
+	float depth = Input.svPosition.z;
     return float4(depth, depth * depth, 1.0f, 1.0f);
 }

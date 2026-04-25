@@ -422,13 +422,8 @@ namespace RenderCore
 		else
 			PSDesc.InputLayout.pInputElementDescs = nullptr;
 
-		size_t HashCode = RootSignature->GetPipelineStateHash();
-		if (HashCode == 0)
-		{
-			HashCode = core::Crc::HashState(&PSDesc);
-			HashCode = core::Crc::HashState(InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
-			RootSignature->SetPipelineStateHash(HashCode);
-		}
+		size_t HashCode = core::Crc::HashState(&PSDesc);
+		HashCode = core::Crc::HashState(InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
@@ -517,12 +512,7 @@ namespace RenderCore
 			return false;
 		}
 
-		size_t HashCode = RootSignature->GetPipelineStateHash();
-		if (HashCode == 0)
-		{
-			HashCode = core::Crc::HashState(&CSDesc);
-			RootSignature->SetPipelineStateHash(HashCode);
-		}
+		size_t HashCode = core::Crc::HashState(&CSDesc);
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{

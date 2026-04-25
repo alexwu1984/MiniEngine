@@ -7,6 +7,15 @@
 
 namespace RenderCore
 {
+	static size_t HashShaderMacros(const std::vector<RHIShaderMacro>& MacroDefines, size_t Hash)
+	{
+		for (const RHIShaderMacro& Macro : MacroDefines)
+		{
+			Hash = core::HashString(Macro.Name, Hash);
+			Hash = core::HashString(Macro.Definition, Hash);
+		}
+		return Hash;
+	}
 
 	FD3D12VertexShader::FD3D12VertexShader()
 		:RHIVertexShader(SF_Vertex)
@@ -49,6 +58,7 @@ namespace RenderCore
 		KeyName = core::format(Path.filename().string(),"_", VSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		Hash = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), Hash);
+		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
 		return true;
 	}
 
@@ -90,6 +100,7 @@ namespace RenderCore
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", PSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
+		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
 		return true;
 	}
 
@@ -131,6 +142,7 @@ namespace RenderCore
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", CSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
+		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
 		return true;
 	}
 

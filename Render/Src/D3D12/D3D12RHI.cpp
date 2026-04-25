@@ -22,6 +22,16 @@
 
 namespace RenderCore
 {
+	static size_t HashShaderMacros(const std::vector<RHIShaderMacro>& MacroDefines, size_t Hash)
+	{
+		for (const RHIShaderMacro& Macro : MacroDefines)
+		{
+			Hash = core::HashString(Macro.Name, Hash);
+			Hash = core::HashString(Macro.Definition, Hash);
+		}
+		return Hash;
+	}
+
 	/**
  * Attempts to create a D3D12 device for the adapter using at minimum MinFeatureLevel.
  * If creation is successful, true is returned and the max supported feature level is set in OutMaxFeatureLevel.
@@ -532,6 +542,7 @@ namespace RenderCore
 		auto Key = core::ucs2_u8(FileName) + VSMain;
 		auto HashCode = core::Crc::MemCrc32(Key.c_str(), Key.length());
 		HashCode = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), HashCode);
+		HashCode = static_cast<uint32_t>(HashShaderMacros(MacroDefines, HashCode));
 		auto It = ShaderCache.VertexShaderCache.find(HashCode);
 		if (It != ShaderCache.VertexShaderCache.end())
 		{
@@ -550,6 +561,7 @@ namespace RenderCore
 	std::shared_ptr<RHIPixelShader> D3D12DynamicRHI::RHICreatePixelShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + PSMain);
+		HashCode = HashShaderMacros(MacroDefines, HashCode);
 		auto It = ShaderCache.PixelShaderCache.find(HashCode);
 		if (It != ShaderCache.PixelShaderCache.end())
 		{
@@ -567,6 +579,7 @@ namespace RenderCore
 	std::shared_ptr<RHIComputeShader> D3D12DynamicRHI::RHICreateComputeShader(const std::wstring& FileName, const std::string& CSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + CSMain);
+		HashCode = HashShaderMacros(MacroDefines, HashCode);
 		auto It = ShaderCache.ComputeShaderCache.find(HashCode);
 		if (It != ShaderCache.ComputeShaderCache.end())
 		{

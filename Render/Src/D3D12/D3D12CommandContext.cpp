@@ -330,9 +330,9 @@ namespace RenderCore
 
 		std::string key; 
 		if (d3d12VertexShader)
-			key = d3d12VertexShader->KeyName;
+			key = std::to_string(d3d12VertexShader->Hash);
 		if (d3d12PixelShader)
-			key += d3d12PixelShader->KeyName;
+			key += "_" + std::to_string(d3d12PixelShader->Hash);
 		
 		auto itFind = StateCacheMap.find(key);
 		if (itFind != StateCacheMap.end())
@@ -343,27 +343,25 @@ namespace RenderCore
 		{
 			CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
 			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
-
-			if (Initializer.BlendState)
-				RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-			if (Initializer.DepthStencilState)
-				RHISetDepthStencilState(Initializer.DepthStencilState, 0);
-			if (Initializer.RasterizerState)
-				RHISetRasterizerState(Initializer.RasterizerState);
-
-			if (Initializer.VertexShader)
-				CurrentStateCache->SetVertexShader(d3d12VertexShader);
-			else
-				CurrentStateCache->SetVertexShader(nullptr);
-
-			if (Initializer.PixelShader)
-				CurrentStateCache->SetPixelShader(d3d12PixelShader);
-			else
-				CurrentStateCache->SetPixelShader(nullptr);
-			CurrentStateCache->SetComputeShader(nullptr);
-
 		}
 
+		if (Initializer.BlendState)
+			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+		if (Initializer.DepthStencilState)
+			RHISetDepthStencilState(Initializer.DepthStencilState, 0);
+		if (Initializer.RasterizerState)
+			RHISetRasterizerState(Initializer.RasterizerState);
+
+		if (Initializer.VertexShader)
+			CurrentStateCache->SetVertexShader(d3d12VertexShader);
+		else
+			CurrentStateCache->SetVertexShader(nullptr);
+
+		if (Initializer.PixelShader)
+			CurrentStateCache->SetPixelShader(d3d12PixelShader);
+		else
+			CurrentStateCache->SetPixelShader(nullptr);
+		CurrentStateCache->SetComputeShader(nullptr);
 		CurrentStateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType, false));
 	}
 
@@ -527,7 +525,7 @@ namespace RenderCore
 		auto computeShader = std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader);
 		if (!computeShader)
 			return;
-		std::string key = computeShader->KeyName;
+		std::string key = std::to_string(computeShader->Hash);
 
 		auto itFind = StateCacheMap.find(key);
 		if (itFind != StateCacheMap.end())
@@ -538,8 +536,10 @@ namespace RenderCore
 		{
 			CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
 			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
-			CurrentStateCache->SetComputeShader(computeShader);
 		}
+		CurrentStateCache->SetVertexShader(nullptr);
+		CurrentStateCache->SetPixelShader(nullptr);
+		CurrentStateCache->SetComputeShader(computeShader);
 
 	}
 

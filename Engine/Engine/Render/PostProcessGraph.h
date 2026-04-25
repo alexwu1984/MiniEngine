@@ -8,12 +8,20 @@ namespace RenderCore
 
 namespace Engine
 {
+	struct RenderPassResource
+	{
+		std::string Name;
+		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve;
+		bool Required = true;
+	};
+
 	struct RenderPassDesc
 	{
 		std::string Name;
-		std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Inputs;
-		std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Outputs;
+		std::vector<RenderPassResource> Inputs;
+		std::vector<RenderPassResource> Outputs;
 		std::function<void()> Execute;
+		bool ValidateOutputs = false;
 	};
 
 	class PostProcessGraph
@@ -23,6 +31,7 @@ namespace Engine
 		void Execute();
 
 	private:
+		bool ValidatePass(const RenderPassDesc& Pass) const;
 		std::vector<RenderPassDesc> Passes;
 	};
 }

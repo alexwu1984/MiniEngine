@@ -43,6 +43,15 @@ namespace Engine
 			::ReleaseCapture();
 	}
 
+	static MouseButton GetPressedMouseButtonFromMessage(uint64_t wParam)
+	{
+		if ((wParam & MK_LBUTTON) || (::GetKeyState(VK_LBUTTON) & 0x8000))
+			return MouseButton::LeftButton;
+		if ((wParam & MK_RBUTTON) || (::GetKeyState(VK_RBUTTON) & 0x8000))
+			return MouseButton::RightButton;
+		return MouseButton::NoButton;
+	}
+
 	AppWindow::AppWindow(HINSTANCE hInst)
 		:d_ptr(new AppWindowPrivate())
 	{
@@ -107,13 +116,11 @@ namespace Engine
 		if (ImGui::GetCurrentContext())
 		{
 			const ImGuiIO& io = ImGui::GetIO();
-			const bool OwnsMouseCapture = ::GetCapture() == static_cast<HWND>(pWnd);
 			if (io.WantCaptureMouse && (message == WM_LBUTTONDOWN || message == WM_LBUTTONUP || 
 										message == WM_RBUTTONDOWN || message == WM_RBUTTONUP || 
 										message == WM_MBUTTONDOWN || message == WM_MBUTTONUP ||
 										message == WM_MOUSEWHEEL || message == WM_MOUSEMOVE)) {
-				if (!OwnsMouseCapture)
-					return ERROR_SUCCESS;
+				return ERROR_SUCCESS;
 			}
 		}
 
@@ -163,16 +170,7 @@ namespace Engine
 		case WM_MOUSEMOVE:
 		{
 			core::vec2f Point = GetMousePointFromLParam(lParam);
-
-			MouseButton Button = NoButton;
-			if (wParam & MK_LBUTTON)
-			{
-				Button = LeftButton;
-			}
-			else if (wParam & MK_RBUTTON)
-			{
-				Button = RightButton;
-			}
+			MouseButton Button = GetPressedMouseButtonFromMessage(wParam);
 			EvtMouseMove(Button, Point);
 		}
 		break;

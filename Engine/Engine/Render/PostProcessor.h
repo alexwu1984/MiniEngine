@@ -1,6 +1,7 @@
 #pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
+#include "Render/FrameGraph.h"
 
 namespace RenderCore
 {
@@ -13,7 +14,6 @@ namespace RenderCore
 namespace Engine
 {
 	struct PostProcessorPrivate;
-	class PostProcessGraph;
 	class GBuffer;
 	class CameraComponent;
 
@@ -33,18 +33,20 @@ namespace Engine
 		void InitResource();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
 				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera);
+		void AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera);
 		std::shared_ptr<RenderCore::RHITexture2D> GetSSRBuffer() const;
 		EPostProcessorAAType GetPostProcessorAAType() const;
 	private:
-		void BuildSSRPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildSSRPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
 							std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor);
-		void BuildBloomPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildBloomPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite);
-		void BuildAAPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildAAPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 						   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
 						   std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor);
-		void BuildTonemappingPass(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildTonemappingPass(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 								  std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 	private:
 		PostProcessorPrivate* d_ptr = nullptr;

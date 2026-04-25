@@ -14,7 +14,7 @@
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
 #include "Render/SSRProcessor.h"
-#include "Render/PostProcessGraph.h"
+#include "Render/FrameGraph.h"
 #include "Render/PostProcessPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "Scene/CameraComponent.h"
@@ -154,6 +154,14 @@ namespace Engine
 	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
 						     std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
 	{
+		FrameGraph Graph;
+		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, Camera);
+		Graph.Execute();
+	}
+
+	void PostProcessor::AddFramePasses(FrameGraph& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+									   std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
+	{
 		C_P(PostProcessor);
 
 		PostProcessPassInputs PassInputs;
@@ -170,16 +178,14 @@ namespace Engine
 			break;
 		}
 
-		PostProcessGraph Graph;
 		const bool UseSSRComposite = d->EnableSSR && d->SSREffect && PassInputs.SSRReflectionColor;
 		BuildSSRPasses(Graph, RHIContext, TargetBuffer, ViewPort, Camera, PassInputs.SSRReflectionColor);
 		BuildBloomPasses(Graph, RHIContext, TargetBuffer, ViewPort, UseSSRComposite);
 		BuildAAPasses(Graph, RHIContext, TargetBuffer, ViewPort, Camera, PassInputs.AntiAliasingColor);
 		BuildTonemappingPass(Graph, RHIContext, TargetBuffer, ViewPort);
-		Graph.Execute();
 	}
 
-	void PostProcessor::BuildSSRPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildSSRPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 									   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
 									   std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor)
 	{
@@ -203,7 +209,7 @@ namespace Engine
 			[d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildBloomPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildBloomPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 										 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite)
 	{
 		C_P(PostProcessor);
@@ -223,7 +229,7 @@ namespace Engine
 			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildAAPasses(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildAAPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 									  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
 									  std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor)
 	{
@@ -255,7 +261,7 @@ namespace Engine
 		}
 	}
 
-	void PostProcessor::BuildTonemappingPass(PostProcessGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildTonemappingPass(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);

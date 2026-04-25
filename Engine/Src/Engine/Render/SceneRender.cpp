@@ -15,6 +15,7 @@
 #include "Render/CubeBackground.h"
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
+#include "Render/FrameGraph.h"
 #include "Render/GBuffer.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/SimplePostProcessor.h"
@@ -34,7 +35,7 @@ namespace Engine
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::vector<GltfSceneMeshInfo> MeshesInfo;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
-		std::shared_ptr<SimplePostProcessor> SimplePostProc;//È«ÆÁÌØÐ§DEMO
+		std::shared_ptr<SimplePostProcessor> SimplePostProc;//??DEMO
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
 	};
@@ -204,19 +205,15 @@ namespace Engine
 		if (!CommandContext)
 			return;
 		C_P(SceneRender);
-		if (!d->IsInit || !GetOwner()->GetMainCamera())
+		std::shared_ptr<SceneView> Owner = GetOwner();
+		if (!d->IsInit || !Owner || !Owner->GetMainCamera())
 			return;
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, CommandContext](RenderCore::DynamicRHI* RHI) {
-			if (d->PreProcess)
-				d->PreProcess->Draw(*CommandContext);
-		});
 
 		d->MeshesInfo.clear();
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds;
 		std::vector<GltfSceneMeshInfo> shadowCasters;
 
-		const auto& Actors = GetOwner()->GetAllActors();
+		const auto& Actors = Owner->GetAllActors();
 		for (const auto& ActorItem : Actors)
 		{
 			if (ActorItem->GetState() != Actor::EActive || !ActorItem->IsVisible())
@@ -225,7 +222,7 @@ namespace Engine
 			for (auto& ComponentItem : Components)
 			{
 				GltfSceneMeshInfo SceneMeshInfo;
-				if (!ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+				if (!ComponentItem->GatherMesh(SceneMeshInfo, Owner->GetMainCamera()))
 					continue;
 				shadowFrustumBounds.push_back(SceneMeshInfo);
 				if (ActorItem->IsProjectShadow())
@@ -233,28 +230,6 @@ namespace Engine
 			}
 		}
 
-		if (shadowCasters.size())
-			d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, GetOwner());
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
-			d->MainViewPort->SetRenderTarget();
-			d->MainViewPort->Clear(d->Color);
-			d->MainViewPort->Prepare();
-			int32_t width = GEngine->GetAppWindow()->GetWidth();
-			int32_t height = GEngine->GetAppWindow()->GetHeight();
-			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
-
-			std::vector < std::shared_ptr<RenderCore::RHITexture2D> > Targets = { d->TargetBuffer->GetSceneColor(),d->TargetBuffer->GetMotionVector(),d->TargetBuffer->GetNormalBuffer(),
-				d->TargetBuffer->GetEmissiveBuffer(),d->TargetBuffer->GetMetallicRoughnessBuffer()};
-			RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-			
-			auto IBL = d->PreProcess->GetIBLRender();
-			auto EvnCube = IBL->GetEvnCube();
-			d->BackgroundRender->SetTextureCube(EvnCube);
-			d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
-		});
-
-		d->MeshesInfo.clear();
 		for (const auto& ActorItem : Actors)
 		{
 			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
@@ -263,19 +238,94 @@ namespace Engine
 				for (auto& ComponentItem : Components)
 				{
 					GltfSceneMeshInfo SceneMeshInfo;
-					if (ComponentItem->GatherMesh(SceneMeshInfo, GetOwner()->GetMainCamera()))
+					if (ComponentItem->GatherMesh(SceneMeshInfo, Owner->GetMainCamera()))
 						d->MeshesInfo.push_back(SceneMeshInfo);
 				}
 			}
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, this, MeshesInfo = d->MeshesInfo](RenderCore::DynamicRHI* RHI) {
-			if (MeshesInfo.size())
-				d->BaseRender->Render(RHI,MeshesInfo, GetOwner(),d->TargetBuffer);
-			d->PostProcess->Draw(*RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, GetOwner()->GetMainCamera());
-			sigGuiEvent();
-			d->MainViewPort->Present();
-		});
+		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = d->MeshesInfo;
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[d, this, CommandContext, Owner, shadowCasters = std::move(shadowCasters), shadowFrustumBounds = std::move(shadowFrustumBounds),
+			 MeshesInfo = std::move(MeshesInfoCopy)](RenderCore::DynamicRHI* RHI)
+			{
+				FrameGraph Graph;
+				auto TB = d->TargetBuffer;
+
+				Graph.ImportTexture("GBuffer.SceneColor", [TB]() { return TB->GetSceneColor(); }, false);
+				Graph.ImportTexture("GBuffer.Depth", [TB]() { return TB->GetDepth(); }, false);
+				Graph.ImportTexture("GBuffer.Motion", [TB]() { return TB->GetMotionVector(); }, false);
+				Graph.ImportTexture("GBuffer.Normal", [TB]() { return TB->GetNormalBuffer(); }, false);
+
+				Graph.AddPass(FramePassDesc{
+					"PreProcess",
+					{},
+					{},
+					[d, CommandContext]()
+					{
+						if (d->PreProcess)
+							d->PreProcess->Draw(*CommandContext);
+					}});
+
+				if (!shadowCasters.empty())
+				{
+					Graph.AddPass(FramePassDesc{
+						"Shadow",
+						{},
+						{},
+						[d, CommandContext, shadowCasters, shadowFrustumBounds, Owner]()
+						{ d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, Owner); }});
+				}
+
+				Graph.AddPass(FramePassDesc{
+					"ClearGBufferAndBackground",
+					{},
+					{},
+					[d, RHI]()
+					{
+						d->MainViewPort->SetRenderTarget();
+						d->MainViewPort->Clear(d->Color);
+						d->MainViewPort->Prepare();
+						int32_t width = GEngine->GetAppWindow()->GetWidth();
+						int32_t height = GEngine->GetAppWindow()->GetHeight();
+						RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+
+						std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
+							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
+							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
+						RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
+
+						auto IBL = d->PreProcess->GetIBLRender();
+						auto EvnCube = IBL->GetEvnCube();
+						d->BackgroundRender->SetTextureCube(EvnCube);
+						d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
+					}});
+
+				Graph.AddPass(FramePassDesc{
+					"Geometry",
+					{},
+					{},
+					[d, RHI, MeshesInfo, Owner]()
+					{
+						if (MeshesInfo.size())
+							d->BaseRender->Render(RHI, MeshesInfo, Owner, d->TargetBuffer);
+					}});
+
+				d->PostProcess->AddFramePasses(Graph, *RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, Owner->GetMainCamera());
+
+				Graph.AddPass(FramePassDesc{
+					"Present",
+					{},
+					{},
+					[d, this]()
+					{
+						sigGuiEvent();
+						d->MainViewPort->Present();
+					}});
+
+				Graph.Execute();
+			});
 	}
 
 }

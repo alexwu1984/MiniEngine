@@ -15,8 +15,10 @@ namespace RenderCore
 
 namespace Engine
 {
+	class Bloom;
 	class CameraComponent;
 	class GBuffer;
+	class SSRProcessor;
 	class TemporallAA;
 
 	struct FullscreenPostProcessPassResources
@@ -45,6 +47,46 @@ namespace Engine
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		FullscreenPostProcessPassResources Resources;
+		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
+	};
+
+	class SSRPass
+	{
+	public:
+		SSRPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
+				std::shared_ptr<SSRProcessor> SSR,
+				std::function<std::shared_ptr<RenderCore::RHITexture2D>()> ReflectionColor);
+
+		RenderPassDesc BuildDesc() const;
+
+	private:
+		void Execute() const;
+
+		RenderCore::RHICommandContext& RHIContext;
+		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
+		std::shared_ptr<CameraComponent> Camera;
+		std::shared_ptr<SSRProcessor> SSR;
+		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> ReflectionColor;
+	};
+
+	class BloomPass
+	{
+	public:
+		BloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<Bloom> BloomEffect,
+				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
+
+		RenderPassDesc BuildDesc() const;
+
+	private:
+		void Execute() const;
+
+		RenderCore::RHICommandContext& RHIContext;
+		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
+		std::shared_ptr<Bloom> BloomEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 	};
 

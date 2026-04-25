@@ -193,21 +193,14 @@ namespace Engine
 		if (!d->EnableSSR || !d->SSREffect || !SSRReflectionColor)
 			return;
 
-		Graph.AddPass({
-			"SSR",
-			{
-				{ "Normal", [TargetBuffer]() { return TargetBuffer->GetNormalBuffer(); } },
-				{ "MetallicRoughness", [TargetBuffer]() { return TargetBuffer->GetMetallicRoughnessBuffer(); } },
-				{ "Depth", [TargetBuffer]() { return TargetBuffer->GetDepth(); } },
-				{ "ReflectionColor", [SSRReflectionColor]() { return SSRReflectionColor; } }
-			},
-			{
-				{ "SSRBuffer", [d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
-			},
-			[this, d, &RHIContext, TargetBuffer, ViewPort, Camera, SSRReflectionColor]() {
-				d->SSREffect->Draw(RHIContext, TargetBuffer, ViewPort, SSRReflectionColor, Camera);
-			}
-		});
+		SSRPass SSRPassNode(
+			RHIContext,
+			TargetBuffer,
+			ViewPort,
+			Camera,
+			d->SSREffect,
+			[SSRReflectionColor]() { return SSRReflectionColor; });
+		Graph.AddPass(SSRPassNode.BuildDesc());
 
 		ApplySSRPass Pass(
 			RHIContext,
@@ -222,20 +215,13 @@ namespace Engine
 										 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite)
 	{
 		C_P(PostProcessor);
-		Graph.AddPass({
-			"Bloom",
-			{
-				{ "SourceColor", [TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); } }
-			},
-			{
-				{ "BloomResult", [d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
-			},
-			[d, &RHIContext, TargetBuffer, ViewPort]() {
-				ViewPort->SetRenderTarget();
-				RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-				d->BloomEffect->Draw(RHIContext, TargetBuffer);
-			}
-		});
+		BloomPass BloomPassNode(
+			RHIContext,
+			TargetBuffer,
+			ViewPort,
+			d->BloomEffect,
+			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); });
+		Graph.AddPass(BloomPassNode.BuildDesc());
 
 		ApplyBloomPass Pass(
 			RHIContext,

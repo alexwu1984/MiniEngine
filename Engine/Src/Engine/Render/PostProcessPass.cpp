@@ -6,6 +6,7 @@
 #include "RHI/RHIViewPort.h"
 #include "Render/FXAA.h"
 #include "Render/GBuffer.h"
+#include "Render/SSRProcessor.h"
 #include "Render/TemporalAA.h"
 #include "Scene/CameraComponent.h"
 
@@ -60,6 +61,73 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture());
 		RHIContext.Draw(3);
+	}
+
+	SSRPass::SSRPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
+					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<CameraComponent> InCamera,
+					 std::shared_ptr<SSRProcessor> InSSR,
+					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InReflectionColor)
+		: RHIContext(InRHIContext)
+		, TargetBuffer(std::move(InTargetBuffer))
+		, ViewPort(std::move(InViewPort))
+		, Camera(std::move(InCamera))
+		, SSR(std::move(InSSR))
+		, ReflectionColor(std::move(InReflectionColor))
+	{
+	}
+
+	RenderPassDesc SSRPass::BuildDesc() const
+	{
+		return {
+			"SSR",
+			{
+				{ "Normal", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetNormalBuffer(); } },
+				{ "MetallicRoughness", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetMetallicRoughnessBuffer(); } },
+				{ "Depth", [TargetBuffer = TargetBuffer]() { return TargetBuffer->GetDepth(); } },
+				{ "ReflectionColor", ReflectionColor }
+			},
+			{
+				{ "SSRBuffer", [SSR = SSR]() { return SSR ? SSR->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
+			},
+			[Pass = *this]() { Pass.Execute(); }
+		};
+	}
+
+	void SSRPass::Execute() const
+	{
+		SSR->Draw(RHIContext, TargetBuffer, ViewPort, ReflectionColor(), Camera);
+	}
+
+	BloomPass::BloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
+						 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<Bloom> InBloomEffect,
+						 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
+		: RHIContext(InRHIContext)
+		, TargetBuffer(std::move(InTargetBuffer))
+		, ViewPort(std::move(InViewPort))
+		, BloomEffect(std::move(InBloomEffect))
+		, SourceTexture(std::move(InSourceTexture))
+	{
+	}
+
+	RenderPassDesc BloomPass::BuildDesc() const
+	{
+		return {
+			"Bloom",
+			{
+				{ "SourceColor", SourceTexture }
+			},
+			{
+				{ "BloomResult", [BloomEffect = BloomEffect]() { return BloomEffect ? BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
+			},
+			[Pass = *this]() { Pass.Execute(); }
+		};
+	}
+
+	void BloomPass::Execute() const
+	{
+		ViewPort->SetRenderTarget();
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		BloomEffect->Draw(RHIContext, TargetBuffer);
 	}
 
 	ApplyBloomPass::ApplyBloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,

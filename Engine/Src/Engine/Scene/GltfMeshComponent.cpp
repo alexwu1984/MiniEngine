@@ -10,6 +10,7 @@
 #include "Render/FurMaterialRender.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/DynamicRHI.h"
+#include "Procedural/ProceduralFloor.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
 #include "Thread/RenderThread.h"
@@ -28,8 +29,11 @@ namespace Engine
 		GltfModel gltfModel;
 		ObjModel objModel;
 		bool isGltfModel = true;
+		bool isProcedural = false;
 		float TotalDeltaTime = 0.f;
 		std::shared_ptr< GltfModelConfig>  ModelConfig;
+		std::vector<std::shared_ptr<MeshBase>> ProceduralMeshes;
+		math::AABB3 ProceduralBox;
 	};
 
 	GltfMeshComponent::GltfMeshComponent(std::weak_ptr<Actor> Owner)
@@ -98,6 +102,27 @@ namespace Engine
 	bool GltfMeshComponent::Load(const nlohmann::json& GltfJson)
 	{
 		C_P(GltfMeshComponent);
+
+		// Procedural floor path: replaces external floor.glb
+		try
+		{
+			if (GltfJson.find("ProceduralFloor") != GltfJson.end())
+			{
+				ProceduralBuildResult BuildResult;
+				if (BuildProceduralFloor(GltfJson["ProceduralFloor"], BuildResult))
+				{
+					d->ProceduralMeshes = std::move(BuildResult.Meshes);
+					d->ProceduralBox = BuildResult.Box;
+					d->isProcedural = true;
+					d->isGltfModel = false;
+					return true;
+				}
+			}
+		}
+		catch (...)
+		{
+		}
+
 		d->ModelConfig = std::make_shared<GltfModelConfig>(std::static_pointer_cast<GltfMeshComponent>(this->shared_from_this()));
 		if (d->ModelConfig->Load(GltfJson))
 		{
@@ -131,6 +156,10 @@ namespace Engine
 	math::AABB3 GltfMeshComponent::GetModelBox() const
 	{
 		C_P(const GltfMeshComponent);
+		if (d->isProcedural)
+		{
+			return d->ProceduralBox;
+		}
 		return d->gltfModel.GetModelBox();
 	}
 
@@ -139,6 +168,10 @@ namespace Engine
 	{
 		C_P(GltfMeshComponent);
 		d->TotalDeltaTime += deltaTime;
+		if (d->isProcedural)
+		{
+			return;
+		}
 		if (d->isGltfModel)
 		{
 			d->gltfModel.Play(d->TotalDeltaTime, deltaTime);
@@ -149,6 +182,10 @@ namespace Engine
 	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
 	{
 		C_P(GltfMeshComponent);
+		if (d->isProcedural)
+		{
+			return;
+		}
 		if (d->isGltfModel)
 		{
 			auto& RootNodes = d->gltfModel.GetSkeleton()->GetRootNode();
@@ -166,6 +203,19 @@ namespace Engine
 		C_P(GltfMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
 		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
+		if (d->isProcedural)
+		{
+			math::AABB3 Box = d->ProceduralBox.Transform(SceneMeshInfo.WorldTransform);
+			bool Render = Camera->GetFrustum().Intersects(Box);
+			if (Render)
+			{
+				for (auto& Mesh : d->ProceduralMeshes)
+				{
+					SceneMeshInfo.Meshes.push_back(Mesh);
+				}
+			}
+			return Render;
+		}
 		if (d->isGltfModel)
 		{
 			math::AABB3 Box = d->gltfModel.GetModelBox().Transform(SceneMeshInfo.WorldTransform);

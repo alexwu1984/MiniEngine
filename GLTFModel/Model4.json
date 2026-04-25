@@ -15,10 +15,25 @@
   },
   "Modles": [
     {
-      "Model": "floor.glb",
-      "Scale": 0.05,
-      "Material": {
-        "Metallic": 0.0
+      "ProceduralFloor": {
+        "Finish": "frosted",
+        "Size": "60,60",
+        "Segments": "200,200",
+        "UVScale": 10.0,
+        "BrushedMetal": { "Enable": false },
+        "Frosted": {
+          "Enable": true,
+          "TextureSize": 512,
+          "NoiseScale": 520.0,
+          "NormalStrength": 0.10,
+          "RoughnessBase": 0.62,
+          "RoughnessVariation": 0.10
+        },
+        "Material": {
+          "Metallic": 1.0,
+          "Roughness": 0.62,
+          "BaseColor": "0.65,0.68,0.72,1.0"
+        }
       }
     },
     {

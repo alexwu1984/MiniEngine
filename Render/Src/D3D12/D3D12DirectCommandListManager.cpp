@@ -245,18 +245,22 @@ namespace RenderCore
 	{
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 
-		// See if the first command allocator in the queue is ready to be reset (will check associated fence)
 		D3D12CommandAllocator* pCommandAllocator = nullptr;
 		bool isNeedCreated = true;
 		if (!CommandAllocatorQueue.empty())
 		{
-			pCommandAllocator = CommandAllocatorQueue.front();
-			if (pCommandAllocator->IsReady())
+			const size_t n = CommandAllocatorQueue.size();
+			for (size_t i = 0; i < n; ++i)
 			{
-				isNeedCreated = false;
+				pCommandAllocator = CommandAllocatorQueue.front();
 				CommandAllocatorQueue.pop();
-				// Reset the allocator and remove it from the queue.
-				pCommandAllocator->Reset();
+				if (pCommandAllocator->IsReady())
+				{
+					isNeedCreated = false;
+					pCommandAllocator->Reset();
+					break;
+				}
+				CommandAllocatorQueue.push(pCommandAllocator);
 			}
 		}
 

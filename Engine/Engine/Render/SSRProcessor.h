@@ -22,6 +22,7 @@ namespace Engine
 		~SSRProcessor();
 
 		void InitResource();
+		void InvalidateTransientResources();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 				  std::shared_ptr<RenderCore::RHITexture2D> HistorySceneColor,
 			      std::shared_ptr<CameraComponent> Camera);

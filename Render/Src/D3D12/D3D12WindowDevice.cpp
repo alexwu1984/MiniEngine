@@ -10,6 +10,7 @@ namespace RenderCore
 
 	FD3D12Device::FD3D12Device(std::weak_ptr<FD3D12Adapter> InAdapter)
 		:FD3D12AdapterChild(InAdapter)
+		, DynamicDescriptorHeapPools(std::make_unique<FDynamicDescriptorHeapPoolsPerDevice>())
 	{
 
 	}
@@ -97,7 +98,14 @@ namespace RenderCore
 		DescriptorAllocator[3] = {};
 
 		FD3D12ResourceAllocator::DestroyAll();
-		FDynamicDescriptorHeap::DestroyAll();
+		if (DynamicDescriptorHeapPools != nullptr)
+			DynamicDescriptorHeapPools->Clear();
+	}
+
+	FDynamicDescriptorHeapPoolsPerDevice& FD3D12Device::GetDynamicDescriptorHeapPools()
+	{
+		Assert(DynamicDescriptorHeapPools != nullptr);
+		return *DynamicDescriptorHeapPools;
 	}
 
 	ID3D12Device* FD3D12Device::GetDevice()

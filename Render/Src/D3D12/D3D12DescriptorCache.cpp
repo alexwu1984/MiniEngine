@@ -6,9 +6,22 @@
 
 namespace RenderCore
 {
-	std::queue<win32::com_ptr<ID3D12DescriptorHeap>> FDynamicDescriptorHeap::ms_ReadyDescriptorHeaps[2];
-	std::queue<std::pair<uint64_t, win32::com_ptr<ID3D12DescriptorHeap>>> FDynamicDescriptorHeap::ms_RetiredDescriptorHeaps[2];
-	std::vector<win32::com_ptr<ID3D12DescriptorHeap>> FDynamicDescriptorHeap::ms_DescriptorHeapPool[2];
+	void FDynamicDescriptorHeapPoolsPerDevice::Clear()
+	{
+		for (int i = 0; i < 2; ++i)
+		{
+			while (!Ready[i].empty())
+				Ready[i].pop();
+			while (!Retired[i].empty())
+				Retired[i].pop();
+			CreatedTracking[i].clear();
+		}
+	}
+
+	FDynamicDescriptorHeapPoolsPerDevice& FDynamicDescriptorHeap::Pools()
+	{
+		return GetParentDevice()->GetDynamicDescriptorHeapPools();
+	}
 
 	FDynamicDescriptorHeap::FDynamicDescriptorHeap(std::weak_ptr<FD3D12Device> InDevice,
 												   std::weak_ptr<D3D12CommandContext> CommandContext,
@@ -38,33 +51,35 @@ namespace RenderCore
 		}
 	}
 
-	void FDynamicDescriptorHeap::CleanupUsedHeaps(uint64_t FenceValue)
+	void FDynamicDescriptorHeap::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
 		RetireCurrentHeap();
-		RetireUsedHeaps(FenceValue);
+		RetireUsedHeaps(FenceValue, QueueType);
 		m_GraphicsHandleCache.ClearCache();
 		m_ComputeHandleCache.ClearCache();
 	}
 
 	void FDynamicDescriptorHeap::RetireCurrentHeap()
 	{
-		if (m_CurrentOffset == 0)
-		{
-			Assert(m_CurrentHeap == nullptr);
+		if (m_CurrentHeap == nullptr)
 			return;
-		}
 
-		Assert(m_CurrentHeap != nullptr);
 		m_RetiredHeaps.push_back(m_CurrentHeap);
-		m_CurrentOffset = 0;
 		m_CurrentHeap = nullptr;
+		m_CurrentOffset = 0;
 	}
 
-	void FDynamicDescriptorHeap::RetireUsedHeaps(uint64_t FenceValue)
+	void FDynamicDescriptorHeap::RetireUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
 		for (auto iter = m_RetiredHeaps.begin(); iter != m_RetiredHeaps.end(); ++iter)
-			ms_RetiredDescriptorHeaps[idx].push(std::make_pair(FenceValue, *iter));
+		{
+			FRetiredDynamicDescriptorHeapEntry Entry;
+			Entry.FenceValue = FenceValue;
+			Entry.QueueType = QueueType;
+			Entry.Heap = *iter;
+			Pools().Retired[idx].push(Entry);
+		}
 		m_RetiredHeaps.clear();
 	}
 
@@ -88,16 +103,30 @@ namespace RenderCore
 	win32::com_ptr<ID3D12DescriptorHeap> FDynamicDescriptorHeap::RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE HeapType)
 	{
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
-		auto& CommandListMgr = GetParentDevice()->GetCommandListManager();
-		while (!ms_RetiredDescriptorHeaps[idx].empty() && CommandListMgr.GetFence().IsFenceComplete(ms_RetiredDescriptorHeaps[idx].front().first))
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		FDynamicDescriptorHeapPoolsPerDevice& P = Pools();
+		if (!P.Retired[idx].empty())
 		{
-			ms_ReadyDescriptorHeaps[idx].push(ms_RetiredDescriptorHeaps[idx].front().second);
-			ms_RetiredDescriptorHeaps[idx].pop();
+			std::vector<FRetiredDynamicDescriptorHeapEntry> Pending;
+			Pending.reserve(P.Retired[idx].size());
+			while (!P.Retired[idx].empty())
+			{
+				Pending.push_back(P.Retired[idx].front());
+				P.Retired[idx].pop();
+			}
+			for (const FRetiredDynamicDescriptorHeapEntry& Entry : Pending)
+			{
+				FD3D12CommandListManager& Mgr = Device->GetCommandListManager(Entry.QueueType);
+				if (Mgr.GetFence().IsFenceComplete(Entry.FenceValue))
+					P.Ready[idx].push(Entry.Heap);
+				else
+					P.Retired[idx].push(Entry);
+			}
 		}
-		if (!ms_ReadyDescriptorHeaps[idx].empty())
+		if (!P.Ready[idx].empty())
 		{
-			win32::com_ptr<ID3D12DescriptorHeap> Heap = ms_ReadyDescriptorHeaps[idx].front();
-			ms_ReadyDescriptorHeaps[idx].pop();
+			win32::com_ptr<ID3D12DescriptorHeap> Heap = P.Ready[idx].front();
+			P.Ready[idx].pop();
 			return Heap;
 		}
 		else
@@ -109,7 +138,7 @@ namespace RenderCore
 			HeapDesc.NodeMask = 1;
 			win32::com_ptr<ID3D12DescriptorHeap> Heap;
 			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Heap)));
-			ms_DescriptorHeapPool[idx].emplace_back(Heap);
+			P.CreatedTracking[idx].emplace_back(Heap);
 			return Heap;
 		}
 	}

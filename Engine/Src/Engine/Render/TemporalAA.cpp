@@ -9,6 +9,7 @@
 #include "Scene/CameraComponent.h"
 #include "core/system.h"
 #include "Render/GBuffer.h"
+#include "Render/RenderTexturePool.h"
 
 namespace Engine
 {
@@ -46,6 +47,7 @@ namespace Engine
 
 	TemporallAA::~TemporallAA()
 	{
+		InvalidateTransientResources();
 		delete d_ptr;
 	}
 
@@ -60,6 +62,20 @@ namespace Engine
 		d->TAASharpener = d->RHI->RHICreateComputeShader(TAASharpenerShaderPath, "mainCS", {});
 	}
 
+	void TemporallAA::InvalidateTransientResources()
+	{
+		C_P(TemporallAA);
+		for (auto& U : d->TemporalColor)
+		{
+			if (!U)
+				continue;
+			auto Tex = U->GetTexture2D();
+			auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(U));
+		}
+		d->First = true;
+	}
+
 	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera)
 	{
 		C_P(TemporallAA);
@@ -69,14 +85,30 @@ namespace Engine
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
 		auto SceneColor = TargetBuffer->GetSceneColorWithBloom();
-		const float width = static_cast<float>(SceneColor->GetSize().w);
-		const float height = static_cast<float>(SceneColor->GetSize().y);
+		const auto ScSize = SceneColor->GetSize();
+		const float width = static_cast<float>(ScSize.w);
+		const float height = static_cast<float>(ScSize.h);
+		const int32_t iw = ScSize.x;
+		const int32_t ih = ScSize.y;
+		const auto ScFmt = SceneColor->GetPixelFormat();
+
+		auto MatchOrDrop = [&](std::shared_ptr<RenderCore::RHIUnorderedAccessView>& Uav) {
+			if (!Uav)
+				return;
+			auto Tex = Uav->GetTexture2D();
+			auto Sz = Tex->GetSize();
+			if (Sz.x == iw && Sz.y == ih && Tex->GetPixelFormat() == ScFmt)
+				return;
+			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(Uav));
+		};
+		MatchOrDrop(d->TemporalColor[0]);
+		MatchOrDrop(d->TemporalColor[1]);
 
 		if (!d->TemporalColor[0])
-			d->TemporalColor[0] = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), width, height);
+			d->TemporalColor[0] = RenderTexturePool::Get().AcquireUAV(d->RHI, ScFmt, iw, ih);
 
 		if (!d->TemporalColor[1])
-			d->TemporalColor[1] = d->RHI->RHICreateUnorderedAccessView(SceneColor->GetPixelFormat(), width, height);
+			d->TemporalColor[1] = RenderTexturePool::Get().AcquireUAV(d->RHI, ScFmt, iw, ih);
 
 		if (!d->TemporalColor[0] || !d->TemporalColor[1])
 			return;

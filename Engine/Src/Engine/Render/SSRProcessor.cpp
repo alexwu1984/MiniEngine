@@ -4,12 +4,14 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIDefinitions.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIViewPort.h"
 #include "Scene/CameraComponent.h"
 #include "core/system.h"
 #include "math/vector2.h"
 #include "Render/GBuffer.h"
+#include "Render/RenderTexturePool.h"
 
 using namespace RenderCore;
 
@@ -41,7 +43,6 @@ namespace Engine
 		DynamicRHI* RHI = nullptr;
 		std::shared_ptr<RHIPixelShader> SSRShader;
 		std::shared_ptr<RHIVertexShader> VertexShader;
-		std::shared_ptr<RHITexture2D> SSRBuffer;
 		std::shared_ptr<RHITexture2D> SSRHistoryBuffer[2];
 		uint32_t FrameIndexMod2 = 0;
 		bool First = true;
@@ -55,6 +56,7 @@ namespace Engine
 
 	SSRProcessor::~SSRProcessor()
 	{
+		InvalidateTransientResources();
 		delete d_ptr;
 	}
 
@@ -68,6 +70,40 @@ namespace Engine
 		d->VertexShader = d->RHI->RHICreateVertexShader(ShaderPath, "VS_ScreenQuad", {}, {});
 	}
 
+	void SSRProcessor::InvalidateTransientResources()
+	{
+		C_P(SSRProcessor);
+		const int32_t Fl = (int32_t)(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource);
+		for (auto& T : d->SSRHistoryBuffer)
+		{
+			if (!T)
+				continue;
+			auto Sz = T->GetSize();
+			RenderTexturePool::Get().ReleaseTexture2D(EPixelFormat::PF_FloatRGBA, Fl, Sz.x, Sz.y, 1, std::move(T));
+		}
+		d->First = true;
+	}
+
+	namespace
+	{
+		void EnsureSSRHistories(SSRProcessorPrivate* d, int32_t W, int32_t H)
+		{
+			const int32_t Fl = (int32_t)(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource);
+			auto EnsureOne = [&](std::shared_ptr<RHITexture2D>& T) {
+				if (T)
+				{
+					auto Sz = T->GetSize();
+					if (Sz.x == W && Sz.y == H)
+						return;
+					RenderTexturePool::Get().ReleaseTexture2D(EPixelFormat::PF_FloatRGBA, Fl, Sz.x, Sz.y, 1, std::move(T));
+				}
+				T = RenderTexturePool::Get().AcquireTexture2D(d->RHI, EPixelFormat::PF_FloatRGBA, Fl, W, H, 1);
+			};
+			EnsureOne(d->SSRHistoryBuffer[0]);
+			EnsureOne(d->SSRHistoryBuffer[1]);
+		}
+	}
+
 	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,std::shared_ptr<RHIViewPort> ViewPort,
 							std::shared_ptr<RHITexture2D> HistorySceneColor,
 		                    std::shared_ptr<CameraComponent> Camera)
@@ -78,28 +114,16 @@ namespace Engine
 		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
-		if (!d->SSRBuffer)
-		{
-			d->SSRBuffer = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA,
-				ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource,
-				ViewPort->GetSize().cx, ViewPort->GetSize().cy, 1);
-		}
+		const int32_t VpW = ViewPort->GetSize().cx;
+		const int32_t VpH = ViewPort->GetSize().cy;
+		EnsureSSRHistories(d, VpW, VpH);
 
-		if (!d->SSRHistoryBuffer[0])
-		{
-			d->SSRHistoryBuffer[0] = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA,
-				ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource,
-				ViewPort->GetSize().cx, ViewPort->GetSize().cy, 1);
-		}
-		if (!d->SSRHistoryBuffer[1])
-		{
-			d->SSRHistoryBuffer[1] = d->RHI->RHICreateTexture2D(EPixelFormat::PF_FloatRGBA,
-				ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource,
-				ViewPort->GetSize().cx, ViewPort->GetSize().cy, 1);
-		}
+		std::shared_ptr<RHITexture2D> WriteSSR = d->SSRHistoryBuffer[Dst];
+		if (!WriteSSR)
+			return;
 
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().cx, ViewPort->GetSize().cy);
-		RHIContext.Clear(d->SSRBuffer, nullptr, core::FLinearColor::Transparent, 1.f, 0);
+		RHIContext.SetViewPort(0, 0, VpW, VpH);
+		RHIContext.Clear(WriteSSR, nullptr, core::FLinearColor::Transparent, 1.f, 0);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->SSRShader;
@@ -109,7 +133,7 @@ namespace Engine
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
-		RHIContext.SetRenderTarget(d->SSRBuffer, nullptr);
+		RHIContext.SetRenderTarget(WriteSSR, nullptr);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RenderCore::RHICachedStates::ClampPointSampler);
@@ -118,7 +142,12 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, TargetBuffer->GetDepth());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, HistorySceneColor);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, TargetBuffer->GetMotionVector());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, d->SSRHistoryBuffer[d->FrameIndexMod2] ? d->SSRHistoryBuffer[d->FrameIndexMod2] : d->SSRBuffer);
+		{
+			std::shared_ptr<RHITexture2D> PrevSSR = d->SSRHistoryBuffer[d->FrameIndexMod2];
+			if (!PrevSSR)
+				PrevSSR = WriteSSR;
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, PrevSSR);
+		}
 		
 		d->GET_UNIFORMDATA(SSRContants).ViewProj = Camera->GetViewMatrix() * Camera->GetProjMatrix();
 		d->GET_UNIFORMDATA(SSRContants).InvViewProj = d->GET_UNIFORMDATA(SSRContants).ViewProj.Inverse();
@@ -132,15 +161,12 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(SSRContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 		RHIContext.Draw(3);
-
-		if (d->SSRHistoryBuffer[Dst])
-			RHIContext.RHICopyResource(d->SSRHistoryBuffer[Dst], d->SSRBuffer);
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> SSRProcessor::GetSSRBuffer() const
 	{
 		C_P(SSRProcessor);
-		return d->SSRBuffer;
+		return d->SSRHistoryBuffer[d->FrameIndexMod2 ^ 1];
 	}
 
 }

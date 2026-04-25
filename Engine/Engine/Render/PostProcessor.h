@@ -31,6 +31,8 @@ namespace Engine
 
 		void LoadConfig(const nlohmann::json& Root);
 		void InitResource();
+		// After swapchain/GBuffer resolution change: drop intermediate targets only (no shader recompile).
+		void InvalidateTransientResources();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
 				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera);
 		void AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,

@@ -613,9 +613,9 @@ namespace RenderCore
 			CurrentDescriptorHeaps[index] = {};
 	}
 
-	void FD3D12StateCache::CleanupUsedHeaps(uint64_t FenceValue)
+	void FD3D12StateCache::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
-		DynamicViewDescriptorHeap.CleanupUsedHeaps(FenceValue);
+		DynamicViewDescriptorHeap.CleanupUsedHeaps(FenceValue, QueueType);
 	}
 
 }

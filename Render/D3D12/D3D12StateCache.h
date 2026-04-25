@@ -179,7 +179,7 @@ namespace RenderCore
 		void ClearState();
 		void ClearRenderState();
 		void ClearComputeState();
-		void CleanupUsedHeaps(uint64_t FenceValue);
+		void CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 
 		FD3D12SamplerStateCache SamplerCache;
 		FD3D12ConstantBufferCache ConstantBufferCache;

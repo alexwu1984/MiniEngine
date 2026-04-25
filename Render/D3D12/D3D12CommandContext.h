@@ -94,7 +94,7 @@ namespace RenderCore
 		void Initialize(void);
 		void Destroy();
 		void ClearState();
-		void CleanupUsedHeaps(uint64_t FenceValue);
+		void CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 		std::shared_ptr<FD3D12StateCache> GetD3D12StateCache() const;
 		D3D12CommandListHandle& GetCurrentCommandListHandle();
 	private:

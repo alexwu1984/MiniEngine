@@ -7,6 +7,7 @@
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIUnorderedAccessView.h"
 #include "Render/GBuffer.h"
+#include "Render/RenderTexturePool.h"
 #include "core/system.h"
 
 namespace Engine
@@ -39,6 +40,7 @@ namespace Engine
 
 	Bloom::~Bloom()
 	{
+		InvalidateTransientResources();
 		delete d_ptr;
 	}
 
@@ -54,17 +56,38 @@ namespace Engine
 		d->UpSample = d->RHI->RHICreateComputeShader(ShaderPath, "CS_UpSample", {});
 	}
 
+	void Bloom::InvalidateTransientResources()
+	{
+		C_P(Bloom);
+		for (int i = 0; i < _countof(d->BloomBuffers); ++i)
+		{
+			auto& U = d->BloomBuffers[i];
+			if (!U)
+				continue;
+			auto Tex = U->GetTexture2D();
+			auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(U));
+		}
+	}
+
 	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
 	{
 		C_P(Bloom);
 		RenderCore::RHICommandMark Mark(RHIContext, "Bloom");
 		auto ScreenSize = TargetBuffer->GetSceneColor()->GetSize();
-		auto Size = TargetBuffer->GetSceneColor()->GetSize();
-		if (!d->BloomBuffers[0])
+		bool NeedAlloc = !d->BloomBuffers[0];
+		if (!NeedAlloc)
 		{
+			auto Sz0 = d->BloomBuffers[0]->GetTexture2D()->GetSize();
+			NeedAlloc = Sz0.x != ScreenSize.x || Sz0.y != ScreenSize.y;
+		}
+		if (NeedAlloc)
+		{
+			InvalidateTransientResources();
+			auto Size = ScreenSize;
 			for (int Index = 0; Index < _countof(d->BloomBuffers); ++Index)
 			{
-				d->BloomBuffers[Index] = d->RHI->RHICreateUnorderedAccessView(EPixelFormat::PF_FloatRGB, Size.x, Size.y);
+				d->BloomBuffers[Index] = RenderTexturePool::Get().AcquireUAV(d->RHI, EPixelFormat::PF_FloatRGB, Size.x, Size.y);
 				Size.x >>= 1;
 				Size.y >>= 1;
 			}

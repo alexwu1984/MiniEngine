@@ -1,6 +1,7 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include <d3d12.h>
+#include <memory>
 
 namespace RenderCore
 {
@@ -8,6 +9,7 @@ namespace RenderCore
 	class D3D12CommandContext;
 	class FD3D12ResourceAllocator;
 	class LinearAllocationPageManager;
+	struct FDynamicDescriptorHeapPoolsPerDevice;
 
 	class FD3D12Device :public std::enable_shared_from_this<FD3D12Device>,public FD3D12AdapterChild
 	{
@@ -31,6 +33,8 @@ namespace RenderCore
 		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext() const { return AsyncComputeContext; }
 		LinearAllocationPageManager& GetLinearPageManager(ELinearAllocatorType Type) const;
 
+		FDynamicDescriptorHeapPoolsPerDevice& GetDynamicDescriptorHeapPools();
+
 		D3D12_CPU_DESCRIPTOR_HANDLE AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
 		uint32_t GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type);;
 		void BlockUntilIdle();
@@ -50,5 +54,7 @@ namespace RenderCore
 
 		std::shared_ptr<FD3D12ResourceAllocator> DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 		std::shared_ptr<LinearAllocationPageManager> PageManager[ELinearAllocatorType::NumAllocatorTypes];
+
+		std::unique_ptr<FDynamicDescriptorHeapPoolsPerDevice> DynamicDescriptorHeapPools;
 	};
 }

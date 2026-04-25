@@ -16,6 +16,7 @@ namespace RenderCore
 		FXAA(DynamicRHI* RHI);
 		~FXAA();
 		void InitResource();
+		void InvalidateTransientResources();
 		void Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> TargetBuffer);
 		std::shared_ptr<RHITexture2D> GetResult() const;
 	private:

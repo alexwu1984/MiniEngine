@@ -143,6 +143,8 @@ namespace Engine
 		d->ApplySSR = std::make_shared<ApplySSRPass>(d->RHI, FullscreenVertexShader);
 		d->ApplySSR->InitResource();
 
+		d->TAA.reset();
+		d->FXaa.reset();
 		switch (d->AAType)
 		{
 		case EPostProcessorAAType::TAA:
@@ -161,6 +163,19 @@ namespace Engine
 		d->SSREffect = std::make_shared<SSRProcessor>(d->RHI);
 		d->SSREffect->InitResource();
 		d->IsResourceInitialized = true;
+	}
+
+	void PostProcessor::InvalidateTransientResources()
+	{
+		C_P(PostProcessor);
+		if (d->BloomEffect)
+			d->BloomEffect->InvalidateTransientResources();
+		if (d->SSREffect)
+			d->SSREffect->InvalidateTransientResources();
+		if (d->TAA)
+			d->TAA->InvalidateTransientResources();
+		if (d->FXaa)
+			d->FXaa->InvalidateTransientResources();
 	}
 
 	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 

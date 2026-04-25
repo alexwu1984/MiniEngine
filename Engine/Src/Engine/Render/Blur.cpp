@@ -10,6 +10,7 @@
 #include "core/system.h"
 #include "Render/GBuffer.h"
 #include "Render/RenderUtil.h"
+#include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
 
 namespace Engine
@@ -55,6 +56,21 @@ namespace Engine
 
 	BlurPS::~BlurPS()
 	{
+		C_P(BlurPS);
+		if (d->IntermediateTarget)
+		{
+			auto Tex = d->IntermediateTarget->GetTex();
+			auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseRenderTarget(
+				Tex->GetPixelFormat(), Sz.x, Sz.y, 1, false, true, std::move(d->IntermediateTarget));
+		}
+		if (d->OutTarget)
+		{
+			auto Tex = d->OutTarget->GetTex();
+			auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseRenderTarget(
+				Tex->GetPixelFormat(), Sz.x, Sz.y, 1, false, true, std::move(d->OutTarget));
+		}
 		delete d_ptr;
 	}
 
@@ -73,16 +89,29 @@ namespace Engine
 	{
 		C_P(BlurPS);
 		d->Size = SrcTex->GetSize();
+		const auto Pf = SrcTex->GetPixelFormat();
+		auto MatchRt = [&](std::shared_ptr<RenderCore::RHIRenderTarget>& Rt) {
+			if (!Rt)
+				return;
+			auto Tex = Rt->GetTex();
+			auto Sz = Tex->GetSize();
+			if (Sz.x == d->Size.cx && Sz.y == d->Size.cy && Tex->GetPixelFormat() == Pf)
+				return;
+			RenderTexturePool::Get().ReleaseRenderTarget(Tex->GetPixelFormat(), Sz.x, Sz.y, 1, false, true, std::move(Rt));
+		};
+		MatchRt(d->IntermediateTarget);
+		MatchRt(d->OutTarget);
+
 		if (!d->IntermediateTarget)
 		{
-			d->IntermediateTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
-				d->Size.cx, d->Size.cy, 1, false, true);
+			d->IntermediateTarget = RenderTexturePool::Get().AcquireRenderTarget(
+				d->RHI, Pf, d->Size.cx, d->Size.cy, 1, false, true);
 		}
 
 		if (!d->OutTarget)
 		{
-			d->OutTarget = d->RHI->RHICreateRenderTarget(SrcTex->GetPixelFormat(),
-				d->Size.cx, d->Size.cy, 1, false, true);
+			d->OutTarget = RenderTexturePool::Get().AcquireRenderTarget(
+				d->RHI, Pf, d->Size.cx, d->Size.cy, 1, false, true);
 		}
 
 		Draw(RHIContext, SrcTex, d->IntermediateTarget, d->OutTarget, 7);
@@ -167,6 +196,13 @@ namespace Engine
 
 	BlurCS::~BlurCS()
 	{
+		C_P(BlurCS);
+		if (d->BlurHorizontalBuffer)
+		{
+			auto Tex = d->BlurHorizontalBuffer->GetTexture2D();
+			auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(d->BlurHorizontalBuffer));
+		}
 		delete d_ptr;
 	}
 
@@ -182,10 +218,16 @@ namespace Engine
 	{
 		C_P(BlurCS);
 		auto Size = SrcTex->GetSize();
-		if (!d->BlurHorizontalBuffer)
+		const auto Pf = SrcTex->GetPixelFormat();
+		if (d->BlurHorizontalBuffer)
 		{
-			d->BlurHorizontalBuffer = d->RHI->RHICreateUnorderedAccessView(SrcTex->GetPixelFormat(), Size.x, Size.y);
+			auto Tex = d->BlurHorizontalBuffer->GetTexture2D();
+			auto Sz = Tex->GetSize();
+			if (Sz.x != Size.x || Sz.y != Size.y || Tex->GetPixelFormat() != Pf)
+				RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(d->BlurHorizontalBuffer));
 		}
+		if (!d->BlurHorizontalBuffer)
+			d->BlurHorizontalBuffer = RenderTexturePool::Get().AcquireUAV(d->RHI, Pf, Size.x, Size.y);
 
 		uint32_t ThreadGroupCountX = (Size.w + 7) / 8;
 		uint32_t ThreadGroupCountY = (Size.h + 7) / 8;

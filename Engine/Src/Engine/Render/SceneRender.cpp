@@ -210,8 +210,7 @@ namespace Engine
 			if (d->TargetBuffer)
 				d->TargetBuffer->InitDefaultSceneTargets(InSizeX, InSizeY);
 			if (d->PostProcess)
-				d->PostProcess->InitResource();
-			
+				d->PostProcess->InvalidateTransientResources();
 		});
 	}
 

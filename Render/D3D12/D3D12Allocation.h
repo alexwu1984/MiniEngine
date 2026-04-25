@@ -58,8 +58,12 @@ namespace RenderCore
 		uint64_t GetFenceValue() const { return FenceValue; }
 		void SetFenceValue(uint64_t InFenceValue) { FenceValue = InFenceValue; }
 
+		ED3D12CommandQueueType GetRetireQueueType() const { return RetireQueueType; }
+		void SetRetireQueueType(ED3D12CommandQueueType InQueueType) { RetireQueueType = InQueueType; }
+
 	private:
 		uint64_t FenceValue = 0;
+		ED3D12CommandQueueType RetireQueueType = ED3D12CommandQueueType::Default;
 	};
 
 	class LinearAllocationPageManager : public FD3D12DeviceChild
@@ -67,8 +71,8 @@ namespace RenderCore
 	public:
 		LinearAllocationPageManager(std::weak_ptr<FD3D12Device> ParentDevice);
 		LinearAllocationPage* RequestPage();
-		void DiscardStandardPages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages);
-		void DiscardLargePages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages);
+		void DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages);
+		void DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages);
 		LinearAllocationPage* CreateNewPage(size_t SizeInBytes = 0);
 		void Destroy();
 		ELinearAllocatorType GetAllocatorType() const;
@@ -89,7 +93,7 @@ namespace RenderCore
 	public:
 		LinearAllocator(ELinearAllocatorType Type, std::weak_ptr<FD3D12Device> ParentDevice);
 		FAllocation Allocate(size_t SizeInBytes, size_t Alignment = DEFAULT_ALIGN);
-		void CleanupUsedPages(uint64_t FenceID);
+		void CleanupUsedPages(uint64_t FenceID, ED3D12CommandQueueType QueueType);
 
 	private:
 		FAllocation AllocateLargePage(size_t SizeInBytes);

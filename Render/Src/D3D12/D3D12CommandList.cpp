@@ -71,6 +71,10 @@ namespace RenderCore
 		// Remove all pendering barriers from the command list
 		PendingResourceBarriers.clear();
 
+		// Per-list tracked states are only needed until the list is submitted; after the allocator
+		// is ready again, global resource state has been updated. Leaving this map populated causes
+		// unbounded growth across frames for every distinct tracked resource pointer.
+		TrackedResourceState.Empty();
 
 		// If this fails then some previous resource barriers were never submitted.
 		Assert(ResourceBarrierBatcher.GetBarriers().size() == 0);
@@ -93,9 +97,10 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
-			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID);
-			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID);
-			GetCurrentOwningContext()->CleanupUsedHeaps(FenceID);
+			const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
+			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
+			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
+			GetCurrentOwningContext()->CleanupUsedHeaps(FenceID, QueueType);
 			}, WaitForCompletion);
 	}
 

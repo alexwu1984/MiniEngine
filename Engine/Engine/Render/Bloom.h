@@ -30,6 +30,8 @@ namespace Engine
 		~Bloom();
 
 		void InitResource();
+		// Drop UAV mips (e.g. after GBuffer resize). Shaders stay valid.
+		void InvalidateTransientResources();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
 		std::shared_ptr<RenderCore::RHITexture2D> GetResult() const;
 	private:

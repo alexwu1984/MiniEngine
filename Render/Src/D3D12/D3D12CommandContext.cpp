@@ -817,16 +817,16 @@ namespace RenderCore
 			CurrentStateCache->ClearState();
 	}
 
-	void D3D12CommandContext::CleanupUsedHeaps(uint64_t FenceValue)
+	void D3D12CommandContext::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
 		for (auto& StateCache : StateCacheMap)
 		{
 			if (StateCache.second)
-				StateCache.second->CleanupUsedHeaps(FenceValue);
+				StateCache.second->CleanupUsedHeaps(FenceValue, QueueType);
 		}
 
 		if (CurrentStateCache && StateCacheMap.empty())
-			CurrentStateCache->CleanupUsedHeaps(FenceValue);
+			CurrentStateCache->CleanupUsedHeaps(FenceValue, QueueType);
 	}
 
 	std::shared_ptr<FD3D12StateCache> D3D12CommandContext::GetD3D12StateCache() const

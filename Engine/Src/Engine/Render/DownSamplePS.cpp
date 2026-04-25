@@ -9,6 +9,7 @@
 #include "core/system.h"
 #include "Render/GBuffer.h"
 #include "Render/RenderUtil.h"
+#include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
 
 namespace Engine
@@ -50,6 +51,14 @@ namespace Engine
 
 	DownSamplePS::~DownSamplePS()
 	{
+		C_P(DownSamplePS);
+		if (d->DownSampleTarget)
+		{
+			auto Tex = d->DownSampleTarget->GetTex();
+			auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseRenderTarget(
+				Tex->GetPixelFormat(), Sz.x, Sz.y, d->MipLevel, false, true, std::move(d->DownSampleTarget));
+		}
 		delete d_ptr;
 	}
 
@@ -69,10 +78,21 @@ namespace Engine
 
 		auto SceneColor = TargetBuffer->GetSceneColor();
 		d->Size = SceneColor->GetSize();
+		const int32_t HalfW = d->Size.cx >> 1;
+		const int32_t HalfH = d->Size.cy >> 1;
+		const auto Pf = SceneColor->GetPixelFormat();
+		if (d->DownSampleTarget)
+		{
+			auto Tex = d->DownSampleTarget->GetTex();
+			auto Sz = Tex->GetSize();
+			if (Sz.x != HalfW || Sz.y != HalfH || Tex->GetPixelFormat() != Pf)
+				RenderTexturePool::Get().ReleaseRenderTarget(
+					Tex->GetPixelFormat(), Sz.x, Sz.y, d->MipLevel, false, true, std::move(d->DownSampleTarget));
+		}
 		if (!d->DownSampleTarget)
 		{
-			d->DownSampleTarget = d->RHI->RHICreateRenderTarget(SceneColor->GetPixelFormat(),
-				d->Size.cx >> 1, d->Size.cy >> 1,d->MipLevel, false, true);
+			d->DownSampleTarget = RenderTexturePool::Get().AcquireRenderTarget(
+				d->RHI, Pf, HalfW, HalfH, d->MipLevel, false, true);
 		}
 
 		for (int32_t IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)

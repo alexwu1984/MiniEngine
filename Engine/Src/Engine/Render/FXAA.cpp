@@ -7,6 +7,7 @@
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderTarget.h"
 #include "Render/GBuffer.h"
+#include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
 
 namespace RenderCore
@@ -51,6 +52,7 @@ namespace RenderCore
 
 	FXAA::~FXAA()
 	{
+		InvalidateTransientResources();
 		delete d_ptr;
 	}
 
@@ -68,15 +70,47 @@ namespace RenderCore
 		d->PixelShader = d->RHI->RHICreatePixelShader(PSShaderPath, "FXAA_3_11_PixelShader", ShaderMacros);
 	}
 
+	void FXAA::InvalidateTransientResources()
+	{
+		C_P(FXAA);
+		if (!d->FxaaRT)
+			return;
+		auto Tex = d->FxaaRT->GetTex();
+		if (!Tex)
+		{
+			d->FxaaRT.reset();
+			return;
+		}
+		auto Sz = Tex->GetSize();
+		Engine::RenderTexturePool::Get().ReleaseRenderTarget(
+			Tex->GetPixelFormat(), Sz.x, Sz.y, 1, false, false, std::move(d->FxaaRT));
+	}
+
 	void FXAA::Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> TargetBuffer)
 	{
 		C_P(FXAA);
 		RHICommandMark Mark(RHIContext, "FXAA");
 		if (!TargetBuffer)
 			return;
+		const auto InSize = TargetBuffer->GetSize();
+		if (d->FxaaRT)
+		{
+			auto Tex = d->FxaaRT->GetTex();
+			if (!Tex)
+				d->FxaaRT.reset();
+			else
+			{
+				auto OutSz = Tex->GetSize();
+				if (OutSz.x != InSize.x || OutSz.y != InSize.y || Tex->GetPixelFormat() != TargetBuffer->GetPixelFormat())
+				{
+					Engine::RenderTexturePool::Get().ReleaseRenderTarget(
+						Tex->GetPixelFormat(), OutSz.x, OutSz.y, 1, false, false, std::move(d->FxaaRT));
+				}
+			}
+		}
 		if (!d->FxaaRT)
-			d->FxaaRT = d->RHI->RHICreateRenderTarget(TargetBuffer->GetPixelFormat(),
-				TargetBuffer->GetSize().x, TargetBuffer->GetSize().y, 1, false, false);
+			d->FxaaRT = Engine::RenderTexturePool::Get().AcquireRenderTarget(
+				d->RHI, TargetBuffer->GetPixelFormat(), InSize.x, InSize.y, 1, false, false);
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;

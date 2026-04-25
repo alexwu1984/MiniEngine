@@ -63,9 +63,11 @@ namespace RenderCore
 	void D3D12UniformBuffer::UpdateUniformBuffer(const void* Contents)
 	{
 		C_P(D3D12UniformBuffer);
+		// New slice each update: the same buffer object may be updated multiple times before Flush,
+		// and successive draws must keep distinct GPU addresses. Reusing one upload region would
+		// overwrite data still referenced by earlier commands in the same list.
 		auto& Allocator = GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->GetLinerAllocator(ELinearAllocatorType::CpuWritable);
 		d->Allocation = Allocator.Allocate(d->ConstantBufferSize, DEFAULT_ALIGN);
-
 		memcpy(d->Allocation.CPU, Contents, d->ConstantBufferSize);
 	}
 

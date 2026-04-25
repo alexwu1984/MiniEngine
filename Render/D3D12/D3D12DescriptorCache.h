@@ -3,10 +3,29 @@
 #include "Templates/UnrealTypeTraits.h"
 #include "D3D12/MultiGPU.h"
 #include "D3D12/D3D12CommandList.h"
+#include <queue>
+#include <vector>
 
 namespace RenderCore
 {
 	class FRootSignature;
+
+	struct FRetiredDynamicDescriptorHeapEntry
+	{
+		uint64_t FenceValue = 0;
+		ED3D12CommandQueueType QueueType = ED3D12CommandQueueType::Default;
+		win32::com_ptr<ID3D12DescriptorHeap> Heap;
+	};
+
+	// Shader-visible CBV/SRV/UAV vs sampler pools, owned by FD3D12Device (not process-global statics).
+	struct FDynamicDescriptorHeapPoolsPerDevice
+	{
+		std::queue<win32::com_ptr<ID3D12DescriptorHeap>> Ready[2];
+		std::queue<FRetiredDynamicDescriptorHeapEntry> Retired[2];
+		std::vector<win32::com_ptr<ID3D12DescriptorHeap>> CreatedTracking[2];
+
+		void Clear();
+	};
 
 	class FDescriptorHandle
 	{
@@ -68,12 +87,6 @@ namespace RenderCore
 							   D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
 		~FDynamicDescriptorHeap() = default;
 
-		static void DestroyAll()
-		{
-			ms_DescriptorHeapPool[0].clear();
-			ms_DescriptorHeapPool[1].clear();
-		}
-
 		D3D12_GPU_DESCRIPTOR_HANDLE UploadDirect(D3D12_CPU_DESCRIPTOR_HANDLE Handle);
 
 		void ParseGraphicsRootSignature(const FRootSignature& RootSignature)
@@ -99,7 +112,7 @@ namespace RenderCore
 		void CommitGraphicsRootDescriptorTables(ID3D12GraphicsCommandList* CommandList);
 		void CommitComputeRootDescriptorTables(ID3D12GraphicsCommandList* CommandList);
 
-		void CleanupUsedHeaps(uint64_t FenceValue);
+		void CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 		win32::com_ptr<ID3D12DescriptorHeap> GetHeapPointer();
 	private:
 		bool HasSpace(uint32_t Count)
@@ -107,15 +120,13 @@ namespace RenderCore
 			return (m_CurrentHeap != nullptr && m_CurrentOffset + Count <= NumDescriptorsPerHeap);
 		}
 		void RetireCurrentHeap();
-		void RetireUsedHeaps(uint64_t FenceValue);
+		void RetireUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 		void UnbindAllInvalid();
 		win32::com_ptr<ID3D12DescriptorHeap> RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE HeapType);
+		FDynamicDescriptorHeapPoolsPerDevice& Pools();
 
 	private:
 		static const uint32_t NumDescriptorsPerHeap = 256;
-		static std::vector<win32::com_ptr<ID3D12DescriptorHeap>> ms_DescriptorHeapPool[2]; //CBV_SRV_UAV, Sampler
-		static std::queue<std::pair<uint64_t, win32::com_ptr<ID3D12DescriptorHeap>>> ms_RetiredDescriptorHeaps[2];
-		static std::queue<win32::com_ptr<ID3D12DescriptorHeap>> ms_ReadyDescriptorHeaps[2];
 
 		std::shared_ptr<D3D12CommandContext> m_OwningContext;
 		win32::com_ptr<ID3D12DescriptorHeap> m_CurrentHeap;

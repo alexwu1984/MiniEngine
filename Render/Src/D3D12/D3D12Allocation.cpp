@@ -79,14 +79,32 @@ namespace RenderCore
 	{
 		LinearAllocationPage* Page = nullptr;
 
-		if (!RetiredPages.empty() )
+		if (!RetiredPages.empty())
 		{
-			auto QueueType = GetCommandQueueType(GET_QUEUE_TYPE(RetiredPages.front()->GetFenceValue()));
-			auto& CommandListManager = GetParentDevice()->GetCommandListManager(QueueType);
-			if (CommandListManager.GetFence().IsFenceComplete(RetiredPages.front()->GetFenceValue()))
+			std::vector<LinearAllocationPage*> Temp;
+			Temp.reserve(RetiredPages.size());
+			while (!RetiredPages.empty())
 			{
-				Page = RetiredPages.front();
+				Temp.push_back(RetiredPages.front());
 				RetiredPages.pop();
+			}
+			const size_t TempSize = Temp.size();
+			size_t ReuseIndex = TempSize;
+			for (size_t i = 0; i < TempSize; ++i)
+			{
+				LinearAllocationPage* Candidate = Temp[i];
+				auto& CommandListManager = GetParentDevice()->GetCommandListManager(Candidate->GetRetireQueueType());
+				if (CommandListManager.GetFence().IsFenceComplete(Candidate->GetFenceValue()))
+				{
+					Page = Candidate;
+					ReuseIndex = i;
+					break;
+				}
+			}
+			for (size_t j = 0; j < TempSize; ++j)
+			{
+				if (j != ReuseIndex)
+					RetiredPages.push(Temp[j]);
 			}
 		}
 
@@ -100,33 +118,40 @@ namespace RenderCore
 		return Page;
 	}
 
-	void LinearAllocationPageManager::DiscardStandardPages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages)
+	void LinearAllocationPageManager::DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages)
 	{
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
 			(*Iter)->SetFenceValue(FenceID);
+			(*Iter)->SetRetireQueueType(QueueType);
 			RetiredPages.push(*Iter);
 		}
 	}
 
-	void LinearAllocationPageManager::DiscardLargePages(uint64_t FenceID, const std::vector<LinearAllocationPage*>& Pages)
+	void LinearAllocationPageManager::DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages)
 	{
 		if (!LargePagePool.empty())
 		{
-			auto QueueType = GetCommandQueueType(GET_QUEUE_TYPE(LargePagePool.front()->GetFenceValue()));
-			auto& CommandListManager = GetParentDevice()->GetCommandListManager(QueueType);
-
-			while (!LargePagePool.empty() && CommandListManager.GetFence().IsFenceComplete(LargePagePool.front()->GetFenceValue()))
+			std::vector<LinearAllocationPage*> Remaining;
+			Remaining.reserve(LargePagePool.size());
+			while (!LargePagePool.empty())
 			{
-				LinearAllocationPage* Page = LargePagePool.front();
-				Page->Release();
+				LinearAllocationPage* PoolPage = LargePagePool.front();
 				LargePagePool.pop();
+				auto& CommandListManager = GetParentDevice()->GetCommandListManager(PoolPage->GetRetireQueueType());
+				if (CommandListManager.GetFence().IsFenceComplete(PoolPage->GetFenceValue()))
+					PoolPage->Release();
+				else
+					Remaining.push_back(PoolPage);
 			}
+			for (LinearAllocationPage* PoolPage : Remaining)
+				LargePagePool.push(PoolPage);
 		}
 
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
 			(*Iter)->SetFenceValue(FenceID);
+			(*Iter)->SetRetireQueueType(QueueType);
 			LargePagePool.push(*Iter);
 		}
 	}
@@ -196,6 +221,9 @@ namespace RenderCore
 			StandardPagePool.front()->Release();
 			StandardPagePool.pop();
 		}
+		// Pages still waiting in the retire queue share refs released via StandardPagePool above; drop stale pointers.
+		while (!RetiredPages.empty())
+			RetiredPages.pop();
 	}
 
 	ELinearAllocatorType LinearAllocationPageManager::GetAllocatorType() const
@@ -249,7 +277,7 @@ namespace RenderCore
 		return allocation;
 	}
 
-	void LinearAllocator::CleanupUsedPages(uint64_t FenceID)
+	void LinearAllocator::CleanupUsedPages(uint64_t FenceID, ED3D12CommandQueueType QueueType)
 	{
 		if (m_CurrentPage != nullptr)
 		{
@@ -257,15 +285,11 @@ namespace RenderCore
 			m_CurrentPage = nullptr;
 			m_CurrentOffset = 0;
 		}
-		for (auto Iter = m_StandardPages.begin(); Iter != m_StandardPages.end(); ++Iter)
-		{
-			(*Iter)->SetFenceValue(FenceID);
-		}
 
-		GetParentDevice()->GetLinearPageManager(m_AllocatorType).DiscardStandardPages(FenceID, m_StandardPages);
+		GetParentDevice()->GetLinearPageManager(m_AllocatorType).DiscardStandardPages(FenceID, QueueType, m_StandardPages);
 		m_StandardPages.clear();
 
-		GetParentDevice()->GetLinearPageManager(m_AllocatorType).DiscardLargePages(FenceID, m_LargePages);
+		GetParentDevice()->GetLinearPageManager(m_AllocatorType).DiscardLargePages(FenceID, QueueType, m_LargePages);
 		m_LargePages.clear();
 	}
 

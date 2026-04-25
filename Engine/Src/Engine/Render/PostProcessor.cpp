@@ -19,7 +19,7 @@
 #include "Render/SceneRender.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
-#include "tinygltf/json.h"
+#include "Engine/JsonConfig.h"
 
 namespace Engine
 {
@@ -69,13 +69,9 @@ namespace Engine
 		{
 			C_P(PostProcessor);
 			nlohmann::json Root;
-			std::ifstream input_json_file(FileName);
-			if (!input_json_file.is_open())
-			{
+			if (!LoadJsonFile(FileName, Root))
 				return;
-			}
 
-			input_json_file >> Root;
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
 

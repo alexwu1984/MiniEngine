@@ -83,11 +83,18 @@ namespace Engine
 				static const float RotationSensitivity = 0.15f;
 				static const float TranslationSensitivity = 0.01f;
 
-				if (Impl->LeftButtonPressed)
+				if (Button == MouseButton::NoButton)
+				{
+					Impl->LeftButtonPressed = false;
+					Impl->RightButtonPressed = false;
+					break;
+				}
+
+				if (Impl->LeftButtonPressed && Button == MouseButton::LeftButton)
 				{
 					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) * RotationSensitivity;
 				}
-				else if (Impl->RightButtonPressed)
+				else if (Impl->RightButtonPressed && Button == MouseButton::RightButton)
 				{
 					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint) * TranslationSensitivity;
 				}

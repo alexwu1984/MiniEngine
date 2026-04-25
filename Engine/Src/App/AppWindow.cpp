@@ -29,6 +29,20 @@ namespace Engine
 			
 	}
 
+	static core::vec2f GetMousePointFromLParam(int64_t lParam)
+	{
+		core::vec2f Point;
+		Point.x = static_cast<float>(static_cast<int16_t>(LOWORD(lParam)));
+		Point.y = static_cast<float>(static_cast<int16_t>(HIWORD(lParam)));
+		return Point;
+	}
+
+	static void ReleaseMouseCaptureIfNoButtons(void* pWnd, uint64_t wParam)
+	{
+		if (!(wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) && ::GetCapture() == static_cast<HWND>(pWnd))
+			::ReleaseCapture();
+	}
+
 	AppWindow::AppWindow(HINSTANCE hInst)
 		:d_ptr(new AppWindowPrivate())
 	{
@@ -93,11 +107,13 @@ namespace Engine
 		if (ImGui::GetCurrentContext())
 		{
 			const ImGuiIO& io = ImGui::GetIO();
+			const bool OwnsMouseCapture = ::GetCapture() == static_cast<HWND>(pWnd);
 			if (io.WantCaptureMouse && (message == WM_LBUTTONDOWN || message == WM_LBUTTONUP || 
 										message == WM_RBUTTONDOWN || message == WM_RBUTTONUP || 
-										message == WM_MBUTTONDOWN || message == WM_MBUTTONUP || 
+										message == WM_MBUTTONDOWN || message == WM_MBUTTONUP ||
 										message == WM_MOUSEWHEEL || message == WM_MOUSEMOVE)) {
-				return ERROR_SUCCESS;
+				if (!OwnsMouseCapture)
+					return ERROR_SUCCESS;
 			}
 		}
 
@@ -118,43 +134,35 @@ namespace Engine
 		break;
 		case WM_LBUTTONDOWN:
 		{
-			core::vec2f Point;
-			Point.x = LOWORD(lParam);
-			Point.y = HIWORD(lParam);
+			core::vec2f Point = GetMousePointFromLParam(lParam);
 			EvtMouseButtonDown(MouseButton::LeftButton, Point);
 			::SetCapture((HWND)pWnd);
 		}
 		break;
 		case WM_LBUTTONUP:
 		{
-			core::vec2f Point;
-			Point.x = LOWORD(lParam);
-			Point.y = HIWORD(lParam);
+			core::vec2f Point = GetMousePointFromLParam(lParam);
 			EvtMouseButtonUp(MouseButton::LeftButton, Point);
-			::ReleaseCapture();
+			ReleaseMouseCaptureIfNoButtons(pWnd, wParam);
 		}
 		break;
 		case WM_RBUTTONDOWN:
 		{
-			core::vec2f Point;
-			Point.x = LOWORD(lParam);
-			Point.y = HIWORD(lParam);
+			core::vec2f Point = GetMousePointFromLParam(lParam);
 			EvtMouseButtonDown(MouseButton::RightButton, Point);
+			::SetCapture((HWND)pWnd);
 		}
 		break;
 		case WM_RBUTTONUP:
 		{
-			core::vec2f Point;
-			Point.x = LOWORD(lParam);
-			Point.y = HIWORD(lParam);
+			core::vec2f Point = GetMousePointFromLParam(lParam);
 			EvtMouseButtonUp(MouseButton::RightButton, Point);
+			ReleaseMouseCaptureIfNoButtons(pWnd, wParam);
 		}
 		break;
 		case WM_MOUSEMOVE:
 		{
-			core::vec2f Point;
-			Point.x = LOWORD(lParam);
-			Point.y = HIWORD(lParam);
+			core::vec2f Point = GetMousePointFromLParam(lParam);
 
 			MouseButton Button = NoButton;
 			if (wParam & MK_LBUTTON)

@@ -9,7 +9,7 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
-#include "tinygltf/json.h"
+#include "Engine/JsonConfig.h"
 #include "Render/CubeRender.h"
 
 using namespace math;
@@ -99,13 +99,9 @@ namespace Engine
 		{
 			C_P(IBLRender);
 			nlohmann::json Root;
-			std::ifstream input_json_file(FileName);
-			if (!input_json_file.is_open())
-			{
+			if (!LoadJsonFile(FileName, Root))
 				return;
-			}
 
-			input_json_file >> Root;
 			nlohmann::json EvnJson = Root["Evn"];
 			std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(EvnJson["Hdr"]);
 			d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);

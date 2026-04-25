@@ -5,6 +5,7 @@
 #include "Engine.h"
 #include "App/AppWindow.h"
 #include "Render/MaterialPreFrame.h"
+#include "Engine/JsonConfig.h"
 
 namespace Engine 
 {
@@ -59,13 +60,9 @@ namespace Engine
 		try
 		{
 			nlohmann::json Root;
-			std::ifstream input_json_file(ModelFile);
-			if (!input_json_file.is_open())
-			{
+			if (!LoadJsonFile(ModelFile, Root))
 				return;
-			}
 
-			input_json_file >> Root;
 			nlohmann::json Models = Root["Modles"];
 			for (const auto &Model: Models)
 			{

@@ -463,8 +463,6 @@ namespace RenderCore
 		FShaderCodePackedResourceCounts VertexResCount = itVertexShader->second->ResourceCounts;
 		FShaderCodePackedResourceCounts PixelResCount = itPixelShader->second->ResourceCounts;
 
-		CommandList.FlushResourceBarriers();
-
 		if (bNeedSetBlendFactor)
 		{
 			CommandList->OMSetBlendFactor(CurrentBlendFactor);
@@ -619,9 +617,6 @@ namespace RenderCore
 		CommandList->SetComputeRootSignature(RootSignature->GetSignature());
 		DynamicViewDescriptorHeap.ParseComputeRootSignature(*RootSignature);
 		CommandList->SetPipelineState(PipelineState.get());
-
-		// Flush resource barriers before setting descriptors to ensure all resource state transitions are applied
-		CommandList.FlushResourceBarriers();
 
 		FShaderCodePackedResourceCounts ComputeResCount = itComputeShader->second->ResourceCounts;
 

@@ -7,6 +7,7 @@
 #include "D3D12/D3D12RootSignature.h"
 #include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
+#include "D3D12/D3D12CallStats.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include <dxgidebug.h>
 
@@ -344,6 +345,7 @@ namespace RenderCore
 		}
 
 		win32::com_ptr<ID3D12Resource> pResource;
+		Render::D3D12CallStats::IncCreateCommittedResource();
 		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));
 
 		if (SUCCEEDED(hr))

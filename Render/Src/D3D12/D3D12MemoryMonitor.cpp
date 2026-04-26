@@ -1,6 +1,7 @@
 #include "D3D12/D3D12MemoryMonitor.h"
 
 #include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12CallStats.h"
 
 #include "core/commandline.h"
 #include "core/logger.h"
@@ -38,7 +39,18 @@ namespace RenderCore
 		static std::once_flag sOnce;
 		std::call_once(sOnce, []() {
 			::SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
-			::SymInitialize(::GetCurrentProcess(), nullptr, TRUE);
+			// FALSE: do not invade all modules (TRUE loads symbol tables for every DLL and can grow Private MB/s while memmon runs).
+			HANDLE proc = ::GetCurrentProcess();
+			::SymInitialize(proc, nullptr, FALSE);
+
+			// Even with invade=FALSE, make sure the main module's PDB is loaded so SymFromAddr can resolve our own code.
+			// This keeps overhead low while making stacks actionable.
+			wchar_t modulePathW[MAX_PATH] = {};
+			if (::GetModuleFileNameW(nullptr, modulePathW, (DWORD)_countof(modulePathW)) > 0)
+			{
+				HMODULE hMod = ::GetModuleHandleW(nullptr);
+				::SymLoadModuleExW(proc, nullptr, modulePathW, nullptr, (DWORD64)(uintptr_t)hMod, 0, nullptr, 0);
+			}
 		});
 	}
 
@@ -312,6 +324,29 @@ namespace RenderCore
 				(double)privWC_Bucket_Le32MB / MB,
 				(double)privWC_Bucket_Gt32MB / MB);
 
+			// Correlate WC deltas with high-frequency engine D3D12 call activity (per 1s tick).
+			{
+				const Render::D3D12CallStats::Snapshot cs = Render::D3D12CallStats::SnapshotAndReset();
+				core::LOG(core::log_inf,
+					L"[D3D12] CallStats(1s) Exec=%llu (lists=%llu) Signal=%llu Present=%llu CreateCommitted=%llu Map=%llu Unmap=%llu FenceSetEvent=%llu Wait=%llu | DirectFence Immediate=%llu Deferred=%llu | Barriers Add=%llu FlushCalls=%llu Flushed=%llu | Copy=%.1fMB Upload=%.1fMB",
+					(unsigned long long)cs.ExecuteCommandListsCalls,
+					(unsigned long long)cs.ExecuteCommandListsLists,
+					(unsigned long long)cs.QueueSignalCalls,
+					(unsigned long long)cs.SwapchainPresentCalls,
+					(unsigned long long)cs.CreateCommittedResourceCalls,
+					(unsigned long long)cs.ResourceMapCalls,
+					(unsigned long long)cs.ResourceUnmapCalls,
+					(unsigned long long)cs.FenceSetEventOnCompletionCalls,
+					(unsigned long long)cs.WaitForSingleObjectCalls,
+					(unsigned long long)cs.DirectFenceImmediateSignalCalls,
+					(unsigned long long)cs.DirectFenceDeferredReserveCalls,
+					(unsigned long long)cs.ResourceBarrierAdds,
+					(unsigned long long)cs.ResourceBarrierFlushCalls,
+					(unsigned long long)cs.ResourceBarrierFlushed,
+					(double)cs.CopyBytes / MB,
+					(double)cs.UploadBytes / MB);
+			}
+
 			// For newly observed large WC regions, print attribution (MEM_PRIVATE vs MEM_MAPPED, etc.).
 			// This helps distinguish upload-heap like allocations from mapped sections.
 			{
@@ -344,6 +379,9 @@ namespace RenderCore
 					{
 						std::lock_guard<std::mutex> lock(sWcMu);
 						bNew = sSeenWcAllocBases.insert(allocBase).second;
+						// Avoid unbounded growth if bases churn (VirtualQuery can surface many distinct AllocationBase values).
+						if (sSeenWcAllocBases.size() > 512)
+							sSeenWcAllocBases.clear();
 					}
 					if (!bNew)
 						continue;
@@ -370,33 +408,43 @@ namespace RenderCore
 
 			if (dWCBytes > 0)
 			{
-				static thread_local bool sReentryGuard = false;
-				if (sReentryGuard)
-					goto AfterWCStack;
-				sReentryGuard = true;
-
-				void* frames[16] = {};
-				const USHORT n = ::RtlCaptureStackBackTrace(0, 16, frames, nullptr);
-				if (n > 0)
+				// RtlCaptureStackBackTrace + SymFromAddr pulls DbgHelp and can allocate heavily every second; keep behind a second flag.
+				if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
 				{
-					wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
-					wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
-					FormatAddrSymbol(s0, _countof(s0), frames[0]);
-					FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
-					FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
-					FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
-					FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
-					FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
-					FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
-					FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
-
 					core::LOG(core::log_inf,
-						L"[D3D12] VMemPrivate WC +%.1fMB observed here. Stack: %s | %s | %s | %s | %s | %s | %s | %s",
-						(double)dWCBytes / MB,
-						s0, s1, s2, s3, s4, s5, s6, s7);
+						L"[D3D12] VMemPrivate WC +%.1fMB (stacks disabled; use d3d12_memmon_stacks=1 for symbolized backtraces)",
+						(double)dWCBytes / MB);
 				}
+				else
+				{
+					static thread_local bool sReentryGuard = false;
+					if (sReentryGuard)
+						goto AfterWCStack;
+					sReentryGuard = true;
 
-				sReentryGuard = false;
+					void* frames[16] = {};
+					const USHORT n = ::RtlCaptureStackBackTrace(0, 16, frames, nullptr);
+					if (n > 0)
+					{
+						wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
+						wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
+						FormatAddrSymbol(s0, _countof(s0), frames[0]);
+						FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
+						FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
+						FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
+						FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
+						FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
+						FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
+						FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
+
+						core::LOG(core::log_inf,
+							L"[D3D12] VMemPrivate WC +%.1fMB observed here. Stack: %s | %s | %s | %s | %s | %s | %s | %s",
+							(double)dWCBytes / MB,
+							s0, s1, s2, s3, s4, s5, s6, s7);
+					}
+
+					sReentryGuard = false;
+				}
 			}
 		AfterWCStack:
 

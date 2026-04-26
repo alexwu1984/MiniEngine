@@ -66,6 +66,74 @@ namespace core
 		static volatile LONG64 sWcCommitBytes = 0;
 		static volatile LONG64 sWcProtectBytes = 0;
 
+		// D3DKMT (gdi32) path: some GPU driver allocations are requested via KMT and may not
+		// show up as usermode VirtualAlloc/NtAllocateVirtualMemory call sites.
+		using PFN_D3DKMTCreateAllocation = NTSTATUS(APIENTRY*)(void* /*D3DKMT_CREATEALLOCATION* */);
+		using PFN_D3DKMTDestroyAllocation = NTSTATUS(APIENTRY*)(void* /*D3DKMT_DESTROYALLOCATION* */);
+		using PFN_D3DKMTSubmitCommand = NTSTATUS(APIENTRY*)(void* /*D3DKMT_SUBMITCOMMAND* */);
+
+		static PFN_D3DKMTCreateAllocation sRealD3DKMTCreateAllocation = nullptr;
+		static PFN_D3DKMTDestroyAllocation sRealD3DKMTDestroyAllocation = nullptr;
+		static PFN_D3DKMTSubmitCommand sRealD3DKMTSubmitCommand = nullptr;
+
+		static void LogD3dkmtOncePerSecond(const wchar_t* Tag, void* ArgsPtr, NTSTATUS Status)
+		{
+			static thread_local bool sReentryGuard = false;
+			if (sReentryGuard)
+				return;
+			sReentryGuard = true;
+
+			static ULONGLONG sLastTick = 0;
+			const ULONGLONG now = ::GetTickCount64();
+			const ULONGLONG kCooldownMs = 250;
+			if (now - sLastTick < kCooldownMs)
+			{
+				sReentryGuard = false;
+				return;
+			}
+			sLastTick = now;
+
+			void* frames[32] = {};
+			USHORT n = ::RtlCaptureStackBackTrace(1, 32, frames, nullptr);
+			core::LOG(core::log_inf,
+					  L"[WC_HOOK] %s args=%p st=0x%08x frames=%u (enable wc_hook_stacks=1 for symbols)",
+					  Tag, ArgsPtr, (unsigned)Status, (unsigned)n);
+
+			if (core::CommandLine::Get().GetName("wc_hook_stacks"))
+			{
+				HANDLE proc = ::GetCurrentProcess();
+				static bool sSymInited = false;
+				if (!sSymInited)
+				{
+					::SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+					::SymInitialize(proc, nullptr, FALSE);
+					// Ensure the main module's symbols are loaded (invade=FALSE doesn't guarantee it).
+					wchar_t modulePathW[MAX_PATH] = {};
+					if (::GetModuleFileNameW(nullptr, modulePathW, (DWORD)_countof(modulePathW)) > 0)
+					{
+						HMODULE hMod = ::GetModuleHandleW(nullptr);
+						::SymLoadModuleExW(proc, nullptr, modulePathW, nullptr, (DWORD64)(uintptr_t)hMod, 0, nullptr, 0);
+					}
+					sSymInited = true;
+				}
+				for (USHORT i = 0; i < n && i < 10; ++i)
+				{
+					DWORD64 addr = (DWORD64)frames[i];
+					char buf[sizeof(SYMBOL_INFO) + MAX_SYM_NAME] = {};
+					SYMBOL_INFO* sym = (SYMBOL_INFO*)buf;
+					sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+					sym->MaxNameLen = MAX_SYM_NAME;
+					DWORD64 disp = 0;
+					if (::SymFromAddr(proc, addr, &disp, sym))
+						core::LOG(core::log_inf, L"[WC_HOOK]   #%u %S +0x%llx", (unsigned)i, sym->Name, (unsigned long long)disp);
+					else
+						core::LOG(core::log_inf, L"[WC_HOOK]   #%u 0x%llx", (unsigned)i, (unsigned long long)addr);
+				}
+			}
+
+			sReentryGuard = false;
+		}
+
 		static void LogStackOncePerSecond(const wchar_t* Tag, void* Base, SIZE_T Size, DWORD Protect)
 		{
 			static thread_local bool sReentryGuard = false;
@@ -122,33 +190,65 @@ namespace core
 					  Tag, Base, (double)Size / (1024.0 * 1024.0), (unsigned)Protect, (unsigned)n,
 					  (double)wcCommit / (1024.0 * 1024.0), (double)wcProtect / (1024.0 * 1024.0));
 
-			// Symbolize best-effort (can be noisy; keep it short).
-			HANDLE proc = ::GetCurrentProcess();
-			static bool sSymInited = false;
-			if (!sSymInited)
+			// Symbolization is optional and can allocate heavily (DbgHelp). Keep it behind a flag.
+			if (core::CommandLine::Get().GetName("wc_hook_stacks"))
 			{
-				::SymInitialize(proc, nullptr, TRUE);
-				sSymInited = true;
-			}
-			for (USHORT i = 0; i < n && i < 10; ++i)
-			{
-				DWORD64 addr = (DWORD64)frames[i];
-				char buf[sizeof(SYMBOL_INFO) + MAX_SYM_NAME] = {};
-				SYMBOL_INFO* sym = (SYMBOL_INFO*)buf;
-				sym->SizeOfStruct = sizeof(SYMBOL_INFO);
-				sym->MaxNameLen = MAX_SYM_NAME;
-				DWORD64 disp = 0;
-				if (::SymFromAddr(proc, addr, &disp, sym))
+				HANDLE proc = ::GetCurrentProcess();
+				static bool sSymInited = false;
+				if (!sSymInited)
 				{
-					core::LOG(core::log_inf, L"[WC_HOOK]   #%u %S +0x%llx", (unsigned)i, sym->Name, (unsigned long long)disp);
+					::SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+					::SymInitialize(proc, nullptr, FALSE);
+					// Ensure the main module's symbols are loaded (invade=FALSE doesn't guarantee it).
+					wchar_t modulePathW[MAX_PATH] = {};
+					if (::GetModuleFileNameW(nullptr, modulePathW, (DWORD)_countof(modulePathW)) > 0)
+					{
+						HMODULE hMod = ::GetModuleHandleW(nullptr);
+						::SymLoadModuleExW(proc, nullptr, modulePathW, nullptr, (DWORD64)(uintptr_t)hMod, 0, nullptr, 0);
+					}
+					sSymInited = true;
 				}
-				else
+				for (USHORT i = 0; i < n && i < 10; ++i)
 				{
-					core::LOG(core::log_inf, L"[WC_HOOK]   #%u 0x%llx", (unsigned)i, (unsigned long long)addr);
+					DWORD64 addr = (DWORD64)frames[i];
+					char buf[sizeof(SYMBOL_INFO) + MAX_SYM_NAME] = {};
+					SYMBOL_INFO* sym = (SYMBOL_INFO*)buf;
+					sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+					sym->MaxNameLen = MAX_SYM_NAME;
+					DWORD64 disp = 0;
+					if (::SymFromAddr(proc, addr, &disp, sym))
+					{
+						core::LOG(core::log_inf, L"[WC_HOOK]   #%u %S +0x%llx", (unsigned)i, sym->Name, (unsigned long long)disp);
+					}
+					else
+					{
+						core::LOG(core::log_inf, L"[WC_HOOK]   #%u 0x%llx", (unsigned)i, (unsigned long long)addr);
+					}
 				}
 			}
 
 			sReentryGuard = false;
+		}
+
+		static NTSTATUS APIENTRY Hook_D3DKMTCreateAllocation(void* Args)
+		{
+			NTSTATUS st = sRealD3DKMTCreateAllocation ? sRealD3DKMTCreateAllocation(Args) : (NTSTATUS)0xC0000002 /*STATUS_NOT_IMPLEMENTED*/;
+			LogD3dkmtOncePerSecond(L"gdi32!D3DKMTCreateAllocation", Args, st);
+			return st;
+		}
+
+		static NTSTATUS APIENTRY Hook_D3DKMTDestroyAllocation(void* Args)
+		{
+			NTSTATUS st = sRealD3DKMTDestroyAllocation ? sRealD3DKMTDestroyAllocation(Args) : (NTSTATUS)0xC0000002 /*STATUS_NOT_IMPLEMENTED*/;
+			LogD3dkmtOncePerSecond(L"gdi32!D3DKMTDestroyAllocation", Args, st);
+			return st;
+		}
+
+		static NTSTATUS APIENTRY Hook_D3DKMTSubmitCommand(void* Args)
+		{
+			NTSTATUS st = sRealD3DKMTSubmitCommand ? sRealD3DKMTSubmitCommand(Args) : (NTSTATUS)0xC0000002 /*STATUS_NOT_IMPLEMENTED*/;
+			LogD3dkmtOncePerSecond(L"gdi32!D3DKMTSubmitCommand", Args, st);
+			return st;
 		}
 
 		static NTSTATUS NTAPI Hook_NtAllocateVirtualMemory(
@@ -573,7 +673,44 @@ namespace core
 			return;
 		}
 
-		core::LOG(core::log_inf, L"[WC_HOOK] enabled (MinHook ntdll NtAlloc/NtProtect/NtAllocEx/NtMapView + KernelBase/Kernel32/apiset VirtualAlloc/Protect/Alloc2)");
+		// Optional: D3DKMT hooks. These can help attribute driver/kernel allocations that don't
+		// surface as usermode VirtualAlloc/NtAllocateVirtualMemory call stacks.
+		//
+		// Note: on some Win10/11 builds these exports live in win32u.dll (syscall user stub),
+		// not gdi32.dll. We try both and log success/failure explicitly.
+		int d3dkmtOn = 0;
+		core::CommandLine::Get().GetInteger("wc_hook_d3dkmt", d3dkmtOn);
+		if (d3dkmtOn > 0)
+		{
+			auto TryHookD3dkmtIn = [](const wchar_t* Module) -> void
+			{
+				MH_STATUS hk = MH_CreateHookApi(Module, "D3DKMTCreateAllocation", (LPVOID)&Hook_D3DKMTCreateAllocation, (LPVOID*)&sRealD3DKMTCreateAllocation);
+				core::LOG(core::log_inf, L"[WC_HOOK] hook %s!D3DKMTCreateAllocation %s", Module, hk == MH_OK ? L"ok" : L"failed");
+				if (hk != MH_OK)
+					core::LOG(core::log_inf, L"[WC_HOOK]   reason: %S", MH_StatusToString(hk));
+
+				hk = MH_CreateHookApi(Module, "D3DKMTDestroyAllocation", (LPVOID)&Hook_D3DKMTDestroyAllocation, (LPVOID*)&sRealD3DKMTDestroyAllocation);
+				core::LOG(core::log_inf, L"[WC_HOOK] hook %s!D3DKMTDestroyAllocation %s", Module, hk == MH_OK ? L"ok" : L"failed");
+				if (hk != MH_OK)
+					core::LOG(core::log_inf, L"[WC_HOOK]   reason: %S", MH_StatusToString(hk));
+
+				hk = MH_CreateHookApi(Module, "D3DKMTSubmitCommand", (LPVOID)&Hook_D3DKMTSubmitCommand, (LPVOID*)&sRealD3DKMTSubmitCommand);
+				core::LOG(core::log_inf, L"[WC_HOOK] hook %s!D3DKMTSubmitCommand %s", Module, hk == MH_OK ? L"ok" : L"failed");
+				if (hk != MH_OK)
+					core::LOG(core::log_inf, L"[WC_HOOK]   reason: %S", MH_StatusToString(hk));
+			};
+
+			// Try both; whichever is present will succeed.
+			TryHookD3dkmtIn(L"gdi32.dll");
+			TryHookD3dkmtIn(L"win32u.dll");
+
+			// Enable just-created hooks (MH_ALL_HOOKS already enabled above for earlier ones).
+			MH_STATUS hk = MH_EnableHook(MH_ALL_HOOKS);
+			if (hk != MH_OK)
+				core::LOG(core::log_inf, L"[WC_HOOK] MH_EnableHook(after d3dkmt) failed: %S", MH_StatusToString(hk));
+		}
+
+		core::LOG(core::log_inf, L"[WC_HOOK] enabled (MinHook ntdll NtAlloc/NtProtect/NtAllocEx/NtMapView + KernelBase/Kernel32/apiset VirtualAlloc/Protect/Alloc2 + optional gdi32 D3DKMT*=wc_hook_d3dkmt=1)");
 	}
 }
 

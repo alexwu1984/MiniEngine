@@ -18,7 +18,16 @@ namespace RenderCore
 			static std::once_flag sOnce;
 			std::call_once(sOnce, []() {
 				::SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
-				::SymInitialize(::GetCurrentProcess(), nullptr, TRUE);
+				HANDLE proc = ::GetCurrentProcess();
+				::SymInitialize(proc, nullptr, FALSE);
+
+				// Load the main module's symbols explicitly (invade=FALSE won't necessarily do it).
+				wchar_t modulePathW[MAX_PATH] = {};
+				if (::GetModuleFileNameW(nullptr, modulePathW, (DWORD)_countof(modulePathW)) > 0)
+				{
+					HMODULE hMod = ::GetModuleHandleW(nullptr);
+					::SymLoadModuleExW(proc, nullptr, modulePathW, nullptr, (DWORD64)(uintptr_t)hMod, 0, nullptr, 0);
+				}
 			});
 		}
 
@@ -90,12 +99,29 @@ namespace RenderCore
 			std::lock_guard<std::mutex> lock(sMu);
 			if (!sSeenBases.insert(mbi.AllocationBase).second)
 				return;
+			if (sSeenBases.size() > 512)
+				sSeenBases.clear();
 		}
 
 		static thread_local bool sReentryGuard = false;
 		if (sReentryGuard)
 			return;
 		sReentryGuard = true;
+
+		const double MB = 1024.0 * 1024.0;
+		if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
+		{
+			core::LOG(core::log_inf,
+				L"[D3D12] UploadMap WC (%s) ptr=%p size=%.1fMB allocBase=%p region=%.1fMB prot=0x%X (stacks: d3d12_memmon_stacks=1)",
+				(Tag ? Tag : L"?"),
+				MappedPtr,
+				(double)SizeBytes / MB,
+				mbi.AllocationBase,
+				(double)(uint64_t)mbi.RegionSize / MB,
+				(unsigned)mbi.Protect);
+			sReentryGuard = false;
+			return;
+		}
 
 		void* frames[16] = {};
 		const USHORT n = ::RtlCaptureStackBackTrace(0, 16, frames, nullptr);
@@ -114,7 +140,6 @@ namespace RenderCore
 			FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
 		}
 
-		const double MB = 1024.0 * 1024.0;
 		core::LOG(core::log_inf,
 			L"[D3D12] UploadMap WC (%s) ptr=%p size=%.1fMB allocBase=%p region=%.1fMB prot=0x%X stack: %s | %s | %s | %s | %s | %s | %s | %s",
 			(Tag ? Tag : L"?"),

@@ -84,7 +84,7 @@ namespace RenderCore
 			DSV = DepthRHI->GetDSV();
 			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		}
-		CommandListHandle.FlushResourceBarriers();
+		// Defer barrier flush until Clear/Draw/Dispatch/Close — OMSetRenderTargets does not consume the RT/DS contents.
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
 		CurrentStateCache->SetRenderTargetFormats(Targets, Depth);	
 	}
@@ -106,7 +106,6 @@ namespace RenderCore
 			TransitionSubResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, IndexMip, false);
 			if(RenderTargetRHI->GetDepthResource())
 				TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
-			CommandListHandle.FlushResourceBarriers();
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetMipRTV(IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
@@ -127,7 +126,6 @@ namespace RenderCore
 			TransitionResource(TextureCubeRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
 			if (TextureCubeRHI->GetDepthResource())
 				TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
-			CommandListHandle.FlushResourceBarriers();
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(IndexView, IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
@@ -483,6 +481,7 @@ namespace RenderCore
 		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
 		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1, 0, 0,0);
 		++numDraws;
 	}
@@ -502,6 +501,7 @@ namespace RenderCore
 		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexView);
 		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->DrawInstanced(VertexBuffer->GetCount(),1,0,0);
 		++numDraws;
 	}
@@ -526,6 +526,7 @@ namespace RenderCore
 		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
 		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1,0,0,0);
 		++numDraws;
 	}
@@ -536,6 +537,7 @@ namespace RenderCore
 			return;
 		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->DrawInstanced(VertexCount, 1, VertexStartOffset, 0);
 		++numDraws;
 	}
@@ -579,6 +581,7 @@ namespace RenderCore
 			return;
 		if (!CurrentStateCache->ApplyComputeState(CommandListHandle))
 			return;
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 		++numDispatches;
 	}
@@ -600,7 +603,8 @@ namespace RenderCore
 		
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
-		CommandListHandle.FlushResourceBarriers();
+		// Restore barriers are ordered after Copy in the batch; defer flush to the next GPU boundary
+		// (Draw/Clear/Dispatch/Close) to avoid an extra ResourceBarrier split per copy.
 	}
 
 	void D3D12CommandContext::RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect)
@@ -610,7 +614,7 @@ namespace RenderCore
 		if (!D3D12Src || !D3D12Dst)
 			return;
 		auto SrcOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
-		auto DstOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
+		auto DstOldState = D3D12Dst->GetResource()->GetResourceState().GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
 		// Only flush barriers; avoid submitting mid-frame.
@@ -643,7 +647,6 @@ namespace RenderCore
 
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
-		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
@@ -653,25 +656,13 @@ namespace RenderCore
 
 	uint64_t D3D12CommandContext::FlushCommandsGetFence(bool WaitForCompletion /*= false*/)
 	{
-		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
-		const bool bHasDoneWork = HasDoneWork();
-		const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork;
-
-		// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
-		if (bOpenNewCmdList)
-		{
-			// Close the current command list
-			CloseCommandList();
-
-			// Just submit the current command list
-			const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
-
-			// Get a new command list to replace the one we submitted for execution. 
-			// Restore the state from the previous command list.
-			OpenCommandList();
-			return SignaledFenceValue;
-		}
-		return 0;
+		// Align with DirectX-Graphics-Samples MiniEngine CommandContext::Flush: always close, execute,
+		// and run per-submit cleanup (linear allocators, dynamic heaps). Do not skip submit based on
+		// draw/barrier heuristics — that breaks fence-tied upload page retirement (e.g. uniform ring).
+		CloseCommandList();
+		const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
+		OpenCommandList();
+		return SignaledFenceValue;
 	}
 
 	void D3D12CommandContext::RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush /*= false*/)
@@ -748,28 +739,51 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
-		// NOTE:
-		// We can't safely use a single ALL_SUBRESOURCES transition barrier with the "before" state
-		// coming from just subresource 0. If subresources are in different states, that will produce
-		// RESOURCE_BARRIER_BEFORE_AFTER_MISMATCH (#527) and also desync state tracking.
-		//
-		// Instead, emit correct per-subresource transitions based on tracked state.
-		bool bAnyTransition = false;
+		// MiniEngine-style optimization:
+		// Use a single ALL_SUBRESOURCES barrier whenever all subresources share the same old state.
+		// Fall back to per-subresource barriers only when states are mixed.
 		const uint16_t SubresourceCount = Resource->GetSubresourceCount();
-		for (uint16_t Subresource = 0; Subresource < SubresourceCount; ++Subresource)
+		if (SubresourceCount == 0)
+			return;
+
+		const D3D12_RESOURCE_STATES Old0 = Resource->GetResourceState().GetSubresourceState(0);
+
+		bool bAllSameOld = true;
+		for (uint16_t s = 1; s < SubresourceCount; ++s)
 		{
-			const D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(Subresource);
-			if (OldState != NewState)
+			if (Resource->GetResourceState().GetSubresourceState(s) != Old0)
 			{
-				CommandListHandle.AddTransitionBarrier(Resource, OldState, NewState, Subresource);
-				Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
+				bAllSameOld = false;
+				break;
+			}
+		}
+
+		bool bAnyTransition = false;
+		if (bAllSameOld)
+		{
+			if (Old0 != NewState)
+			{
+				CommandListHandle.AddTransitionBarrier(Resource, Old0, NewState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+				Resource->GetResourceState().SetResourceState(NewState);
 				bAnyTransition = true;
 			}
 		}
-		if (bAnyTransition && Flush)
+		else
 		{
-			CommandListHandle.FlushResourceBarriers();
+			for (uint16_t Subresource = 0; Subresource < SubresourceCount; ++Subresource)
+			{
+				const D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(Subresource);
+				if (OldState != NewState)
+				{
+					CommandListHandle.AddTransitionBarrier(Resource, OldState, NewState, Subresource);
+					Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
+					bAnyTransition = true;
+				}
+			}
 		}
+
+		if (bAnyTransition && Flush)
+			CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush)
@@ -794,8 +808,10 @@ namespace RenderCore
 		CommandList.SetCurrentOwningContext(this);
 
 		size_t UploadBufferSize = (size_t)GetRequiredIntermediateSize(Dest->GetResource(), 0, NumSubResources);
+		Render::D3D12CallStats::AddUploadBytes((uint64_t)UploadBufferSize);
 		FAllocation Allocation = CommandList.GetLinerAllocator(ELinearAllocatorType::CpuWritable).Allocate(UploadBufferSize);
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.Resource->GetResource(), 0, 0, NumSubResources, SubData);
+		Render::D3D12CallStats::AddCopyBytes((uint64_t)UploadBufferSize);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
@@ -811,6 +827,7 @@ namespace RenderCore
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);
 
+		Render::D3D12CallStats::AddUploadBytes((uint64_t)NumBytes);
 		FAllocation Allocation = CommandList.GetLinerAllocator(ELinearAllocatorType::CpuWritable).Allocate(NumBytes);
 		memcpy(Allocation.CPU, Data, NumBytes);
 
@@ -821,6 +838,7 @@ namespace RenderCore
 			CommandList.FlushResourceBarriers();
 		}
 
+		Render::D3D12CallStats::AddCopyBytes((uint64_t)NumBytes);
 		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.Resource->GetResource(), 0, NumBytes);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -864,7 +882,8 @@ namespace RenderCore
 				StateCache.second->CleanupUsedHeaps(FenceValue, QueueType);
 		}
 
-		if (CurrentStateCache && StateCacheMap.empty())
+		// CurrentStateCache is normally one of the map entries; calling twice is harmless and avoids missing cleanup if map/state ever diverge.
+		if (CurrentStateCache)
 			CurrentStateCache->CleanupUsedHeaps(FenceValue, QueueType);
 	}
 

@@ -3,6 +3,7 @@
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Allocation.h"
+#include "D3D12/D3D12CallStats.h"
 #include "win/com_ptr.h"
 
 namespace RenderCore
@@ -180,6 +181,11 @@ namespace RenderCore
 
 			void FlushResourceBarriers()
 			{
+				const uint32_t n = (uint32_t)ResourceBarrierBatcher.GetBarriers().size();
+				// Avoid spamming empty flushes (they add CPU overhead and can amplify driver-side work).
+				if (n == 0)
+					return;
+				Render::D3D12CallStats::FlushResourceBarriers(n);
 				ResourceBarrierBatcher.Flush(CommandList.get());
 			}
 
@@ -326,6 +332,10 @@ namespace RenderCore
 
 		uint64_t ExecuteAndClear(bool WaitForCompletion = false);
 		void Execute(bool WaitForCompletion = false);
+
+		// Fence-tied recycling for linear allocators + dynamic descriptor heaps (same work as ExecuteAndClear's post-submit hook).
+		// Required for command lists submitted via ExecuteAndIncrementFence (e.g. async-compute resource-barrier batches on the direct queue).
+		void CleanupTransientResources(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 
 		void Close()
 		{

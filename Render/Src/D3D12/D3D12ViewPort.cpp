@@ -10,6 +10,7 @@
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "D3D12/D3D12PresentStats.h"
+#include "D3D12/D3D12CallStats.h"
 #include <dxgi1_4.h>
 #include <windows.h>
 
@@ -79,6 +80,11 @@ namespace RenderCore
 
 	D3D12ViewPort::~D3D12ViewPort()
 	{
+		if (FrameLatencyWaitableObject)
+		{
+			::CloseHandle(FrameLatencyWaitableObject);
+			FrameLatencyWaitableObject = nullptr;
+		}
 		BackBuffers.clear();
 	}
 
@@ -86,15 +92,19 @@ namespace RenderCore
 	{
 		auto Adapter = GetParentAdapter();
 
-		// Match DEMO behavior: no tearing.
+		// Sync with Microsoft MiniEngine behavior:
+		// - Use a waitable swapchain and cap frame latency to keep CPU from outrunning GPU.
+		// - Present with VSync ON (Present(1,0)), no tearing.
 		bAllowTearing = false;
 
 		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
 		// Microsoft MiniEngine uses no ALLOW_MODE_SWITCH flag here.
-		const UINT SwapChainFlags = 0;
+		const UINT SwapChainFlags =
+			(bAllowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u) |
+			DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
-		// Match DEMO behavior: rely on VSync (Present(1,0)) for pacing.
+		// Default behavior: rely on VSync (Present(1,0)) for pacing.
 		const DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
 		// if stereo was not activated or not enabled in settings
 		if (SwapChain1 == nullptr)
@@ -134,13 +144,12 @@ namespace RenderCore
 
 				// One-shot evidence: print swapchain parameters for diffing against MiniEngine.
 				core::LOG(core::log_inf,
-						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x waitable=%d vsync=1 tearing=%d",
+						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x waitable=1 vsync=1 tearing=%d",
 						  (unsigned)Desc1.Width,
 						  (unsigned)Desc1.Height,
 						  (unsigned)Desc1.Format,
 						  (unsigned)Desc1.BufferCount,
 						  (unsigned)Desc1.Flags,
-						  0,
 						  (int)bAllowTearing);
 			}
 
@@ -164,7 +173,20 @@ namespace RenderCore
 		// Initialize to the swapchain's first renderable backbuffer.
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-		// No extra DXGI frame-latency configuration.
+		// MiniEngine-style: cap frame latency and use the waitable object.
+		if (SwapChain4)
+		{
+			const int maxLatency = 1;
+			SwapChain4->SetMaximumFrameLatency((UINT)maxLatency);
+			core::LOG(core::log_inf, L"[D3D12] SwapChain MaxFrameLatency=%d", maxLatency);
+
+			win32::com_ptr<IDXGISwapChain2> SwapChain2;
+			if (SUCCEEDED(SwapChain4->QueryInterface(IID_PPV_ARGS(SwapChain2.get_init_ref()))))
+			{
+				FrameLatencyWaitableObject = SwapChain2->GetFrameLatencyWaitableObject();
+				core::LOG(core::log_inf, L"[D3D12] SwapChain FrameLatencyWaitableObject=%p", FrameLatencyWaitableObject);
+			}
+		}
 
 		if (D3D12RHI_ShouldUseImGui())
 		{
@@ -197,8 +219,9 @@ namespace RenderCore
 			CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
 			// IMPORTANT: keep ResizeBuffers flags consistent with creation.
-			const UINT SwapChainFlags = 0;
-			// Match DEMO behavior: rely on VSync for pacing.
+			const UINT SwapChainFlags =
+				(bAllowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u) |
+				DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
 			HRESULT hr = SwapChain4->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags);
 			if (FAILED(hr))
@@ -222,7 +245,19 @@ namespace RenderCore
 			}
 			FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-			// No extra DXGI frame-latency configuration.
+			// Re-apply frame latency cap and waitable object after resize.
+			if (FrameLatencyWaitableObject)
+			{
+				::CloseHandle(FrameLatencyWaitableObject);
+				FrameLatencyWaitableObject = nullptr;
+			}
+			SwapChain4->SetMaximumFrameLatency(1);
+			win32::com_ptr<IDXGISwapChain2> SwapChain2;
+			if (SUCCEEDED(SwapChain4->QueryInterface(IID_PPV_ARGS(SwapChain2.get_init_ref()))))
+			{
+				FrameLatencyWaitableObject = SwapChain2->GetFrameLatencyWaitableObject();
+				core::LOG(core::log_inf, L"[D3D12] SwapChain FrameLatencyWaitableObject=%p", FrameLatencyWaitableObject);
+			}
 		}
 
 	}
@@ -249,6 +284,26 @@ namespace RenderCore
 		if (!SwapChain4)
 			return;
 
+		// If we created a waitable swapchain, we must wait BEFORE submitting the next frame's work.
+		// Waiting after Flush/Execute is too late to apply back-pressure and won't cap driver buffering.
+		if (FrameLatencyWaitableObject)
+		{
+			// Never wait forever here: during shutdown, the render thread can be asked to exit
+			// while the swapchain/device is in teardown, and an infinite wait would deadlock exit.
+			const DWORD kWaitMs = 16; // ~one frame; enough to apply back-pressure without risking hangs
+			const DWORD wr = ::WaitForSingleObjectEx(FrameLatencyWaitableObject, kWaitMs, FALSE);
+			if (wr == WAIT_TIMEOUT)
+			{
+				// If the window is going away or not visible, don't stall shutdown.
+				if (!::IsWindow(WindowHandle) || ::IsIconic(WindowHandle) || !::IsWindowVisible(WindowHandle))
+					return;
+			}
+			else if (wr != WAIT_OBJECT_0)
+			{
+				core::LOG(core::log_inf, L"[D3D12] FrameLatencyWaitable wait result=%u", (unsigned)wr);
+			}
+		}
+
 		if (D3D12RHI_ShouldUseImGui())
 		{
 			ImGui::Render();
@@ -262,9 +317,23 @@ namespace RenderCore
 		
 		// Flush commands without waiting for completion to maximize performance.
 		GetDefaultCommandContext()->FlushCommands(false);
-		GetDefaultAsyncComputeContext()->FlushCommands(false);
+		// Only flush async compute when it actually recorded work.
+		// Submitting empty compute command lists every frame is unnecessary and can amplify driver/runtime internal allocations.
+		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())
+			AsyncCtx->FlushCommands(false);
+
+		// MiniEngine-style: for the Direct queue, signal the deferred frame fence once per frame.
+		// This collapses many per-submit Signal() calls into one, reducing driver overhead.
+		{
+			auto Device = GetParentAdapter()->GetDevice();
+			auto& DirectMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Default);
+			DirectMgr.SignalDeferredFrameFenceIfNeeded();
+		}
 		
-		// Match DEMO behavior: VSync ON, no tearing.
+		// MiniEngine-style present: VSync ON, no tearing.
+		const UINT syncInterval = 1u;
+		const UINT presentFlags = 0u;
+
 		const bool memMon = core::CommandLine::Get().GetName("d3d12_memmon");
 		if (memMon)
 		{
@@ -275,7 +344,8 @@ namespace RenderCore
 				D3D12PresentStats::WindowNotVisible().fetch_add(1, std::memory_order_relaxed);
 		}
 
-		const HRESULT hrPresent = SwapChain4->Present(1, 0);
+		Render::D3D12CallStats::IncPresent();
+		const HRESULT hrPresent = SwapChain4->Present(syncInterval, presentFlags);
 		if (memMon)
 		{
 			if (hrPresent == DXGI_STATUS_OCCLUDED)

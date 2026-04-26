@@ -3,6 +3,7 @@
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
+#include "D3D12/D3D12CallStats.h"
 
 #include "core/logger.h"
 

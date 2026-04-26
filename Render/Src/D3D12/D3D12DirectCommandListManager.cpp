@@ -4,6 +4,8 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12SubmitStats.h"
+#include "D3D12/D3D12CallStats.h"
+#include "core/logger.h"
 
 namespace RenderCore
 {
@@ -163,9 +165,11 @@ namespace RenderCore
 				std::lock_guard<std::recursive_mutex> Lock(WaitForFenceCS);
 
 				// We must wait.  Do so with an event handler so we don't oversleep.
+				Render::D3D12CallStats::IncFenceSetEventOnCompletion();
 				VERIFYD3DRESULT(FenceCoreCache->GetFence()->SetEventOnCompletion(FenceValue, FenceCoreCache->GetCompletionEvent()));
 
 				// Wait for the event to complete (the event is automatically reset afterwards)
+				Render::D3D12CallStats::IncWaitForSingleObject();
 				const uint32_t WaitResult = WaitForSingleObject(FenceCoreCache->GetCompletionEvent(), INFINITE);
 				Assert(0 == WaitResult);
 			}
@@ -213,6 +217,8 @@ namespace RenderCore
 		Assert(CommandQueue);
 		Assert(FenceCoreCache);
 
+		Render::D3D12CallStats::IncQueueSignal();
+		// (diagnostic logging removed)
 		HRESULT hr = CommandQueue->Signal(FenceCoreCache->GetFence(), FenceToSignal);
 		Assert(SUCCEEDED(hr));
 		LastSignaledFence = FenceToSignal;
@@ -313,7 +319,12 @@ namespace RenderCore
 		auto Device = GetParentDevice();
 		std::shared_ptr<FD3D12Adapter> Adapter = Device->GetParentAdapter();
 
-		CommandListFence = std::make_shared<FD3D12Fence>(Adapter, L"Command List Fence");
+		// MiniEngine-style: use a manual fence for the Direct queue so we can increment fence
+		// values per submit but only Signal once per frame (at Present).
+		if (QueueType == ED3D12CommandQueueType::Default)
+			CommandListFence = std::make_shared<FD3D12ManualFence>(Adapter, L"Command List Fence");
+		else
+			CommandListFence = std::make_shared<FD3D12Fence>(Adapter, L"Command List Fence");
 		CommandListFence->CreateFence();
 
 		Assert(D3DCommandQueue.get() == nullptr);
@@ -451,8 +462,10 @@ namespace RenderCore
 					{
 						ComputeBarrierPayload.Reset();
 						ComputeBarrierPayload.Append(barrierCommandList.CommandList());
-						BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(ComputeBarrierPayload, DirectFence);
+						BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(ComputeBarrierPayload, DirectFence, true /*bForceSignal*/);
 						DirectFence.GpuWait(QueueType, BarrierFenceValue);
+						// This path bypasses ExecuteAndClear; still must recycle upload pages / dynamic heaps for the barrier list.
+						BarrierCommandList[barrierCommandListIndex - 1].CleanupTransientResources(BarrierFenceValue, ED3D12CommandQueueType::Default);
 					}
 					else
 					{
@@ -462,7 +475,7 @@ namespace RenderCore
 
 				CurrentCommandListPayload.Append(commandList.CommandList());
 			}
-			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence);
+			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
 			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 			{
@@ -472,6 +485,13 @@ namespace RenderCore
 			{
 				BarrierSyncPoint = SyncPoint;
 			}
+
+			// Direct-queue submits bundle user CLs with auto-generated barrier CLs in one Execute; only the outer ExecuteAndClear hook runs for the user list.
+			if (CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE && barrierCommandListIndex > 0)
+			{
+				for (int32_t bi = 0; bi < barrierCommandListIndex; ++bi)
+					BarrierCommandList[bi].CleanupTransientResources(SignaledFenceValue, QueueType);
+			}
 		}
 		else
 		{
@@ -479,7 +499,7 @@ namespace RenderCore
 			{
 				CurrentCommandListPayload.Append(Lists[i].CommandList());
 			}
-			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence);
+			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
 			//check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
 			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			BarrierSyncPoint = SyncPoint;
@@ -575,6 +595,8 @@ namespace RenderCore
 				}
 
 				hResourceBarrierList = ObtainCommandList(*ResourceBarrierCommandAllocator);
+				// Inherit owning context so post-submit cleanup can retire dynamic heaps/linear pages consistently with the list that produced the barriers.
+				hResourceBarrierList.SetCurrentOwningContext(hList.GetCurrentOwningContext());
 				hResourceBarrierList->ResourceBarrier((uint32_t)BarrierDescs.size(), BarrierDescs.data());
 			}
 
@@ -632,15 +654,38 @@ namespace RenderCore
 		}
 	}
 
-	uint64_t FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence)
+	uint64_t FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, bool bForceSignal)
 	{
 		std::lock_guard<std::recursive_mutex> Lock(FenceCS);
+		Render::D3D12CallStats::IncExecuteCommandLists((uint32_t)Payload.NumCommandLists);
 		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 
 		// Track submits per queue type (diagnostics).
 		D3D12SubmitStats::OnSubmit(QueueType);
 
-		return Fence.Signal(QueueType);
+		// MiniEngine-style defer: for Direct queue, reserve fence values per submit but signal once per frame.
+		// For any blocking path (WaitForCompletion) or non-direct queues, signal immediately.
+		if (bForceSignal || QueueType != ED3D12CommandQueueType::Default)
+		{
+			if (QueueType == ED3D12CommandQueueType::Default)
+				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+			return Fence.Signal(QueueType);
+		}
+
+		FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(Fence);
+		Render::D3D12CallStats::IncDirectFenceDeferredReserve();
+		return Manual.IncrementCurrentFence();
+	}
+
+	void FD3D12CommandListManager::SignalDeferredFrameFenceIfNeeded()
+	{
+		if (QueueType != ED3D12CommandQueueType::Default || !CommandListFence)
+			return;
+
+		FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(*CommandListFence);
+		const uint64_t fenceToSignal = (Manual.GetCurrentFence() > 0) ? (Manual.GetCurrentFence() - 1) : 0;
+		if (fenceToSignal > Manual.GetLastSignaledFence())
+			Manual.Signal(ED3D12CommandQueueType::Default, fenceToSignal);
 	}
 
 	D3D12CommandListHandle FD3D12CommandListManager::CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator)

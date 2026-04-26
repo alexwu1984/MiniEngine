@@ -1,6 +1,7 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
+#include "D3D12/D3D12CallStats.h"
 #include "win/com_ptr.h"
 #include <atomic>
 
@@ -154,6 +155,7 @@ namespace RenderCore
 		inline void* Map(const D3D12_RANGE* ReadRange = nullptr)
 		{
 			Assert(Resource);
+			Render::D3D12CallStats::IncMap();
 			VERIFYD3DRESULT(Resource->Map(0, ReadRange, &ResourceBaseAddress));
 
 			return ResourceBaseAddress;
@@ -162,7 +164,11 @@ namespace RenderCore
 		inline void Unmap()
 		{
 			Assert(Resource);
-			Assert(ResourceBaseAddress);
+			// Unmap can be called proactively (e.g. when discarding large upload pages) and again in destructors.
+			// Make it idempotent so Debug doesn't break on a second Unmap().
+			if (!ResourceBaseAddress)
+				return;
+			Render::D3D12CallStats::IncUnmap();
 			Resource->Unmap(0, nullptr);
 
 			ResourceBaseAddress = nullptr;

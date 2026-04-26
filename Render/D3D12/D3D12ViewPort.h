@@ -43,6 +43,7 @@ namespace RenderCore
 
 		DXGI_COLOR_SPACE_TYPE ColorSpace;
 		win32::com_ptr<IDXGISwapChain4> SwapChain4;
+		HANDLE FrameLatencyWaitableObject = nullptr;
 
 		int32_t NumBackBuffers;
 		uint32_t FrameIndex;

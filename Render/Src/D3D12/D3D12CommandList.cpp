@@ -29,6 +29,7 @@ namespace RenderCore
 		, CommandListType(InCommandListType)
 		, CurrentCommandAllocator(&CommandAllocator)
 		, CommandListManager(InCommandListManager)
+		, CurrentOwningContext(nullptr)
 		, CurrentGeneration(1)
 		, LastCompleteGeneration(0)
 		, IsClosed(false)
@@ -101,9 +102,19 @@ namespace RenderCore
 			const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
 			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
 			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
-			GetCurrentOwningContext()->CleanupUsedHeaps(FenceID, QueueType);
+			if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
+				Ctx->CleanupUsedHeaps(FenceID, QueueType);
 			}, WaitForCompletion);
 		return SignaledFenceValue;
+	}
+
+	void D3D12CommandListHandle::CleanupTransientResources(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
+	{
+		Assert(CommandListData);
+		CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceValue, QueueType);
+		CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceValue, QueueType);
+		if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
+			Ctx->CleanupUsedHeaps(FenceValue, QueueType);
 	}
 
 	void D3D12CommandListHandle::Execute(bool WaitForCompletion /*= false*/)
@@ -117,6 +128,7 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddTransition(pResource->GetResource(), Before, After, Subresource);
+		Render::D3D12CallStats::AddResourceBarriers(1);
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
@@ -124,6 +136,7 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddUAV();
+		Render::D3D12CallStats::AddResourceBarriers(1);
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
@@ -131,6 +144,7 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddAliasingBarrier(pResource->GetResource());
+		Render::D3D12CallStats::AddResourceBarriers(1);
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 

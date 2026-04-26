@@ -128,7 +128,8 @@ namespace RenderCore
 		FDynamicDescriptorHeapPoolsPerDevice& Pools();
 
 	private:
-		static const uint32_t NumDescriptorsPerHeap = 256;
+		// Same as MiniEngine Core/DynamicDescriptorHeap.h (kNumDescriptorsPerHeap).
+		static const uint32_t NumDescriptorsPerHeap = 1024;
 
 		std::shared_ptr<D3D12CommandContext> m_OwningContext;
 		win32::com_ptr<ID3D12DescriptorHeap> m_CurrentHeap;

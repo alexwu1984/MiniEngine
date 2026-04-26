@@ -57,9 +57,8 @@ namespace RenderCore
 		static void DestroyAll();
 
 	protected:
-		// 256 is far too small for typical texture-heavy scenes (mips allocate ranges).
-		// Larger heaps reduce heap churn and make leak triage easier.
-		static const uint32_t sm_NumDescriptorsPerHeap = 2048;
+		// Same default as DirectX-Graphics-Samples MiniEngine Core/DescriptorHeap.h (DescriptorAllocator::sm_NumDescriptorsPerHeap).
+		static const uint32_t sm_NumDescriptorsPerHeap = 256;
 		static std::vector<win32::com_ptr<ID3D12DescriptorHeap> > sm_DescriptorPool;
 		static ID3D12DescriptorHeap* RequestNewHeap(std::shared_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE Type);
 

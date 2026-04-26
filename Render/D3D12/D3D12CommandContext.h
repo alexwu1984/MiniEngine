@@ -78,10 +78,6 @@ namespace RenderCore
 		uint32_t numCopies = 0;
 		uint32_t otherWorkCounter = 0;
 
-		bool HasDoneWork()
-		{
-			return (numDraws + numDispatches + numClears + numBarriers + numCopies + otherWorkCounter) > 0;
-		}
 		FD3D12CommandListManager& GetCommandListManager();
 		void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 
@@ -99,6 +95,10 @@ namespace RenderCore
 		void CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 		std::shared_ptr<FD3D12StateCache> GetD3D12StateCache() const;
 		D3D12CommandListHandle& GetCurrentCommandListHandle();
+		bool HasRecordedCommands() const
+		{
+			return (numDraws | numDispatches | numClears | numBarriers | numCopies | otherWorkCounter) != 0;
+		}
 	private:
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();

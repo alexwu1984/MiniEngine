@@ -42,7 +42,9 @@ namespace RenderCore
 	private:
 		win32::com_ptr<ID3D12CommandAllocator> CommandAllocator;
 		D3D12SyncPoint SyncPoint;	// Indicates when the GPU is finished using the command allocator.
-		std::atomic_int32_t PendingCommandListCount;	// The number of command lists using this allocator but haven't been executed yet.
+		// The number of command lists using this allocator but haven't been executed yet.
+		// Must start at 0; leaving atomics default-initialized is undefined and can corrupt allocator readiness logic.
+		std::atomic_int32_t PendingCommandListCount{ 0 };
 	};
 
 	class FD3D12Device;

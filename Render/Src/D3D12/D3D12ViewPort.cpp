@@ -9,6 +9,7 @@
 #include "Imgui/imgui_impl_win32.h"
 #include "core/commandline.h"
 #include "core/logger.h"
+#include "RHI/RHI.h"
 #include "D3D12/D3D12PresentStats.h"
 #include "D3D12/D3D12CallStats.h"
 #include <dxgi1_4.h>
@@ -334,7 +335,7 @@ namespace RenderCore
 		const UINT syncInterval = 1u;
 		const UINT presentFlags = 0u;
 
-		const bool memMon = core::CommandLine::Get().GetName("d3d12_memmon");
+		const bool memMon = RenderCore::D3D12RHI_ShouldEnableMemMon();
 		if (memMon)
 		{
 			D3D12PresentStats::PresentCalls().fetch_add(1, std::memory_order_relaxed);

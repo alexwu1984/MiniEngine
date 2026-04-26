@@ -3,6 +3,7 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CallStats.h"
 
+#include "RHI/RHI.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 
@@ -19,7 +20,7 @@ namespace RenderCore
 {
 	bool D3D12MemoryMonitor::IsEnabled()
 	{
-		return core::CommandLine::Get().GetName("d3d12_memmon");
+		return RenderCore::D3D12RHI_ShouldEnableMemMon();
 	}
 
 	static bool TickGateOncePerSecond()
@@ -416,7 +417,7 @@ namespace RenderCore
 			{
 				// RtlCaptureStackBackTrace + SymFromAddr pulls DbgHelp and can allocate MB/s of private heap
 				// while this monitor runs (looks like a leak). Keep stacks optional and heavily throttled.
-				if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
+				if (!RenderCore::D3D12RHI_ShouldEnableMemMonStacks())
 				{
 					core::LOG(core::log_inf,
 						L"[D3D12] VMemPrivate WC +%.1fMB (stacks off; add d3d12_memmon_stacks=1 for symbolized backtraces - note: symbolization is throttled when enabled)",

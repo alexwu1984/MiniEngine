@@ -1,5 +1,6 @@
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 
+#include "RHI/RHI.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 
@@ -84,7 +85,7 @@ namespace RenderCore
 	{
 		if (!MappedPtr || SizeBytes == 0)
 			return;
-		if (!core::CommandLine::Get().GetName("d3d12_memmon"))
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
 			return;
 
 		MEMORY_BASIC_INFORMATION mbi = {};
@@ -109,7 +110,7 @@ namespace RenderCore
 		sReentryGuard = true;
 
 		const double MB = 1024.0 * 1024.0;
-		if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMonStacks())
 		{
 			core::LOG(core::log_inf,
 				L"[D3D12] UploadMap WC (%s) ptr=%p size=%.1fMB allocBase=%p region=%.1fMB prot=0x%X (stacks off; add d3d12_memmon_stacks=1 for backtraces)",
@@ -157,7 +158,7 @@ namespace RenderCore
 	{
 		if (SizeBytes == 0)
 			return;
-		if (!core::CommandLine::Get().GetName("d3d12_memmon"))
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
 			return;
 
 		// Aggregate and print at most once per second.
@@ -217,7 +218,7 @@ namespace RenderCore
 	{
 		if (SizeBytes == 0)
 			return;
-		if (!core::CommandLine::Get().GetName("d3d12_memmon"))
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
 			return;
 
 		// Aggregate and print at most once per second.

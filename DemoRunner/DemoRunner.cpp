@@ -121,7 +121,22 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 			{
 				ImGui::Text("demo=%s", demo->GetName());
 				ImGui::Text("dt: %.3f ms", dt * 1000.0f);
-				ImGui::Text("Use: d3d12_memmon=1, d3ddebug=1, d3d12_gpudev=0/1");
+				{
+					int memmonV = 0;
+					core::CommandLine::Get().GetInteger("d3d12_memmon", memmonV);
+					int stacksV = 0;
+					core::CommandLine::Get().GetInteger("d3d12_memmon_stacks", stacksV);
+					int gpudevV = 1;
+					core::CommandLine::Get().GetInteger("d3d12_gpudev", gpudevV);
+					const bool memmonOn = RenderCore::D3D12RHI_ShouldEnableMemMon();
+					const bool stacksOn = RenderCore::D3D12RHI_ShouldEnableMemMonStacks();
+					ImGui::Text("d3d12_memmon=%d (effective=%s)", memmonV, memmonOn ? "on" : "off");
+					ImGui::Text("d3d12_memmon_stacks=%d (effective=%s)", stacksV, stacksOn ? "on" : "off");
+					ImGui::Text("d3d12_gpudev=%d", gpudevV);
+					ImGui::Text("d3ddebug=%s / dxdebug=%s",
+						core::CommandLine::Get().GetName("d3ddebug") ? "on" : "off",
+						core::CommandLine::Get().GetName("dxdebug") ? "on" : "off");
+				}
 				ImGui::Separator();
 				demo->OnGui();
 			}

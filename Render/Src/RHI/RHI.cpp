@@ -256,4 +256,22 @@ namespace RenderCore
 		return core::CommandLine::Get().GetName("d3ddebug") ||
 			core::CommandLine::Get().GetName("dxdebug");
 	}
+
+	static bool CmdBool(const char* name, bool defaultIfPresent = true)
+	{
+		int v = defaultIfPresent ? 1 : 0;
+		if (core::CommandLine::Get().GetInteger(name, v))
+			return v != 0;
+		return core::CommandLine::Get().GetName(name);
+	}
+
+	bool D3D12RHI_ShouldEnableMemMon()
+	{
+		return CmdBool("d3d12_memmon", true);
+	}
+
+	bool D3D12RHI_ShouldEnableMemMonStacks()
+	{
+		return CmdBool("d3d12_memmon_stacks", true);
+	}
 }

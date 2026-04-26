@@ -199,4 +199,7 @@ namespace RenderCore
 	};
 
 	bool D3D12RHI_ShouldCreateWithD3DDebug();
+	// Command-line driven memmon switches. Supports both presence ("d3d12_memmon") and explicit values ("d3d12_memmon=0/1").
+	bool D3D12RHI_ShouldEnableMemMon();
+	bool D3D12RHI_ShouldEnableMemMonStacks();
 }

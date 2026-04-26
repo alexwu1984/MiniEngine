@@ -10,6 +10,7 @@
 #include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12SubmitStats.h"
 #include "D3D12/D3D12RHI.h"
+#include "RHI/RHI.h"
 
 #include "../../../ThirdParty/DirectXTex/DXTexStats.h"
 
@@ -41,7 +42,7 @@ namespace RenderCore
 		const std::shared_ptr<FD3D12Adapter>& Adapter,
 		const std::shared_ptr<FD3D12Device>& Device)
 	{
-		if (!core::CommandLine::Get().GetName("d3d12_memmon"))
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
 			return;
 		if (!TickGateOncePerSecond())
 			return;

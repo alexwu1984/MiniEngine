@@ -25,13 +25,15 @@ namespace RenderCore
 		return (double)dt * 1000000.0 / (double)sFreq.QuadPart;
 	}
 
-	static void D3D12RHI_LogFramePacingOncePerSecond(uint64_t WaitableWaits, uint64_t WaitableTimeouts, uint64_t FenceWaits, double FenceWaitMs)
+	static void D3D12RHI_LogFramePacingOncePerSecond(uint64_t WaitableWaits, uint64_t WaitableTimeouts, uint64_t FenceWaits, double FenceWaitMs, uint64_t LastSignaled, uint64_t Completed)
 	{
 		static ULONGLONG sLastTick = 0;
 		static uint64_t sPrevWaitableWaits = 0;
 		static uint64_t sPrevWaitableTimeouts = 0;
 		static uint64_t sPrevFenceWaits = 0;
 		static double sPrevFenceWaitMs = 0.0;
+		static uint64_t sPrevLastSignaled = 0;
+		static uint64_t sPrevCompleted = 0;
 
 		const ULONGLONG now = ::GetTickCount64();
 		if (sLastTick == 0)
@@ -44,18 +46,28 @@ namespace RenderCore
 		const uint64_t dWaitableTimeouts = WaitableTimeouts - sPrevWaitableTimeouts;
 		const uint64_t dFenceWaits = FenceWaits - sPrevFenceWaits;
 		const double dFenceWaitMs = FenceWaitMs - sPrevFenceWaitMs;
+		const uint64_t dLastSignaled = LastSignaled - sPrevLastSignaled;
+		const uint64_t dCompleted = Completed - sPrevCompleted;
+		const uint64_t gap = (LastSignaled >= Completed) ? (LastSignaled - Completed) : 0;
 
 		sPrevWaitableWaits = WaitableWaits;
 		sPrevWaitableTimeouts = WaitableTimeouts;
 		sPrevFenceWaits = FenceWaits;
 		sPrevFenceWaitMs = FenceWaitMs;
+		sPrevLastSignaled = LastSignaled;
+		sPrevCompleted = Completed;
 
 		core::LOG(core::log_inf,
-				  L"[D3D12] FramePacing Waitable(waits=%llu timeouts=%llu) Fence(waits=%llu waitMs=%.2f)",
+				  L"[D3D12] FramePacing Waitable(waits=%llu timeouts=%llu) Fence(waits=%llu waitMs=%.2f) DirectFence(last=%llu comp=%llu gap=%llu dLast=%llu dComp=%llu)",
 				  (unsigned long long)dWaitableWaits,
 				  (unsigned long long)dWaitableTimeouts,
 				  (unsigned long long)dFenceWaits,
-				  dFenceWaitMs);
+				  dFenceWaitMs,
+				  (unsigned long long)LastSignaled,
+				  (unsigned long long)Completed,
+				  (unsigned long long)gap,
+				  (unsigned long long)dLastSignaled,
+				  (unsigned long long)dCompleted);
 	}
 
 	// Match Microsoft MiniEngine (DirectX-Graphics-Samples) behavior: triple-buffered flip-discard swapchain.
@@ -297,7 +309,13 @@ namespace RenderCore
 			{
 				// If the window is going away or not visible, don't stall shutdown.
 				if (!::IsWindow(WindowHandle) || ::IsIconic(WindowHandle) || !::IsWindowVisible(WindowHandle))
+				{
+					// If we started an ImGui frame in Prepare(), we must end it even when skipping Present.
+					// Otherwise ImGui will assert on the next frame / during shutdown.
+					if (D3D12RHI_ShouldUseImGui())
+						::ImGui::EndFrame();
 					return;
+				}
 			}
 			else if (wr != WAIT_OBJECT_0)
 			{
@@ -316,20 +334,12 @@ namespace RenderCore
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 		
-		// Flush commands without waiting for completion to maximize performance.
-		GetDefaultCommandContext()->FlushCommands(false);
+		// Flush commands and wait for completion (temporary mitigation for WC growth).
+		GetDefaultCommandContext()->FlushCommands(true);
 		// Only flush async compute when it actually recorded work.
 		// Submitting empty compute command lists every frame is unnecessary and can amplify driver/runtime internal allocations.
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())
 			AsyncCtx->FlushCommands(false);
-
-		// MiniEngine-style: for the Direct queue, signal the deferred frame fence once per frame.
-		// This collapses many per-submit Signal() calls into one, reducing driver overhead.
-		{
-			auto Device = GetParentAdapter()->GetDevice();
-			auto& DirectMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Default);
-			DirectMgr.SignalDeferredFrameFenceIfNeeded();
-		}
 		
 		// MiniEngine-style present: VSync ON, no tearing.
 		const UINT syncInterval = 1u;

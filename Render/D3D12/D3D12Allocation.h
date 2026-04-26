@@ -124,7 +124,7 @@ namespace RenderCore
 		}
 		std::size_t GetReadyPageCount() const { return ReadyPages.size(); }
 		std::size_t GetLargePageCount() const { return LargePagePool.size(); }
-		std::size_t GetStandardPageCount() const { return StandardPagePool.size(); }
+		std::size_t GetStandardPageCount() const { return OwnedStandardPages.size(); }
 
 	private:
 		using PagePool = std::queue<LinearAllocationPage* >;
@@ -134,7 +134,9 @@ namespace RenderCore
 		PagePool RetiredPages[3]; // [QueueTypeIndex]
 		PagePool ReadyPages;
 		PagePool LargePagePool;
-		PagePool StandardPagePool;
+		// Owns one ref for every standard page ever created by this manager.
+		// Availability is tracked separately via ReadyPages/RetiredPages.
+		std::vector<LinearAllocationPage*> OwnedStandardPages;
 
 		static ELinearAllocatorType ms_TypeCounter;
 		ELinearAllocatorType AllocatorType;

@@ -209,13 +209,25 @@ namespace RenderCore
 	{
 		for (uint32_t i = 0; i < (uint32_t)Targets.size(); ++i)
 		{
-			D3D12Texture2D* Tex2D = RHIResourceCast(Targets[i].get());
+			const std::shared_ptr<RHITexture2D>& T = Targets[i];
+			D3D12Texture2D* Tex2D = T ? RHIResourceCast(T.get()) : nullptr;
+			if (!Tex2D)
+			{
+				static bool sLoggedOnce = false;
+				if (!sLoggedOnce)
+				{
+					sLoggedOnce = true;
+					core::LOG(core::log_err, L"[D3D12] SetRenderTargetFormats: null render target at index %u (forcing DXGI_FORMAT_UNKNOWN)", (unsigned)i);
+				}
+				PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+				continue;
+			}
 			PSDesc.RTVFormats[i] = Tex2D->GetPlatformResourceFormat();
 		}
 		for (uint32_t i = (uint32_t)Targets.size(); i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = (uint32_t)Targets.size();
-		D3D12Texture2D* DepthTex = RHIResourceCast(Depth.get());
+		D3D12Texture2D* DepthTex = Depth ? RHIResourceCast(Depth.get()) : nullptr;
 		PSDesc.DSVFormat = DepthTex ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
@@ -223,8 +235,21 @@ namespace RenderCore
 
 	void FD3D12StateCache::SetRenderTargetFormat(const D3D12RenderTarget* RenderTarget)
 	{
-		D3D12Texture2D* Tex2D = RHIResourceCast(RenderTarget->GetTex().get());
-		PSDesc.RTVFormats[0] = Tex2D->GetPlatformResourceFormat();
+		D3D12Texture2D* Tex2D = (RenderTarget && RenderTarget->GetTex()) ? RHIResourceCast(RenderTarget->GetTex().get()) : nullptr;
+		if (!Tex2D)
+		{
+			static bool sLoggedOnce = false;
+			if (!sLoggedOnce)
+			{
+				sLoggedOnce = true;
+				core::LOG(core::log_err, L"[D3D12] SetRenderTargetFormat: null render target (forcing DXGI_FORMAT_UNKNOWN)");
+			}
+			PSDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+		}
+		else
+		{
+			PSDesc.RTVFormats[0] = Tex2D->GetPlatformResourceFormat();
+		}
 		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = 1;

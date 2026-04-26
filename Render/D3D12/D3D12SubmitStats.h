@@ -3,25 +3,60 @@
 #include <atomic>
 #include <cstdint>
 
+namespace RenderCore
+{
+	enum class ED3D12CommandQueueType;
+}
+
 namespace RenderCore::D3D12SubmitStats
 {
 	// Counts command queue submissions (ExecuteCommandLists + Signal) per queue type.
-	// Used to detect "too many submits per frame" patterns that can balloon driver/DXGI memory.
+	// Avoid exposing mutable atomics; keep a narrow API for diagnostics.
 
-	inline std::atomic_uint64_t& SubmitCount_Direct()
+	namespace detail
 	{
-		static std::atomic_uint64_t v{0};
-		return v;
+		inline std::atomic_uint64_t& Direct()
+		{
+			static std::atomic_uint64_t v{0};
+			return v;
+		}
+		inline std::atomic_uint64_t& Copy()
+		{
+			static std::atomic_uint64_t v{0};
+			return v;
+		}
+		inline std::atomic_uint64_t& Compute()
+		{
+			static std::atomic_uint64_t v{0};
+			return v;
+		}
 	}
-	inline std::atomic_uint64_t& SubmitCount_Copy()
+
+	struct Snapshot
 	{
-		static std::atomic_uint64_t v{0};
-		return v;
+		uint64_t Direct = 0;
+		uint64_t Copy = 0;
+		uint64_t Compute = 0;
+	};
+
+	inline void OnSubmit(ED3D12CommandQueueType QueueType)
+	{
+		switch (QueueType)
+		{
+		case ED3D12CommandQueueType::Default: detail::Direct().fetch_add(1, std::memory_order_relaxed); break;
+		case ED3D12CommandQueueType::Copy:    detail::Copy().fetch_add(1, std::memory_order_relaxed); break;
+		case ED3D12CommandQueueType::Async:   detail::Compute().fetch_add(1, std::memory_order_relaxed); break;
+		default: break;
+		}
 	}
-	inline std::atomic_uint64_t& SubmitCount_Compute()
+
+	inline Snapshot GetSnapshot()
 	{
-		static std::atomic_uint64_t v{0};
-		return v;
+		Snapshot s;
+		s.Direct = detail::Direct().load(std::memory_order_relaxed);
+		s.Copy = detail::Copy().load(std::memory_order_relaxed);
+		s.Compute = detail::Compute().load(std::memory_order_relaxed);
+		return s;
 	}
 }
 

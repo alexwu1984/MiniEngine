@@ -173,7 +173,11 @@ namespace RenderCore
 
 	DXGI_FORMAT D3D12Texture2D::GetPlatformResourceFormat() const
 	{
+		if (!this)
+			return DXGI_FORMAT_UNKNOWN;
 		C_P(const D3D12Texture2D);
+		if (!d)
+			return DXGI_FORMAT_UNKNOWN;
 		return d->PlatformResourceFormat;
 	}
 

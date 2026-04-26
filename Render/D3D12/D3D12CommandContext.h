@@ -24,6 +24,7 @@ namespace RenderCore
 
 	class D3D12CommandContext : public FD3D12CommandContextBase, public std::enable_shared_from_this<D3D12CommandContext>
 	{
+		friend class D3D12RuntimeStatsMonitor;
 	public:
 		D3D12CommandContext(std::weak_ptr<FD3D12Device> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 		virtual ~D3D12CommandContext();

@@ -638,20 +638,7 @@ namespace RenderCore
 		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 
 		// Track submits per queue type (diagnostics).
-		switch (QueueType)
-		{
-		case ED3D12CommandQueueType::Default:
-			D3D12SubmitStats::SubmitCount_Direct().fetch_add(1, std::memory_order_relaxed);
-			break;
-		case ED3D12CommandQueueType::Copy:
-			D3D12SubmitStats::SubmitCount_Copy().fetch_add(1, std::memory_order_relaxed);
-			break;
-		case ED3D12CommandQueueType::Async:
-			D3D12SubmitStats::SubmitCount_Compute().fetch_add(1, std::memory_order_relaxed);
-			break;
-		default:
-			break;
-		}
+		D3D12SubmitStats::OnSubmit(QueueType);
 
 		return Fence.Signal(QueueType);
 	}

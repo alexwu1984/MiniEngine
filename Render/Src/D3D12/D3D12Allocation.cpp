@@ -2,6 +2,9 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CreateStats.h"
+#include "D3D12/D3D12UploadWCDiagnostics.h"
+
+#include "core/logger.h"
 
 namespace RenderCore
 {
@@ -152,7 +155,11 @@ namespace RenderCore
 												D3D12_HEAP_TYPE InHeapType /*= D3D12_HEAP_TYPE_DEFAULT*/)
 		:FD3D12Resource(ParentDevice,InResource,InitialState,InDesc,InHeapType)
 	{
-		Map();
+		void* mapped = Map();
+		if (InHeapType == D3D12_HEAP_TYPE_UPLOAD)
+		{
+			D3D12UploadWCDiagnostics_OnUploadMap(L"LinearAllocationPage", mapped, (uint64_t)InDesc.Width);
+		}
 	}
 
 	LinearAllocationPage::~LinearAllocationPage()
@@ -190,8 +197,10 @@ namespace RenderCore
 			switch (Type)
 			{
 			case ELinearAllocatorType::GpuExclusive: return 256;
-			case ELinearAllocatorType::CpuWritable:  return 128;
-			default: return 128;
+			// CpuWritable pages are typically 2MB. Keep a small cap and block when GPU falls behind,
+			// otherwise WriteCombine upload pages can grow unbounded in Release.
+			case ELinearAllocatorType::CpuWritable:  return 32;
+			default: return 64;
 			}
 		}
 	}
@@ -223,8 +232,45 @@ namespace RenderCore
 
 		if (Page == nullptr)
 		{
+			// Prevent unbounded growth when the GPU falls behind.
+			// If we already created "enough" standard pages and none are ready, wait for the
+			// oldest retired page to complete and reuse it instead of creating more.
+			const size_t MaxPages = MaxCachedStandardPages(AllocatorType);
+			const bool bHasAnyRetired = (!RetiredPages[0].empty() || !RetiredPages[1].empty() || !RetiredPages[2].empty());
+			if (OwnedStandardPages.size() >= MaxPages && bHasAnyRetired)
+			{
+				// Pick a queue to wait on (prefer Default queue).
+				int PickQ = !RetiredPages[0].empty() ? 0 : (!RetiredPages[1].empty() ? 1 : 2);
+				LinearAllocationPage* Oldest = RetiredPages[PickQ].front();
+				RetiredPages[PickQ].pop();
+
+				auto& Mgr = GetParentDevice()->GetCommandListManager(Oldest->GetRetireQueueType());
+				// Evidence log (throttled): we are blocking the CPU to avoid unbounded upload page growth.
+				{
+					static ULONGLONG sLastLog = 0;
+					const ULONGLONG now = ::GetTickCount64();
+					if (now - sLastLog > 1000)
+					{
+						sLastLog = now;
+						core::LOG(core::log_inf,
+							L"[D3D12] LinearPageManager(%d) waiting for fence=%llu (owned=%zu ready=%zu retired=%zu/%zu/%zu)",
+							(int)AllocatorType,
+							(unsigned long long)Oldest->GetFenceValue(),
+							OwnedStandardPages.size(),
+							ReadyPages.size(),
+							RetiredPages[0].size(), RetiredPages[1].size(), RetiredPages[2].size());
+					}
+				}
+				Mgr.GetFence().WaitForFence(Oldest->GetFenceValue());
+				ReadyPages.push(Oldest);
+
+				Page = ReadyPages.front();
+				ReadyPages.pop();
+			}
+			else
+			{
 			Page = CreateNewPage();
-			StandardPagePool.push(Page);
+			}
 		}
 		
 		Assert(Page != nullptr);
@@ -241,18 +287,24 @@ namespace RenderCore
 		}
 
 		// Trim standard page cache when GPU has caught up.
-		// Only release pages whose fences are complete to keep correctness.
+		// Only release pages that are back in the ready queue (i.e. not in flight).
 		const size_t MaxPages = MaxCachedStandardPages(AllocatorType);
-		while (StandardPagePool.size() > MaxPages)
+		while (OwnedStandardPages.size() > MaxPages && !ReadyPages.empty())
 		{
-			LinearAllocationPage* Candidate = StandardPagePool.front();
-			auto& Mgr = GetParentDevice()->GetCommandListManager(Candidate->GetRetireQueueType());
-			if (!Mgr.GetFence().IsFenceComplete(Candidate->GetFenceValue()))
+			LinearAllocationPage* Candidate = ReadyPages.front();
+			ReadyPages.pop();
+
+			// Candidate is already "ready", so its fence must be complete. Evict it from ownership.
+			for (size_t i = 0; i < OwnedStandardPages.size(); ++i)
 			{
-				break;
+				if (OwnedStandardPages[i] == Candidate)
+				{
+					OwnedStandardPages[i] = OwnedStandardPages.back();
+					OwnedStandardPages.pop_back();
+					break;
+				}
 			}
 			Candidate->Release();
-			StandardPagePool.pop();
 		}
 	}
 
@@ -348,6 +400,29 @@ namespace RenderCore
 
 		LinearAllocationPage * AllocationPage =  new LinearAllocationPage(GetParentDevice(),pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.Type);
 		AllocationPage->AddRef();
+		// Own one ref for the lifetime of this manager (availability is tracked via ready/retired queues).
+		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD || HeapProps.Type == D3D12_HEAP_TYPE_DEFAULT)
+		{
+			if (PageSize == 0)
+			{
+				// Standard page (not a per-allocation large page). Large pages are tracked separately.
+				OwnedStandardPages.push_back(AllocationPage);
+				if (AllocatorType == ELinearAllocatorType::CpuWritable)
+				{
+					static ULONGLONG sLastLog = 0;
+					const ULONGLONG now = ::GetTickCount64();
+					if (now - sLastLog > 1000)
+					{
+						sLastLog = now;
+						core::LOG(core::log_inf,
+							L"[D3D12] LinearPageManager(CpuWritable) created standard page (owned=%zu ready=%zu retired=%zu/%zu/%zu)",
+							OwnedStandardPages.size(),
+							ReadyPages.size(),
+							RetiredPages[0].size(), RetiredPages[1].size(), RetiredPages[2].size());
+					}
+				}
+			}
+		}
 		return AllocationPage;
 	}
 
@@ -358,11 +433,9 @@ namespace RenderCore
 			LargePagePool.front()->Release();
 			LargePagePool.pop();
 		}
-		while (!StandardPagePool.empty())
-		{
-			StandardPagePool.front()->Release();
-			StandardPagePool.pop();
-		}
+		for (LinearAllocationPage* P : OwnedStandardPages)
+			P->Release();
+		OwnedStandardPages.clear();
 		while (!ReadyPages.empty())
 			ReadyPages.pop();
 		// Pages still waiting in retired queues share refs released via StandardPagePool above; drop stale pointers.

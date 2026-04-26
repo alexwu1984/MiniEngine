@@ -30,6 +30,12 @@ namespace RenderCore
 	public:
 		FD3D12AdapterChild(std::weak_ptr<FD3D12Adapter> InParent ) : ParentAdapter(InParent) {}
 
+		// Safe variant for shutdown paths where the adapter may already be destroyed.
+		FORCEINLINE std::shared_ptr<FD3D12Adapter> TryGetParentAdapter() const
+		{
+			return ParentAdapter.lock();
+		}
+
 		FORCEINLINE std::shared_ptr<FD3D12Adapter> GetParentAdapter() const
 		{
 			// If this fires an object was likely created with a default constructor i.e in an STL container

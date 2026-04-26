@@ -28,6 +28,14 @@ namespace RenderCore
 	class D3D12DynamicRHI : public std::enable_shared_from_this<D3D12DynamicRHI>, public DynamicRHI
 	{
 	public:
+		struct FCacheStats
+		{
+			std::size_t TexCaches = 0;
+			std::size_t VS = 0;
+			std::size_t PS = 0;
+			std::size_t CS = 0;
+		};
+
 		D3D12DynamicRHI(std::shared_ptr<FD3D12Adapter> InAdapter);
 		virtual ~D3D12DynamicRHI();
 
@@ -73,6 +81,8 @@ namespace RenderCore
 		virtual std::shared_ptr<RHIBlendState> RHICreateBlendState(const BlendStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr<RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr<RHITilePool> RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D) override;
+
+		FCacheStats GetCacheStats() const;
 
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;

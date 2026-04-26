@@ -19,6 +19,7 @@
 #include "Render/GBuffer.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/SimplePostProcessor.h"
+#include "Render/RenderTexturePool.h"
 #include "core/logger.h"
 #include <mutex>
 #include <optional>
@@ -273,6 +274,7 @@ namespace Engine
 		C_P(SceneRender);
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d,this, DeltaTime](RenderCore::DynamicRHI* RHI) {
+			RenderTexturePool::Get().BeginFrame();
 			d->MainViewPort->Clear(d->Color);
 			d->MainViewPort->Prepare();
 			int32_t width = GEngine->GetAppWindow()->GetWidth();
@@ -282,6 +284,7 @@ namespace Engine
 			d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort, DeltaTime);
 			sigGuiEvent();
 			d->MainViewPort->Present();
+			RenderTexturePool::Get().EndFrame();
 		});
 	}
 
@@ -338,6 +341,7 @@ namespace Engine
 			{
 				FrameGraph Graph;
 				auto TB = d->TargetBuffer;
+				RenderTexturePool::Get().BeginFrame();
 
 				Graph.AddPass(FramePassDesc{
 					"PreProcess",
@@ -427,6 +431,7 @@ namespace Engine
 					}});
 
 				Graph.Execute();
+				RenderTexturePool::Get().EndFrame();
 			});
 	}
 

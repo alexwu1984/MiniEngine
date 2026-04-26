@@ -3,6 +3,7 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12SubmitStats.h"
 
 namespace RenderCore
 {
@@ -25,6 +26,10 @@ namespace RenderCore
 		:FD3D12AdapterChild(Parent)
 	{
 		Assert(!Parent.expired());
+		// When this fence core is first created (not coming from the pool), FenceValueAvailableAt must be valid.
+		// It seeds FD3D12Fence::CreateFence()'s starting values. If left uninitialized, fence values become garbage
+		// (often pointer-like), breaking all fence-based recycling logic and causing memory growth.
+		FenceValueAvailableAt = InitialValue;
 		hFenceCompleteEvent = CreateEvent(nullptr, false, false, nullptr);
 		Assert(INVALID_HANDLE_VALUE != hFenceCompleteEvent);
 
@@ -43,17 +48,18 @@ namespace RenderCore
 
 	FD3D12FenceCore* FD3D12FenceCorePool::ObtainFenceCore()
 	{
+		std::lock_guard<std::recursive_mutex> lock(CS);
+		if (!AvailableFences.empty())
 		{
-			std::lock_guard<std::recursive_mutex> lock(CS);
-			FD3D12FenceCore* Fence = nullptr;
-			if (!AvailableFences.empty() && Fence->IsAvailable())
+			FD3D12FenceCore* Fence = AvailableFences.front();
+			if (Fence && Fence->IsAvailable())
 			{
-				Fence = AvailableFences.front();
 				AvailableFences.pop();
 				return Fence;
 			}
 		}
 
+		TotalCreated++;
 		return new FD3D12FenceCore(GetParentAdapter(), 0);
 	}
 
@@ -630,6 +636,23 @@ namespace RenderCore
 	{
 		std::lock_guard<std::recursive_mutex> Lock(FenceCS);
 		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
+
+		// Track submits per queue type (diagnostics).
+		switch (QueueType)
+		{
+		case ED3D12CommandQueueType::Default:
+			D3D12SubmitStats::SubmitCount_Direct().fetch_add(1, std::memory_order_relaxed);
+			break;
+		case ED3D12CommandQueueType::Copy:
+			D3D12SubmitStats::SubmitCount_Copy().fetch_add(1, std::memory_order_relaxed);
+			break;
+		case ED3D12CommandQueueType::Async:
+			D3D12SubmitStats::SubmitCount_Compute().fetch_add(1, std::memory_order_relaxed);
+			break;
+		default:
+			break;
+		}
+
 		return Fence.Signal(QueueType);
 	}
 

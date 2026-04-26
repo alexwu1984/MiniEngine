@@ -15,6 +15,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "DDSTextureLoader12.h"
+#include "../DXTexStats.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -1554,6 +1555,7 @@ HRESULT DirectX::LoadDDSTextureFromFile(
     DDS_ALPHA_MODE* alphaMode,
     bool* isCubeMap)
 {
+    ++DXTexStats::DDSTextureLoader_LoadFromFileCalls_D3D12();
     return LoadDDSTextureFromFileEx(
         d3dDevice,
         fileName,

@@ -1,5 +1,6 @@
 #pragma once
 #include "D3D12/D3D12RHICommon.h"
+#include "D3D12/D3D12Allocation.h"
 #include <d3d12.h>
 #include <memory>
 
@@ -36,7 +37,12 @@ namespace RenderCore
 		FDynamicDescriptorHeapPoolsPerDevice& GetDynamicDescriptorHeapPools();
 
 		D3D12_CPU_DESCRIPTOR_HANDLE AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
+		FD3D12ResourceAllocator::FDescriptorAllocation AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
+		void FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, const FD3D12ResourceAllocator::FDescriptorAllocation& Allocation);
 		uint32_t GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type);;
+		std::size_t GetCpuDescriptorHeapCount(D3D12_DESCRIPTOR_HEAP_TYPE Type) const { return DescriptorAllocator[Type] ? DescriptorAllocator[Type]->GetHeapCount() : 0; }
+		std::size_t GetCpuDescriptorFreeBlockCount(D3D12_DESCRIPTOR_HEAP_TYPE Type) const { return DescriptorAllocator[Type] ? DescriptorAllocator[Type]->GetFreeBlockCount() : 0; }
+		std::size_t GetCpuDescriptorGlobalPoolSize() const { return FD3D12ResourceAllocator::GetGlobalPoolSize(); }
 		void BlockUntilIdle();
 
 	private:

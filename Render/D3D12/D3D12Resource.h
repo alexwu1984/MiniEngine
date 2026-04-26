@@ -2,6 +2,7 @@
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "win/com_ptr.h"
+#include <atomic>
 
 namespace RenderCore
 {
@@ -73,6 +74,71 @@ namespace RenderCore
 		void* ResourceBaseAddress;
 		std::wstring DebugName;
 
+		static std::atomic_uint64_t sLiveCountDefault;
+		static std::atomic_uint64_t sLiveCountUpload;
+		static std::atomic_uint64_t sLiveCountReadback;
+		static std::atomic_uint64_t sLiveBytesDefault;
+		static std::atomic_uint64_t sLiveBytesUpload;
+		static std::atomic_uint64_t sLiveBytesReadback;
+		static std::atomic_uint64_t sTotalCreateCount;
+		static std::atomic_uint64_t sTotalDestroyCount;
+		static std::atomic_uint64_t sTotalCreateBytes;
+		static std::atomic_uint64_t sTotalDestroyBytes;
+
+		static inline uint64_t EstimateBytes(const D3D12_RESOURCE_DESC& InDesc)
+		{
+			// Best-effort estimate: buffers use Width; textures are conservative (no tiling/mip accounting).
+			if (InDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+			{
+				return (uint64_t)InDesc.Width;
+			}
+			return (uint64_t)InDesc.Width * (uint64_t)InDesc.Height * (uint64_t)InDesc.DepthOrArraySize;
+		}
+
+		inline void TrackLiveAdd()
+		{
+			const uint64_t Bytes = EstimateBytes(Desc);
+			++sTotalCreateCount;
+			sTotalCreateBytes += Bytes;
+			switch (HeapType)
+			{
+			case D3D12_HEAP_TYPE_UPLOAD:
+				++sLiveCountUpload;
+				sLiveBytesUpload += Bytes;
+				break;
+			case D3D12_HEAP_TYPE_READBACK:
+				++sLiveCountReadback;
+				sLiveBytesReadback += Bytes;
+				break;
+			default:
+				++sLiveCountDefault;
+				sLiveBytesDefault += Bytes;
+				break;
+			}
+		}
+
+		inline void TrackLiveRemove()
+		{
+			const uint64_t Bytes = EstimateBytes(Desc);
+			++sTotalDestroyCount;
+			sTotalDestroyBytes += Bytes;
+			switch (HeapType)
+			{
+			case D3D12_HEAP_TYPE_UPLOAD:
+				--sLiveCountUpload;
+				sLiveBytesUpload -= Bytes;
+				break;
+			case D3D12_HEAP_TYPE_READBACK:
+				--sLiveCountReadback;
+				sLiveBytesReadback -= Bytes;
+				break;
+			default:
+				--sLiveCountDefault;
+				sLiveBytesDefault -= Bytes;
+				break;
+			}
+		}
+
 	public:
 		explicit FD3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice,
 			ID3D12Resource* InResource,
@@ -132,6 +198,30 @@ namespace RenderCore
 		std::wstring GetName() const
 		{
 			return DebugName;
+		}
+
+		struct FLiveStats
+		{
+			uint64_t DefaultCount = 0, UploadCount = 0, ReadbackCount = 0;
+			uint64_t DefaultBytes = 0, UploadBytes = 0, ReadbackBytes = 0;
+			uint64_t TotalCreateCount = 0, TotalDestroyCount = 0;
+			uint64_t TotalCreateBytes = 0, TotalDestroyBytes = 0;
+		};
+
+		static FLiveStats GetLiveStats()
+		{
+			FLiveStats S;
+			S.DefaultCount = sLiveCountDefault.load();
+			S.UploadCount = sLiveCountUpload.load();
+			S.ReadbackCount = sLiveCountReadback.load();
+			S.DefaultBytes = sLiveBytesDefault.load();
+			S.UploadBytes = sLiveBytesUpload.load();
+			S.ReadbackBytes = sLiveBytesReadback.load();
+			S.TotalCreateCount = sTotalCreateCount.load();
+			S.TotalDestroyCount = sTotalDestroyCount.load();
+			S.TotalCreateBytes = sTotalCreateBytes.load();
+			S.TotalDestroyBytes = sTotalDestroyBytes.load();
+			return S;
 		}
 
 		void DoNotDeferDelete()

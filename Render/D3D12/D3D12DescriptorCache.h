@@ -21,7 +21,9 @@ namespace RenderCore
 	struct FDynamicDescriptorHeapPoolsPerDevice
 	{
 		std::queue<win32::com_ptr<ID3D12DescriptorHeap>> Ready[2];
-		std::queue<FRetiredDynamicDescriptorHeapEntry> Retired[2];
+		// Keep separate retired queues per D3D12 queue type to preserve monotonic fence ordering
+		// within each queue, enabling O(1) "while front complete" recycling like the DEMO.
+		std::queue<FRetiredDynamicDescriptorHeapEntry> Retired[2][3]; // [HeapTypeIndex][QueueTypeIndex]
 		std::vector<win32::com_ptr<ID3D12DescriptorHeap>> CreatedTracking[2];
 
 		void Clear();

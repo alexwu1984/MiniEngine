@@ -53,8 +53,11 @@ namespace RenderCore
 			Device = {};
 			DynamicViewDescriptorHeap = {};
 
-			if(DxgiDebug)
-				DxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+			if (DxgiDebug)
+			{
+				// DETAIL helps pinpoint which D3D objects are accumulating.
+				DxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
+			}
 			DxgiDebug = {};
 		}
 		

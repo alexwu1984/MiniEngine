@@ -2,6 +2,8 @@
 #include "RHI/RHIViewPort.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
+#include <deque>
+#include <vector>
 
 namespace RenderCore
 {
@@ -42,7 +44,6 @@ namespace RenderCore
 		DXGI_COLOR_SPACE_TYPE ColorSpace;
 		win32::com_ptr<IDXGISwapChain4> SwapChain4;
 
-		uint64_t LastSignaledValue;
 		int32_t NumBackBuffers;
 		uint32_t FrameIndex;
 		std::vector<std::shared_ptr<D3D12Texture2D>> BackBuffers;

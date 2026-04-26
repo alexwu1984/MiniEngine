@@ -22,6 +22,7 @@
 // For 2D array textures and cubemaps, it captures only the first image in the array
 
 #include "ScreenGrab12.h"
+#include "../DXTexStats.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -847,6 +848,7 @@ HRESULT DirectX::SaveDDSTextureToFile(
     D3D12_RESOURCE_STATES beforeState,
     D3D12_RESOURCE_STATES afterState)
 {
+    ++DXTexStats::ScreenGrab_SaveDDSCalls_D3D12();
     if ( !fileName )
         return E_INVALIDARG;
 
@@ -1053,6 +1055,7 @@ HRESULT DirectX::SaveWICTextureToFile(
     std::function<void(IPropertyBag2*)> setCustomProps,
     bool forceSRGB)
 {
+    ++DXTexStats::ScreenGrab_SaveWICCalls_D3D12();
     if ( !fileName )
         return E_INVALIDARG;
 

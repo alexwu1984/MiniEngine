@@ -8,6 +8,39 @@ namespace Engine
 {
 	using namespace RenderCore;
 
+	namespace
+	{
+		template <class TKey, class TValue>
+		std::size_t CountCached(const std::map<TKey, std::vector<RenderTexturePool::PoolEntry<TValue>>>& M)
+		{
+			std::size_t Total = 0;
+			for (const auto& It : M)
+				Total += It.second.size();
+			return Total;
+		}
+
+		template <class TKey, class TValue>
+		void EvictOld(std::map<TKey, std::vector<RenderTexturePool::PoolEntry<TValue>>>& M, uint64_t FrameCounter)
+		{
+			for (auto It = M.begin(); It != M.end();)
+			{
+				auto& Bucket = It->second;
+				for (auto B = Bucket.begin(); B != Bucket.end();)
+				{
+					const uint64_t Age = FrameCounter - B->LastUsedFrame;
+					if (Age > RenderTexturePool::kEvictAfterFrames)
+						B = Bucket.erase(B);
+					else
+						++B;
+				}
+				if (Bucket.empty())
+					It = M.erase(It);
+				else
+					++It;
+			}
+		}
+	}
+
 	bool RenderTexturePool::Tex2DKey::operator<(const Tex2DKey& o) const
 	{
 		if (Format != o.Format)
@@ -61,7 +94,7 @@ namespace Engine
 		auto& Bucket = Tex2DFree[K];
 		if (!Bucket.empty())
 		{
-			auto R = std::move(Bucket.back());
+			auto R = std::move(Bucket.back().Resource);
 			Bucket.pop_back();
 			if (Bucket.empty())
 				Tex2DFree.erase(K);
@@ -81,7 +114,7 @@ namespace Engine
 		const Tex2DKey K{ Format, CreateFlags, Width, Height, NumMips };
 		auto& Bucket = Tex2DFree[K];
 		if (Bucket.size() < kMaxFreePerKey)
-			Bucket.push_back(std::move(Tex));
+			Bucket.push_back(PoolEntry<RHITexture2D>{ std::move(Tex), FrameCounter });
 	}
 
 	std::shared_ptr<RHIUnorderedAccessView> RenderTexturePool::AcquireUAV(
@@ -94,7 +127,7 @@ namespace Engine
 		auto& Bucket = UavFree[K];
 		if (!Bucket.empty())
 		{
-			auto R = std::move(Bucket.back());
+			auto R = std::move(Bucket.back().Resource);
 			Bucket.pop_back();
 			if (Bucket.empty())
 				UavFree.erase(K);
@@ -113,7 +146,7 @@ namespace Engine
 		const UavKey K{ Format, Width, Height };
 		auto& Bucket = UavFree[K];
 		if (Bucket.size() < kMaxFreePerKey)
-			Bucket.push_back(std::move(Uav));
+			Bucket.push_back(PoolEntry<RHIUnorderedAccessView>{ std::move(Uav), FrameCounter });
 	}
 
 	std::shared_ptr<RHIRenderTarget> RenderTexturePool::AcquireRenderTarget(
@@ -127,7 +160,7 @@ namespace Engine
 		auto& Bucket = RtFree[K];
 		if (!Bucket.empty())
 		{
-			auto R = std::move(Bucket.back());
+			auto R = std::move(Bucket.back().Resource);
 			Bucket.pop_back();
 			if (Bucket.empty())
 				RtFree.erase(K);
@@ -146,14 +179,41 @@ namespace Engine
 		const RtKey K{ Format, Width, Height, NumMips, IsMultiSampled, CreateDepth };
 		auto& Bucket = RtFree[K];
 		if (Bucket.size() < kMaxFreePerKey)
-			Bucket.push_back(std::move(Rt));
+			Bucket.push_back(PoolEntry<RHIRenderTarget>{ std::move(Rt), FrameCounter });
 	}
 
 	void RenderTexturePool::BeginFrame()
 	{
+		++FrameCounter;
 	}
 
 	void RenderTexturePool::EndFrame()
 	{
+		// Evict entries unused for a while to avoid slow growth and keep memory stable.
+		EvictOld(Tex2DFree, FrameCounter);
+		EvictOld(UavFree, FrameCounter);
+		EvictOld(RtFree, FrameCounter);
+
+		// Safety trim: if resolution fluctuates (or effects allocate many unique sizes),
+		// the key maps can grow unbounded. This keeps runtime memory stable.
+		static constexpr std::size_t kMaxCachedTextures = 256;
+		static constexpr std::size_t kMaxCachedUavs = 256;
+		static constexpr std::size_t kMaxCachedRenderTargets = 128;
+
+		const std::size_t CachedTex = CountCached(Tex2DFree);
+		const std::size_t CachedUav = CountCached(UavFree);
+		const std::size_t CachedRt = CountCached(RtFree);
+
+		if (CachedTex > kMaxCachedTextures || CachedUav > kMaxCachedUavs || CachedRt > kMaxCachedRenderTargets)
+		{
+			Clear();
+		}
+	}
+
+	void RenderTexturePool::Clear()
+	{
+		Tex2DFree.clear();
+		UavFree.clear();
+		RtFree.clear();
 	}
 }

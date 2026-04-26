@@ -172,6 +172,19 @@ namespace RenderCore
 		return DescriptorAllocator[Type]->Allocate(Count);
 	}
 
+	FD3D12ResourceAllocator::FDescriptorAllocation FD3D12Device::AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count /*= 1*/)
+	{
+		Assert(DescriptorAllocator[Type].get());
+		return DescriptorAllocator[Type]->AllocateBlock(Count);
+	}
+
+	void FD3D12Device::FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, const FD3D12ResourceAllocator::FDescriptorAllocation& Allocation)
+	{
+		if (!DescriptorAllocator[Type].get())
+			return;
+		DescriptorAllocator[Type]->FreeBlock(Allocation);
+	}
+
 	uint32_t FD3D12Device::GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type)
 	{
 		Assert(DescriptorAllocator[Type].get());

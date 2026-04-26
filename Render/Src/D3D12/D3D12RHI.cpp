@@ -19,6 +19,7 @@
 #include "Imgui/imgui_impl_win32.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include "common/crc.h"
+#include "core/commandline.h"
 
 namespace RenderCore
 {
@@ -353,13 +354,16 @@ namespace RenderCore
 	void D3D12DynamicRHI::Shutdown()
 	{
 		RHICachedStates::DestroyAll();
+		const bool bUseImGui = !core::CommandLine::Get().GetName("noimgui");
 		if (D3D12Adapter)
 		{
 			D3D12Adapter->BlockUntilIdle();
-			::ImGui_ImplDX12_Shutdown();
+			if (bUseImGui)
+				::ImGui_ImplDX12_Shutdown();
 			D3D12Adapter->Cleanup();
 		}
-		::ImGui_ImplWin32_Shutdown();
+		if (bUseImGui)
+			::ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 	}
 
@@ -625,6 +629,16 @@ namespace RenderCore
 	std::shared_ptr<RHITilePool> D3D12DynamicRHI::RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D)
 	{
 		return {};
+	}
+
+	D3D12DynamicRHI::FCacheStats D3D12DynamicRHI::GetCacheStats() const
+	{
+		FCacheStats S;
+		S.TexCaches = TexCaches.size();
+		S.VS = ShaderCache.VertexShaderCache.size();
+		S.PS = ShaderCache.PixelShaderCache.size();
+		S.CS = ShaderCache.ComputeShaderCache.size();
+		return S;
 	}
 
 }

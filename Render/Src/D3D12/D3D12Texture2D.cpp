@@ -18,6 +18,11 @@ namespace RenderCore
 		core::vec2i Size;
 		uint32_t NumMipMaps = 1;
 		int32_t InFlags = TexCreate_ShaderResource;
+		FD3D12ResourceAllocator::FDescriptorAllocation DsvAlloc{};
+		FD3D12ResourceAllocator::FDescriptorAllocation RtvAlloc{};
+		FD3D12ResourceAllocator::FDescriptorAllocation SrvAlloc{};
+		FD3D12ResourceAllocator::FDescriptorAllocation UavAlloc{};
+
 		D3D12_CPU_DESCRIPTOR_HANDLE DSV{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE RTVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE SRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
@@ -46,6 +51,18 @@ namespace RenderCore
 
 	D3D12Texture2D::~D3D12Texture2D()
 	{
+		// Return CPU descriptor ranges to the allocator to prevent unbounded growth.
+		if (d_ptr)
+		{
+			std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+			if (Device)
+			{
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->SrvAlloc);
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->UavAlloc);
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, d_ptr->RtvAlloc);
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, d_ptr->DsvAlloc);
+			}
+		}
 		delete d_ptr;
 	}
 
@@ -172,8 +189,10 @@ namespace RenderCore
 		d->Resource->AddRef();
 		d->PlatformResourceFormat = Desc.Format;
 
-		d->RTVHandle = GetParentDevice()->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		GetParentDevice()->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), nullptr, d->RTVHandle);
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		d->RtvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
+		d->RTVHandle = d->RtvAlloc.Cpu;
+		Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), nullptr, d->RTVHandle);
 	}
 
 	const D3D12_CPU_DESCRIPTOR_HANDLE& D3D12Texture2D::GetSRV(void) const
@@ -241,7 +260,10 @@ namespace RenderCore
 
 	std::shared_ptr<FD3D12Device> D3D12Texture2D::GetParentDevice() const
 	{
-		return GetParentAdapter()->GetDevice();
+		std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter();
+		if (!Adapter)
+			return {};
+		return Adapter->GetDevice();
 	}
 
 	void D3D12Texture2D::CreateDerivedViews(DXGI_FORMAT Format, uint32_t NumMips)
@@ -258,7 +280,8 @@ namespace RenderCore
 		RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 		RTVDesc.Texture2D.MipSlice = 0;
 
-		d->SRVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
+		d->SrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
+		d->SRVHandle = d->SrvAlloc.Cpu;
 
 		SRVDesc.Format = Format;
 		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -269,7 +292,8 @@ namespace RenderCore
 
 		if (d->InFlags & TexCreate_UAV)
 		{
-			d->UAVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
+			d->UavAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NumMips);
+			d->UAVHandle = d->UavAlloc.Cpu;
 			UAVDesc.Format = Format;
 			UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 			UAVDesc.Texture2D.MipSlice = 0;
@@ -278,7 +302,8 @@ namespace RenderCore
 
 		if (d->InFlags & TexCreate_RenderTargetable)
 		{
-			d->RTVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, NumMips);
+			d->RtvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, NumMips);
+			d->RTVHandle = d->RtvAlloc.Cpu;
 			Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), &RTVDesc, d->RTVHandle);
 		}
 
@@ -324,7 +349,7 @@ namespace RenderCore
 					RTVDesc.Texture2DArray.MipSlice = i;
 					RTVDesc.Texture2DArray.PlaneSlice = 0;
 					Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), &RTVDesc, CurrentRTVHandle);
-					CurrentRTVHandle.ptr += SRVUAVDescriptorSize;
+					CurrentRTVHandle.ptr += RTVDescriptorSize;
 				}
 			}
 		}
@@ -350,12 +375,14 @@ namespace RenderCore
 			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
 		}
 
-		d->DSV = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+		d->DsvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
+		d->DSV = d->DsvAlloc.Cpu;
 
 		dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 		Device->GetDevice()->CreateDepthStencilView(Resource, &dsvDesc, d->DSV);
 
-		d->SRVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		d->SrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		d->SRVHandle = d->SrvAlloc.Cpu;
 
 		// Create the shader resource view
 		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};

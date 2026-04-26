@@ -12,9 +12,26 @@ namespace RenderCore
 		{
 			while (!Ready[i].empty())
 				Ready[i].pop();
-			while (!Retired[i].empty())
-				Retired[i].pop();
+			for (int q = 0; q < 3; ++q)
+			{
+				while (!Retired[i][q].empty())
+					Retired[i][q].pop();
+			}
 			CreatedTracking[i].clear();
+		}
+	}
+
+	namespace
+	{
+		static int QueueTypeIndex(ED3D12CommandQueueType Q)
+		{
+			switch (Q)
+			{
+			case ED3D12CommandQueueType::Default: return 0;
+			case ED3D12CommandQueueType::Copy:    return 1;
+			case ED3D12CommandQueueType::Async:   return 2;
+			default: return 0;
+			}
 		}
 	}
 
@@ -72,13 +89,14 @@ namespace RenderCore
 	void FDynamicDescriptorHeap::RetireUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
+		const int qidx = QueueTypeIndex(QueueType);
 		for (auto iter = m_RetiredHeaps.begin(); iter != m_RetiredHeaps.end(); ++iter)
 		{
 			FRetiredDynamicDescriptorHeapEntry Entry;
 			Entry.FenceValue = FenceValue;
 			Entry.QueueType = QueueType;
 			Entry.Heap = *iter;
-			Pools().Retired[idx].push(Entry);
+			Pools().Retired[idx][qidx].push(Entry);
 		}
 		m_RetiredHeaps.clear();
 	}
@@ -105,22 +123,17 @@ namespace RenderCore
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		FDynamicDescriptorHeapPoolsPerDevice& P = Pools();
-		if (!P.Retired[idx].empty())
+		// Recycle heaps using monotonic per-queue retired lists (DEMO-style).
+		for (int q = 0; q < 3; ++q)
 		{
-			std::vector<FRetiredDynamicDescriptorHeapEntry> Pending;
-			Pending.reserve(P.Retired[idx].size());
-			while (!P.Retired[idx].empty())
+			while (!P.Retired[idx][q].empty())
 			{
-				Pending.push_back(P.Retired[idx].front());
-				P.Retired[idx].pop();
-			}
-			for (const FRetiredDynamicDescriptorHeapEntry& Entry : Pending)
-			{
+				const FRetiredDynamicDescriptorHeapEntry& Entry = P.Retired[idx][q].front();
 				FD3D12CommandListManager& Mgr = Device->GetCommandListManager(Entry.QueueType);
-				if (Mgr.GetFence().IsFenceComplete(Entry.FenceValue))
-					P.Ready[idx].push(Entry.Heap);
-				else
-					P.Retired[idx].push(Entry);
+				if (!Mgr.GetFence().IsFenceComplete(Entry.FenceValue))
+					break;
+				P.Ready[idx].push(Entry.Heap);
+				P.Retired[idx][q].pop();
 			}
 		}
 		if (!P.Ready[idx].empty())
@@ -131,6 +144,27 @@ namespace RenderCore
 		}
 		else
 		{
+			// Prevent unbounded growth when the GPU falls behind (common without the debug layer).
+			// If we have created "too many" shader-visible heaps and none are ready, wait for the
+			// oldest retired heap to complete and reuse it instead of creating more.
+			static constexpr size_t kMaxShaderVisibleHeapsPerType = 64;
+			const bool bHasAnyRetired = (!P.Retired[idx][0].empty() || !P.Retired[idx][1].empty() || !P.Retired[idx][2].empty());
+			if (P.CreatedTracking[idx].size() >= kMaxShaderVisibleHeapsPerType && bHasAnyRetired)
+			{
+				// Pick a queue to wait on (prefer Default queue).
+				int PickQ = !P.Retired[idx][0].empty() ? 0 : (!P.Retired[idx][1].empty() ? 1 : 2);
+				FRetiredDynamicDescriptorHeapEntry Oldest = P.Retired[idx][PickQ].front();
+				P.Retired[idx][PickQ].pop();
+
+				FD3D12CommandListManager& Mgr = Device->GetCommandListManager(Oldest.QueueType);
+				Mgr.GetFence().WaitForFence(Oldest.FenceValue);
+				P.Ready[idx].push(Oldest.Heap);
+
+				win32::com_ptr<ID3D12DescriptorHeap> Heap = P.Ready[idx].front();
+				P.Ready[idx].pop();
+				return Heap;
+			}
+
 			D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
 			HeapDesc.Type = HeapType;
 			HeapDesc.NumDescriptors = NumDescriptorsPerHeap;

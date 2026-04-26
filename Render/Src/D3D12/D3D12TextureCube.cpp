@@ -16,6 +16,10 @@ namespace RenderCore
 		core::vec2i Size;
 		uint32_t NumMipMaps = 1;
 		int32_t InFlags = TexCreate_ShaderResource;
+		FD3D12ResourceAllocator::FDescriptorAllocation RtvAlloc{};
+		FD3D12ResourceAllocator::FDescriptorAllocation CubeSrvAlloc{};
+		FD3D12ResourceAllocator::FDescriptorAllocation FaceMipSrvAlloc{};
+
 		D3D12_CPU_DESCRIPTOR_HANDLE RTVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE CubeSRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL }, FaceMipSRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 
@@ -36,6 +40,17 @@ namespace RenderCore
 
 	D3D12TextureCube::~D3D12TextureCube()
 	{
+		// Return CPU descriptor ranges to the allocator to prevent unbounded growth.
+		if (d_ptr)
+		{
+			std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+			if (Device)
+			{
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, d_ptr->RtvAlloc);
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->CubeSrvAlloc);
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->FaceMipSrvAlloc);
+			}
+		}
 		delete d_ptr;
 	}
 
@@ -161,7 +176,10 @@ namespace RenderCore
 
 	std::shared_ptr<FD3D12Device> D3D12TextureCube::GetParentDevice() const
 	{
-		return GetParentAdapter()->GetDevice();
+		std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter();
+		if (!Adapter)
+			return {};
+		return Adapter->GetDevice();
 	}
 
 	void D3D12TextureCube::CreateDerivedViews(DXGI_FORMAT Format, uint32_t ArraySize, uint32_t NumMips /*= 1*/)
@@ -181,7 +199,8 @@ namespace RenderCore
 		SRVDesc.TextureCube.MostDetailedMip = 0;
 		SRVDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 
-		d->CubeSRVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + NumMips);
+		d->CubeSrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 + NumMips);
+		d->CubeSRVHandle = d->CubeSrvAlloc.Cpu;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE CurCubeSRVHandle = d->CubeSRVHandle;
 		Device->GetDevice()->CreateShaderResourceView(d->Resource->GetResource(), &SRVDesc, CurCubeSRVHandle);
@@ -199,8 +218,10 @@ namespace RenderCore
 		RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
 		RTVDesc.Texture2DArray.PlaneSlice = 0;
 
-		d->RTVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, ArraySize * NumMips);
-		d->FaceMipSRVHandle = Device->AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, ArraySize * NumMips);
+		d->RtvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, ArraySize * NumMips);
+		d->RTVHandle = d->RtvAlloc.Cpu;
+		d->FaceMipSrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, ArraySize * NumMips);
+		d->FaceMipSRVHandle = d->FaceMipSrvAlloc.Cpu;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE CurrentRTVHandle = d->RTVHandle;
 		D3D12_CPU_DESCRIPTOR_HANDLE CurrentSRVHandle = d->FaceMipSRVHandle;

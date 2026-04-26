@@ -6,6 +6,7 @@
 #include "Scene/SceneView.h"
 #include "Render/SceneRender.h"
 #include "win/high_precision_tick.h"
+#include "Engine/Render/RenderTexturePool.h"
 
 namespace Engine
 {
@@ -81,6 +82,9 @@ namespace Engine
 		{
 			d->DynamicRHI->Wait();
 		}
+
+		// Release pooled transient GPU resources before tearing down the RHI.
+		Engine::RenderTexturePool::Get().Clear();
 
 		d->SeRender = {};
 		d->Scene = {};

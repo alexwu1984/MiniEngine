@@ -12,6 +12,7 @@
 #include "RHI/RHITextureCube.h"
 #include "App/AppWindow.h"
 #include "Render/CubeRender.h"
+#include "core/commandline.h"
 
 using namespace math;
 
@@ -75,6 +76,8 @@ void IBLRenderDemo::InitResource()
 			sr->sigGuiEvent.unbind(this);
 	if (Engine::GEngine)
 		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this] {
+			if (core::CommandLine::Get().GetName("noimgui"))
+				return;
 
 		static bool ShowConfig = true;
 		if (!ShowConfig)

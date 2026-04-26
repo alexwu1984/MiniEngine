@@ -1,6 +1,7 @@
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/strings.h"
+#include "core/virtalloc_hook.h"
 
 namespace core
 {
@@ -44,6 +45,9 @@ namespace core
 				_CommandMap[name] = value;
 			}
 		}
+
+		// Optional diagnostic hook (requires commandline to be parsed).
+		core::InitVirtualAllocHookIfRequested();
 	}
 
 	bool CommandLine::GetName(const std::string& name)

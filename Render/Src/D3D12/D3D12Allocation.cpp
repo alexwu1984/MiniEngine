@@ -1,6 +1,7 @@
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
+#include "D3D12/D3D12CreateStats.h"
 
 namespace RenderCore
 {
@@ -18,18 +19,112 @@ namespace RenderCore
 
 	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12ResourceAllocator::Allocate(uint32_t Count)
 	{
-		if (CurrentHeap == nullptr || RemainingFreeHandles < Count)
+		// Legacy path: keep monotonic behavior for call sites that don't track allocations yet.
+		// This will still grow over time if used for long-lived resources.
+		const FDescriptorAllocation Alloc = AllocateBlock(Count);
+		return Alloc.Cpu;
+	}
+
+	FD3D12ResourceAllocator::FDescriptorAllocation FD3D12ResourceAllocator::AllocateBlock(uint32_t Count)
+	{
+		Assert(Count > 0);
+
+		// Find a heap with space in its free list.
+		for (uint32_t heapIdx = 0; heapIdx < (uint32_t)Heaps.size(); ++heapIdx)
 		{
-			CurrentHeap = RequestNewHeap(GetParentDevice(),HeapType);
-			CurrentCpuAddress = CurrentHeap->GetCPUDescriptorHandleForHeapStart();
-			RemainingFreeHandles = sm_NumDescriptorsPerHeap;
+			FHeapState& H = Heaps[heapIdx];
+			for (uint32_t i = 0; i < (uint32_t)H.FreeList.size(); ++i)
+			{
+				FFreeBlock& B = H.FreeList[i];
+				if (B.Count >= Count)
+				{
+					const uint32_t Offset = B.Offset;
+					B.Offset += Count;
+					B.Count -= Count;
+					if (B.Count == 0)
+						H.FreeList.erase(H.FreeList.begin() + i);
+
+					FDescriptorAllocation Out;
+					Out.Heap = H.Heap.get();
+					Out.Count = Count;
+					Out.HeapIndex = heapIdx;
+					Out.Offset = Offset;
+					Out.Cpu = Out.Heap->GetCPUDescriptorHandleForHeapStart();
+					Out.Cpu.ptr += size_t(Offset) * size_t(DescriptorSize);
+					return Out;
+				}
+			}
 		}
 
-		D3D12_CPU_DESCRIPTOR_HANDLE Result = CurrentCpuAddress;
-		CurrentCpuAddress.ptr += Count * DescriptorSize;
-		RemainingFreeHandles -= Count;
+		// No space: create a new heap and allocate from it.
+		FHeapState NewHeap;
+		NewHeap.Heap = {};
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
+			Desc.NumDescriptors = sm_NumDescriptorsPerHeap;
+			Desc.Type = HeapType;
+			Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+			Desc.NodeMask = 1;
+			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(NewHeap.Heap.get_init_ref())));
+			// Keep static tracking for global teardown/diagnostics.
+			sm_DescriptorPool.emplace_back(NewHeap.Heap);
+		}
+		NewHeap.FreeList.clear();
+		if (sm_NumDescriptorsPerHeap > Count)
+		{
+			NewHeap.FreeList.push_back(FFreeBlock{ Count, sm_NumDescriptorsPerHeap - Count });
+		}
+		const uint32_t NewIndex = (uint32_t)Heaps.size();
+		Heaps.push_back(std::move(NewHeap));
 
-		return Result;
+		FDescriptorAllocation Out;
+		Out.HeapIndex = NewIndex;
+		Out.Offset = 0;
+		Out.Count = Count;
+		Out.Heap = Heaps[NewIndex].Heap.get();
+		Out.Cpu = Out.Heap->GetCPUDescriptorHandleForHeapStart();
+		return Out;
+	}
+
+	void FD3D12ResourceAllocator::FreeBlock(const FDescriptorAllocation& Allocation)
+	{
+		if (!Allocation.IsValid())
+			return;
+		if (Allocation.HeapIndex >= Heaps.size())
+			return;
+
+		FHeapState& H = Heaps[Allocation.HeapIndex];
+		if (H.Heap.get() != Allocation.Heap)
+			return;
+
+		FFreeBlock NewBlock{ Allocation.Offset, Allocation.Count };
+		auto& L = H.FreeList;
+		auto It = L.begin();
+		while (It != L.end() && It->Offset < NewBlock.Offset)
+			++It;
+		It = L.insert(It, NewBlock);
+
+		// Merge with previous
+		if (It != L.begin())
+		{
+			auto Prev = It - 1;
+			if (Prev->Offset + Prev->Count == It->Offset)
+			{
+				Prev->Count += It->Count;
+				It = L.erase(It);
+				It = Prev;
+			}
+		}
+		// Merge with next
+		if (It != L.end())
+		{
+			auto Next = It + 1;
+			if (Next != L.end() && It->Offset + It->Count == Next->Offset)
+			{
+				It->Count += Next->Count;
+				L.erase(Next);
+			}
+		}
 	}
 
 	void FD3D12ResourceAllocator::DestroyAll()
@@ -75,37 +170,55 @@ namespace RenderCore
 		Assert(ms_TypeCounter <= NumAllocatorTypes);
 	}
 
+	namespace
+	{
+		static int QueueTypeIndex(ED3D12CommandQueueType Q)
+		{
+			switch (Q)
+			{
+			case ED3D12CommandQueueType::Default: return 0;
+			case ED3D12CommandQueueType::Copy:    return 1;
+			case ED3D12CommandQueueType::Async:   return 2;
+			default: return 0;
+			}
+		}
+
+		static size_t MaxCachedStandardPages(ELinearAllocatorType Type)
+		{
+			// These pools are a cache, not a requirement. Without a cap they can look like a leak
+			// in Release builds where the CPU can outrun the GPU and peak allocations keep rising.
+			switch (Type)
+			{
+			case ELinearAllocatorType::GpuExclusive: return 256;
+			case ELinearAllocatorType::CpuWritable:  return 128;
+			default: return 128;
+			}
+		}
+	}
+
 	LinearAllocationPage* LinearAllocationPageManager::RequestPage()
 	{
 		LinearAllocationPage* Page = nullptr;
 
-		if (!RetiredPages.empty())
+		// Promote completed retired pages into a ready queue (O(1)).
+		// Retired pages are monotonic in fence value per-queue, so checking only the front is enough.
+		for (int q = 0; q < 3; ++q)
 		{
-			std::vector<LinearAllocationPage*> Temp;
-			Temp.reserve(RetiredPages.size());
-			while (!RetiredPages.empty())
+			while (!RetiredPages[q].empty())
 			{
-				Temp.push_back(RetiredPages.front());
-				RetiredPages.pop();
-			}
-			const size_t TempSize = Temp.size();
-			size_t ReuseIndex = TempSize;
-			for (size_t i = 0; i < TempSize; ++i)
-			{
-				LinearAllocationPage* Candidate = Temp[i];
-				auto& CommandListManager = GetParentDevice()->GetCommandListManager(Candidate->GetRetireQueueType());
-				if (CommandListManager.GetFence().IsFenceComplete(Candidate->GetFenceValue()))
-				{
-					Page = Candidate;
-					ReuseIndex = i;
+				LinearAllocationPage* Candidate = RetiredPages[q].front();
+				auto& Mgr = GetParentDevice()->GetCommandListManager(Candidate->GetRetireQueueType());
+				if (!Mgr.GetFence().IsFenceComplete(Candidate->GetFenceValue()))
 					break;
-				}
+				ReadyPages.push(Candidate);
+				RetiredPages[q].pop();
 			}
-			for (size_t j = 0; j < TempSize; ++j)
-			{
-				if (j != ReuseIndex)
-					RetiredPages.push(Temp[j]);
-			}
+		}
+
+		if (!ReadyPages.empty())
+		{
+			Page = ReadyPages.front();
+			ReadyPages.pop();
 		}
 
 		if (Page == nullptr)
@@ -124,7 +237,22 @@ namespace RenderCore
 		{
 			(*Iter)->SetFenceValue(FenceID);
 			(*Iter)->SetRetireQueueType(QueueType);
-			RetiredPages.push(*Iter);
+			RetiredPages[QueueTypeIndex(QueueType)].push(*Iter);
+		}
+
+		// Trim standard page cache when GPU has caught up.
+		// Only release pages whose fences are complete to keep correctness.
+		const size_t MaxPages = MaxCachedStandardPages(AllocatorType);
+		while (StandardPagePool.size() > MaxPages)
+		{
+			LinearAllocationPage* Candidate = StandardPagePool.front();
+			auto& Mgr = GetParentDevice()->GetCommandListManager(Candidate->GetRetireQueueType());
+			if (!Mgr.GetFence().IsFenceComplete(Candidate->GetFenceValue()))
+			{
+				break;
+			}
+			Candidate->Release();
+			StandardPagePool.pop();
 		}
 	}
 
@@ -194,6 +322,20 @@ namespace RenderCore
 		}
 
 		win32::com_ptr<ID3D12Resource> pBuffer;
+		// This CreateCommittedResource bypasses FD3D12Resource tracking; keep a direct counter for leak/churn triage.
+		{
+			const uint64_t Bytes = (uint64_t)ResourceDesc.Width;
+			if (HeapProps.Type == D3D12_HEAP_TYPE_DEFAULT)
+			{
+				D3D12CreateStats::LinearPage_CreateCount_Default().fetch_add(1, std::memory_order_relaxed);
+				D3D12CreateStats::LinearPage_CreateBytes_Default().fetch_add(Bytes, std::memory_order_relaxed);
+			}
+			else if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD)
+			{
+				D3D12CreateStats::LinearPage_CreateCount_Upload().fetch_add(1, std::memory_order_relaxed);
+				D3D12CreateStats::LinearPage_CreateBytes_Upload().fetch_add(Bytes, std::memory_order_relaxed);
+			}
+		}
 		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(
 			&HeapProps,
 			D3D12_HEAP_FLAG_NONE,
@@ -221,9 +363,14 @@ namespace RenderCore
 			StandardPagePool.front()->Release();
 			StandardPagePool.pop();
 		}
-		// Pages still waiting in the retire queue share refs released via StandardPagePool above; drop stale pointers.
-		while (!RetiredPages.empty())
-			RetiredPages.pop();
+		while (!ReadyPages.empty())
+			ReadyPages.pop();
+		// Pages still waiting in retired queues share refs released via StandardPagePool above; drop stale pointers.
+		for (int q = 0; q < 3; ++q)
+		{
+			while (!RetiredPages[q].empty())
+				RetiredPages[q].pop();
+		}
 	}
 
 	ELinearAllocatorType LinearAllocationPageManager::GetAllocatorType() const

@@ -22,6 +22,7 @@
 // For now, we just load the first frame (note: DirectXTex supports multi-frame images)
 
 #include "WICTextureLoader12.h"
+#include "../DXTexStats.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -674,6 +675,7 @@ HRESULT DirectX::LoadWICTextureFromFile(
     D3D12_SUBRESOURCE_DATA& subresource,
     size_t maxsize)
 {
+    ++DXTexStats::WICTextureLoader_LoadFromFileCalls_D3D12();
     return LoadWICTextureFromFileEx(
         d3dDevice,
         fileName,

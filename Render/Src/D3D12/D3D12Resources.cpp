@@ -3,6 +3,16 @@
 
 namespace RenderCore
 {
+	std::atomic_uint64_t FD3D12Resource::sLiveCountDefault{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sLiveCountUpload{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sLiveCountReadback{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sLiveBytesDefault{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sLiveBytesUpload{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sLiveBytesReadback{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sTotalCreateCount{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sTotalDestroyCount{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sTotalCreateBytes{ 0 };
+	std::atomic_uint64_t FD3D12Resource::sTotalDestroyBytes{ 0 };
 
 	FD3D12Resource::FD3D12Resource(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource,
 								D3D12_RESOURCE_STATES InitialState, 
@@ -29,10 +39,12 @@ namespace RenderCore
 		}
 
 		InitalizeResourceState(InitialState);
+		TrackLiveAdd();
 	}
 
 	FD3D12Resource::~FD3D12Resource()
 	{
+		TrackLiveRemove();
 	}
 
 	void FD3D12Resource::DeferDelete()

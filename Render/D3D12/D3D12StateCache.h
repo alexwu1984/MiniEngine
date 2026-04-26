@@ -181,6 +181,10 @@ namespace RenderCore
 		void ClearComputeState();
 		void CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 
+		std::size_t GetRootSignatureCacheSize() const { return RootSignatures.size(); }
+		std::size_t GetGraphicsPSOCacheSize() const { return GraphicsPSHashMap.size(); }
+		std::size_t GetComputePSOCacheSize() const { return ComputePSHashMap.size(); }
+
 		FD3D12SamplerStateCache SamplerCache;
 		FD3D12ConstantBufferCache ConstantBufferCache;
 		FD3D12ShaderResourceViewCache ShaderResourceViewCache;

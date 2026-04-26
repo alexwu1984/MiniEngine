@@ -12,6 +12,7 @@
 #include "IBLRenderDemo.h"
 #include "LiquidClassDemo.h"
 #include "Thread/RenderThread.h"
+#include "core/commandline.h"
 
 using namespace Engine;
 
@@ -70,6 +71,8 @@ bool GltfViewApp::Init()
 		if (auto sr = Engine::GEngine->GetSceneRender())
 			sr->sigGuiEvent.unbind(this);
 		Engine::GEngine->GetSceneRender()->sigGuiEvent.bind([this, Scene] {
+			if (core::CommandLine::Get().GetName("noimgui"))
+				return;
 
 		ImGui::SetNextWindowPos(ImVec2(1, 1));
 		if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))

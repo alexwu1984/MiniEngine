@@ -5,7 +5,21 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12GenerateMips.h"
+#include "D3D12/D3D12StateCache.h"
+#include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12Resource.h"
+#include "D3D12/D3D12CreateStats.h"
+#include "D3D12/D3D12SubmitStats.h"
+#include "D3D12/D3D12PresentStats.h"
+#include "D3D12/D3D12MemoryMonitor.h"
 #include "pix.h"
+#include "core/logger.h"
+#include <windows.h>
+#include <dxgi1_4.h>
+#include <heapapi.h>
+#include "core/commandline.h"
+
+#include "../../../ThirdParty/DirectXTex/DXTexStats.h"
 
 namespace RenderCore
 {
@@ -241,6 +255,262 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHIEndDrawing()
 	{
+		// Lightweight runtime diagnostics for leak triage (Release differs from Debug Layer behavior).
+		if (!IsDefaultContext())
+			return;
+
+		static uint64_t sFrame = 0;
+		++sFrame;
+		if ((sFrame % 120ull) != 0ull)
+			return;
+
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		if (!Device)
+			return;
+
+		const auto Pools = Device->GetDynamicDescriptorHeapPools();
+		const std::size_t DynViewHeaps = Pools.CreatedTracking[0].size();
+		const std::size_t DynSamplerHeaps = Pools.CreatedTracking[1].size();
+
+		const auto CpuW = Device->GetLinearPageManager(ELinearAllocatorType::CpuWritable);
+		const auto GpuX = Device->GetLinearPageManager(ELinearAllocatorType::GpuExclusive);
+
+		std::size_t RS = 0, GPSO = 0, CPSO = 0;
+		if (CurrentStateCache)
+		{
+			RS = CurrentStateCache->GetRootSignatureCacheSize();
+			GPSO = CurrentStateCache->GetGraphicsPSOCacheSize();
+			CPSO = CurrentStateCache->GetComputePSOCacheSize();
+		}
+
+		std::size_t TexCaches = 0, VS = 0, PS = 0, CS = 0;
+		if (auto Adapter = TryGetParentAdapter())
+		{
+			if (auto Rhi = std::dynamic_pointer_cast<D3D12DynamicRHI>(Adapter->GetOwningRHI()))
+			{
+				const auto Stats = Rhi->GetCacheStats();
+				TexCaches = Stats.TexCaches;
+				VS = Stats.VS;
+				PS = Stats.PS;
+				CS = Stats.CS;
+			}
+		}
+
+		// CPU descriptor allocator heap counts: CBV/SRV/UAV, Sampler, RTV, DSV.
+		// Note: legacy AllocateDescriptor call sites can still cause growth; this log helps spot it.
+		core::LOG(core::log_inf,
+				  L"[D3D12] Frame=%llu DynHeaps(View=%zu Sampler=%zu) "
+				  L"Pages(CpuStd=%zu CpuLarge=%zu CpuRet=%zu GpuStd=%zu GpuLarge=%zu GpuRet=%zu)",
+				  (unsigned long long)sFrame,
+				  DynViewHeaps, DynSamplerHeaps,
+				  CpuW.GetStandardPageCount(), CpuW.GetLargePageCount(), CpuW.GetRetiredPageCount(),
+				  GpuX.GetStandardPageCount(), GpuX.GetLargePageCount(), GpuX.GetRetiredPageCount());
+
+		// If any of these climb steadily during runtime, something is accidentally calling DirectXTex
+		// capture/screengrab/loader APIs repeatedly (often implies transient readback/upload allocations).
+		core::LOG(core::log_inf,
+				  L"[D3D12] DXTex Calls Capture=%llu SaveWIC=%llu SaveDDS=%llu LoadWIC=%llu LoadDDS=%llu",
+				  (unsigned long long)DXTexStats::CaptureTextureCalls_D3D12().load(),
+				  (unsigned long long)DXTexStats::ScreenGrab_SaveWICCalls_D3D12().load(),
+				  (unsigned long long)DXTexStats::ScreenGrab_SaveDDSCalls_D3D12().load(),
+				  (unsigned long long)DXTexStats::WICTextureLoader_LoadFromFileCalls_D3D12().load(),
+				  (unsigned long long)DXTexStats::DDSTextureLoader_LoadFromFileCalls_D3D12().load());
+
+		core::LOG(core::log_inf,
+				  L"[D3D12] CpuDescHeaps Pool=%zu CBVSRVUAV(Heaps=%zu Free=%zu) Sampler(Heaps=%zu Free=%zu) RTV(Heaps=%zu Free=%zu) DSV(Heaps=%zu Free=%zu)",
+				  Device->GetCpuDescriptorGlobalPoolSize(),
+				  Device->GetCpuDescriptorHeapCount(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV), Device->GetCpuDescriptorFreeBlockCount(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
+				  Device->GetCpuDescriptorHeapCount(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER), Device->GetCpuDescriptorFreeBlockCount(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER),
+				  Device->GetCpuDescriptorHeapCount(D3D12_DESCRIPTOR_HEAP_TYPE_RTV), Device->GetCpuDescriptorFreeBlockCount(D3D12_DESCRIPTOR_HEAP_TYPE_RTV),
+				  Device->GetCpuDescriptorHeapCount(D3D12_DESCRIPTOR_HEAP_TYPE_DSV), Device->GetCpuDescriptorFreeBlockCount(D3D12_DESCRIPTOR_HEAP_TYPE_DSV));
+
+		core::LOG(core::log_inf,
+				  L"[D3D12] Cache RS=%zu PSO(G=%zu C=%zu) Shaders(VS=%zu PS=%zu CS=%zu) TexCaches=%zu",
+				  RS, GPSO, CPSO, VS, PS, CS, TexCaches);
+
+		{
+			const auto Live = FD3D12Resource::GetLiveStats();
+			const double MB = 1024.0 * 1024.0;
+			core::LOG(core::log_inf,
+					  L"[D3D12] LiveRes Default(Cnt=%llu Bytes=%.1fMB) Upload(Cnt=%llu Bytes=%.1fMB) Readback(Cnt=%llu Bytes=%.1fMB)",
+					  (unsigned long long)Live.DefaultCount, (double)Live.DefaultBytes / MB,
+					  (unsigned long long)Live.UploadCount, (double)Live.UploadBytes / MB,
+					  (unsigned long long)Live.ReadbackCount, (double)Live.ReadbackBytes / MB);
+
+			static uint64_t sPrevCreateCnt = 0, sPrevDestroyCnt = 0, sPrevCreateBytes = 0, sPrevDestroyBytes = 0;
+			const uint64_t dCreateCnt = Live.TotalCreateCount - sPrevCreateCnt;
+			const uint64_t dDestroyCnt = Live.TotalDestroyCount - sPrevDestroyCnt;
+			const uint64_t dCreateBytes = Live.TotalCreateBytes - sPrevCreateBytes;
+			const uint64_t dDestroyBytes = Live.TotalDestroyBytes - sPrevDestroyBytes;
+			sPrevCreateCnt = Live.TotalCreateCount;
+			sPrevDestroyCnt = Live.TotalDestroyCount;
+			sPrevCreateBytes = Live.TotalCreateBytes;
+			sPrevDestroyBytes = Live.TotalDestroyBytes;
+
+			core::LOG(core::log_inf,
+					  L"[D3D12] ResChurn +Create=%llu (%.1fMB) +Destroy=%llu (%.1fMB)",
+					  (unsigned long long)dCreateCnt, (double)dCreateBytes / MB,
+					  (unsigned long long)dDestroyCnt, (double)dDestroyBytes / MB);
+		}
+
+		// Direct D3D12 creates that bypass FD3D12Resource (e.g. linear allocator pages).
+		{
+			const double MB = 1024.0 * 1024.0;
+			static uint64_t sPrevCpuPageUploadCnt = 0, sPrevCpuPageUploadBytes = 0;
+			static uint64_t sPrevGpuPageDefaultCnt = 0, sPrevGpuPageDefaultBytes = 0;
+
+			const uint64_t curUploadCnt = D3D12CreateStats::LinearPage_CreateCount_Upload().load(std::memory_order_relaxed);
+			const uint64_t curUploadBytes = D3D12CreateStats::LinearPage_CreateBytes_Upload().load(std::memory_order_relaxed);
+			const uint64_t curDefaultCnt = D3D12CreateStats::LinearPage_CreateCount_Default().load(std::memory_order_relaxed);
+			const uint64_t curDefaultBytes = D3D12CreateStats::LinearPage_CreateBytes_Default().load(std::memory_order_relaxed);
+
+			const uint64_t dUploadCnt = curUploadCnt - sPrevCpuPageUploadCnt;
+			const uint64_t dUploadBytes = curUploadBytes - sPrevCpuPageUploadBytes;
+			const uint64_t dDefaultCnt = curDefaultCnt - sPrevGpuPageDefaultCnt;
+			const uint64_t dDefaultBytes = curDefaultBytes - sPrevGpuPageDefaultBytes;
+
+			sPrevCpuPageUploadCnt = curUploadCnt;
+			sPrevCpuPageUploadBytes = curUploadBytes;
+			sPrevGpuPageDefaultCnt = curDefaultCnt;
+			sPrevGpuPageDefaultBytes = curDefaultBytes;
+
+			core::LOG(core::log_inf,
+					  L"[D3D12] DirectCreates LinearPages Upload(+%llu %.1fMB) Default(+%llu %.1fMB)",
+					  (unsigned long long)dUploadCnt, (double)dUploadBytes / MB,
+					  (unsigned long long)dDefaultCnt, (double)dDefaultBytes / MB);
+		}
+
+		// Command list / allocator pressure (these are not FD3D12Resource, but can drive CPU Private + NonLocal growth if not reused).
+		{
+			auto& DirectMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Default);
+			auto& CopyMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Copy);
+			auto& AsyncMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Async);
+
+			core::LOG(core::log_inf,
+					  L"[D3D12] CmdLists Ready(Direct=%u Copy=%u Async=%u)",
+					  DirectMgr.GetReadyListCount(), CopyMgr.GetReadyListCount(), AsyncMgr.GetReadyListCount());
+
+			// Track how many times we actually submit to the driver per sample.
+			static uint64_t sPrevSubmitDirect = 0, sPrevSubmitCopy = 0, sPrevSubmitCompute = 0;
+			const uint64_t curSubmitDirect = D3D12SubmitStats::SubmitCount_Direct().load(std::memory_order_relaxed);
+			const uint64_t curSubmitCopy = D3D12SubmitStats::SubmitCount_Copy().load(std::memory_order_relaxed);
+			const uint64_t curSubmitCompute = D3D12SubmitStats::SubmitCount_Compute().load(std::memory_order_relaxed);
+			const uint64_t dSubmitDirect = curSubmitDirect - sPrevSubmitDirect;
+			const uint64_t dSubmitCopy = curSubmitCopy - sPrevSubmitCopy;
+			const uint64_t dSubmitCompute = curSubmitCompute - sPrevSubmitCompute;
+			sPrevSubmitDirect = curSubmitDirect;
+			sPrevSubmitCopy = curSubmitCopy;
+			sPrevSubmitCompute = curSubmitCompute;
+
+			core::LOG(core::log_inf,
+					  L"[D3D12] Submits +Direct=%llu +Copy=%llu +Async=%llu",
+					  (unsigned long long)dSubmitDirect,
+					  (unsigned long long)dSubmitCopy,
+					  (unsigned long long)dSubmitCompute);
+
+			// Present behavior (occlusion/minimize can cause Present to return immediately and queue to balloon).
+			static uint64_t sPrevPresentCalls = 0, sPrevPresentOcc = 0, sPrevPresentFail = 0, sPrevIconic = 0, sPrevNotVis = 0;
+			const uint64_t curPresentCalls = D3D12PresentStats::PresentCalls().load(std::memory_order_relaxed);
+			const uint64_t curPresentOcc = D3D12PresentStats::PresentOccluded().load(std::memory_order_relaxed);
+			const uint64_t curPresentFail = D3D12PresentStats::PresentFailed().load(std::memory_order_relaxed);
+			const uint64_t curIconic = D3D12PresentStats::WindowIconic().load(std::memory_order_relaxed);
+			const uint64_t curNotVis = D3D12PresentStats::WindowNotVisible().load(std::memory_order_relaxed);
+			const uint64_t dPresentCalls = curPresentCalls - sPrevPresentCalls;
+			const uint64_t dPresentOcc = curPresentOcc - sPrevPresentOcc;
+			const uint64_t dPresentFail = curPresentFail - sPrevPresentFail;
+			const uint64_t dIconic = curIconic - sPrevIconic;
+			const uint64_t dNotVis = curNotVis - sPrevNotVis;
+			sPrevPresentCalls = curPresentCalls;
+			sPrevPresentOcc = curPresentOcc;
+			sPrevPresentFail = curPresentFail;
+			sPrevIconic = curIconic;
+			sPrevNotVis = curNotVis;
+
+			core::LOG(core::log_inf,
+					  L"[D3D12] Present +Calls=%llu +Occ=%llu +Fail=%llu Win(+Iconic=%llu +NotVis=%llu)",
+					  (unsigned long long)dPresentCalls,
+					  (unsigned long long)dPresentOcc,
+					  (unsigned long long)dPresentFail,
+					  (unsigned long long)dIconic,
+					  (unsigned long long)dNotVis);
+
+			// Allocator pressure for this context (if this grows every sample, we are leaking/never reusing command allocators).
+			core::LOG(core::log_inf,
+					  L"[D3D12] CmdAllocs(Context Total=%zu Available=%zu)",
+					  CommandAllocatorManager.GetTotalAllocatorCount(),
+					  CommandAllocatorManager.GetAvailableAllocatorCount());
+		}
+
+		// Track DXGI video memory usage to distinguish "real" GPU growth vs CPU-side leaks/caches.
+		// If LOCAL usage climbs every sample while our internal pools stay flat, the leak is likely a missing GPU fence-based release.
+		if (auto Adapter = TryGetParentAdapter())
+		{
+			// Diagnostic: force a full GPU idle to test whether growth is just frames-in-flight / driver queue caching.
+			// This is intentionally opt-in because it will severely impact performance.
+			if (core::CommandLine::Get().GetName("d3d12forceidle"))
+			{
+				Adapter->BlockUntilIdle();
+			}
+
+			// Optional: request DXGI to trim internal allocations.
+			// This can reduce non-local growth caused by runtime/driver caching in some configurations.
+			if (!core::CommandLine::Get().GetName("nodxgitrim"))
+			{
+				win32::com_ptr<IDXGIDevice3> DxgiDevice3;
+				if (SUCCEEDED(Adapter->GetD3DDevice()->QueryInterface(IID_PPV_ARGS(DxgiDevice3.get_init_ref()))) && DxgiDevice3)
+				{
+					DxgiDevice3->Trim();
+				}
+			}
+
+			// Fence progress (if Completed lags far behind Current/Signaled, the CPU is outrunning GPU and driver memory can balloon).
+			{
+				auto& FrameFence = Adapter->GetFrameFence();
+				core::LOG(core::log_inf,
+						  L"[D3D12] Fence Frame(Cur=%llu Sig=%llu CompFast=%llu CompPeek=%llu)",
+						  (unsigned long long)FrameFence.GetCurrentFence(),
+						  (unsigned long long)FrameFence.GetLastSignaledFence(),
+						  (unsigned long long)FrameFence.GetLastCompletedFenceFast(),
+						  (unsigned long long)FrameFence.PeekLastCompletedFence());
+
+				auto& DirectMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Default);
+				auto& CopyMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Copy);
+				auto& AsyncMgr = Device->GetCommandListManager(ED3D12CommandQueueType::Async);
+				auto& DirectFence = DirectMgr.GetFence();
+				auto& CopyFence = CopyMgr.GetFence();
+				auto& AsyncFence = AsyncMgr.GetFence();
+				core::LOG(core::log_inf,
+						  L"[D3D12] Fence Queue(Direct Cur=%llu Sig=%llu CompFast=%llu CompPeek=%llu) "
+						  L"(Copy Cur=%llu Sig=%llu CompFast=%llu CompPeek=%llu) "
+						  L"(Async Cur=%llu Sig=%llu CompFast=%llu CompPeek=%llu)",
+						  (unsigned long long)DirectFence.GetCurrentFence(),
+						  (unsigned long long)DirectFence.GetLastSignaledFence(),
+						  (unsigned long long)DirectFence.GetLastCompletedFenceFast(),
+						  (unsigned long long)DirectFence.PeekLastCompletedFence(),
+						  (unsigned long long)CopyFence.GetCurrentFence(),
+						  (unsigned long long)CopyFence.GetLastSignaledFence(),
+						  (unsigned long long)CopyFence.GetLastCompletedFenceFast(),
+						  (unsigned long long)CopyFence.PeekLastCompletedFence(),
+						  (unsigned long long)AsyncFence.GetCurrentFence(),
+						  (unsigned long long)AsyncFence.GetLastSignaledFence(),
+						  (unsigned long long)AsyncFence.GetLastCompletedFenceFast(),
+						  (unsigned long long)AsyncFence.PeekLastCompletedFence());
+			}
+
+			// Fence core pool pressure (if TotalCreated grows, fence cores are not being reused).
+			{
+				auto& FencePool = Adapter->GetFenceCorePool();
+				core::LOG(core::log_inf,
+						  L"[D3D12] Fences CorePool(TotalCreated=%llu Available=%u)",
+						  (unsigned long long)FencePool.GetTotalCreatedCount(),
+						  FencePool.GetAvailableCount());
+			}
+
+			// Centralized mem monitor (off by default, enable with d3d12_memmon=1).
+			RenderCore::D3D12MemoryMonitor::TickOncePerSecond(Adapter, Device);
+		}
+
+		// Virtual memory breakdown moved into D3D12MemoryMonitor (d3d12_memmon=1).
 	}
 
 	void D3D12CommandContext::RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr<RHISamplerState> NewState)
@@ -564,12 +834,13 @@ namespace RenderCore
 		auto DstOldState = D3D12Dst->GetResource()->GetResourceState().GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
-		FlushCommands();
+		// Only flush barriers; avoid submitting mid-frame.
+		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->CopyResource(D3D12Dst->GetResource()->GetResource(), D3D12Src->GetResource()->GetResource());
 		
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
-		FlushCommands();
+		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect)
@@ -582,7 +853,8 @@ namespace RenderCore
 		auto DstOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
-		FlushCommands();
+		// Only flush barriers; avoid submitting mid-frame.
+		CommandListHandle.FlushResourceBarriers();
 
 		D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
 		srcLocation.pResource = D3D12Src->GetResource()->GetResource();
@@ -611,10 +883,15 @@ namespace RenderCore
 
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
-		FlushCommands();
+		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
+	{
+		(void)FlushCommandsGetFence(WaitForCompletion);
+	}
+
+	uint64_t D3D12CommandContext::FlushCommandsGetFence(bool WaitForCompletion /*= false*/)
 	{
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		const bool bHasDoneWork = HasDoneWork();
@@ -627,12 +904,14 @@ namespace RenderCore
 			CloseCommandList();
 
 			// Just submit the current command list
-			CommandListHandle.ExecuteAndClear(WaitForCompletion);
+			const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
 
 			// Get a new command list to replace the one we submitted for execution. 
 			// Restore the state from the previous command list.
 			OpenCommandList();
+			return SignaledFenceValue;
 		}
+		return 0;
 	}
 
 	void D3D12CommandContext::RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush /*= false*/)
@@ -760,7 +1039,7 @@ namespace RenderCore
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
-		CommandList.ExecuteAndClear(true);
+		(void)CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 
@@ -786,7 +1065,7 @@ namespace RenderCore
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
-		CommandList.ExecuteAndClear(true);
+		(void)CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 

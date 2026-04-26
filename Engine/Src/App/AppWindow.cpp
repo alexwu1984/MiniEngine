@@ -1,5 +1,6 @@
 #include "App/AppWindow.h"
 #include "Imgui/imgui_impl_win32.h"
+#include "core/commandline.h"
 
 namespace Engine
 {
@@ -109,9 +110,12 @@ namespace Engine
 	int64_t AppWindow::WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam)
 	{
 		C_P(AppWindow);
-		auto ImguiRet = ::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
-		if (ImguiRet)
-			return ImguiRet;
+		if (!core::CommandLine::Get().GetName("noimgui"))
+		{
+			auto ImguiRet = ::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
+			if (ImguiRet)
+				return ImguiRet;
+		}
 		
 		if (ImGui::GetCurrentContext())
 		{

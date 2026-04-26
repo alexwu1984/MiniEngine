@@ -10,6 +10,7 @@
 //-------------------------------------------------------------------------------------
 
 #include "DirectXTexP.h"
+#include "../DXTexStats.h"
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -648,6 +649,7 @@ HRESULT DirectX::CaptureTexture(
     D3D12_RESOURCE_STATES beforeState,
     D3D12_RESOURCE_STATES afterState) noexcept
 {
+    ++DXTexStats::CaptureTextureCalls_D3D12();
     if (!pCommandQueue || !pSource)
         return E_INVALIDARG;
 

@@ -54,9 +54,12 @@ namespace RenderCore
 		FD3D12FenceCore* ObtainFenceCore();
 		void ReleaseFenceCore(FD3D12FenceCore* Fence, uint64_t CurrentFenceValue);
 		void Destroy();
+		uint32_t GetAvailableCount() const { return (uint32_t)AvailableFences.size(); }
+		uint64_t GetTotalCreatedCount() const { return TotalCreated; }
 	private:
 		std::recursive_mutex CS;
 		std::queue<FD3D12FenceCore*> AvailableFences;
+		uint64_t TotalCreated = 0;
 	};
 
 	class FD3D12Fence : public FD3D12AdapterChild
@@ -149,6 +152,8 @@ namespace RenderCore
 
 		D3D12CommandAllocator* ObtainCommandAllocator();
 		void ReleaseCommandAllocator(D3D12CommandAllocator* CommandAllocator);
+		size_t GetTotalAllocatorCount() const { return CommandAllocators.size(); }
+		size_t GetAvailableAllocatorCount() const { return CommandAllocatorQueue.size(); }
 
 	private:
 		std::vector<D3D12CommandAllocator*> CommandAllocators;		// List of all command allocators owned by this manager
@@ -189,6 +194,7 @@ namespace RenderCore
 		// state changes. We leave PSOs to always be resolved in ApplyState().
 		D3D12CommandListHandle ObtainCommandList(D3D12CommandAllocator& CommandAllocator);
 		void ReleaseCommandList(D3D12CommandListHandle& hList);
+		uint32_t GetReadyListCount() const { return ReadyLists.GetSize(); }
 
 		uint64_t ExecuteCommandList(D3D12CommandListHandle& hList, const std::function<void(uint64_t FenceID)> &OnClearResource, bool WaitForCompletion = false);
 		uint64_t ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, const std::function<void(uint64_t FenceID)>& OnClearResource,bool WaitForCompletion = false);

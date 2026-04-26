@@ -7,10 +7,61 @@
 #include "D3D12/D3D12CommandList.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include "Imgui/imgui_impl_win32.h"
+#include "core/commandline.h"
+#include "core/logger.h"
+#include "D3D12/D3D12PresentStats.h"
+#include <dxgi1_4.h>
+#include <windows.h>
 
 namespace RenderCore
 {
+	static double D3D12RHI_QpcToMicroseconds(LONGLONG dt)
+	{
+		static LARGE_INTEGER sFreq = {};
+		if (sFreq.QuadPart == 0)
+			::QueryPerformanceFrequency(&sFreq);
+		return (double)dt * 1000000.0 / (double)sFreq.QuadPart;
+	}
+
+	static void D3D12RHI_LogFramePacingOncePerSecond(uint64_t WaitableWaits, uint64_t WaitableTimeouts, uint64_t FenceWaits, double FenceWaitMs)
+	{
+		static ULONGLONG sLastTick = 0;
+		static uint64_t sPrevWaitableWaits = 0;
+		static uint64_t sPrevWaitableTimeouts = 0;
+		static uint64_t sPrevFenceWaits = 0;
+		static double sPrevFenceWaitMs = 0.0;
+
+		const ULONGLONG now = ::GetTickCount64();
+		if (sLastTick == 0)
+			sLastTick = now;
+		if (now - sLastTick < 1000)
+			return;
+		sLastTick = now;
+
+		const uint64_t dWaitableWaits = WaitableWaits - sPrevWaitableWaits;
+		const uint64_t dWaitableTimeouts = WaitableTimeouts - sPrevWaitableTimeouts;
+		const uint64_t dFenceWaits = FenceWaits - sPrevFenceWaits;
+		const double dFenceWaitMs = FenceWaitMs - sPrevFenceWaitMs;
+
+		sPrevWaitableWaits = WaitableWaits;
+		sPrevWaitableTimeouts = WaitableTimeouts;
+		sPrevFenceWaits = FenceWaits;
+		sPrevFenceWaitMs = FenceWaitMs;
+
+		core::LOG(core::log_inf,
+				  L"[D3D12] FramePacing Waitable(waits=%llu timeouts=%llu) Fence(waits=%llu waitMs=%.2f)",
+				  (unsigned long long)dWaitableWaits,
+				  (unsigned long long)dWaitableTimeouts,
+				  (unsigned long long)dFenceWaits,
+				  dFenceWaitMs);
+	}
+
+	// Match Microsoft MiniEngine (DirectX-Graphics-Samples) behavior: triple-buffered flip-discard swapchain.
 	static const uint32_t WindowsDefaultNumBackBuffers = 3;
+	static bool D3D12RHI_ShouldUseImGui()
+	{
+		return !core::CommandLine::Get().GetName("noimgui");
+	}
 
 	D3D12ViewPort::D3D12ViewPort(std::weak_ptr<FD3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
 		:FD3D12AdapterChild(InAdpater),
@@ -35,60 +86,62 @@ namespace RenderCore
 	{
 		auto Adapter = GetParentAdapter();
 
+		// Match DEMO behavior: no tearing.
 		bAllowTearing = false;
-		IDXGIFactory* Factory = Adapter->GetDXGIFactory2();
-		if (Factory)
-		{
-			win32::com_ptr<IDXGIFactory5> Factory5;
-			Factory->QueryInterface(IID_PPV_ARGS(Factory5.get_init_ref()));
-			if (Factory5.is_valid())
-			{
-				BOOL AllowTearing;
-				if (SUCCEEDED(Factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &AllowTearing, sizeof(AllowTearing))) && AllowTearing)
-				{
-					bAllowTearing = true;
-				}
-			}
-		}
 
 		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
-		UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+		// Microsoft MiniEngine uses no ALLOW_MODE_SWITCH flag here.
+		const UINT SwapChainFlags = 0;
 
-		if (bAllowTearing)
-		{
-			SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
-		}
+		// Match DEMO behavior: rely on VSync (Present(1,0)) for pacing.
 		const DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
 		// if stereo was not activated or not enabled in settings
 		if (SwapChain1 == nullptr)
 		{
 			// Create the swapchain.
 			{
-				DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
-				SwapChainDesc.BufferDesc = BufferDesc;
-				// MSAA Sample count
-				SwapChainDesc.SampleDesc.Count = 1;
-				SwapChainDesc.SampleDesc.Quality = 0;
-				SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT;
-				// 1:single buffering, 2:double buffering, 3:triple buffering
-				SwapChainDesc.BufferCount = NumBackBuffers;
-				SwapChainDesc.OutputWindow = WindowHandle;
-				SwapChainDesc.Windowed = !bIsFullscreen;
-				// DXGI_SWAP_EFFECT_DISCARD / DXGI_SWAP_EFFECT_SEQUENTIAL
-				SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-				SwapChainDesc.Flags = SwapChainFlags;
+				// Prefer CreateSwapChainForHwnd + DXGI_SWAP_CHAIN_DESC1 for flip-model swapchains.
+				// It's more explicit/robust for tearing + frame-latency waitable object behavior.
+				DXGI_SWAP_CHAIN_DESC1 Desc1 = {};
+				Desc1.Width = BufferDesc.Width;
+				Desc1.Height = BufferDesc.Height;
+				Desc1.Format = BufferDesc.Format;
+				Desc1.Stereo = FALSE;
+				Desc1.SampleDesc.Count = 1;
+				Desc1.SampleDesc.Quality = 0;
+				Desc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+				Desc1.BufferCount = NumBackBuffers;
+				Desc1.Scaling = DXGI_SCALING_NONE;
+				Desc1.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+				Desc1.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+				Desc1.Flags = SwapChainFlags;
 
-				// The command queue used here is irrelevant in regard to multi-GPU as it gets overriden in the Resize
 				ID3D12CommandQueue* pCommandQueue = Adapter->GetDevice()->GetD3DCommandQueue();
-
-				win32::com_ptr<IDXGISwapChain> SwapChain;
-				HRESULT hrCreate = Adapter->GetDXGIFactory2()->CreateSwapChain(pCommandQueue, &SwapChainDesc, SwapChain.get_init_ref());
+				win32::com_ptr<IDXGISwapChain1> NewSwapChain1;
+				const HRESULT hrCreate = Adapter->GetDXGIFactory2()->CreateSwapChainForHwnd(
+					pCommandQueue,
+					WindowHandle,
+					&Desc1,
+					nullptr,
+					nullptr,
+					NewSwapChain1.get_init_ref());
 				VERIFYD3DRESULT(hrCreate);
-				VERIFYD3DRESULT(SwapChain->QueryInterface(IID_PPV_ARGS(SwapChain1.get_init_ref())));
 
+				SwapChain1 = NewSwapChain1;
 				// Get a SwapChain4 if supported.
-				SwapChain->QueryInterface(IID_PPV_ARGS(SwapChain4.get_init_ref()));
+				NewSwapChain1->QueryInterface(IID_PPV_ARGS(SwapChain4.get_init_ref()));
+
+				// One-shot evidence: print swapchain parameters for diffing against MiniEngine.
+				core::LOG(core::log_inf,
+						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x waitable=%d vsync=1 tearing=%d",
+						  (unsigned)Desc1.Width,
+						  (unsigned)Desc1.Height,
+						  (unsigned)Desc1.Format,
+						  (unsigned)Desc1.BufferCount,
+						  (unsigned)Desc1.Flags,
+						  0,
+						  (int)bAllowTearing);
 			}
 
 			// Set the DXGI message hook to not change the window behind our back.
@@ -108,12 +161,20 @@ namespace RenderCore
 			BackBuffers.emplace_back(BackBufTex2D);
 		}
 
-		::ImGui_ImplWin32_Init(WindowHandle);
-		ImGuiIO& io = ImGui::GetIO();
+		// Initialize to the swapchain's first renderable backbuffer.
+		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-		io.FontGlobalScale = ::GetDpiForWindow(WindowHandle) / 96.0f;
-		// Allow user UI scaling using CTRL+Mouse Wheel scrolling
-		io.FontAllowUserScaling = true;
+		// No extra DXGI frame-latency configuration.
+
+		if (D3D12RHI_ShouldUseImGui())
+		{
+			::ImGui_ImplWin32_Init(WindowHandle);
+			ImGuiIO& io = ImGui::GetIO();
+
+			io.FontGlobalScale = ::GetDpiForWindow(WindowHandle) / 96.0f;
+			// Allow user UI scaling using CTRL+Mouse Wheel scrolling
+			io.FontAllowUserScaling = true;
+		}
 	}
 
 	void D3D12ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
@@ -135,13 +196,21 @@ namespace RenderCore
 
 			CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
-			uint32_t SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-			if (bAllowTearing)
-				SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+			// IMPORTANT: keep ResizeBuffers flags consistent with creation.
+			const UINT SwapChainFlags = 0;
+			// Match DEMO behavior: rely on VSync for pacing.
 
 			HRESULT hr = SwapChain4->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags);
 			if (FAILED(hr))
 				return;
+
+			core::LOG(core::log_inf,
+					  L"[D3D12] SwapChainResize w=%u h=%u fmt=%u buffers=%u flags=0x%08x",
+					  (unsigned)SizeX,
+					  (unsigned)SizeY,
+					  (unsigned)GetRenderTargetFormat(PixelFormat),
+					  (unsigned)NumBackBuffers,
+					  (unsigned)SwapChainFlags);
 
 			for (int i = 0; i < NumBackBuffers; ++i)
 			{
@@ -152,6 +221,8 @@ namespace RenderCore
 				BackBuffers.emplace_back(BackBufTex2D);
 			}
 			FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+
+			// No extra DXGI frame-latency configuration.
 		}
 
 	}
@@ -178,36 +249,45 @@ namespace RenderCore
 		if (!SwapChain4)
 			return;
 
-		ImGui::Render();
-		//GetDefaultCommandContext()->GetCurrentCommandListHandle()->SetDescriptorHeaps(1, HeapsToBind);
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList());
+		if (D3D12RHI_ShouldUseImGui())
+		{
+			ImGui::Render();
+			//GetDefaultCommandContext()->GetCurrentCommandListHandle()->SetDescriptorHeaps(1, HeapsToBind);
+			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList());
+		}
 
 		GetDefaultCommandContext()->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 		
-		// Flush commands without waiting for completion to maximize performance
-		// D3D11 doesn't wait, so D3D12 should match this behavior
+		// Flush commands without waiting for completion to maximize performance.
 		GetDefaultCommandContext()->FlushCommands(false);
 		GetDefaultAsyncComputeContext()->FlushCommands(false);
 		
-		// Use SyncInterval = 0 to disable VSync and match D3D11 behavior
-		// This allows frame rates above the display refresh rate (e.g., 120 FPS)
-		UINT PresentFlags = 0;
-		if (bAllowTearing)
-		{
-			PresentFlags |= DXGI_PRESENT_ALLOW_TEARING;
-		}
-		SwapChain4->Present(0, PresentFlags);
+		// Match DEMO behavior: VSync ON, no tearing.
+		D3D12PresentStats::PresentCalls().fetch_add(1, std::memory_order_relaxed);
+		if (::IsIconic(WindowHandle))
+			D3D12PresentStats::WindowIconic().fetch_add(1, std::memory_order_relaxed);
+		if (!::IsWindowVisible(WindowHandle))
+			D3D12PresentStats::WindowNotVisible().fetch_add(1, std::memory_order_relaxed);
+
+		const HRESULT hrPresent = SwapChain4->Present(1, 0);
+		if (hrPresent == DXGI_STATUS_OCCLUDED)
+			D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
+		else if (FAILED(hrPresent))
+			D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 	}
 
 	void D3D12ViewPort::Prepare()
 	{
-		ImGui_ImplDX12_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
+		if (D3D12RHI_ShouldUseImGui())
+		{
+			ImGui_ImplDX12_NewFrame();
+			ImGui_ImplWin32_NewFrame();
+			ImGui::NewFrame();
+		}
 	}
 
 	std::shared_ptr<RHITexture2D> D3D12ViewPort::GetBackBuffer() const

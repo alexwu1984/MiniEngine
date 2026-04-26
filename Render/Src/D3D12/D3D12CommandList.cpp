@@ -93,15 +93,17 @@ namespace RenderCore
 		CommandListData->AddRef();
 	}
 
-	void D3D12CommandListHandle::ExecuteAndClear(bool WaitForCompletion /*= false*/)
+	uint64_t D3D12CommandListHandle::ExecuteAndClear(bool WaitForCompletion /*= false*/)
 	{
 		Assert(CommandListData);
-		CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
+		const uint64_t SignaledFenceValue =
+			CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 			const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
 			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
 			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
 			GetCurrentOwningContext()->CleanupUsedHeaps(FenceID, QueueType);
 			}, WaitForCompletion);
+		return SignaledFenceValue;
 	}
 
 	void D3D12CommandListHandle::Execute(bool WaitForCompletion /*= false*/)

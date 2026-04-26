@@ -22,6 +22,16 @@ namespace Engine
 	public:
 		static RenderTexturePool& Get();
 
+		template <class T>
+		struct PoolEntry
+		{
+			std::shared_ptr<T> Resource;
+			uint64_t LastUsedFrame = 0;
+		};
+
+		// Evict entries unused for a while to keep memory stable.
+		static constexpr uint64_t kEvictAfterFrames = 600; // ~5s at 120fps
+
 		std::shared_ptr<RenderCore::RHITexture2D> AcquireTexture2D(
 			RenderCore::DynamicRHI* RHI, RenderCore::EPixelFormat Format, int32_t CreateFlags,
 			int32_t Width, int32_t Height, uint32_t NumMips = 1);
@@ -46,6 +56,7 @@ namespace Engine
 		// Optional hooks: FrameGraph compile/execute boundary for future accounting or per-frame trim.
 		void BeginFrame();
 		void EndFrame();
+		void Clear();
 
 	private:
 		RenderTexturePool() = default;
@@ -78,8 +89,10 @@ namespace Engine
 			bool operator<(const RtKey& o) const;
 		};
 
-		std::map<Tex2DKey, std::vector<std::shared_ptr<RenderCore::RHITexture2D>>> Tex2DFree;
-		std::map<UavKey, std::vector<std::shared_ptr<RenderCore::RHIUnorderedAccessView>>> UavFree;
-		std::map<RtKey, std::vector<std::shared_ptr<RenderCore::RHIRenderTarget>>> RtFree;
+		uint64_t FrameCounter = 0;
+
+		std::map<Tex2DKey, std::vector<PoolEntry<RenderCore::RHITexture2D>>> Tex2DFree;
+		std::map<UavKey, std::vector<PoolEntry<RenderCore::RHIUnorderedAccessView>>> UavFree;
+		std::map<RtKey, std::vector<PoolEntry<RenderCore::RHIRenderTarget>>> RtFree;
 	};
 }

@@ -7,9 +7,67 @@
 #include "D3D12/D3D12UniformBuffer.h"
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12RenderTarget.h"
+#include "core/logger.h"
 
 namespace RenderCore
 {
+	namespace
+	{
+		static size_t HashBytesStable(const void* Data, size_t NumBytes, size_t Seed)
+		{
+			return (size_t)core::Crc::MemCrc32(Data, (int32_t)NumBytes, (uint32_t)Seed);
+		}
+
+		static size_t HashVertexLayoutStable(const std::vector<VertexElementDesc>& ElementDescs, size_t Seed)
+		{
+			for (const VertexElementDesc& E : ElementDescs)
+			{
+				Seed = HashBytesStable(E.SemanticName, sizeof(E.SemanticName), Seed);
+				Seed = HashBytesStable(&E.SemanticIndex, sizeof(E.SemanticIndex), Seed);
+				Seed = HashBytesStable(&E.Format, sizeof(E.Format), Seed);
+				Seed = HashBytesStable(&E.InputSlot, sizeof(E.InputSlot), Seed);
+				Seed = HashBytesStable(&E.AlignedByteOffset, sizeof(E.AlignedByteOffset), Seed);
+				Seed = HashBytesStable(&E.InputSlotClass, sizeof(E.InputSlotClass), Seed);
+				Seed = HashBytesStable(&E.InstanceDataStepRate, sizeof(E.InstanceDataStepRate), Seed);
+			}
+			return Seed;
+		}
+
+		static size_t HashGraphicsPSOStable(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& Desc,
+										   uint32_t VSHash, uint32_t PSHash,
+										   const std::vector<VertexElementDesc>& ElementDescs)
+		{
+			size_t H = 0;
+			H = HashBytesStable(&VSHash, sizeof(VSHash), H);
+			H = HashBytesStable(&PSHash, sizeof(PSHash), H);
+
+			// Copy stable POD fields; exclude pointer fields (pRootSignature, bytecode pointers, input layout pointer).
+			H = HashBytesStable(&Desc.BlendState, sizeof(Desc.BlendState), H);
+			H = HashBytesStable(&Desc.SampleMask, sizeof(Desc.SampleMask), H);
+			H = HashBytesStable(&Desc.RasterizerState, sizeof(Desc.RasterizerState), H);
+			H = HashBytesStable(&Desc.DepthStencilState, sizeof(Desc.DepthStencilState), H);
+			H = HashBytesStable(&Desc.PrimitiveTopologyType, sizeof(Desc.PrimitiveTopologyType), H);
+			H = HashBytesStable(&Desc.NumRenderTargets, sizeof(Desc.NumRenderTargets), H);
+			H = HashBytesStable(&Desc.RTVFormats, sizeof(Desc.RTVFormats), H);
+			H = HashBytesStable(&Desc.DSVFormat, sizeof(Desc.DSVFormat), H);
+			H = HashBytesStable(&Desc.SampleDesc, sizeof(Desc.SampleDesc), H);
+			H = HashBytesStable(&Desc.Flags, sizeof(Desc.Flags), H);
+
+			H = HashVertexLayoutStable(ElementDescs, H);
+			return H;
+		}
+
+		static size_t HashComputePSOStable(const D3D12_COMPUTE_PIPELINE_STATE_DESC& Desc, uint32_t CSHash)
+		{
+			size_t H = 0;
+			H = HashBytesStable(&CSHash, sizeof(CSHash), H);
+			// Exclude pointer fields: pRootSignature and CS bytecode pointers.
+			H = HashBytesStable(&Desc.NodeMask, sizeof(Desc.NodeMask), H);
+			H = HashBytesStable(&Desc.Flags, sizeof(Desc.Flags), H);
+			return H;
+		}
+	}
+
 	FD3D12StateCache::FD3D12StateCache(std::weak_ptr<FD3D12Device> InParent, std::weak_ptr<D3D12CommandContext> CommandContext)
 		:FD3D12DeviceChild(InParent)
 		,DynamicViewDescriptorHeap(InParent, CommandContext,D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
@@ -422,8 +480,8 @@ namespace RenderCore
 		else
 			PSDesc.InputLayout.pInputElementDescs = nullptr;
 
-		size_t HashCode = core::Crc::HashState(&PSDesc);
-		HashCode = core::Crc::HashState(InputLayouts.data(), PSDesc.InputLayout.NumElements, HashCode);
+		// Use a stable key that doesn't include pointer addresses inside PSDesc (root sig / shader bytecode / input layout).
+		size_t HashCode = HashGraphicsPSOStable(PSDesc, CurrentVertexHash, CurrentPixelHash, ElementDescs);
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
@@ -512,7 +570,8 @@ namespace RenderCore
 			return false;
 		}
 
-		size_t HashCode = core::Crc::HashState(&CSDesc);
+		// Use a stable key that doesn't include pointer addresses inside CSDesc (root sig / shader bytecode).
+		size_t HashCode = HashComputePSOStable(CSDesc, CurrentComputeHash);
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{

@@ -5,8 +5,8 @@ project(MiniEngineTutorial)
 
 add_compile_definitions(_UNICODE UNICODE)
 add_compile_options("/std:c++20")
-# windows 并行编译选项
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Gm->) #高版本已被废弃，但是低版本的Gm会影响并行
+# Windows parallel build options
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Gm->) # /Gm is deprecated; disabling it helps parallel builds
 cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
 
@@ -67,12 +67,11 @@ function(copy_runtime_assets target_name)
 	add_custom_target(${target_name}_RuntimeAssets
 		COMMAND ${CMAKE_COMMAND} -E make_directory
 				"${runtime_output_dir}"
-		COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel"
-				"${runtime_output_dir}/GLTFModel"
-		COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
-				"${runtime_output_dir}/ShaderLibDX"
+		# On Windows, CMake's copy_directory fails hard if any file is locked by a running exe.
+		# robocopy returns codes <= 7 for "success with some skips"; we treat those as success to keep builds stable.
+		COMMAND ${CMAKE_COMMAND} -E echo "Copy runtime assets -> ${runtime_output_dir}"
+		COMMAND cmd /c "robocopy \"${CMAKE_CURRENT_SOURCE_DIR}\\GLTFModel\" \"${runtime_output_dir}\\GLTFModel\" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP & if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))"
+		COMMAND cmd /c "robocopy \"${CMAKE_CURRENT_SOURCE_DIR}\\Render\\ShaderLibDX\" \"${runtime_output_dir}\\ShaderLibDX\" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP & if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))"
 		COMMENT "Copying runtime assets for ${target_name}")
 	add_dependencies(${target_name} ${target_name}_RuntimeAssets)
 endfunction()

@@ -21,6 +21,8 @@ source_group("Header Files\\math" FILES ${math_headers} )
 source_group("Header Files\\templates" FILES ${templates_headers} )
 
 file(GLOB Core_sources "*.cpp")
+# Ensure new diagnostic sources are picked up reliably across generators.
+list(APPEND Core_sources "virtalloc_hook.cpp")
 add_library(Core ${Core_sources} ${core_headers} ${network_headers} ${win_headers} ${common_headers} ${math_headers} ${templates_headers})
 
 #-------------------------------------------------------------------------------------------
@@ -34,6 +36,13 @@ add_compile_options(/wd4201)
 # Include dirs
 #-------------------------------------------------------------------------------------------
 target_include_directories(Core PUBLIC common core network win)
+
+# MinHook is built as a separate ThirdParty static library.
+target_link_libraries(Core PRIVATE MinHook)
+
+if (WIN32)
+  target_link_libraries(Core PUBLIC dbghelp)
+endif()
 
 
 

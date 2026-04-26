@@ -20,20 +20,59 @@ namespace RenderCore
 	class FD3D12ResourceAllocator : public FD3D12DeviceChild
 	{
 	public:
+		struct FDescriptorAllocation
+		{
+			ID3D12DescriptorHeap* Heap = nullptr;
+			D3D12_CPU_DESCRIPTOR_HANDLE Cpu{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+			uint32_t Count = 0;
+			uint32_t HeapIndex = 0;
+			uint32_t Offset = 0;
+
+			bool IsValid() const { return Heap != nullptr && Cpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL && Count > 0; }
+		};
+
 		FD3D12ResourceAllocator(std::weak_ptr<FD3D12Device> ParentDevice,
 			D3D12_DESCRIPTOR_HEAP_TYPE Type);
 
 		~FD3D12ResourceAllocator() = default;
 
+		// Legacy allocate: monotonic CPU handle (no free).
+		// Prefer AllocateBlock/FreeBlock for resources with a lifetime.
 		D3D12_CPU_DESCRIPTOR_HANDLE Allocate(uint32_t Count);
+
+		// Recyclable allocation used by textures/RTs to avoid descriptor heap leaks.
+		FDescriptorAllocation AllocateBlock(uint32_t Count);
+		void FreeBlock(const FDescriptorAllocation& Allocation);
 		uint32_t GetDescriptorSize() const { return DescriptorSize; }
+		std::size_t GetHeapCount() const { return Heaps.size(); }
+		std::size_t GetFreeBlockCount() const
+		{
+			std::size_t Total = 0;
+			for (const FHeapState& H : Heaps)
+				Total += H.FreeList.size();
+			return Total;
+		}
+		static std::size_t GetGlobalPoolSize() { return sm_DescriptorPool.size(); }
 
 		static void DestroyAll();
 
 	protected:
-		static const uint32_t sm_NumDescriptorsPerHeap = 256;
+		// 256 is far too small for typical texture-heavy scenes (mips allocate ranges).
+		// Larger heaps reduce heap churn and make leak triage easier.
+		static const uint32_t sm_NumDescriptorsPerHeap = 2048;
 		static std::vector<win32::com_ptr<ID3D12DescriptorHeap> > sm_DescriptorPool;
 		static ID3D12DescriptorHeap* RequestNewHeap(std::shared_ptr<FD3D12Device> InDevice, D3D12_DESCRIPTOR_HEAP_TYPE Type);
+
+		struct FFreeBlock
+		{
+			uint32_t Offset = 0;
+			uint32_t Count = 0;
+		};
+		struct FHeapState
+		{
+			win32::com_ptr<ID3D12DescriptorHeap> Heap;
+			std::vector<FFreeBlock> FreeList; // sorted by Offset
+		};
 
 	protected:
 		D3D12_DESCRIPTOR_HEAP_TYPE HeapType;
@@ -41,6 +80,9 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE CurrentCpuAddress;
 		uint32_t DescriptorSize;
 		uint32_t RemainingFreeHandles;
+
+		// Recyclable heaps (CPU-only). Used by AllocateBlock/FreeBlock.
+		std::vector<FHeapState> Heaps;
 	};
 
 	class LinearAllocationPage : public FD3D12Resource
@@ -76,11 +118,21 @@ namespace RenderCore
 		LinearAllocationPage* CreateNewPage(size_t SizeInBytes = 0);
 		void Destroy();
 		ELinearAllocatorType GetAllocatorType() const;
+		std::size_t GetRetiredPageCount() const
+		{
+			return RetiredPages[0].size() + RetiredPages[1].size() + RetiredPages[2].size();
+		}
+		std::size_t GetReadyPageCount() const { return ReadyPages.size(); }
+		std::size_t GetLargePageCount() const { return LargePagePool.size(); }
+		std::size_t GetStandardPageCount() const { return StandardPagePool.size(); }
 
 	private:
 		using PagePool = std::queue<LinearAllocationPage* >;
 
-		PagePool RetiredPages;
+		// Retired pages are tracked per D3D12 queue to preserve monotonic fence ordering.
+		// This enables O(1) recycling ("while front complete") like MiniEngine/DEMO.
+		PagePool RetiredPages[3]; // [QueueTypeIndex]
+		PagePool ReadyPages;
 		PagePool LargePagePool;
 		PagePool StandardPagePool;
 

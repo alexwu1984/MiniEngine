@@ -324,7 +324,7 @@ namespace RenderCore
 
 		void Create(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
 
-		void ExecuteAndClear(bool WaitForCompletion = false);
+		uint64_t ExecuteAndClear(bool WaitForCompletion = false);
 		void Execute(bool WaitForCompletion = false);
 
 		void Close()

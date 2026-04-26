@@ -48,6 +48,19 @@ namespace Engine
 		LOG(core::log_inf, __FUNCTIONW__);
 		if (Impl->Thread.joinable())
 		{
+			// Ensure all queued render commands are executed before stopping.
+			// Otherwise, commands captured by value (e.g. shared_ptr textures/gbuffer)
+			// can keep GPU resources alive until process exit.
+			AppendCommand([](RenderCore::DynamicRHI*) {});
+			WaitForFinish();
+
+			// Drop any remaining queued commands to release captured resources.
+			{
+				std::unique_lock<std::mutex> lock(Impl->CondLock);
+				while (!Impl->CmdQueue.empty())
+					Impl->CmdQueue.pop();
+			}
+
 			Impl->Stop = true;
 			Impl->Notify.notify_one();
 			Impl->Thread.join();

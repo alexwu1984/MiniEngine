@@ -221,6 +221,7 @@ namespace RenderCore
 		{
 			Page = ReadyPages.front();
 			ReadyPages.pop();
+			D3D12CreateStats::LinearPage_ReuseFromReadyCount().fetch_add(1, std::memory_order_relaxed);
 		}
 
 		if (Page == nullptr)
@@ -254,11 +255,13 @@ namespace RenderCore
 							RetiredPages[0].size(), RetiredPages[1].size(), RetiredPages[2].size());
 					}
 				}
+				D3D12CreateStats::LinearPage_FenceWaitReuseCount().fetch_add(1, std::memory_order_relaxed);
 				Mgr.GetFence().WaitForFence(Oldest->GetFenceValue());
 				ReadyPages.push(Oldest);
 
 				Page = ReadyPages.front();
 				ReadyPages.pop();
+				D3D12CreateStats::LinearPage_ReuseFromReadyCount().fetch_add(1, std::memory_order_relaxed);
 			}
 			else
 			{
@@ -272,6 +275,11 @@ namespace RenderCore
 
 	void LinearAllocationPageManager::DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages)
 	{
+		if (!Pages.empty())
+		{
+			D3D12CreateStats::LinearPage_DiscardStandardPageCount().fetch_add(
+				(uint64_t)Pages.size(), std::memory_order_relaxed);
+		}
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
 			(*Iter)->SetFenceValue(FenceID);
@@ -297,6 +305,7 @@ namespace RenderCore
 					break;
 				}
 			}
+			D3D12CreateStats::LinearPage_StandardCacheReleaseCount().fetch_add(1, std::memory_order_relaxed);
 			Candidate->Release();
 		}
 	}
@@ -313,7 +322,10 @@ namespace RenderCore
 				break;
 
 			if (Front.Page)
+			{
+				D3D12CreateStats::LinearPage_LargePageDestroyedCount().fetch_add(1, std::memory_order_relaxed);
 				Front.Page->Release();
+			}
 			LargePageDeletionQueue.pop();
 		}
 
@@ -380,6 +392,11 @@ namespace RenderCore
 			{
 				D3D12CreateStats::LinearPage_CreateCount_Upload().fetch_add(1, std::memory_order_relaxed);
 				D3D12CreateStats::LinearPage_CreateBytes_Upload().fetch_add(Bytes, std::memory_order_relaxed);
+				if (PageSize != 0)
+				{
+					D3D12CreateStats::LinearPage_UploadLargeCreateCount().fetch_add(1, std::memory_order_relaxed);
+					D3D12CreateStats::LinearPage_UploadLargeCreateBytes().fetch_add(Bytes, std::memory_order_relaxed);
+				}
 			}
 		}
 		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(

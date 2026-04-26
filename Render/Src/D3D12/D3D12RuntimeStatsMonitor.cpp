@@ -142,26 +142,63 @@ namespace RenderCore
 			const double MB = 1024.0 * 1024.0;
 			static uint64_t sPrevCpuPageUploadCnt = 0, sPrevCpuPageUploadBytes = 0;
 			static uint64_t sPrevGpuPageDefaultCnt = 0, sPrevGpuPageDefaultBytes = 0;
+			static uint64_t sPrevUploadLargeCnt = 0, sPrevUploadLargeBytes = 0;
+			static uint64_t sPrevReuseReady = 0, sPrevFenceWait = 0;
+			static uint64_t sPrevDiscardStd = 0, sPrevStdCacheEvict = 0, sPrevLargeDestroy = 0;
 
 			const uint64_t curUploadCnt = D3D12CreateStats::LinearPage_CreateCount_Upload().load(std::memory_order_relaxed);
 			const uint64_t curUploadBytes = D3D12CreateStats::LinearPage_CreateBytes_Upload().load(std::memory_order_relaxed);
 			const uint64_t curDefaultCnt = D3D12CreateStats::LinearPage_CreateCount_Default().load(std::memory_order_relaxed);
 			const uint64_t curDefaultBytes = D3D12CreateStats::LinearPage_CreateBytes_Default().load(std::memory_order_relaxed);
+			const uint64_t curUploadLargeCnt = D3D12CreateStats::LinearPage_UploadLargeCreateCount().load(std::memory_order_relaxed);
+			const uint64_t curUploadLargeBytes = D3D12CreateStats::LinearPage_UploadLargeCreateBytes().load(std::memory_order_relaxed);
+			const uint64_t curReuseReady = D3D12CreateStats::LinearPage_ReuseFromReadyCount().load(std::memory_order_relaxed);
+			const uint64_t curFenceWait = D3D12CreateStats::LinearPage_FenceWaitReuseCount().load(std::memory_order_relaxed);
+			const uint64_t curDiscardStd = D3D12CreateStats::LinearPage_DiscardStandardPageCount().load(std::memory_order_relaxed);
+			const uint64_t curStdCacheEvict = D3D12CreateStats::LinearPage_StandardCacheReleaseCount().load(std::memory_order_relaxed);
+			const uint64_t curLargeDestroy = D3D12CreateStats::LinearPage_LargePageDestroyedCount().load(std::memory_order_relaxed);
 
 			const uint64_t dUploadCnt = curUploadCnt - sPrevCpuPageUploadCnt;
 			const uint64_t dUploadBytes = curUploadBytes - sPrevCpuPageUploadBytes;
 			const uint64_t dDefaultCnt = curDefaultCnt - sPrevGpuPageDefaultCnt;
 			const uint64_t dDefaultBytes = curDefaultBytes - sPrevGpuPageDefaultBytes;
+			const uint64_t dUploadLargeCnt = curUploadLargeCnt - sPrevUploadLargeCnt;
+			const uint64_t dUploadLargeBytes = curUploadLargeBytes - sPrevUploadLargeBytes;
+			const uint64_t dReuseReady = curReuseReady - sPrevReuseReady;
+			const uint64_t dFenceWait = curFenceWait - sPrevFenceWait;
+			const uint64_t dDiscardStd = curDiscardStd - sPrevDiscardStd;
+			const uint64_t dStdCacheEvict = curStdCacheEvict - sPrevStdCacheEvict;
+			const uint64_t dLargeDestroy = curLargeDestroy - sPrevLargeDestroy;
+
+			const uint64_t dUploadStdCnt = (dUploadCnt > dUploadLargeCnt) ? (dUploadCnt - dUploadLargeCnt) : 0;
+			const uint64_t dUploadStdBytes = (dUploadBytes > dUploadLargeBytes) ? (dUploadBytes - dUploadLargeBytes) : 0;
 
 			sPrevCpuPageUploadCnt = curUploadCnt;
 			sPrevCpuPageUploadBytes = curUploadBytes;
 			sPrevGpuPageDefaultCnt = curDefaultCnt;
 			sPrevGpuPageDefaultBytes = curDefaultBytes;
+			sPrevUploadLargeCnt = curUploadLargeCnt;
+			sPrevUploadLargeBytes = curUploadLargeBytes;
+			sPrevReuseReady = curReuseReady;
+			sPrevFenceWait = curFenceWait;
+			sPrevDiscardStd = curDiscardStd;
+			sPrevStdCacheEvict = curStdCacheEvict;
+			sPrevLargeDestroy = curLargeDestroy;
 
 			core::LOG(core::log_inf,
 				L"[D3D12] DirectCreates LinearPages Upload(+%llu %.1fMB) Default(+%llu %.1fMB)",
 				(unsigned long long)dUploadCnt, (double)dUploadBytes / MB,
 				(unsigned long long)dDefaultCnt, (double)dDefaultBytes / MB);
+
+			core::LOG(core::log_inf,
+				L"[D3D12] LinearPageActivity per1s Upload std(+%llu %.1fMB) large(+%llu %.1fMB) reuseReady(+%llu) fenceWaitToReuse(+%llu) discardStdPages(+%llu) stdCacheEvict(+%llu) largeDestroy(+%llu)",
+				(unsigned long long)dUploadStdCnt, (double)dUploadStdBytes / MB,
+				(unsigned long long)dUploadLargeCnt, (double)dUploadLargeBytes / MB,
+				(unsigned long long)dReuseReady,
+				(unsigned long long)dFenceWait,
+				(unsigned long long)dDiscardStd,
+				(unsigned long long)dStdCacheEvict,
+				(unsigned long long)dLargeDestroy);
 		}
 
 		{

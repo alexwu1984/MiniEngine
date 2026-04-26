@@ -28,5 +28,42 @@ namespace RenderCore::D3D12CreateStats
 		static std::atomic_uint64_t v{0};
 		return v;
 	}
+
+	// Linear allocator lifecycle (for correlating VMem WC deltas with engine paths; deltas in memmon tick).
+	inline std::atomic_uint64_t& LinearPage_UploadLargeCreateCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& LinearPage_UploadLargeCreateBytes()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& LinearPage_ReuseFromReadyCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& LinearPage_FenceWaitReuseCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& LinearPage_DiscardStandardPageCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& LinearPage_StandardCacheReleaseCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& LinearPage_LargePageDestroyedCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
 }
 

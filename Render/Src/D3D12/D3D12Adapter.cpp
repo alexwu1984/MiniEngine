@@ -1,5 +1,6 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12RHI.h"
+#include "core/commandline.h"
 #include "core/logger.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -9,6 +10,7 @@
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12CallStats.h"
 #include "Imgui/imgui_impl_dx12.h"
+#include <d3d12sdklayers.h>
 #include <dxgidebug.h>
 
 namespace RenderCore
@@ -43,6 +45,18 @@ namespace RenderCore
 
 		~FD3D12AdapterPrivate()
 		{
+			// D3D12 object counts go to the Windows debug channel (VS Output -> Show output from: Debug),
+			// not Engine.log. Must run while the device is still alive.
+			if (RootDevice)
+			{
+				win32::com_ptr<ID3D12DebugDevice> DebugDevice;
+				if (SUCCEEDED(RootDevice->QueryInterface(IID_PPV_ARGS(DebugDevice.get_init_ref()))))
+				{
+					core::inf() << "D3D12: ReportLiveDeviceObjects (see Visual Studio Output window, source: Debug)";
+					DebugDevice->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL);
+				}
+			}
+
 			RootDevice = {};
 			RootDevice1 = {};
 			RootDevice2 = {};
@@ -57,7 +71,7 @@ namespace RenderCore
 
 			if (DxgiDebug)
 			{
-				// DETAIL helps pinpoint which D3D objects are accumulating.
+				core::inf() << "D3D12: DXGI ReportLiveObjects (see Visual Studio Output window, source: Debug)";
 				DxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
 			}
 			DxgiDebug = {};
@@ -414,16 +428,31 @@ namespace RenderCore
 			win32::com_ptr<ID3D12Debug> DebugController;
 			if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(DebugController.get_init_ref()))))
 			{
-				DXGIGetDebugInterface1(0, IID_PPV_ARGS(d->DxgiDebug.get_init_ref()));
+				const HRESULT hrDxgiDebug = DXGIGetDebugInterface1(0, IID_PPV_ARGS(d->DxgiDebug.get_init_ref()));
+				if (FAILED(hrDxgiDebug))
+				{
+					core::logger::war() << __FUNCTION__
+						<< " DXGIGetDebugInterface1 failed (optional: Windows Settings -> Apps -> Optional features -> Graphics Tools). HRESULT: "
+						<< std::hex << hrDxgiDebug;
+				}
 				DebugController->EnableDebugLayer();
 
-				bool bD3d12gpuvalidation = false;
+				// GBV injects many internal queues/heaps/resources; ReportLiveDeviceObjects will list them as "live".
+				// Use d3d12_gpudev=0 with d3ddebug=1 when you only care about your app's objects.
+				int gpudevFlag = 1;
+				bool bEnableGpuValidation = true;
+				if (core::CommandLine::Get().GetInteger("d3d12_gpudev", gpudevFlag))
+					bEnableGpuValidation = (gpudevFlag != 0);
+
+				win32::com_ptr<ID3D12Debug1> DebugController1;
+				DebugController->QueryInterface(IID_PPV_ARGS(DebugController1.get_init_ref()));
+				if (DebugController1)
 				{
-					win32::com_ptr<ID3D12Debug1> DebugController1;
-					DebugController->QueryInterface(IID_PPV_ARGS(DebugController1.get_init_ref()));
-					if(DebugController1)
-						DebugController1->SetEnableGPUBasedValidation(true);
-					bD3d12gpuvalidation = true;
+					DebugController1->SetEnableGPUBasedValidation(bEnableGpuValidation);
+					if (bEnableGpuValidation)
+						core::inf() << "D3D12 debug: GPU-based validation on (d3d12_gpudev=0 to reduce debug-layer live objects at shutdown)";
+					else
+						core::inf() << "D3D12 debug: GPU-based validation off (d3d12_gpudev=0)";
 				}
 			}
 			else

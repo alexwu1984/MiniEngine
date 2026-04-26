@@ -536,8 +536,7 @@ namespace RenderCore
 		void Reset()
 		{
 			Barriers.clear();
-			//Barriers.SetNumUnsafeInternal(0);	// Reset the array without shrinking (Does not destruct items, does not de-allocate memory).
-			//check(Barriers.Num() == 0);
+			Barriers.shrink_to_fit();
 		}
 
 		const std::vector<D3D12_RESOURCE_BARRIER>& GetBarriers() const

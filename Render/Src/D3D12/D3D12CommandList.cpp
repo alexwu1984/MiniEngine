@@ -71,6 +71,7 @@ namespace RenderCore
 
 		// Remove all pendering barriers from the command list
 		PendingResourceBarriers.clear();
+		PendingResourceBarriers.shrink_to_fit();
 
 		// Per-list tracked states are only needed until the list is submitted; after the allocator
 		// is ready again, global resource state has been updated. Leaving this map populated causes
@@ -175,6 +176,10 @@ namespace RenderCore
 	void D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::Empty()
 	{
 		ResourceStates.clear();
+		// Return the map's tree bookkeeping to the heap; clear() alone can leave a large internal
+		// structure allocated across Present/Flush cycles (shows up as many small heap allocs in VS).
+		std::map<FD3D12Resource*, CResourceState> empty;
+		ResourceStates.swap(empty);
 	}
 
 }

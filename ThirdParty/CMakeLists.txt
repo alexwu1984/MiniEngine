@@ -2,7 +2,6 @@
 
 add_subdirectory(DirectXTex)
 add_subdirectory(AGS)
-add_subdirectory(MinHook)
 
 SET(TINYGLTF_BUILD_LOADER_EXAMPLE OFF)
 SET(TINYGLTF_HEADER_ONLY OFF)
@@ -14,7 +13,6 @@ set_target_properties(
 	texassemble
 	texconv
 	texdiag
-	MinHook
 	tinygltf
 	Assimp
 	PROPERTIES

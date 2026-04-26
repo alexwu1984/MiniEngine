@@ -379,9 +379,15 @@ namespace RenderCore
 					{
 						std::lock_guard<std::mutex> lock(sWcMu);
 						bNew = sSeenWcAllocBases.insert(allocBase).second;
-						// Avoid unbounded growth if bases churn (VirtualQuery can surface many distinct AllocationBase values).
-						if (sSeenWcAllocBases.size() > 512)
-							sSeenWcAllocBases.clear();
+						// Avoid unbounded growth; never clear() the whole set — that re-fires "WCRegion New" for old bases
+						// and amplifies logging / DbgHelp work every tick until the set refills.
+						while (sSeenWcAllocBases.size() > 512)
+						{
+							auto it = sSeenWcAllocBases.begin();
+							if (it == sSeenWcAllocBases.end())
+								break;
+							sSeenWcAllocBases.erase(it);
+						}
 					}
 					if (!bNew)
 						continue;
@@ -408,7 +414,8 @@ namespace RenderCore
 
 			if (dWCBytes > 0)
 			{
-				// RtlCaptureStackBackTrace + SymFromAddr pulls DbgHelp and can allocate heavily every second; keep behind a second flag.
+				// RtlCaptureStackBackTrace + SymFromAddr pulls DbgHelp and can allocate MB/s of private heap
+				// while this monitor runs (looks like a leak). Keep stacks optional and heavily throttled.
 				if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
 				{
 					core::LOG(core::log_inf,
@@ -422,25 +429,53 @@ namespace RenderCore
 						goto AfterWCStack;
 					sReentryGuard = true;
 
+					static ULONGLONG sLastSymMs = 0;
+					const ULONGLONG nowMs = ::GetTickCount64();
+					// Even with stacks=1, do not symbolize on every 1s tick — DbgHelp can dominate private growth.
+					static constexpr ULONGLONG kSymMinIntervalMs = 15000;
+					const bool bDoSymbols = (nowMs - sLastSymMs >= kSymMinIntervalMs);
+					if (bDoSymbols)
+						sLastSymMs = nowMs;
+
 					void* frames[16] = {};
 					const USHORT n = ::RtlCaptureStackBackTrace(0, 16, frames, nullptr);
 					if (n > 0)
 					{
-						wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
-						wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
-						FormatAddrSymbol(s0, _countof(s0), frames[0]);
-						FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
-						FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
-						FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
-						FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
-						FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
-						FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
-						FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
+						if (bDoSymbols)
+						{
+							wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
+							wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
+							FormatAddrSymbol(s0, _countof(s0), frames[0]);
+							FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
+							FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
+							FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
+							FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
+							FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
+							FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
+							FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
 
-						core::LOG(core::log_inf,
-							L"[D3D12] VMemPrivate WC +%.1fMB observed here. Stack: %s | %s | %s | %s | %s | %s | %s | %s",
-							(double)dWCBytes / MB,
-							s0, s1, s2, s3, s4, s5, s6, s7);
+							core::LOG(core::log_inf,
+								L"[D3D12] VMemPrivate WC +%.1fMB observed here. Stack: %s | %s | %s | %s | %s | %s | %s | %s",
+								(double)dWCBytes / MB,
+								s0, s1, s2, s3, s4, s5, s6, s7);
+						}
+						else
+						{
+							core::LOG(core::log_inf,
+								L"[D3D12] VMemPrivate WC +%.1fMB (raw PCs; DbgHelp symbolize throttled to every %llu s — turn off d3d12_memmon_stacks when measuring leaks)",
+								(double)dWCBytes / MB,
+								(unsigned long long)(kSymMinIntervalMs / 1000));
+							core::LOG(core::log_inf,
+								L"[D3D12] VMemPrivate WC raw stack: %p | %p | %p | %p | %p | %p | %p | %p",
+								frames[0],
+								(n > 1 ? frames[1] : nullptr),
+								(n > 2 ? frames[2] : nullptr),
+								(n > 3 ? frames[3] : nullptr),
+								(n > 4 ? frames[4] : nullptr),
+								(n > 5 ? frames[5] : nullptr),
+								(n > 6 ? frames[6] : nullptr),
+								(n > 7 ? frames[7] : nullptr));
+						}
 					}
 
 					sReentryGuard = false;

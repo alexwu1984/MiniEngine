@@ -4,6 +4,7 @@
 #include "D3D11/D3D11RHI.h"
 #include "D3D11/D3D11ReourceTraits.h"
 #include "core/logger.h"
+#include "win/high_precision_tick.h"
 
 namespace RenderCore
 {
@@ -254,6 +255,7 @@ namespace RenderCore
 
 	void D3D11CommandContext::RHIEndDrawing()
 	{
+		win32::RecordPresentFrameForFpsLog();
 		ClearAllShaderResources();
 		ClearState();
 	}

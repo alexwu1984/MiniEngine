@@ -265,17 +265,24 @@ namespace RenderCore
 		GetDefaultAsyncComputeContext()->FlushCommands(false);
 		
 		// Match DEMO behavior: VSync ON, no tearing.
-		D3D12PresentStats::PresentCalls().fetch_add(1, std::memory_order_relaxed);
-		if (::IsIconic(WindowHandle))
-			D3D12PresentStats::WindowIconic().fetch_add(1, std::memory_order_relaxed);
-		if (!::IsWindowVisible(WindowHandle))
-			D3D12PresentStats::WindowNotVisible().fetch_add(1, std::memory_order_relaxed);
+		const bool memMon = core::CommandLine::Get().GetName("d3d12_memmon");
+		if (memMon)
+		{
+			D3D12PresentStats::PresentCalls().fetch_add(1, std::memory_order_relaxed);
+			if (::IsIconic(WindowHandle))
+				D3D12PresentStats::WindowIconic().fetch_add(1, std::memory_order_relaxed);
+			if (!::IsWindowVisible(WindowHandle))
+				D3D12PresentStats::WindowNotVisible().fetch_add(1, std::memory_order_relaxed);
+		}
 
 		const HRESULT hrPresent = SwapChain4->Present(1, 0);
-		if (hrPresent == DXGI_STATUS_OCCLUDED)
-			D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
-		else if (FAILED(hrPresent))
-			D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
+		if (memMon)
+		{
+			if (hrPresent == DXGI_STATUS_OCCLUDED)
+				D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
+			else if (FAILED(hrPresent))
+				D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
+		}
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 	}

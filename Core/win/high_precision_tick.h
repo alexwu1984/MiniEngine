@@ -27,4 +27,10 @@ namespace win32
 	private:
 		HighPrecisionTickPrivate* Impl;
 	};
+
+	/** Rolling average over ~5s wall clock; call from the game tick thread. */
+	void RecordGameThreadTickForFpsLog();
+
+	/** Rolling average over ~5s; call once per frame at viewport present boundary (e.g. RHIEndDrawing). */
+	void RecordPresentFrameForFpsLog();
 }

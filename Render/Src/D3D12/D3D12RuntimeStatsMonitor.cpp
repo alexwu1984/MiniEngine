@@ -87,6 +87,13 @@ namespace RenderCore
 			GpuX.GetStandardPageCount(), GpuX.GetLargePageCount(), GpuX.GetRetiredPageCount());
 
 		core::LOG(core::log_inf,
+			L"[D3D12] LinearPagePools CpuWritable(owned=%zu ready=%zu retired=%zu/%zu/%zu) GpuExclusive(owned=%zu ready=%zu retired=%zu/%zu/%zu)",
+			CpuW.GetStandardPageCount(), CpuW.GetReadyPageCount(),
+			CpuW.GetRetiredPageCountForQueue(0), CpuW.GetRetiredPageCountForQueue(1), CpuW.GetRetiredPageCountForQueue(2),
+			GpuX.GetStandardPageCount(), GpuX.GetReadyPageCount(),
+			GpuX.GetRetiredPageCountForQueue(0), GpuX.GetRetiredPageCountForQueue(1), GpuX.GetRetiredPageCountForQueue(2));
+
+		core::LOG(core::log_inf,
 			L"[D3D12] DXTex Calls Capture=%llu SaveWIC=%llu SaveDDS=%llu LoadWIC=%llu LoadDDS=%llu",
 			(unsigned long long)DXTexStats::CaptureTextureCalls_D3D12().load(std::memory_order_relaxed),
 			(unsigned long long)DXTexStats::ScreenGrab_SaveWICCalls_D3D12().load(std::memory_order_relaxed),
@@ -217,20 +224,6 @@ namespace RenderCore
 
 		if (!Adapter)
 			return;
-
-		if (core::CommandLine::Get().GetName("d3d12forceidle"))
-		{
-			Adapter->BlockUntilIdle();
-		}
-
-		if (!core::CommandLine::Get().GetName("nodxgitrim"))
-		{
-			win32::com_ptr<IDXGIDevice3> DxgiDevice3;
-			if (SUCCEEDED(Adapter->GetD3DDevice()->QueryInterface(IID_PPV_ARGS(DxgiDevice3.get_init_ref()))) && DxgiDevice3)
-			{
-				DxgiDevice3->Trim();
-			}
-		}
 
 		{
 			auto& FrameFence = Adapter->GetFrameFence();

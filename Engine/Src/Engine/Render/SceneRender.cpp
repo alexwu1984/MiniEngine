@@ -273,19 +273,22 @@ namespace Engine
 	{
 		C_P(SceneRender);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d,this, DeltaTime](RenderCore::DynamicRHI* RHI) {
-			RenderTexturePool::Get().BeginFrame();
-			d->MainViewPort->Clear(d->Color);
-			d->MainViewPort->Prepare();
-			int32_t width = GEngine->GetAppWindow()->GetWidth();
-			int32_t height = GEngine->GetAppWindow()->GetHeight();
-			RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[d, this, DeltaTime](RenderCore::DynamicRHI* RHI)
+			{
+				RenderTexturePool::Get().BeginFrame();
+				d->MainViewPort->Clear(d->Color);
+				d->MainViewPort->Prepare();
+				int32_t width = GEngine->GetAppWindow()->GetWidth();
+				int32_t height = GEngine->GetAppWindow()->GetHeight();
+				RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
 
-			d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort, DeltaTime);
-			sigGuiEvent();
-			d->MainViewPort->Present();
-			RenderTexturePool::Get().EndFrame();
-		});
+				d->SimplePostProc->Draw(*RHI->GetDefaultCommandContext(), d->MainViewPort, DeltaTime);
+				sigGuiEvent();
+				d->MainViewPort->Present();
+				RenderTexturePool::Get().EndFrame();
+			},
+			true);
 	}
 
 	void SceneRender::RenderScene(float DeltaTime)
@@ -432,7 +435,8 @@ namespace Engine
 
 				Graph.Execute();
 				RenderTexturePool::Get().EndFrame();
-			});
+			},
+			true);
 	}
 
 }

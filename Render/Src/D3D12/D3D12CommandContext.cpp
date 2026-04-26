@@ -15,16 +15,15 @@
 #include "D3D12/D3D12RuntimeStatsMonitor.h"
 #include "pix.h"
 #include "core/logger.h"
-#include <windows.h>
-#include <dxgi1_4.h>
-#include <heapapi.h>
+#include "win/high_precision_tick.h"
 #include "core/commandline.h"
+#include <windows.h>
+#include <heapapi.h>
 
 #include "../../../ThirdParty/DirectXTex/DXTexStats.h"
 
 namespace RenderCore
 {
-
 	FD3D12CommandContextBase::FD3D12CommandContextBase(std::weak_ptr<FD3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext)
 		:FD3D12AdapterChild(InParent),
 		bIsDefaultContext(InIsDefaultContext),
@@ -256,11 +255,18 @@ namespace RenderCore
 
 	void D3D12CommandContext::RHIEndDrawing()
 	{
+		win32::RecordPresentFrameForFpsLog();
+
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		if (!Device)
 			return;
 
-		if (auto Adapter = TryGetParentAdapter())
+		const std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter();
+		// Not in MS MiniEngine hot path; optional leak/WC diagnosis (hurts frame time).
+		if (Adapter && core::CommandLine::Get().GetName("d3d12forceidle"))
+			Adapter->BlockUntilIdle();
+
+		if (Adapter)
 		{
 			D3D12RuntimeStatsMonitor::TickOncePerSecond(*this, Adapter, Device);
 			D3D12MemoryMonitor::TickOncePerSecond(Adapter, Device);

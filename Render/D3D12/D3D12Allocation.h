@@ -125,6 +125,13 @@ namespace RenderCore
 		std::size_t GetReadyPageCount() const { return ReadyPages.size(); }
 		std::size_t GetLargePageCount() const { return LargePageDeletionQueue.size(); }
 		std::size_t GetStandardPageCount() const { return OwnedStandardPages.size(); }
+		/** Per-queue retired standard pages: index matches ED3D12CommandQueueType (Default/Copy/Async). */
+		std::size_t GetRetiredPageCountForQueue(int QueueTypeIndex) const
+		{
+			if (QueueTypeIndex < 0 || QueueTypeIndex > 2)
+				return 0;
+			return RetiredPages[QueueTypeIndex].size();
+		}
 
 	private:
 		using PagePool = std::queue<LinearAllocationPage* >;

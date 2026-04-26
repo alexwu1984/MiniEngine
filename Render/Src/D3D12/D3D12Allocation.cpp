@@ -400,20 +400,6 @@ namespace RenderCore
 			{
 				// Standard page (not a per-allocation large page). Large pages are tracked separately.
 				OwnedStandardPages.push_back(AllocationPage);
-				if (AllocatorType == ELinearAllocatorType::CpuWritable)
-				{
-					static ULONGLONG sLastLog = 0;
-					const ULONGLONG now = ::GetTickCount64();
-					if (now - sLastLog > 1000)
-					{
-						sLastLog = now;
-						core::LOG(core::log_inf,
-							L"[D3D12] LinearPageManager(CpuWritable) created standard page (owned=%zu ready=%zu retired=%zu/%zu/%zu)",
-							OwnedStandardPages.size(),
-							ReadyPages.size(),
-							RetiredPages[0].size(), RetiredPages[1].size(), RetiredPages[2].size());
-					}
-				}
 			}
 		}
 		return AllocationPage;

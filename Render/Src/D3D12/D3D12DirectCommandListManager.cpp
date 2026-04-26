@@ -715,6 +715,34 @@ namespace RenderCore
 	uint64_t FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, bool bForceSignal)
 	{
 		std::lock_guard<std::recursive_mutex> Lock(FenceCS);
+		// Shutdown / teardown safety: never call into D3D12Core with invalid command list pointers.
+		// This can happen if a context tries to flush after its command list handle has been torn down.
+		if (Payload.NumCommandLists == 0)
+		{
+			D3D12SubmitStats::OnSubmit(QueueType);
+			if (bForceSignal || QueueType != ED3D12CommandQueueType::Default)
+				return Fence.Signal(QueueType);
+			FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(Fence);
+			return Manual.IncrementCurrentFence();
+		}
+		for (uint32_t i = 0; i < Payload.NumCommandLists; ++i)
+		{
+			if (Payload.CommandLists[i] == nullptr)
+			{
+				core::LOG(core::log_err, L"[D3D12] ExecuteCommandLists aborted: null command list (queue=%d i=%u n=%u)", (int)QueueType, i, Payload.NumCommandLists);
+				Payload.NumCommandLists = 0;
+				break;
+			}
+		}
+		if (Payload.NumCommandLists == 0)
+		{
+			D3D12SubmitStats::OnSubmit(QueueType);
+			if (bForceSignal || QueueType != ED3D12CommandQueueType::Default)
+				return Fence.Signal(QueueType);
+			FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(Fence);
+			return Manual.IncrementCurrentFence();
+		}
+
 		if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
 			D3D12CreateStats::Submit_ExecCalls_Direct().fetch_add(1, std::memory_order_relaxed);
 		else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)

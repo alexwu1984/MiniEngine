@@ -188,11 +188,10 @@ namespace RenderCore
 
 	void FD3D12Device::BlockUntilIdle()
 	{
-		if (DefaultCommandContext)
-			DefaultCommandContext->FlushCommandsGetFence_NoReopen(true);
-
-		if (AsyncComputeContext)
-			AsyncComputeContext->FlushCommandsGetFence_NoReopen(true);
+		// Teardown-safe idle wait:
+		// Avoid submitting any command lists here. During shutdown, command list pointers can become
+		// invalid due to teardown ordering/races, and ExecuteCommandLists may AV inside D3D12Core.
+		// Signaling+waiting the queues is sufficient to ensure GPU idle.
 
 		if (CommandListManager)
 			CommandListManager->WaitForCommandQueueFlush();

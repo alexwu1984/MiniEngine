@@ -667,6 +667,8 @@ namespace RenderCore
 
 	uint64_t D3D12CommandContext::FlushCommandsGetFence_NoReopen(bool WaitForCompletion /*= false*/)
 	{
+		if (!CommandListHandle)
+			return 0;
 		// Shutdown/idle-wait path: we only need to submit outstanding work and optionally wait.
 		// Re-opening a fresh command list here forces a Reset() on the driver hot path and can crash
 		// during teardown (observed in nvwgf2umx on some systems).
@@ -744,6 +746,8 @@ namespace RenderCore
 
 	void D3D12CommandContext::CloseCommandList()
 	{
+		if (!CommandListHandle)
+			return;
 		CommandListHandle.Close();
 	}
 

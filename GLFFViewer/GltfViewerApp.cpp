@@ -8,9 +8,6 @@
 #include "Render/SceneRender.h"
 #include "Render/MaterialPreFrame.h"
 #include "Imgui/imgui.h"
-#include "PostProcessDemo.h"
-#include "IBLRenderDemo.h"
-#include "LiquidClassDemo.h"
 #include "Thread/RenderThread.h"
 #include "core/commandline.h"
 
@@ -28,24 +25,8 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
-	// Mutually exclusive: exclusive fullscreen post effect only, or normal GLTF viewer.
-	const bool bExclusiveFullscreenPostEffect = false;
-
 	core::filesystem::path Path = core::process_directory();
 	auto Scene = Engine::GEngine->GetScene();
-
-	if (bExclusiveFullscreenPostEffect)
-	{
-		SceneRender::RegisterExclusiveFullscreenEffect(
-			"PostProcessorDemo",
-			[](RenderCore::DynamicRHI* RHI) -> std::shared_ptr<SimplePostProcessor>
-			{ return std::make_shared<PostProcessorDemo>(RHI); });
-		const std::wstring ModelFile = Path.wstring() + L"/GLTFModel/FullscreenPostDemo.json";
-		Scene->LoadScene(ModelFile);
-		return true;
-	}
-
-	SceneRender::UnregisterExclusiveFullscreenEffect("PostProcessorDemo");
 
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/BS_Model5.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";

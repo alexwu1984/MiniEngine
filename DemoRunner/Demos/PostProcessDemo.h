@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Render/SimplePostProcessor.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHITexture2D.h"
@@ -17,17 +18,19 @@ class PostProcessorDemo : public Engine::SimplePostProcessor
 {
 public:
 	PostProcessorDemo(RenderCore::DynamicRHI* RHI);
-	virtual ~PostProcessorDemo();
+	~PostProcessorDemo() override;
 
 	void InitResource();
-	void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, float DeltaTime) override;
+	void Draw(RenderCore::RHICommandContext& RHIContext,
+			  std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+			  float DeltaTime) override;
 
 private:
-	RenderCore::DynamicRHI* _RHI;
-	std::shared_ptr< RenderCore::RHIVertexShader> _VertexShader;
-	std::shared_ptr< RenderCore::RHIPixelShader> _PixelShader;
-	std::shared_ptr< RenderCore::RHITexture2D>  _Texture1;
-	std::shared_ptr< RenderCore::RHITexture2D>  _Texture2;
-	std::shared_ptr< RenderCore::RHITilePool> _TilePool;
+	RenderCore::DynamicRHI* RHI = nullptr;
+	std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
+	std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
+	std::shared_ptr<RenderCore::RHITexture2D> Texture1;
+	std::shared_ptr<RenderCore::RHITexture2D> Texture2;
 	DECLARE_SHADER_STRUCT_MEMBER(cbTransition1);
 };
+

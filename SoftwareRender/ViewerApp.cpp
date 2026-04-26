@@ -78,8 +78,6 @@ void ViewerApp::BuildRenderScene()
 		}
 		_Demo->InitResource();
 		_Demo->InitTex(size, m_render.GetBuffer());
-		auto sceneRender = Engine::GEngine->GetSceneRender();
-		sceneRender->SetSamplePostProcessor(_Demo);
 	});
 }
 

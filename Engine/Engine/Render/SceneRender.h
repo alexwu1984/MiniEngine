@@ -21,14 +21,11 @@ namespace Engine
 	class SceneView;
 	struct SceneRenderPrivate;
 	class ShadowRenderPass;
-	class SimplePostProcessor;
 	class CubeBackground;
 
 	class SceneRender : public std::enable_shared_from_this<SceneRender>
 	{
 	public:
-		using ExclusiveFullscreenEffectFactory = std::function<std::shared_ptr<SimplePostProcessor>(RenderCore::DynamicRHI*)>;
-
 		SceneRender(std::weak_ptr<SceneView> Owner);
 		~SceneRender();
 		std::shared_ptr<SceneView> GetOwner() const;
@@ -45,13 +42,7 @@ namespace Engine
 		bool UsesTemporalAAProjectionJitter() const;
 		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
-		void SetSamplePostProcessor(std::shared_ptr<SimplePostProcessor> postProcessor);
-
-		// Register a creatable id for Evn.ExclusiveFullscreenPostEffect in scene JSON (call from viewer/tools, not from Engine).
-		static void RegisterExclusiveFullscreenEffect(std::string Id, ExclusiveFullscreenEffectFactory Factory);
-		static void UnregisterExclusiveFullscreenEffect(const std::string& Id);
 	private:
-		void RenderSimple(float DeltaTime);
 		void RenderScene(float DeltaTime);
 	public:
 		core::event<void()> sigGuiEvent;

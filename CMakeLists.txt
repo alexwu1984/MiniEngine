@@ -90,8 +90,27 @@ set_target_properties(SoftwareRender PROPERTIES
 
 copy_runtime_assets(SoftwareRender)
 
+file(GLOB DemoRunner_Headers "DemoRunner/*.h")
+file(GLOB DemoRunner_Sources "DemoRunner/*.cpp")
+file(GLOB DemoRunner_DemoHeaders "DemoRunner/Demos/*.h")
+file(GLOB DemoRunner_DemoSources "DemoRunner/Demos/*.cpp")
+
+add_executable(DemoRunner ${DemoRunner_Sources} ${DemoRunner_Headers} ${DemoRunner_DemoSources} ${DemoRunner_DemoHeaders})
+target_link_libraries(DemoRunner LINK_PUBLIC Core DirectXTex Render Engine )
+target_include_directories(DemoRunner PRIVATE ${PROJECT_SOURCE_DIR})
+target_include_directories(DemoRunner PRIVATE ${PROJECT_SOURCE_DIR}/GLFFViewer)
+set_target_properties(DemoRunner PROPERTIES PROJECT_LABEL "DemoRunner")
+copy_runtime_assets(DemoRunner)
+
 set_target_properties(
 	GLFFViewer
+	PROPERTIES
+	FOLDER Projects
+)
+
+set_target_properties(
+	DemoRunner
+	SoftwareRender
 	PROPERTIES
 	FOLDER Projects
 )

@@ -112,7 +112,7 @@ namespace RenderCore
 		if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
 		{
 			core::LOG(core::log_inf,
-				L"[D3D12] UploadMap WC (%s) ptr=%p size=%.1fMB allocBase=%p region=%.1fMB prot=0x%X (stacks: d3d12_memmon_stacks=1)",
+				L"[D3D12] UploadMap WC (%s) ptr=%p size=%.1fMB allocBase=%p region=%.1fMB prot=0x%X (stacks off; add d3d12_memmon_stacks=1 for backtraces)",
 				(Tag ? Tag : L"?"),
 				MappedPtr,
 				(double)SizeBytes / MB,

@@ -419,7 +419,7 @@ namespace RenderCore
 				if (!core::CommandLine::Get().GetName("d3d12_memmon_stacks"))
 				{
 					core::LOG(core::log_inf,
-						L"[D3D12] VMemPrivate WC +%.1fMB (stacks disabled; use d3d12_memmon_stacks=1 for symbolized backtraces)",
+						L"[D3D12] VMemPrivate WC +%.1fMB (stacks off; add d3d12_memmon_stacks=1 for symbolized backtraces - note: symbolization is throttled when enabled)",
 						(double)dWCBytes / MB);
 				}
 				else
@@ -431,7 +431,7 @@ namespace RenderCore
 
 					static ULONGLONG sLastSymMs = 0;
 					const ULONGLONG nowMs = ::GetTickCount64();
-					// Even with stacks=1, do not symbolize on every 1s tick — DbgHelp can dominate private growth.
+					// Even with stacks=1, do not symbolize on every 1s tick - DbgHelp can dominate private growth.
 					static constexpr ULONGLONG kSymMinIntervalMs = 15000;
 					const bool bDoSymbols = (nowMs - sLastSymMs >= kSymMinIntervalMs);
 					if (bDoSymbols)
@@ -462,7 +462,7 @@ namespace RenderCore
 						else
 						{
 							core::LOG(core::log_inf,
-								L"[D3D12] VMemPrivate WC +%.1fMB (raw PCs; DbgHelp symbolize throttled to every %llu s — turn off d3d12_memmon_stacks when measuring leaks)",
+								L"[D3D12] VMemPrivate WC +%.1fMB (raw PCs; DbgHelp symbolize throttled to every %llu s - turn off d3d12_memmon_stacks when measuring leaks)",
 								(double)dWCBytes / MB,
 								(unsigned long long)(kSymMinIntervalMs / 1000));
 							core::LOG(core::log_inf,

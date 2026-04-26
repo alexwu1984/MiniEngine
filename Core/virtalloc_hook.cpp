@@ -44,6 +44,24 @@ namespace core
 		static PFN_NtAllocateVirtualMemoryEx sRealNtAllocateVirtualMemoryEx = nullptr;
 		static PFN_NtMapViewOfSection sRealNtMapViewOfSection = nullptr;
 
+		// KernelBase usermode path (many callers go through this instead of calling ntdll exports directly).
+		using PFN_VirtualAlloc = LPVOID(WINAPI*)(LPVOID, SIZE_T, DWORD, DWORD);
+		using PFN_VirtualProtect = BOOL(WINAPI*)(LPVOID, SIZE_T, DWORD, PDWORD);
+		using PFN_VirtualAlloc2 = PVOID(WINAPI*)(HANDLE, PVOID, SIZE_T, ULONG, ULONG, PMEM_EXTENDED_PARAMETER, ULONG);
+
+		static PFN_VirtualAlloc sRealVirtualAlloc = nullptr;
+		static PFN_VirtualProtect sRealVirtualProtect = nullptr;
+		static PFN_VirtualAlloc2 sRealVirtualAlloc2 = nullptr;
+
+		// Some call sites import from Kernel32 or API-set DLLs (forwarders).
+		static PFN_VirtualAlloc sRealVirtualAlloc_Kernel32 = nullptr;
+		static PFN_VirtualProtect sRealVirtualProtect_Kernel32 = nullptr;
+		static PFN_VirtualAlloc2 sRealVirtualAlloc2_Kernel32 = nullptr;
+
+		static PFN_VirtualAlloc sRealVirtualAlloc_ApiSet = nullptr;
+		static PFN_VirtualProtect sRealVirtualProtect_ApiSet = nullptr;
+		static PFN_VirtualAlloc2 sRealVirtualAlloc2_ApiSet = nullptr;
+
 		// Aggregate to avoid log spam when commit/protect happens in small chunks.
 		static volatile LONG64 sWcCommitBytes = 0;
 		static volatile LONG64 sWcProtectBytes = 0;
@@ -55,17 +73,47 @@ namespace core
 				return;
 			sReentryGuard = true;
 
-			static ULONGLONG sLastTick = 0;
-			const ULONGLONG now = ::GetTickCount64();
-			if (now - sLastTick < 1000)
+			// Pull aggregate WC deltas first.  This avoids "missing the hotspot" when the first
+			// large mapping is a DLL (non-WC) and consumes the global once-per-second budget.
+			const LONG64 wcCommit = ::InterlockedExchange64(&sWcCommitBytes, 0);
+			const LONG64 wcProtect = ::InterlockedExchange64(&sWcProtectBytes, 0);
+
+			// Filter: for non-WC large mappings, don't print stacks (typically DLL/image mappings).
+			// We still keep the aggregate counters for diagnostics, but stacks should focus on WC.
+			const bool bIsWC = (Protect & PAGE_WRITECOMBINE) != 0;
+			if (!bIsWC && wcCommit == 0 && wcProtect == 0)
 			{
 				sReentryGuard = false;
 				return;
 			}
-			sLastTick = now;
 
-			const LONG64 wcCommit = ::InterlockedExchange64(&sWcCommitBytes, 0);
-			const LONG64 wcProtect = ::InterlockedExchange64(&sWcProtectBytes, 0);
+			// Throttle per-category, but allow immediate logs when WC deltas are large.
+			const ULONGLONG now = ::GetTickCount64();
+			auto SlotForTag = [](const wchar_t* T) -> int
+			{
+				if (!T) return 0;
+				if (wcsstr(T, L"NtAllocateVirtualMemory") != nullptr) return 0;
+				if (wcsstr(T, L"NtAllocateVirtualMemoryEx") != nullptr) return 0;
+				if (wcsstr(T, L"NtProtectVirtualMemory") != nullptr) return 1;
+				if (wcsstr(T, L"NtMapViewOfSection") != nullptr) return 2;
+				return 3;
+			};
+
+			static ULONGLONG sLastTickBySlot[4] = {};
+			const int slot = SlotForTag(Tag);
+
+			// If we saw >=32MB of WC activity since last log, always print (hot path).
+			const LONG64 kHotBytes = (LONG64)(32ull * 1024ull * 1024ull);
+			const bool bHot = (wcCommit >= kHotBytes) || (wcProtect >= kHotBytes) || (Size >= (32ull << 20) && bIsWC);
+
+			// Otherwise, keep stacks at a reasonable rate per category.
+			const ULONGLONG kCooldownMs = 250;
+			if (!bHot && (now - sLastTickBySlot[slot] < kCooldownMs))
+			{
+				sReentryGuard = false;
+				return;
+			}
+			sLastTickBySlot[slot] = now;
 
 			void* frames[32] = {};
 			USHORT n = ::RtlCaptureStackBackTrace(1, 32, frames, nullptr);
@@ -266,6 +314,162 @@ namespace core
 			}
 			return st;
 		}
+
+		static LPVOID WINAPI Hook_VirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
+		{
+			LPVOID p = sRealVirtualAlloc ? sRealVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtect) : nullptr;
+			if (p && (flAllocationType & MEM_COMMIT) && dwSize)
+			{
+				MEMORY_BASIC_INFORMATION mbi = {};
+				if (::VirtualQuery(p, &mbi, sizeof(mbi)) == sizeof(mbi))
+				{
+					if (mbi.State == MEM_COMMIT && (mbi.Protect & PAGE_WRITECOMBINE))
+						::InterlockedAdd64(&sWcCommitBytes, (LONG64)dwSize);
+				}
+
+				if (((flProtect & PAGE_WRITECOMBINE) != 0) && dwSize >= (1ull << 20))
+				{
+					LogStackOncePerSecond(L"VirtualAlloc(COMMIT,WC)", p, dwSize, flProtect);
+				}
+				else if (dwSize >= (32ull << 20))
+				{
+					LogStackOncePerSecond(L"VirtualAlloc(COMMIT,>=32MB)", p, dwSize, flProtect);
+				}
+			}
+			return p;
+		}
+
+		static LPVOID WINAPI Hook_VirtualAlloc_Kernel32(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
+		{
+			LPVOID p = sRealVirtualAlloc_Kernel32 ? sRealVirtualAlloc_Kernel32(lpAddress, dwSize, flAllocationType, flProtect) : nullptr;
+			if (p && (flAllocationType & MEM_COMMIT) && dwSize)
+			{
+				if (((flProtect & PAGE_WRITECOMBINE) != 0) && dwSize >= (1ull << 20))
+					LogStackOncePerSecond(L"Kernel32!VirtualAlloc(COMMIT,WC)", p, dwSize, flProtect);
+				else if (dwSize >= (32ull << 20))
+					LogStackOncePerSecond(L"Kernel32!VirtualAlloc(COMMIT,>=32MB)", p, dwSize, flProtect);
+			}
+			return p;
+		}
+
+		static LPVOID WINAPI Hook_VirtualAlloc_ApiSet(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
+		{
+			LPVOID p = sRealVirtualAlloc_ApiSet ? sRealVirtualAlloc_ApiSet(lpAddress, dwSize, flAllocationType, flProtect) : nullptr;
+			if (p && (flAllocationType & MEM_COMMIT) && dwSize)
+			{
+				if (((flProtect & PAGE_WRITECOMBINE) != 0) && dwSize >= (1ull << 20))
+					LogStackOncePerSecond(L"apiset!VirtualAlloc(COMMIT,WC)", p, dwSize, flProtect);
+				else if (dwSize >= (32ull << 20))
+					LogStackOncePerSecond(L"apiset!VirtualAlloc(COMMIT,>=32MB)", p, dwSize, flProtect);
+			}
+			return p;
+		}
+
+		static BOOL WINAPI Hook_VirtualProtect(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect, PDWORD lpflOldProtect)
+		{
+			BOOL ok = sRealVirtualProtect ? sRealVirtualProtect(lpAddress, dwSize, flNewProtect, lpflOldProtect) : FALSE;
+			if (ok && lpAddress && dwSize)
+			{
+				MEMORY_BASIC_INFORMATION mbi = {};
+				if (::VirtualQuery(lpAddress, &mbi, sizeof(mbi)) == sizeof(mbi))
+				{
+					if (mbi.State == MEM_COMMIT && (mbi.Protect & PAGE_WRITECOMBINE))
+						::InterlockedAdd64(&sWcProtectBytes, (LONG64)dwSize);
+				}
+
+				if (((flNewProtect & PAGE_WRITECOMBINE) != 0) && dwSize >= (1ull << 20))
+				{
+					LogStackOncePerSecond(L"VirtualProtect(WC)", lpAddress, dwSize, flNewProtect);
+				}
+				else if (dwSize >= (32ull << 20))
+				{
+					LogStackOncePerSecond(L"VirtualProtect(>=32MB)", lpAddress, dwSize, flNewProtect);
+				}
+			}
+			return ok;
+		}
+
+		static BOOL WINAPI Hook_VirtualProtect_Kernel32(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect, PDWORD lpflOldProtect)
+		{
+			BOOL ok = sRealVirtualProtect_Kernel32 ? sRealVirtualProtect_Kernel32(lpAddress, dwSize, flNewProtect, lpflOldProtect) : FALSE;
+			if (ok && lpAddress && dwSize)
+			{
+				if (((flNewProtect & PAGE_WRITECOMBINE) != 0) && dwSize >= (1ull << 20))
+					LogStackOncePerSecond(L"Kernel32!VirtualProtect(WC)", lpAddress, dwSize, flNewProtect);
+				else if (dwSize >= (32ull << 20))
+					LogStackOncePerSecond(L"Kernel32!VirtualProtect(>=32MB)", lpAddress, dwSize, flNewProtect);
+			}
+			return ok;
+		}
+
+		static BOOL WINAPI Hook_VirtualProtect_ApiSet(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect, PDWORD lpflOldProtect)
+		{
+			BOOL ok = sRealVirtualProtect_ApiSet ? sRealVirtualProtect_ApiSet(lpAddress, dwSize, flNewProtect, lpflOldProtect) : FALSE;
+			if (ok && lpAddress && dwSize)
+			{
+				if (((flNewProtect & PAGE_WRITECOMBINE) != 0) && dwSize >= (1ull << 20))
+					LogStackOncePerSecond(L"apiset!VirtualProtect(WC)", lpAddress, dwSize, flNewProtect);
+				else if (dwSize >= (32ull << 20))
+					LogStackOncePerSecond(L"apiset!VirtualProtect(>=32MB)", lpAddress, dwSize, flNewProtect);
+			}
+			return ok;
+		}
+
+		static PVOID WINAPI Hook_VirtualAlloc2(
+			HANDLE ProcessHandle, PVOID BaseAddress, SIZE_T Size, ULONG AllocationType, ULONG PageProtection,
+			PMEM_EXTENDED_PARAMETER ExtendedParameters, ULONG ExtendedParameterCount)
+		{
+			PVOID p = sRealVirtualAlloc2 ? sRealVirtualAlloc2(ProcessHandle, BaseAddress, Size, AllocationType, PageProtection, ExtendedParameters, ExtendedParameterCount) : nullptr;
+			if (p && (AllocationType & MEM_COMMIT) && Size)
+			{
+				MEMORY_BASIC_INFORMATION mbi = {};
+				if (::VirtualQuery(p, &mbi, sizeof(mbi)) == sizeof(mbi))
+				{
+					if (mbi.State == MEM_COMMIT && (mbi.Protect & PAGE_WRITECOMBINE))
+						::InterlockedAdd64(&sWcCommitBytes, (LONG64)Size);
+				}
+
+				if (((PageProtection & PAGE_WRITECOMBINE) != 0) && Size >= (1ull << 20))
+				{
+					LogStackOncePerSecond(L"VirtualAlloc2(COMMIT,WC)", p, Size, (DWORD)PageProtection);
+				}
+				else if (Size >= (32ull << 20))
+				{
+					LogStackOncePerSecond(L"VirtualAlloc2(COMMIT,>=32MB)", p, Size, (DWORD)PageProtection);
+				}
+			}
+			return p;
+		}
+
+		static PVOID WINAPI Hook_VirtualAlloc2_Kernel32(
+			HANDLE ProcessHandle, PVOID BaseAddress, SIZE_T Size, ULONG AllocationType, ULONG PageProtection,
+			PMEM_EXTENDED_PARAMETER ExtendedParameters, ULONG ExtendedParameterCount)
+		{
+			PVOID p = sRealVirtualAlloc2_Kernel32 ? sRealVirtualAlloc2_Kernel32(ProcessHandle, BaseAddress, Size, AllocationType, PageProtection, ExtendedParameters, ExtendedParameterCount) : nullptr;
+			if (p && (AllocationType & MEM_COMMIT) && Size)
+			{
+				if (((PageProtection & PAGE_WRITECOMBINE) != 0) && Size >= (1ull << 20))
+					LogStackOncePerSecond(L"Kernel32!VirtualAlloc2(COMMIT,WC)", p, Size, (DWORD)PageProtection);
+				else if (Size >= (32ull << 20))
+					LogStackOncePerSecond(L"Kernel32!VirtualAlloc2(COMMIT,>=32MB)", p, Size, (DWORD)PageProtection);
+			}
+			return p;
+		}
+
+		static PVOID WINAPI Hook_VirtualAlloc2_ApiSet(
+			HANDLE ProcessHandle, PVOID BaseAddress, SIZE_T Size, ULONG AllocationType, ULONG PageProtection,
+			PMEM_EXTENDED_PARAMETER ExtendedParameters, ULONG ExtendedParameterCount)
+		{
+			PVOID p = sRealVirtualAlloc2_ApiSet ? sRealVirtualAlloc2_ApiSet(ProcessHandle, BaseAddress, Size, AllocationType, PageProtection, ExtendedParameters, ExtendedParameterCount) : nullptr;
+			if (p && (AllocationType & MEM_COMMIT) && Size)
+			{
+				if (((PageProtection & PAGE_WRITECOMBINE) != 0) && Size >= (1ull << 20))
+					LogStackOncePerSecond(L"apiset!VirtualAlloc2(COMMIT,WC)", p, Size, (DWORD)PageProtection);
+				else if (Size >= (32ull << 20))
+					LogStackOncePerSecond(L"apiset!VirtualAlloc2(COMMIT,>=32MB)", p, Size, (DWORD)PageProtection);
+			}
+			return p;
+		}
 	}
 
 	void InitVirtualAllocHookIfRequested()
@@ -320,6 +524,48 @@ namespace core
 			sRealNtMapViewOfSection = nullptr;
 		}
 
+		// Optional: hook KernelBase VirtualAlloc/VirtualAlloc2/VirtualProtect (common usermode entry points).
+		st = MH_CreateHookApi(L"KernelBase.dll", "VirtualAlloc", (LPVOID)&Hook_VirtualAlloc, (LPVOID*)&sRealVirtualAlloc);
+		if (st != MH_OK)
+		{
+			core::LOG(core::log_inf, L"[WC_HOOK] hook KernelBase!VirtualAlloc failed: %S", MH_StatusToString(st));
+			sRealVirtualAlloc = nullptr;
+		}
+		st = MH_CreateHookApi(L"KernelBase.dll", "VirtualProtect", (LPVOID)&Hook_VirtualProtect, (LPVOID*)&sRealVirtualProtect);
+		if (st != MH_OK)
+		{
+			core::LOG(core::log_inf, L"[WC_HOOK] hook KernelBase!VirtualProtect failed: %S", MH_StatusToString(st));
+			sRealVirtualProtect = nullptr;
+		}
+		st = MH_CreateHookApi(L"KernelBase.dll", "VirtualAlloc2", (LPVOID)&Hook_VirtualAlloc2, (LPVOID*)&sRealVirtualAlloc2);
+		if (st != MH_OK)
+		{
+			// Older builds may not export VirtualAlloc2.
+			sRealVirtualAlloc2 = nullptr;
+		}
+
+		// Optional: Kernel32 forwarders.
+		st = MH_CreateHookApi(L"Kernel32.dll", "VirtualAlloc", (LPVOID)&Hook_VirtualAlloc_Kernel32, (LPVOID*)&sRealVirtualAlloc_Kernel32);
+		if (st != MH_OK)
+			sRealVirtualAlloc_Kernel32 = nullptr;
+		st = MH_CreateHookApi(L"Kernel32.dll", "VirtualProtect", (LPVOID)&Hook_VirtualProtect_Kernel32, (LPVOID*)&sRealVirtualProtect_Kernel32);
+		if (st != MH_OK)
+			sRealVirtualProtect_Kernel32 = nullptr;
+		st = MH_CreateHookApi(L"Kernel32.dll", "VirtualAlloc2", (LPVOID)&Hook_VirtualAlloc2_Kernel32, (LPVOID*)&sRealVirtualAlloc2_Kernel32);
+		if (st != MH_OK)
+			sRealVirtualAlloc2_Kernel32 = nullptr;
+
+		// Optional: API-set name (some import tables reference this directly).
+		st = MH_CreateHookApi(L"api-ms-win-core-memory-l1-1-0.dll", "VirtualAlloc", (LPVOID)&Hook_VirtualAlloc_ApiSet, (LPVOID*)&sRealVirtualAlloc_ApiSet);
+		if (st != MH_OK)
+			sRealVirtualAlloc_ApiSet = nullptr;
+		st = MH_CreateHookApi(L"api-ms-win-core-memory-l1-1-0.dll", "VirtualProtect", (LPVOID)&Hook_VirtualProtect_ApiSet, (LPVOID*)&sRealVirtualProtect_ApiSet);
+		if (st != MH_OK)
+			sRealVirtualProtect_ApiSet = nullptr;
+		st = MH_CreateHookApi(L"api-ms-win-core-memory-l1-1-0.dll", "VirtualAlloc2", (LPVOID)&Hook_VirtualAlloc2_ApiSet, (LPVOID*)&sRealVirtualAlloc2_ApiSet);
+		if (st != MH_OK)
+			sRealVirtualAlloc2_ApiSet = nullptr;
+
 		st = MH_EnableHook(MH_ALL_HOOKS);
 		if (st != MH_OK)
 		{
@@ -327,7 +573,7 @@ namespace core
 			return;
 		}
 
-		core::LOG(core::log_inf, L"[WC_HOOK] enabled (MinHook ntdll NtAlloc/NtProtect/NtAllocEx/NtMapView)");
+		core::LOG(core::log_inf, L"[WC_HOOK] enabled (MinHook ntdll NtAlloc/NtProtect/NtAllocEx/NtMapView + KernelBase/Kernel32/apiset VirtualAlloc/Protect/Alloc2)");
 	}
 }
 

@@ -36,7 +36,6 @@ namespace RenderCore
 
 		FDynamicDescriptorHeapPoolsPerDevice& GetDynamicDescriptorHeapPools();
 
-		D3D12_CPU_DESCRIPTOR_HANDLE AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
 		FD3D12ResourceAllocator::FDescriptorAllocation AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count = 1);
 		void FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, const FD3D12ResourceAllocator::FDescriptorAllocation& Allocation);
 		uint32_t GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE Type);;

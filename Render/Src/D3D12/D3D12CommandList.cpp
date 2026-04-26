@@ -108,8 +108,9 @@ namespace RenderCore
 
 	void D3D12CommandListHandle::Execute(bool WaitForCompletion /*= false*/)
 	{
-		Assert(CommandListData);
-		CommandListData->CommandListManager->ExecuteCommandList(*this, {}, WaitForCompletion);
+		// Keep a single submit path so we always run per-list cleanup (allocators, dynamic heaps, etc.).
+		// This mirrors the intent of MiniEngine's CommandContext::Finish().
+		(void)ExecuteAndClear(WaitForCompletion);
 	}
 
 	void D3D12CommandListHandle::AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)

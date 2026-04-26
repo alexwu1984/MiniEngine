@@ -1,6 +1,10 @@
 #pragma once
 #include "D3D12/D3D12Resource.h"
 
+#include <queue>
+#include <utility>
+#include <vector>
+
 namespace RenderCore
 {
 	const static uint32_t DEFAULT_ALIGN = 256;
@@ -35,10 +39,6 @@ namespace RenderCore
 			D3D12_DESCRIPTOR_HEAP_TYPE Type);
 
 		~FD3D12ResourceAllocator() = default;
-
-		// Legacy allocate: monotonic CPU handle (no free).
-		// Prefer AllocateBlock/FreeBlock for resources with a lifetime.
-		D3D12_CPU_DESCRIPTOR_HANDLE Allocate(uint32_t Count);
 
 		// Recyclable allocation used by textures/RTs to avoid descriptor heap leaks.
 		FDescriptorAllocation AllocateBlock(uint32_t Count);
@@ -123,17 +123,24 @@ namespace RenderCore
 			return RetiredPages[0].size() + RetiredPages[1].size() + RetiredPages[2].size();
 		}
 		std::size_t GetReadyPageCount() const { return ReadyPages.size(); }
-		std::size_t GetLargePageCount() const { return LargePagePool.size(); }
+		std::size_t GetLargePageCount() const { return LargePageDeletionQueue.size(); }
 		std::size_t GetStandardPageCount() const { return OwnedStandardPages.size(); }
 
 	private:
 		using PagePool = std::queue<LinearAllocationPage* >;
 
+		struct FLargePageDelete
+		{
+			uint64_t FenceValue = 0;
+			ED3D12CommandQueueType QueueType = ED3D12CommandQueueType::Default;
+			LinearAllocationPage* Page = nullptr;
+		};
+
 		// Retired pages are tracked per D3D12 queue to preserve monotonic fence ordering.
 		// This enables O(1) recycling ("while front complete") like MiniEngine/DEMO.
 		PagePool RetiredPages[3]; // [QueueTypeIndex]
 		PagePool ReadyPages;
-		PagePool LargePagePool;
+		std::queue<FLargePageDelete> LargePageDeletionQueue;
 		// Owns one ref for every standard page ever created by this manager.
 		// Availability is tracked separately via ReadyPages/RetiredPages.
 		std::vector<LinearAllocationPage*> OwnedStandardPages;

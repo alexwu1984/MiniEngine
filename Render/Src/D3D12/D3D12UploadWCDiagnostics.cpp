@@ -127,5 +127,125 @@ namespace RenderCore
 
 		sReentryGuard = false;
 	}
+
+	void D3D12UploadWCDiagnostics_OnAllocateLargePage(const wchar_t* Tag, std::size_t SizeBytes)
+	{
+		if (SizeBytes == 0)
+			return;
+		if (!core::CommandLine::Get().GetName("d3d12_memmon"))
+			return;
+
+		// Aggregate and print at most once per second.
+		static ULONGLONG sLastTick = 0;
+		static volatile LONG64 sAggBytes = 0;
+		static volatile LONG64 sAggCount = 0;
+
+		::InterlockedAdd64(&sAggBytes, (LONG64)SizeBytes);
+		::InterlockedIncrement64(&sAggCount);
+
+		const ULONGLONG now = ::GetTickCount64();
+		if (sLastTick == 0)
+			sLastTick = now;
+		if (now - sLastTick < 1000)
+			return;
+		sLastTick = now;
+
+		const LONG64 aggBytes = ::InterlockedExchange64(&sAggBytes, 0);
+		const LONG64 aggCount = ::InterlockedExchange64(&sAggCount, 0);
+		if (aggBytes <= 0)
+			return;
+
+		static thread_local bool sReentryGuard = false;
+		if (sReentryGuard)
+			return;
+		sReentryGuard = true;
+
+		void* frames[16] = {};
+		const USHORT n = ::RtlCaptureStackBackTrace(1, 16, frames, nullptr);
+
+		wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
+		wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
+		if (n > 0)
+		{
+			FormatAddrSymbol(s0, _countof(s0), frames[0]);
+			FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
+			FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
+			FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
+			FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
+			FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
+			FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
+			FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
+		}
+
+		const double MB = 1024.0 * 1024.0;
+		core::LOG(core::log_inf,
+			L"[D3D12] LargePageAlloc (%s) +%lld allocs +%.1fMB/s stack: %s | %s | %s | %s | %s | %s | %s | %s",
+			(Tag ? Tag : L"?"),
+			(long long)aggCount,
+			(double)aggBytes / MB,
+			s0, s1, s2, s3, s4, s5, s6, s7);
+
+		sReentryGuard = false;
+	}
+
+	void D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(const wchar_t* Tag, std::size_t SizeBytes)
+	{
+		if (SizeBytes == 0)
+			return;
+		if (!core::CommandLine::Get().GetName("d3d12_memmon"))
+			return;
+
+		// Aggregate and print at most once per second.
+		static ULONGLONG sLastTick = 0;
+		static volatile LONG64 sAggBytes = 0;
+		static volatile LONG64 sAggCount = 0;
+
+		::InterlockedAdd64(&sAggBytes, (LONG64)SizeBytes);
+		::InterlockedIncrement64(&sAggCount);
+
+		const ULONGLONG now = ::GetTickCount64();
+		if (sLastTick == 0)
+			sLastTick = now;
+		if (now - sLastTick < 1000)
+			return;
+		sLastTick = now;
+
+		const LONG64 aggBytes = ::InterlockedExchange64(&sAggBytes, 0);
+		const LONG64 aggCount = ::InterlockedExchange64(&sAggCount, 0);
+		if (aggBytes <= 0)
+			return;
+
+		static thread_local bool sReentryGuard = false;
+		if (sReentryGuard)
+			return;
+		sReentryGuard = true;
+
+		void* frames[16] = {};
+		const USHORT n = ::RtlCaptureStackBackTrace(1, 16, frames, nullptr);
+
+		wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
+		wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
+		if (n > 0)
+		{
+			FormatAddrSymbol(s0, _countof(s0), frames[0]);
+			FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
+			FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
+			FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
+			FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
+			FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
+			FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
+			FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
+		}
+
+		const double MB = 1024.0 * 1024.0;
+		core::LOG(core::log_inf,
+			L"[D3D12] UploadCommittedBuffer (%s) +%lld allocs +%.1fMB/s stack: %s | %s | %s | %s | %s | %s | %s | %s",
+			(Tag ? Tag : L"?"),
+			(long long)aggCount,
+			(double)aggBytes / MB,
+			s0, s1, s2, s3, s4, s5, s6, s7);
+
+		sReentryGuard = false;
+	}
 }
 

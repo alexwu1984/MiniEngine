@@ -20,14 +20,6 @@ namespace RenderCore
 		DescriptorSize = GetParentDevice()->GetDevice()->GetDescriptorHandleIncrementSize(HeapType);
 	}
 
-	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12ResourceAllocator::Allocate(uint32_t Count)
-	{
-		// Legacy path: keep monotonic behavior for call sites that don't track allocations yet.
-		// This will still grow over time if used for long-lived resources.
-		const FDescriptorAllocation Alloc = AllocateBlock(Count);
-		return Alloc.Cpu;
-	}
-
 	FD3D12ResourceAllocator::FDescriptorAllocation FD3D12ResourceAllocator::AllocateBlock(uint32_t Count)
 	{
 		Assert(Count > 0);
@@ -310,29 +302,30 @@ namespace RenderCore
 
 	void LinearAllocationPageManager::DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages)
 	{
-		if (!LargePagePool.empty())
+		// Large pages are one-off allocations. Don't pool them: retire and delete after the fence passes.
+		// This matches the behavior in DirectX-Graphics-Samples MiniEngine and avoids unbounded WC growth.
+		while (!LargePageDeletionQueue.empty())
 		{
-			std::vector<LinearAllocationPage*> Remaining;
-			Remaining.reserve(LargePagePool.size());
-			while (!LargePagePool.empty())
-			{
-				LinearAllocationPage* PoolPage = LargePagePool.front();
-				LargePagePool.pop();
-				auto& CommandListManager = GetParentDevice()->GetCommandListManager(PoolPage->GetRetireQueueType());
-				if (CommandListManager.GetFence().IsFenceComplete(PoolPage->GetFenceValue()))
-					PoolPage->Release();
-				else
-					Remaining.push_back(PoolPage);
-			}
-			for (LinearAllocationPage* PoolPage : Remaining)
-				LargePagePool.push(PoolPage);
+			const FLargePageDelete& Front = LargePageDeletionQueue.front();
+			auto& Mgr = GetParentDevice()->GetCommandListManager(Front.QueueType);
+			if (!Mgr.GetFence().IsFenceComplete(Front.FenceValue))
+				break;
+
+			if (Front.Page)
+				Front.Page->Release();
+			LargePageDeletionQueue.pop();
 		}
 
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
-			(*Iter)->SetFenceValue(FenceID);
-			(*Iter)->SetRetireQueueType(QueueType);
-			LargePagePool.push(*Iter);
+			LinearAllocationPage* P = *Iter;
+			if (!P)
+				continue;
+			P->SetFenceValue(FenceID);
+			P->SetRetireQueueType(QueueType);
+			// Optional but helps diagnostics and reduces mapped CPU VA footprint.
+			P->Unmap();
+			LargePageDeletionQueue.push(FLargePageDelete{ FenceID, QueueType, P });
 		}
 	}
 
@@ -428,10 +421,11 @@ namespace RenderCore
 
 	void LinearAllocationPageManager::Destroy()
 	{
-		while (!LargePagePool.empty())
+		while (!LargePageDeletionQueue.empty())
 		{
-			LargePagePool.front()->Release();
-			LargePagePool.pop();
+			if (LargePageDeletionQueue.front().Page)
+				LargePageDeletionQueue.front().Page->Release();
+			LargePageDeletionQueue.pop();
 		}
 		for (LinearAllocationPage* P : OwnedStandardPages)
 			P->Release();
@@ -515,6 +509,10 @@ namespace RenderCore
 
 	FAllocation LinearAllocator::AllocateLargePage(size_t SizeInBytes)
 	{
+		// Diagnostics are kept out of allocator core logic.
+		if (m_AllocatorType == ELinearAllocatorType::CpuWritable)
+			D3D12UploadWCDiagnostics_OnAllocateLargePage(L"CpuWritable", SizeInBytes);
+
 		LinearAllocationPage* Page = GetParentDevice()->GetLinearPageManager(m_AllocatorType).CreateNewPage(SizeInBytes);
 		m_LargePages.push_back(Page);
 

@@ -166,12 +166,6 @@ namespace RenderCore
 		}
 	}
 
-	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12Device::AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count /*= 1*/)
-	{
-		Assert(DescriptorAllocator[Type].get());
-		return DescriptorAllocator[Type]->Allocate(Count);
-	}
-
 	FD3D12ResourceAllocator::FDescriptorAllocation FD3D12Device::AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count /*= 1*/)
 	{
 		Assert(DescriptorAllocator[Type].get());

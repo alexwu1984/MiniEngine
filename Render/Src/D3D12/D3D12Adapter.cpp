@@ -6,6 +6,7 @@
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12RootSignature.h"
 #include "D3D12/D3D12DescriptorCache.h"
+#include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include <dxgidebug.h>
 
@@ -330,6 +331,17 @@ namespace RenderCore
 		}
 
 		//LLM_PLATFORM_SCOPE(ELLMTag::GraphicsPlatform);
+
+		// Diagnostics: large UPLOAD buffers are often the source of WC growth in D3D12.
+		// Keep it lightweight and only for big buffers.
+		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD && InDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+		{
+			const uint64_t bytes = (uint64_t)InDesc.Width;
+			if (bytes >= 16ull * 1024ull * 1024ull)
+			{
+				D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(Name ? Name : L"UploadBuffer", (std::size_t)bytes);
+			}
+		}
 
 		win32::com_ptr<ID3D12Resource> pResource;
 		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));

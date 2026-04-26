@@ -10,6 +10,7 @@
 #include <Psapi.h>
 #include <vector>
 #include <mutex>
+#include <unordered_set>
 
 #include <dxgi1_4.h>
 
@@ -310,6 +311,62 @@ namespace RenderCore
 				(double)privWC_Bucket_Le16MB / MB,
 				(double)privWC_Bucket_Le32MB / MB,
 				(double)privWC_Bucket_Gt32MB / MB);
+
+			// For newly observed large WC regions, print attribution (MEM_PRIVATE vs MEM_MAPPED, etc.).
+			// This helps distinguish upload-heap like allocations from mapped sections.
+			{
+				static std::mutex sWcMu;
+				static std::unordered_set<void*> sSeenWcAllocBases;
+
+				auto TypeToStr = [](DWORD type) -> const wchar_t*
+				{
+					switch (type)
+					{
+					case MEM_PRIVATE: return L"PRIVATE";
+					case MEM_MAPPED:  return L"MAPPED";
+					case MEM_IMAGE:   return L"IMAGE";
+					default:          return L"UNKNOWN";
+					}
+				};
+
+				for (int i = 0; i < 5; ++i)
+				{
+					TopRegion& R = topWC[i];
+					if (!R.Base || R.Size < 16ull * 1024ull * 1024ull)
+						continue;
+
+					MEMORY_BASIC_INFORMATION mbi2 = {};
+					if (::VirtualQuery(R.Base, &mbi2, sizeof(mbi2)) != sizeof(mbi2))
+						continue;
+
+					void* allocBase = mbi2.AllocationBase ? mbi2.AllocationBase : mbi2.BaseAddress;
+					bool bNew = false;
+					{
+						std::lock_guard<std::mutex> lock(sWcMu);
+						bNew = sSeenWcAllocBases.insert(allocBase).second;
+					}
+					if (!bNew)
+						continue;
+
+					wchar_t mappedName[MAX_PATH] = {};
+					mappedName[0] = 0;
+					if (mbi2.Type == MEM_MAPPED)
+					{
+						// Best-effort: identify mapped section source.
+						::GetMappedFileNameW(::GetCurrentProcess(), allocBase, mappedName, (DWORD)_countof(mappedName));
+					}
+
+					core::LOG(core::log_inf,
+						L"[D3D12] WCRegion New Base=%p Size=%.1fMB Prot=0x%X Type=%s State=0x%X AllocBase=%p Mapped=%s",
+						mbi2.BaseAddress,
+						(double)(uint64_t)mbi2.RegionSize / MB,
+						(unsigned)mbi2.Protect,
+						TypeToStr(mbi2.Type),
+						(unsigned)mbi2.State,
+						allocBase,
+						(mappedName[0] ? mappedName : L"-"));
+				}
+			}
 
 			if (dWCBytes > 0)
 			{

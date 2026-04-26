@@ -87,6 +87,99 @@ namespace RenderCore
 			CpuW.GetStandardPageCount(), CpuW.GetLargePageCount(), CpuW.GetRetiredPageCount(),
 			GpuX.GetStandardPageCount(), GpuX.GetLargePageCount(), GpuX.GetRetiredPageCount());
 
+		{
+			static uint64_t sPrevCreateView = 0, sPrevCreateSampler = 0;
+			static uint64_t sPrevReadyView = 0, sPrevReadySampler = 0;
+			static uint64_t sPrevWaitView = 0, sPrevWaitSampler = 0;
+			static uint64_t sPrevCopyCallsView = 0, sPrevCopyCallsSampler = 0;
+			static uint64_t sPrevCopyDescView = 0, sPrevCopyDescSampler = 0;
+
+			const uint64_t cCreateView = D3D12CreateStats::DynDesc_CreateCount_CbvSrvUav().load(std::memory_order_relaxed);
+			const uint64_t cCreateSampler = D3D12CreateStats::DynDesc_CreateCount_Sampler().load(std::memory_order_relaxed);
+			const uint64_t cReadyView = D3D12CreateStats::DynDesc_RecycleReadyCount_CbvSrvUav().load(std::memory_order_relaxed);
+			const uint64_t cReadySampler = D3D12CreateStats::DynDesc_RecycleReadyCount_Sampler().load(std::memory_order_relaxed);
+			const uint64_t cWaitView = D3D12CreateStats::DynDesc_FenceWaitReuseCount_CbvSrvUav().load(std::memory_order_relaxed);
+			const uint64_t cWaitSampler = D3D12CreateStats::DynDesc_FenceWaitReuseCount_Sampler().load(std::memory_order_relaxed);
+			const uint64_t cCopyCallsView = D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav().load(std::memory_order_relaxed);
+			const uint64_t cCopyCallsSampler = D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler().load(std::memory_order_relaxed);
+			const uint64_t cCopyDescView = D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav().load(std::memory_order_relaxed);
+			const uint64_t cCopyDescSampler = D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler().load(std::memory_order_relaxed);
+
+			core::LOG(core::log_inf,
+				L"[D3D12] DynDesc/s Create(View=%llu Sampler=%llu) ReuseReady(View=%llu Sampler=%llu) WaitReuse(View=%llu Sampler=%llu) CopyCalls(View=%llu Sampler=%llu) CopyDesc(View=%llu Sampler=%llu)",
+				(unsigned long long)(cCreateView - sPrevCreateView), (unsigned long long)(cCreateSampler - sPrevCreateSampler),
+				(unsigned long long)(cReadyView - sPrevReadyView), (unsigned long long)(cReadySampler - sPrevReadySampler),
+				(unsigned long long)(cWaitView - sPrevWaitView), (unsigned long long)(cWaitSampler - sPrevWaitSampler),
+				(unsigned long long)(cCopyCallsView - sPrevCopyCallsView), (unsigned long long)(cCopyCallsSampler - sPrevCopyCallsSampler),
+				(unsigned long long)(cCopyDescView - sPrevCopyDescView), (unsigned long long)(cCopyDescSampler - sPrevCopyDescSampler));
+
+			sPrevCreateView = cCreateView; sPrevCreateSampler = cCreateSampler;
+			sPrevReadyView = cReadyView; sPrevReadySampler = cReadySampler;
+			sPrevWaitView = cWaitView; sPrevWaitSampler = cWaitSampler;
+			sPrevCopyCallsView = cCopyCallsView; sPrevCopyCallsSampler = cCopyCallsSampler;
+			sPrevCopyDescView = cCopyDescView; sPrevCopyDescSampler = cCopyDescSampler;
+		}
+
+		{
+			static uint64_t sPrevCLReadyDirect = 0, sPrevCLCreateDirect = 0;
+			static uint64_t sPrevCLReadyCompute = 0, sPrevCLCreateCompute = 0;
+
+			const uint64_t cReadyDirect = D3D12CreateStats::CmdList_ObtainFromReadyCount_Direct().load(std::memory_order_relaxed);
+			const uint64_t cCreateDirect = D3D12CreateStats::CmdList_CreateCount_Direct().load(std::memory_order_relaxed);
+			const uint64_t cReadyCompute = D3D12CreateStats::CmdList_ObtainFromReadyCount_Compute().load(std::memory_order_relaxed);
+			const uint64_t cCreateCompute = D3D12CreateStats::CmdList_CreateCount_Compute().load(std::memory_order_relaxed);
+
+			core::LOG(core::log_inf,
+				L"[D3D12] CmdList/s ObtainReady(Direct=%llu Compute=%llu) CreateNew(Direct=%llu Compute=%llu)",
+				(unsigned long long)(cReadyDirect - sPrevCLReadyDirect),
+				(unsigned long long)(cReadyCompute - sPrevCLReadyCompute),
+				(unsigned long long)(cCreateDirect - sPrevCLCreateDirect),
+				(unsigned long long)(cCreateCompute - sPrevCLCreateCompute));
+
+			sPrevCLReadyDirect = cReadyDirect; sPrevCLCreateDirect = cCreateDirect;
+			sPrevCLReadyCompute = cReadyCompute; sPrevCLCreateCompute = cCreateCompute;
+		}
+
+		{
+			static uint64_t sPrevExecD = 0, sPrevUserD = 0, sPrevBarD = 0, sPrevTotalD = 0;
+			static uint64_t sPrevExecC = 0, sPrevUserC = 0, sPrevBarC = 0, sPrevTotalC = 0;
+			static uint64_t sPrevExecP = 0, sPrevUserP = 0, sPrevBarP = 0, sPrevTotalP = 0;
+
+			const uint64_t cExecD = D3D12CreateStats::Submit_ExecCalls_Direct().load(std::memory_order_relaxed);
+			const uint64_t cUserD = D3D12CreateStats::Submit_UserCLCount_Direct().load(std::memory_order_relaxed);
+			const uint64_t cBarD = D3D12CreateStats::Submit_BarrierCLCount_Direct().load(std::memory_order_relaxed);
+			const uint64_t cTotD = D3D12CreateStats::Submit_TotalCLCount_Direct().load(std::memory_order_relaxed);
+
+			const uint64_t cExecC = D3D12CreateStats::Submit_ExecCalls_Compute().load(std::memory_order_relaxed);
+			const uint64_t cUserC = D3D12CreateStats::Submit_UserCLCount_Compute().load(std::memory_order_relaxed);
+			const uint64_t cBarC = D3D12CreateStats::Submit_BarrierCLCount_Compute().load(std::memory_order_relaxed);
+			const uint64_t cTotC = D3D12CreateStats::Submit_TotalCLCount_Compute().load(std::memory_order_relaxed);
+
+			const uint64_t cExecP = D3D12CreateStats::Submit_ExecCalls_Copy().load(std::memory_order_relaxed);
+			const uint64_t cUserP = D3D12CreateStats::Submit_UserCLCount_Copy().load(std::memory_order_relaxed);
+			const uint64_t cBarP = D3D12CreateStats::Submit_BarrierCLCount_Copy().load(std::memory_order_relaxed);
+			const uint64_t cTotP = D3D12CreateStats::Submit_TotalCLCount_Copy().load(std::memory_order_relaxed);
+
+			core::LOG(core::log_inf,
+				L"[D3D12] SubmitCL/s Direct(exec=%llu user=%llu barrier=%llu total=%llu) Compute(exec=%llu user=%llu barrier=%llu total=%llu) Copy(exec=%llu user=%llu barrier=%llu total=%llu)",
+				(unsigned long long)(cExecD - sPrevExecD),
+				(unsigned long long)(cUserD - sPrevUserD),
+				(unsigned long long)(cBarD - sPrevBarD),
+				(unsigned long long)(cTotD - sPrevTotalD),
+				(unsigned long long)(cExecC - sPrevExecC),
+				(unsigned long long)(cUserC - sPrevUserC),
+				(unsigned long long)(cBarC - sPrevBarC),
+				(unsigned long long)(cTotC - sPrevTotalC),
+				(unsigned long long)(cExecP - sPrevExecP),
+				(unsigned long long)(cUserP - sPrevUserP),
+				(unsigned long long)(cBarP - sPrevBarP),
+				(unsigned long long)(cTotP - sPrevTotalP));
+
+			sPrevExecD = cExecD; sPrevUserD = cUserD; sPrevBarD = cBarD; sPrevTotalD = cTotD;
+			sPrevExecC = cExecC; sPrevUserC = cUserC; sPrevBarC = cBarC; sPrevTotalC = cTotC;
+			sPrevExecP = cExecP; sPrevUserP = cUserP; sPrevBarP = cBarP; sPrevTotalP = cTotP;
+		}
+
 		core::LOG(core::log_inf,
 			L"[D3D12] LinearPagePools CpuWritable(owned=%zu ready=%zu retired=%zu/%zu/%zu) GpuExclusive(owned=%zu ready=%zu retired=%zu/%zu/%zu)",
 			CpuW.GetStandardPageCount(), CpuW.GetReadyPageCount(),

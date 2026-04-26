@@ -32,7 +32,12 @@ namespace RenderCore
 		// Called to indicate a command list using this allocator has been executed OR discarded (closed with no intention to execute it).
 		inline void DecrementPendingCommandLists()
 		{
-			Assert(PendingCommandListCount.load() > 0);
+			// During shutdown or error paths a command list can be discarded/released without having
+			// incremented this counter (e.g. if reset failed or teardown raced). Don't crash the app
+			// on accounting mismatches; clamp at 0 and continue.
+			int32_t v = PendingCommandListCount.load();
+			if (v <= 0)
+				return;
 			--PendingCommandListCount;
 		}
 

@@ -5,6 +5,7 @@
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12SubmitStats.h"
 #include "D3D12/D3D12CallStats.h"
+#include "D3D12/D3D12CreateStats.h"
 #include "core/logger.h"
 
 namespace RenderCore
@@ -377,6 +378,17 @@ namespace RenderCore
 		{
 			// Create a command list if there are none available.
 			List = CreateCommandListHandle(CommandAllocator);
+			if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
+				D3D12CreateStats::CmdList_CreateCount_Direct().fetch_add(1, std::memory_order_relaxed);
+			else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+				D3D12CreateStats::CmdList_CreateCount_Compute().fetch_add(1, std::memory_order_relaxed);
+		}
+		else
+		{
+			if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
+				D3D12CreateStats::CmdList_ObtainFromReadyCount_Direct().fetch_add(1, std::memory_order_relaxed);
+			else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+				D3D12CreateStats::CmdList_ObtainFromReadyCount_Compute().fetch_add(1, std::memory_order_relaxed);
 		}
 
 		Assert(List.GetCommandListType() == CommandListType);
@@ -475,6 +487,29 @@ namespace RenderCore
 
 				CurrentCommandListPayload.Append(commandList.CommandList());
 			}
+			{
+				const uint64_t user = (uint64_t)Lists.size();
+				const uint64_t barrier = (uint64_t)barrierCommandListIndex;
+				const uint64_t total = (uint64_t)CurrentCommandListPayload.NumCommandLists;
+				if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
+				{
+					D3D12CreateStats::Submit_UserCLCount_Direct().fetch_add(user, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_BarrierCLCount_Direct().fetch_add(barrier, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_TotalCLCount_Direct().fetch_add(total, std::memory_order_relaxed);
+				}
+				else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+				{
+					D3D12CreateStats::Submit_UserCLCount_Compute().fetch_add(user, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_BarrierCLCount_Compute().fetch_add(barrier, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_TotalCLCount_Compute().fetch_add(total, std::memory_order_relaxed);
+				}
+				else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COPY)
+				{
+					D3D12CreateStats::Submit_UserCLCount_Copy().fetch_add(user, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_BarrierCLCount_Copy().fetch_add(barrier, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_TotalCLCount_Copy().fetch_add(total, std::memory_order_relaxed);
+				}
+			}
 			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
 			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
@@ -498,6 +533,29 @@ namespace RenderCore
 			for (int32_t i = 0; i < Lists.size(); i++)
 			{
 				CurrentCommandListPayload.Append(Lists[i].CommandList());
+			}
+			{
+				const uint64_t user = (uint64_t)Lists.size();
+				const uint64_t barrier = 0;
+				const uint64_t total = (uint64_t)CurrentCommandListPayload.NumCommandLists;
+				if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
+				{
+					D3D12CreateStats::Submit_UserCLCount_Direct().fetch_add(user, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_BarrierCLCount_Direct().fetch_add(barrier, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_TotalCLCount_Direct().fetch_add(total, std::memory_order_relaxed);
+				}
+				else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+				{
+					D3D12CreateStats::Submit_UserCLCount_Compute().fetch_add(user, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_BarrierCLCount_Compute().fetch_add(barrier, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_TotalCLCount_Compute().fetch_add(total, std::memory_order_relaxed);
+				}
+				else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COPY)
+				{
+					D3D12CreateStats::Submit_UserCLCount_Copy().fetch_add(user, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_BarrierCLCount_Copy().fetch_add(barrier, std::memory_order_relaxed);
+					D3D12CreateStats::Submit_TotalCLCount_Copy().fetch_add(total, std::memory_order_relaxed);
+				}
 			}
 			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
 			//check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
@@ -657,6 +715,12 @@ namespace RenderCore
 	uint64_t FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, bool bForceSignal)
 	{
 		std::lock_guard<std::recursive_mutex> Lock(FenceCS);
+		if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
+			D3D12CreateStats::Submit_ExecCalls_Direct().fetch_add(1, std::memory_order_relaxed);
+		else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+			D3D12CreateStats::Submit_ExecCalls_Compute().fetch_add(1, std::memory_order_relaxed);
+		else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COPY)
+			D3D12CreateStats::Submit_ExecCalls_Copy().fetch_add(1, std::memory_order_relaxed);
 		Render::D3D12CallStats::IncExecuteCommandLists((uint32_t)Payload.NumCommandLists);
 		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 

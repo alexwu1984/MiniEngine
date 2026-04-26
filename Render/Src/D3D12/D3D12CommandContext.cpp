@@ -665,6 +665,16 @@ namespace RenderCore
 		return SignaledFenceValue;
 	}
 
+	uint64_t D3D12CommandContext::FlushCommandsGetFence_NoReopen(bool WaitForCompletion /*= false*/)
+	{
+		// Shutdown/idle-wait path: we only need to submit outstanding work and optionally wait.
+		// Re-opening a fresh command list here forces a Reset() on the driver hot path and can crash
+		// during teardown (observed in nvwgf2umx on some systems).
+		CloseCommandList();
+		const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
+		return SignaledFenceValue;
+	}
+
 	void D3D12CommandContext::RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush /*= false*/)
 	{
 		auto TexRHI = RHIResourceCast(Tex.get());
@@ -863,6 +873,8 @@ namespace RenderCore
 		StateCacheMap.clear();
 		CurrentStateCache = {};
 		D3D12GenerateMips = {};
+		// Release the current command list handle before tearing down managers/allocators.
+		CommandListHandle = {};
 		if(CommandAllocator)
 			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
 		CommandAllocator = nullptr;

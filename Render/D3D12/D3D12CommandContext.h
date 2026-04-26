@@ -67,6 +67,9 @@ namespace RenderCore
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data) {};
 		virtual void FlushCommands(bool WaitForCompletion = false) override;
 		uint64_t FlushCommandsGetFence(bool WaitForCompletion = false);
+		// Teardown-safe variant: close + execute (optionally wait) but DO NOT reopen/reset a new command list.
+		// Used by BlockUntilIdle/shutdown to avoid driver work during teardown.
+		uint64_t FlushCommandsGetFence_NoReopen(bool WaitForCompletion = false);
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) override;
 		virtual void BeginUserMark(const char* name) override;
 		virtual void EndUserMark() override;

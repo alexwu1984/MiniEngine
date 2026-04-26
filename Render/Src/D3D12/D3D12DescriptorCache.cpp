@@ -3,6 +3,7 @@
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12RootSignature.h"
+#include "D3D12/D3D12CreateStats.h"
 
 namespace RenderCore
 {
@@ -140,6 +141,10 @@ namespace RenderCore
 		{
 			win32::com_ptr<ID3D12DescriptorHeap> Heap = P.Ready[idx].front();
 			P.Ready[idx].pop();
+			if (idx == 0)
+				D3D12CreateStats::DynDesc_RecycleReadyCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+			else
+				D3D12CreateStats::DynDesc_RecycleReadyCount_Sampler().fetch_add(1, std::memory_order_relaxed);
 			return Heap;
 		}
 		else
@@ -158,6 +163,10 @@ namespace RenderCore
 
 				FD3D12CommandListManager& Mgr = Device->GetCommandListManager(Oldest.QueueType);
 				Mgr.GetFence().WaitForFence(Oldest.FenceValue);
+				if (idx == 0)
+					D3D12CreateStats::DynDesc_FenceWaitReuseCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+				else
+					D3D12CreateStats::DynDesc_FenceWaitReuseCount_Sampler().fetch_add(1, std::memory_order_relaxed);
 				P.Ready[idx].push(Oldest.Heap);
 
 				win32::com_ptr<ID3D12DescriptorHeap> Heap = P.Ready[idx].front();
@@ -173,6 +182,10 @@ namespace RenderCore
 			win32::com_ptr<ID3D12DescriptorHeap> Heap;
 			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Heap)));
 			P.CreatedTracking[idx].emplace_back(Heap);
+			if (idx == 0)
+				D3D12CreateStats::DynDesc_CreateCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+			else
+				D3D12CreateStats::DynDesc_CreateCount_Sampler().fetch_add(1, std::memory_order_relaxed);
 			return Heap;
 		}
 	}
@@ -191,6 +204,16 @@ namespace RenderCore
 		m_CurrentOffset += 1;
 
 		ID3D12Device* Device = GetParentDevice()->GetDevice();
+		if (m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+		{
+			D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler().fetch_add(1, std::memory_order_relaxed);
+			D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler().fetch_add(1, std::memory_order_relaxed);
+		}
+		else
+		{
+			D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+			D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+		}
 		Device->CopyDescriptorsSimple(1, DestHandle.GetCpuHandle(), Handle, m_HeapType);
 
 		return DestHandle.GetGpuHandle();
@@ -200,6 +223,19 @@ namespace RenderCore
 		void(STDMETHODCALLTYPE ID3D12GraphicsCommandList::* SetFunc)(UINT, D3D12_GPU_DESCRIPTOR_HANDLE))
 	{
 		uint32_t NeededSize = HandleCache.ComputeStagedSize();
+		if (NeededSize > 0)
+		{
+			if (m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+			{
+				D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler().fetch_add(1, std::memory_order_relaxed);
+				D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler().fetch_add(NeededSize, std::memory_order_relaxed);
+			}
+			else
+			{
+				D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+				D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav().fetch_add(NeededSize, std::memory_order_relaxed);
+			}
+		}
 		if (!HasSpace(NeededSize))
 		{
 			RetireCurrentHeap();

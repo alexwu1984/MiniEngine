@@ -64,19 +64,20 @@ namespace RenderCore
 
 	void FD3D12Device::Cleanup()
 	{
-		if (CommandListManager)
-			CommandListManager->Destroy();
-		if (CopyCommandListManager)
-			CopyCommandListManager->Destroy();
-		if (AsyncCommandListManager)
-			AsyncCommandListManager->Destroy();
-
 		if (DefaultCommandContext)
 			DefaultCommandContext->Destroy();
 		if (AsyncComputeContext)
 			AsyncComputeContext->Destroy();
 		DefaultCommandContext = {};
 		AsyncComputeContext = {};
+
+		// Destroy command-list managers after contexts drop their handles.
+		if (CommandListManager)
+			CommandListManager->Destroy();
+		if (CopyCommandListManager)
+			CopyCommandListManager->Destroy();
+		if (AsyncCommandListManager)
+			AsyncCommandListManager->Destroy();
 		CommandListManager = {};
 		CopyCommandListManager = {};
 		AsyncCommandListManager = {};
@@ -188,10 +189,10 @@ namespace RenderCore
 	void FD3D12Device::BlockUntilIdle()
 	{
 		if (DefaultCommandContext)
-			DefaultCommandContext->FlushCommands(true);
+			DefaultCommandContext->FlushCommandsGetFence_NoReopen(true);
 
 		if (AsyncComputeContext)
-			AsyncComputeContext->FlushCommands(true);
+			AsyncComputeContext->FlushCommandsGetFence_NoReopen(true);
 
 		if (CommandListManager)
 			CommandListManager->WaitForCommandQueueFlush();

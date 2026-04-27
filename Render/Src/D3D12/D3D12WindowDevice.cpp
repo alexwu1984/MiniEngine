@@ -177,16 +177,20 @@ namespace RenderCore
 
 	FD3D12FastAllocator& FD3D12Device::GetFastAllocator(EFastAllocatorType InType) const
 	{
-		Assert(FastAllocator[0].get() && FastAllocator[1].get());
+		// Do not require both slots: Cleanup() destroys [0] then [1]. ~FD3D12FastAllocatorPage on the
+		// second pool may call GetFastAllocator(Upload) while [0] is already nullptr.
 		switch (InType)
 		{
 		case DefaultFastAllocator:
+			Assert(FastAllocator[0].get());
 			Assert(FastAllocator[0]->GetAllocatorType() == InType);
 			return *FastAllocator[0];
 		case UploadFastAllocator:
+			Assert(FastAllocator[1].get());
 			Assert(FastAllocator[1]->GetAllocatorType() == InType);
 			return *FastAllocator[1];
 		default:
+			Assert(FastAllocator[0].get());
 			return *FastAllocator[0];
 		}
 	}

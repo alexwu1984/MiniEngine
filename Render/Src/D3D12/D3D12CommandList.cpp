@@ -3,6 +3,7 @@
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12StateCache.h"
+#include "D3D12/D3D12UniformBuffer.h"
 
 namespace RenderCore
 {
@@ -55,8 +56,41 @@ namespace RenderCore
 		}
 	}
 
+	void D3D12CommandListHandle::D3D12CommandListData::AddUniformBufferFenceTag(D3D12UniformBuffer* ub)
+	{
+		if (!ub)
+			return;
+		for (D3D12UniformBuffer* e : PendingUniformBuffersFenceTag)
+		{
+			if (e == ub)
+				return;
+		}
+		PendingUniformBuffersFenceTag.push_back(ub);
+	}
+
+	void D3D12CommandListHandle::D3D12CommandListData::FlushPendingUniformBufferFenceTags(uint64_t fenceValue)
+	{
+		for (D3D12UniformBuffer* ub : PendingUniformBuffersFenceTag)
+		{
+			if (ub)
+				ub->OnCmdListSubmitFence(fenceValue);
+		}
+		PendingUniformBuffersFenceTag.clear();
+	}
+
+	void D3D12CommandListHandle::D3D12CommandListData::CancelPendingUniformBufferFenceTags()
+	{
+		for (D3D12UniformBuffer* ub : PendingUniformBuffersFenceTag)
+		{
+			if (ub)
+				ub->CancelPendingGpuFenceTags();
+		}
+		PendingUniformBuffersFenceTag.clear();
+	}
+
 	void D3D12CommandListHandle::D3D12CommandListData::Reset(D3D12CommandAllocator& CommandAllocator)
 	{
+		CancelPendingUniformBufferFenceTags();
 		if (CommandAllocator.IsReady())
 			CommandAllocator.Reset();
 		VERIFYD3DRESULT(CommandList->Reset(CommandAllocator, nullptr));
@@ -85,7 +119,7 @@ namespace RenderCore
 
 	D3D12CommandListHandle::D3D12CommandListData::~D3D12CommandListData()
 	{
-
+		CancelPendingUniformBufferFenceTags();
 	}
 
 	void D3D12CommandListHandle::Create(std::weak_ptr<FD3D12Device> ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, D3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
@@ -100,6 +134,7 @@ namespace RenderCore
 		Assert(CommandListData);
 		const uint64_t SignaledFenceValue =
 			CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
+			CommandListData->FlushPendingUniformBufferFenceTags(FenceID);
 			const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
 			CommandListData->UploadLinearAllocator.CleanupUsedPages(FenceID, QueueType);
 			CommandListData->DefaultLinearAllocator.CleanupUsedPages(FenceID, QueueType);
@@ -123,6 +158,93 @@ namespace RenderCore
 		// Keep a single submit path so we always run per-list cleanup (allocators, dynamic heaps, etc.).
 		// This mirrors the intent of MiniEngine's CommandContext::Finish().
 		(void)ExecuteAndClear(WaitForCompletion);
+	}
+
+	void D3D12CommandListHandle::RegisterUniformBufferForSubmitFence(D3D12UniformBuffer* ub) const
+	{
+		Assert(CommandListData);
+		if (ub)
+		{
+			Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT
+				|| CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE);
+		}
+		CommandListData->AddUniformBufferFenceTag(ub);
+	}
+
+	void D3D12CommandListHandle::FlushPendingUniformBufferFenceTags(uint64_t fenceValue)
+	{
+		if (CommandListData)
+			CommandListData->FlushPendingUniformBufferFenceTags(fenceValue);
+	}
+
+	void D3D12CommandListHandle::CancelPendingUniformBufferFenceTags()
+	{
+		if (CommandListData)
+			CommandListData->CancelPendingUniformBufferFenceTags();
+	}
+
+	ED3D12CommandQueueType D3D12CommandListHandle::GetSubmitFenceQueueType() const
+	{
+		Assert(CommandListData);
+		switch (CommandListData->CommandListType)
+		{
+		case D3D12_COMMAND_LIST_TYPE_DIRECT:
+			return ED3D12CommandQueueType::Default;
+		case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+			return ED3D12CommandQueueType::Async;
+		case D3D12_COMMAND_LIST_TYPE_COPY:
+			return ED3D12CommandQueueType::Copy;
+		default:
+			return ED3D12CommandQueueType::Default;
+		}
+	}
+
+	void D3D12CommandListHandle::SetGraphicsRootConstantBufferViewUniform(UINT RootParameterIndex, D3D12UniformBuffer* UniformBuffer) const
+	{
+		Assert(CommandListData);
+		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT);
+		if (UniformBuffer)
+			UniformBuffer->RecordGpuReferenceRingSlot(*this);
+		const D3D12_GPU_VIRTUAL_ADDRESS va = UniformBuffer ? UniformBuffer->GetGPUVirtualAddress() : D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		GraphicsCommandList()->SetGraphicsRootConstantBufferView(RootParameterIndex, va);
+	}
+
+	void D3D12CommandListHandle::SetComputeRootConstantBufferViewUniform(UINT RootParameterIndex, D3D12UniformBuffer* UniformBuffer) const
+	{
+		Assert(CommandListData);
+		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT
+			|| CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE);
+		if (UniformBuffer)
+			UniformBuffer->RecordGpuReferenceRingSlot(*this);
+		const D3D12_GPU_VIRTUAL_ADDRESS va = UniformBuffer ? UniformBuffer->GetGPUVirtualAddress() : D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		GraphicsCommandList()->SetComputeRootConstantBufferView(RootParameterIndex, va);
+	}
+
+	void D3D12CommandListHandle::SetGraphicsRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, D3D12UniformBuffer* UniformBuffer, UINT DestOffsetIn32BitValues) const
+	{
+		Assert(CommandListData);
+		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT);
+		if (!UniformBuffer || Num32BitValues == 0)
+			return;
+		void* cpu = UniformBuffer->GetResourceBaseAddress();
+		if (!cpu)
+			return;
+		UniformBuffer->RecordGpuReferenceRingSlot(*this);
+		GraphicsCommandList()->SetGraphicsRoot32BitConstants(RootParameterIndex, Num32BitValues, cpu, DestOffsetIn32BitValues);
+	}
+
+	void D3D12CommandListHandle::SetComputeRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, D3D12UniformBuffer* UniformBuffer, UINT DestOffsetIn32BitValues) const
+	{
+		Assert(CommandListData);
+		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT
+			|| CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE);
+		if (!UniformBuffer || Num32BitValues == 0)
+			return;
+		void* cpu = UniformBuffer->GetResourceBaseAddress();
+		if (!cpu)
+			return;
+		UniformBuffer->RecordGpuReferenceRingSlot(*this);
+		GraphicsCommandList()->SetComputeRoot32BitConstants(RootParameterIndex, Num32BitValues, cpu, DestOffsetIn32BitValues);
 	}
 
 	void D3D12CommandListHandle::AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)

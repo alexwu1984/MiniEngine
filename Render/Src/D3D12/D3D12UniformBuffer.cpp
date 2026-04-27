@@ -2,6 +2,8 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12DirectCommandListManager.h"
 #include "math/math.h"
 
 namespace RenderCore
@@ -14,6 +16,11 @@ namespace RenderCore
 		uint32_t RingWriteIndex = 0;
 		FAllocation RingAllocation{};
 		bool RingAllocated = false;
+
+		uint64_t SlotFenceValue[kRingSlots]{};
+		ED3D12CommandQueueType SlotFenceQueue[kRingSlots]{};
+		uint32_t PendingPublishMask = 0;
+		ED3D12CommandQueueType SubmitQueueForSlot[kRingSlots]{};
 
 		~D3D12UniformBufferPrivate()
 		{
@@ -81,9 +88,78 @@ namespace RenderCore
 		C_P(D3D12UniformBuffer);
 		if (!d->RingAllocated || !Contents)
 			return;
-		uint8_t* slot = (uint8_t*)d->RingAllocation.CPU + (size_t)d->RingWriteIndex * (size_t)d->RingStride;
-		memcpy(slot, Contents, d->ConstantBufferSize);
+
+		const uint32_t slot = d->RingWriteIndex;
+		const uint64_t fenceVal = d->SlotFenceValue[slot];
+		if (fenceVal != 0)
+		{
+			std::shared_ptr<FD3D12Device> device = GetParentAdapter()->GetDevice();
+			if (device)
+			{
+				FD3D12Fence& fence = device->GetCommandListManager(d->SlotFenceQueue[slot]).GetFence();
+				if (!fence.IsFenceComplete(fenceVal))
+					fence.WaitForFence(fenceVal);
+			}
+		}
+
+		uint8_t* dst = (uint8_t*)d->RingAllocation.CPU + (size_t)slot * (size_t)d->RingStride;
+		memcpy(dst, Contents, d->ConstantBufferSize);
 		d->RingWriteIndex = (d->RingWriteIndex + 1) % D3D12UniformBufferPrivate::kRingSlots;
+	}
+
+	uint32_t D3D12UniformBuffer::GetActiveRingSlotIndex() const
+	{
+		C_P(const D3D12UniformBuffer);
+		if (!d->RingAllocated)
+			return 0;
+		return (d->RingWriteIndex + D3D12UniformBufferPrivate::kRingSlots - 1) % D3D12UniformBufferPrivate::kRingSlots;
+	}
+
+	void D3D12UniformBuffer::RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList)
+	{
+		C_P(D3D12UniformBuffer);
+		if (!d->RingAllocated || !cmdList)
+			return;
+		const uint32_t slot = GetActiveRingSlotIndex();
+		const ED3D12CommandQueueType q = cmdList.GetSubmitFenceQueueType();
+		d->PendingPublishMask |= (1u << slot);
+		d->SubmitQueueForSlot[slot] = q;
+		cmdList.RegisterUniformBufferForSubmitFence(this);
+	}
+
+	void D3D12UniformBuffer::OnCmdListSubmitFence(uint64_t fenceValue)
+	{
+		C_P(D3D12UniformBuffer);
+		const uint32_t mask = d->PendingPublishMask;
+		if (mask == 0)
+			return;
+		for (uint32_t i = 0; i < D3D12UniformBufferPrivate::kRingSlots; ++i)
+		{
+			if (mask & (1u << i))
+			{
+				d->SlotFenceValue[i] = fenceValue;
+				d->SlotFenceQueue[i] = d->SubmitQueueForSlot[i];
+			}
+		}
+		d->PendingPublishMask = 0;
+	}
+
+	void D3D12UniformBuffer::CancelPendingGpuFenceTags()
+	{
+		C_P(D3D12UniformBuffer);
+		d->PendingPublishMask = 0;
+	}
+
+	void D3D12UniformBuffer::ResetGpuRingFences()
+	{
+		C_P(D3D12UniformBuffer);
+		for (uint32_t i = 0; i < D3D12UniformBufferPrivate::kRingSlots; ++i)
+		{
+			d->SlotFenceValue[i] = 0;
+			d->SlotFenceQueue[i] = ED3D12CommandQueueType::Default;
+			d->SubmitQueueForSlot[i] = ED3D12CommandQueueType::Default;
+		}
+		d->PendingPublishMask = 0;
 	}
 
 }

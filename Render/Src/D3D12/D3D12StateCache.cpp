@@ -243,10 +243,23 @@ namespace RenderCore
 	void FD3D12StateCache::SetDynamicConstantBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
 	{
 		Assert(BufferIndex < MAX_CBS);
+		if (!UniformBuffer)
+		{
+			if (ConstantBufferCache.Buffers[ShaderType][BufferIndex] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			{
+				ConstantBufferCache.Buffers[ShaderType][BufferIndex] = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+				ConstantBufferObjects[ShaderType][BufferIndex].reset();
+				m_GraphicsBindDirtyMask |= kGraphicsDirtyCBV;
+			}
+			if (BufferIndex == 0 && ShaderType < SF_NumStandardFrequencies)
+				m_RootConstantUniformBuffer[ShaderType].reset();
+			return;
+		}
 		const D3D12_GPU_VIRTUAL_ADDRESS va = UniformBuffer->GetGPUVirtualAddress();
 		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex] != va)
 		{
 			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = va;
+			ConstantBufferObjects[ShaderType][BufferIndex] = UniformBuffer;
 			m_GraphicsBindDirtyMask |= kGraphicsDirtyCBV;
 		}
 		if (BufferIndex == 0 && ShaderType < SF_NumStandardFrequencies)
@@ -328,8 +341,21 @@ namespace RenderCore
 		m_GraphicsBindDirtyMask = 0;
 		m_GraphicsLayoutDirty = true;
 		m_LastUnifiedRootCacheKey.clear();
+		for (int32_t fi = 0; fi < SF_NumStandardFrequencies; ++fi)
+		{
+			for (int32_t bi = 0; bi < MAX_CBS; ++bi)
+			{
+				if (ConstantBufferObjects[fi][bi])
+					ConstantBufferObjects[fi][bi]->ResetGpuRingFences();
+				ConstantBufferObjects[fi][bi].reset();
+			}
+		}
 		for (std::shared_ptr<D3D12UniformBuffer>& Ptr : m_RootConstantUniformBuffer)
+		{
+			if (Ptr)
+				Ptr->ResetGpuRingFences();
 			Ptr.reset();
+		}
 	}
 
 	void FD3D12StateCache::SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
@@ -775,9 +801,7 @@ namespace RenderCore
 				const std::shared_ptr<D3D12UniformBuffer>& ub = m_RootConstantUniformBuffer[Freq];
 				if (!ub)
 					return;
-				void* cpu = ub->GetResourceBaseAddress();
-				if (cpu)
-					CommandList->SetGraphicsRoot32BitConstants((UINT)rcIdx, N, cpu, 0);
+				CommandList.SetGraphicsRoot32BitConstantsFromUniform((UINT)rcIdx, N, ub.get(), 0);
 			};
 			pushRootConstants(SF_Vertex);
 			pushRootConstants(SF_Pixel);
@@ -790,7 +814,11 @@ namespace RenderCore
 				for (uint32_t reg = firstReg; reg < VertexResCount.NumCBs; ++reg)
 				{
 					if (ConstantBufferCache.Buffers[SF_Vertex][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-						CommandList->SetGraphicsRootConstantBufferView(rootParamOffset + StartIndex, ConstantBufferCache.Buffers[SF_Vertex][reg]);
+					{
+						CommandList.SetGraphicsRootConstantBufferViewUniform(
+							rootParamOffset + StartIndex,
+							ConstantBufferObjects[SF_Vertex][reg].get());
+					}
 					++rootParamOffset;
 				}
 			}
@@ -802,7 +830,11 @@ namespace RenderCore
 				for (uint32_t reg = firstReg; reg < PixelResCount.NumCBs; ++reg)
 				{
 					if (ConstantBufferCache.Buffers[SF_Pixel][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-						CommandList->SetGraphicsRootConstantBufferView(rootParamOffset + StartIndex, ConstantBufferCache.Buffers[SF_Pixel][reg]);
+					{
+						CommandList.SetGraphicsRootConstantBufferViewUniform(
+							rootParamOffset + StartIndex,
+							ConstantBufferObjects[SF_Pixel][reg].get());
+					}
 					++rootParamOffset;
 				}
 			}
@@ -898,11 +930,7 @@ namespace RenderCore
 			const UINT N = (UINT)RootSignature->RootConstantsNum32BitValues[SF_Compute];
 			const std::shared_ptr<D3D12UniformBuffer>& ub = m_RootConstantUniformBuffer[SF_Compute];
 			if (ub && N > 0)
-			{
-				void* cpu = ub->GetResourceBaseAddress();
-				if (cpu)
-					CommandList->SetComputeRoot32BitConstants((UINT)csRcIdx, N, cpu, 0);
-			}
+				CommandList.SetComputeRoot32BitConstantsFromUniform((UINT)csRcIdx, N, ub.get(), 0);
 		}
 
 		int32_t StartIndex = RootSignature->CBRootIndex[SF_Compute];
@@ -913,7 +941,11 @@ namespace RenderCore
 			for (uint32_t reg = firstReg; reg < ComputeResCount.NumCBs; ++reg)
 			{
 				if (ConstantBufferCache.Buffers[SF_Compute][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					CommandList->SetComputeRootConstantBufferView(rootParamOffset + StartIndex, ConstantBufferCache.Buffers[SF_Compute][reg]);
+				{
+					CommandList.SetComputeRootConstantBufferViewUniform(
+						rootParamOffset + StartIndex,
+						ConstantBufferObjects[SF_Compute][reg].get());
+				}
 				++rootParamOffset;
 			}
 		}

@@ -248,6 +248,8 @@ namespace RenderCore
 		/** Last key passed to RootSignatures (includes static sampler digest); drives PSO stable hash. */
 		std::string m_LastUnifiedRootCacheKey;
 		std::shared_ptr<D3D12UniformBuffer> m_RootConstantUniformBuffer[SF_NumStandardFrequencies]{};
+		/** Mirrors ConstantBufferCache VA slots for fence tagging when CBVs are bound. */
+		std::shared_ptr<D3D12UniformBuffer> ConstantBufferObjects[SF_NumStandardFrequencies][MAX_CBS]{};
 
 		void ResetGraphicsApplyTracking();
 	};

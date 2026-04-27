@@ -9,7 +9,9 @@
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12SubmitStats.h"
+#include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12Allocation.h"
 #include "RHI/RHI.h"
 
 #include "../../../ThirdParty/DirectXTex/DXTexStats.h"
@@ -187,6 +189,44 @@ namespace RenderCore
 			DefaultPool.GetStandardPageCount(), DefaultPool.GetReadyPageCount(),
 			DefaultPool.GetRetiredPageCountForQueue(0), DefaultPool.GetRetiredPageCountForQueue(1), DefaultPool.GetRetiredPageCountForQueue(2));
 
+		if (Adapter)
+		{
+			const auto& Ring = Adapter->GetTransientUploadRing();
+			const double MB = 1024.0 * 1024.0;
+			core::LOG(core::log_inf,
+				L"[D3D12] TransientUploadRing size=%.1fMB used=%.1fMB head=%.1fMB tail=%.1fMB outstandingFences=%zu",
+				(double)Ring.GetSizeBytes() / MB,
+				(double)Ring.GetUsedBytes() / MB,
+				(double)Ring.GetHeadBytes() / MB,
+				(double)Ring.GetTailBytes() / MB,
+				Ring.GetOutstandingFenceCount());
+		}
+
+		{
+			static uint64_t sPrevWrap = 0, sPrevWrapBytes = 0;
+			static uint64_t sPrevWait = 0, sPrevWaitBytes = 0;
+			static uint64_t sPrevFail = 0;
+
+			const uint64_t cWrap = D3D12CreateStats::TransientRing_WrapCount().load(std::memory_order_relaxed);
+			const uint64_t cWrapBytes = D3D12CreateStats::TransientRing_WrapBytes().load(std::memory_order_relaxed);
+			const uint64_t cWait = D3D12CreateStats::TransientRing_WaitCount().load(std::memory_order_relaxed);
+			const uint64_t cWaitBytes = D3D12CreateStats::TransientRing_WaitBytes().load(std::memory_order_relaxed);
+			const uint64_t cFail = D3D12CreateStats::TransientRing_AllocFailCount().load(std::memory_order_relaxed);
+
+			const double MB = 1024.0 * 1024.0;
+			core::LOG(core::log_inf,
+				L"[D3D12] TransientRing/s wrap=%llu(%.1fMB) wait=%llu(%.1fMB) allocFail=%llu",
+				(unsigned long long)(cWrap - sPrevWrap),
+				(double)(cWrapBytes - sPrevWrapBytes) / MB,
+				(unsigned long long)(cWait - sPrevWait),
+				(double)(cWaitBytes - sPrevWaitBytes) / MB,
+				(unsigned long long)(cFail - sPrevFail));
+
+			sPrevWrap = cWrap; sPrevWrapBytes = cWrapBytes;
+			sPrevWait = cWait; sPrevWaitBytes = cWaitBytes;
+			sPrevFail = cFail;
+		}
+
 		core::LOG(core::log_inf,
 			L"[D3D12] DXTex Calls Capture=%llu SaveWIC=%llu SaveDDS=%llu LoadWIC=%llu LoadDDS=%llu",
 			(unsigned long long)DXTexStats::CaptureTextureCalls_D3D12().load(std::memory_order_relaxed),
@@ -206,6 +246,10 @@ namespace RenderCore
 		core::LOG(core::log_inf,
 			L"[D3D12] Cache RS=%zu PSO(G=%zu C=%zu) Shaders(VS=%zu PS=%zu CS=%zu) TexCaches=%zu",
 			RS, GPSO, CPSO, VS, PS, CS, TexCaches);
+
+		// Attribute gradual VMemPrivate WC commit growth to mapped regions.
+		// This is the key signal when Create/Map counts are flat but WC bytes keeps increasing.
+		D3D12UploadWCDiagnostics_DumpMappedRegionCommitDeltas();
 
 		{
 			const auto Live = FD3D12Resource::GetLiveStats();

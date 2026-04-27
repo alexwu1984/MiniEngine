@@ -13,6 +13,7 @@ namespace RenderCore
 		uint32_t Size = 0;
 		uint32_t ElementSize = 0;
 		int32_t IndexFormat = DXGI_FORMAT_R16_UINT;
+		bool bDynamic = false;
 
 		~D3D12IndexBufferPrivate()
 		{
@@ -89,14 +90,13 @@ namespace RenderCore
 		C_P(D3D12IndexBuffer);
 		D3D12_RESOURCE_DESC ResDesc = DescribeBuffer();
 
-		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_COMMON;
+		d->bDynamic = (InUsage & BUF_AnyDynamic) != 0;
+
+		// UE-style: index buffers live in DEFAULT memory.
+		// Dynamic updates use transient UPLOAD allocations + CopyBufferRegion, not committed UPLOAD buffers.
+		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_GENERIC_READ;
 		D3D12_HEAP_PROPERTIES HeapProps;
 		HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-		if (InUsage & BUF_AnyDynamic)
-		{
-			HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-			InitState = D3D12_RESOURCE_STATE_GENERIC_READ;
-		}
 		
 		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 		HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
@@ -110,15 +110,8 @@ namespace RenderCore
 			return false;
 		if (InData)
 		{
-			if (InUsage & BUF_AnyDynamic)
-			{
-				void* MappedData = d->Resource->Map();
-				if (MappedData)
-					memcpy(MappedData, InData, d->Size);
-				d->Resource->Unmap();
-			}
-			else
-				GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, d->Size, 0);
+			// Initialize via transient upload + GPU copy (keeps DEFAULT residency and avoids WC commit growth).
+			GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, d->Size, 0);
 		}
 		return true;
 	}

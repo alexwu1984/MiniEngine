@@ -182,9 +182,15 @@ namespace RenderCore
 		d->Device->Initialize();
 
 		// UE-style bounded transient upload ring (used for dynamic constant/uniform data).
-		// Keep size modest to avoid WC commit explosion when the CPU outruns the GPU.
+		// Also used as a first-choice staging allocator for transient UPLOAD allocations; keep it bounded
+		// but large enough to absorb texture upload bursts without falling back to creating new WC regions.
 		d->TransientUploadRing = std::make_unique<FD3D12TransientUploadRing>(this->shared_from_this());
-		(void)d->TransientUploadRing->Initialize(64ull * 1024ull * 1024ull);
+		int32_t RingMB = 128;
+		core::CommandLine::Get().GetInteger("d3d12_upload_ring_mb", RingMB);
+		if (RingMB < 64)
+			RingMB = 64;
+		const uint64_t RingBytes = (uint64_t)RingMB * 1024ull * 1024ull;
+		(void)d->TransientUploadRing->Initialize(RingBytes);
 
 		// Create device-global null uniform buffer after the upload ring exists.
 		// (D3D12UniformBuffer allocates from the ring.)

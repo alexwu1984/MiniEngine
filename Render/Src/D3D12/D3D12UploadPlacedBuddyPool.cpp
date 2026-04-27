@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12UploadPlacedBuddyPool.h"
+#include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
 
@@ -49,6 +50,10 @@ namespace RenderCore
 
 		if (FAILED(Dev->CreateHeap(&Desc, IID_PPV_ARGS(Heap.get_init_ref()))))
 			return false;
+
+		// Track non-linear upload heap allocations in memmon. These heaps contribute to WC virtual memory
+		// but don't show up in LinearPage_Upload* counters.
+		D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"UploadPlacedBuddyPoolHeap", (std::size_t)HeapSizeBytes);
 
 		BackingHeapSizeBytes = HeapSizeBytes;
 		const uint32_t unitSize = maxBlockBytes / kMinBlockBytes;
@@ -193,6 +198,10 @@ namespace RenderCore
 			DeallocateBlockInternal(offsetUnits, order);
 			return false;
 		}
+
+		// Placed upload pages also consume WC virtual memory. Track both map base regions and per-second bytes.
+		D3D12UploadWCDiagnostics_OnUploadMap(L"LinearPage_PlacedBuddy", Cpu, (uint64_t)PageSizeBytes);
+		D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"LinearPage_PlacedBuddy", (std::size_t)PageSizeBytes);
 
 		Res->SetName(L"LinearPage_PlacedBuddy");
 		OutResource = std::move(Res);

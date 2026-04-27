@@ -12,6 +12,7 @@ namespace RenderCore
 		int32_t StrideByteWidth = 0;
 		int32_t Count = 0;
 		int32_t BufferSize = 0;
+		bool bDynamic = false;
 
 		~D3D12VertexBfferPrivate()
 		{
@@ -38,16 +39,14 @@ namespace RenderCore
 		d->BufferSize = StrideByteWidth * Count;
 		d->StrideByteWidth = StrideByteWidth;
 		d->Count = Count;
+		d->bDynamic = (InUsage & BUF_AnyDynamic) != 0;
 
 		D3D12_RESOURCE_DESC ResDesc = DescribeBuffer();
-		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_COMMON;
+		// UE-style: vertex buffers live in DEFAULT memory.
+		// Dynamic updates use transient UPLOAD allocations + CopyBufferRegion, not committed UPLOAD buffers.
+		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_GENERIC_READ;
 		D3D12_HEAP_PROPERTIES HeapProps;
 		HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-		if (InUsage & BUF_AnyDynamic)
-		{
-			HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-			InitState = D3D12_RESOURCE_STATE_GENERIC_READ;
-		}
 		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 		HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 		HeapProps.CreationNodeMask = 1;
@@ -60,15 +59,8 @@ namespace RenderCore
 			return false;
 		if (InData)
 		{
-			if (InUsage & BUF_AnyDynamic)
-			{
-				void* MappedData = d->Resource->Map();
-				if (MappedData)
-					memcpy(MappedData, InData, d->BufferSize);
-				d->Resource->Unmap();
-			}
-			else
-				GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, d->BufferSize, 0);
+			// Initialize via transient upload + GPU copy (keeps DEFAULT residency and avoids WC commit growth).
+			GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, d->BufferSize, 0);
 		}
 
 		return true;
@@ -79,10 +71,38 @@ namespace RenderCore
 		C_P(D3D12VertexBffer);
 		if (!d->Resource)
 			return;
-		void* MappedData = d->Resource->Map();
-		if (MappedData)
-			memcpy(MappedData, InData, nVertex * sizePerVertex);
-		d->Resource->Unmap();
+		if (!InData || nVertex <= 0 || sizePerVertex <= 0)
+			return;
+
+		const uint32_t NumBytes = (uint32_t)(nVertex * sizePerVertex);
+		if (NumBytes == 0)
+			return;
+
+		// Dynamic update path: stage into transient UPLOAD allocator and copy into DEFAULT VB.
+		// This prevents long-lived mapped committed UPLOAD buffers from growing VMemPrivate WC.
+		auto Ctx = GetParentDevice()->GetDefaultCommandContext();
+		if (!Ctx)
+			return;
+
+		D3D12CommandListHandle& CL = Ctx->GetCurrentCommandListHandle();
+		if (!CL)
+		{
+			// If no command list is open yet, fall back to the slower init path.
+			// (Should be rare; typical frame flow has an open CL.)
+			Ctx->InitializeBuffer(d->Resource, InData, NumBytes, 0);
+			return;
+		}
+
+		FAllocation UploadAlloc = Ctx->GetLinearAllocator(UploadFastAllocator).Allocate(NumBytes, DEFAULT_ALIGN);
+		if (!UploadAlloc.CPU || !UploadAlloc.D3D12Resource)
+			return;
+		memcpy(UploadAlloc.CPU, InData, NumBytes);
+
+		// Transition VB to COPY_DEST, perform copy, then back to GENERIC_READ for binding.
+		Ctx->TransitionResource(d->Resource, D3D12_RESOURCE_STATE_COPY_DEST, true);
+		CL->CopyBufferRegion(d->Resource->GetResource(), 0, UploadAlloc.D3D12Resource, (UINT64)UploadAlloc.Offset, NumBytes);
+		++Ctx->numCopies;
+		Ctx->TransitionResource(d->Resource, D3D12_RESOURCE_STATE_GENERIC_READ, true);
 	}
 
 	int32_t D3D12VertexBffer::GetStride() const

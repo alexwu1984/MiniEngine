@@ -2,6 +2,7 @@
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12CallStats.h"
+#include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "win/com_ptr.h"
 #include <atomic>
 
@@ -157,6 +158,14 @@ namespace RenderCore
 			Assert(Resource);
 			Render::D3D12CallStats::IncMap();
 			VERIFYD3DRESULT(Resource->Map(0, ReadRange, &ResourceBaseAddress));
+
+			// Deep memmon: attribute WC virtual memory growth to the exact upload resource being mapped.
+			// Many WC regions are created lazily by the OS/runtime on first Map of an upload heap resource.
+			if (HeapType == D3D12_HEAP_TYPE_UPLOAD && RenderCore::D3D12RHI_ShouldEnableMemMon())
+			{
+				const uint64_t Bytes = EstimateBytes(Desc);
+				D3D12UploadWCDiagnostics_OnUploadMap(L"FD3D12Resource.Map(Upload)", ResourceBaseAddress, Bytes);
+			}
 
 			return ResourceBaseAddress;
 		}

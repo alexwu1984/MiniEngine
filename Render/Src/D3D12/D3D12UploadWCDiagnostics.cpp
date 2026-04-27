@@ -9,20 +9,92 @@
 
 #include <mutex>
 #include <unordered_set>
+#include <vector>
+#include <cwchar>
 
 namespace RenderCore
 {
 	namespace
 	{
+		struct FMappedWcRegion
+		{
+			void* Base = nullptr;        // AllocationBase
+			uint64_t SizeBytes = 0;      // best-effort tracked size (may be RegionSize)
+			wchar_t Tag[64] = {};
+			uint64_t LastCommittedBytes = 0;
+		};
+
+		static uint64_t QueryCommittedWcBytes(void* Base, uint64_t SizeBytes)
+		{
+			if (!Base || SizeBytes == 0)
+				return 0;
+
+			uint8_t* p = (uint8_t*)Base;
+			uint8_t* end = p + SizeBytes;
+			uint64_t committed = 0;
+			while (p < end)
+			{
+				MEMORY_BASIC_INFORMATION mbi = {};
+				if (::VirtualQuery(p, &mbi, sizeof(mbi)) != sizeof(mbi))
+					break;
+
+				const uint8_t* regionBase = (const uint8_t*)mbi.BaseAddress;
+				uint8_t* regionEnd = (uint8_t*)mbi.BaseAddress + (size_t)mbi.RegionSize;
+				if (regionEnd > end)
+					regionEnd = end;
+
+				const bool bCommitted = (mbi.State == MEM_COMMIT);
+				const bool bWC = ((mbi.Protect & PAGE_WRITECOMBINE) != 0);
+				if (bCommitted && bWC)
+					committed += (uint64_t)(regionEnd - (uint8_t*)mbi.BaseAddress);
+
+				p = (uint8_t*)mbi.BaseAddress + (size_t)mbi.RegionSize;
+			}
+			return committed;
+		}
+
+		static std::mutex& RegionsMutex()
+		{
+			static std::mutex sMu;
+			return sMu;
+		}
+
+		static std::vector<FMappedWcRegion>& Regions()
+		{
+			static std::vector<FMappedWcRegion> sRegions;
+			return sRegions;
+		}
+
 		static void EnsureDbgHelpInitialized()
 		{
 			static std::once_flag sOnce;
 			std::call_once(sOnce, []() {
 				::SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
 				HANDLE proc = ::GetCurrentProcess();
-				::SymInitialize(proc, nullptr, FALSE);
+				// Invade process so we can resolve symbols from all loaded modules (RelWithDebInfo PDBs).
+				::SymInitialize(proc, nullptr, TRUE);
 
-				// Load the main module's symbols explicitly (invade=FALSE won't necessarily do it).
+				// Add common local search paths so SymFromAddr can find PDBs next to the exe and in the current working directory.
+				{
+					wchar_t exePathW[MAX_PATH] = {};
+					wchar_t cwdW[MAX_PATH] = {};
+					::GetCurrentDirectoryW((DWORD)_countof(cwdW), cwdW);
+
+					if (::GetModuleFileNameW(nullptr, exePathW, (DWORD)_countof(exePathW)) > 0)
+					{
+						// Strip filename to get the exe directory.
+						wchar_t* lastSlash = wcsrchr(exePathW, L'\\');
+						if (lastSlash)
+							*lastSlash = 0;
+
+						// "cwd;exeDir"
+						wchar_t searchPathW[2 * MAX_PATH + 4] = {};
+						_snwprintf_s(searchPathW, _countof(searchPathW), _TRUNCATE, L"%s;%s", cwdW, exePathW);
+						::SymSetSearchPathW(proc, searchPathW);
+					}
+				}
+
+				// Load the main module's symbols explicitly.
 				wchar_t modulePathW[MAX_PATH] = {};
 				if (::GetModuleFileNameW(nullptr, modulePathW, (DWORD)_countof(modulePathW)) > 0)
 				{
@@ -76,8 +148,124 @@ namespace RenderCore
 			}
 			else
 			{
+				// Fall back to "module+offset" when PDBs aren't available/resolvable.
+				HMODULE hMod = nullptr;
+				if (::GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+						(LPCWSTR)addr, &hMod) && hMod)
+				{
+					wchar_t modPathW[MAX_PATH] = {};
+					if (::GetModuleFileNameW(hMod, modPathW, (DWORD)_countof(modPathW)) > 0)
+					{
+						const uint64_t base = (uint64_t)(uintptr_t)hMod;
+						const uint64_t off = (uint64_t)(uintptr_t)addr - base;
+						// Keep only filename for readability.
+						const wchar_t* modNameW = wcsrchr(modPathW, L'\\');
+						modNameW = modNameW ? (modNameW + 1) : modPathW;
+						_snwprintf_s(out, outChars, _TRUNCATE, L"%s+0x%llX", modNameW, (unsigned long long)off);
+						return;
+					}
+				}
+
 				_snwprintf_s(out, outChars, _TRUNCATE, L"%p", addr);
 			}
+		}
+	}
+
+	void D3D12UploadWCDiagnostics_RegisterMappedRegion(const wchar_t* Tag, void* BasePtr, uint64_t SizeBytes)
+	{
+		if (!BasePtr || SizeBytes == 0)
+			return;
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
+			return;
+
+		MEMORY_BASIC_INFORMATION mbi = {};
+		if (::VirtualQuery(BasePtr, &mbi, sizeof(mbi)) != sizeof(mbi))
+			return;
+		if ((mbi.Protect & PAGE_WRITECOMBINE) == 0)
+			return;
+
+		void* allocBase = mbi.AllocationBase;
+		uint64_t regionSize = (uint64_t)mbi.RegionSize;
+		const uint64_t trackedSize = (SizeBytes > 0) ? SizeBytes : regionSize;
+
+		std::lock_guard<std::mutex> lock(RegionsMutex());
+		auto& R = Regions();
+		for (auto& e : R)
+		{
+			if (e.Base == allocBase)
+			{
+				// Best-effort: keep the max size we've seen.
+				if (trackedSize > e.SizeBytes)
+					e.SizeBytes = trackedSize;
+				return;
+			}
+		}
+
+		FMappedWcRegion NewE;
+		NewE.Base = allocBase;
+		NewE.SizeBytes = trackedSize;
+		if (Tag && Tag[0])
+			wcsncpy_s(NewE.Tag, Tag, _TRUNCATE);
+		else
+			wcsncpy_s(NewE.Tag, L"WCRegion", _TRUNCATE);
+		NewE.LastCommittedBytes = QueryCommittedWcBytes(NewE.Base, NewE.SizeBytes);
+		R.push_back(NewE);
+		if (R.size() > 1024)
+			R.erase(R.begin(), R.begin() + (R.size() - 1024));
+	}
+
+	void D3D12UploadWCDiagnostics_DumpMappedRegionCommitDeltas()
+	{
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
+			return;
+
+		// We only want to attribute gradual commit; skip if there are no tracked regions.
+		std::lock_guard<std::mutex> lock(RegionsMutex());
+		auto& R = Regions();
+		if (R.empty())
+			return;
+
+		struct FDelta
+		{
+			const FMappedWcRegion* Region = nullptr;
+			uint64_t DeltaBytes = 0;
+			uint64_t CurCommitted = 0;
+		};
+
+		std::vector<FDelta> deltas;
+		deltas.reserve(R.size());
+
+		for (auto& e : R)
+		{
+			const uint64_t cur = QueryCommittedWcBytes(e.Base, e.SizeBytes);
+			const uint64_t prev = e.LastCommittedBytes;
+			const uint64_t d = (cur > prev) ? (cur - prev) : 0;
+			e.LastCommittedBytes = cur;
+			if (d > 0)
+				deltas.push_back(FDelta{ &e, d, cur });
+		}
+
+		if (deltas.empty())
+			return;
+
+		std::sort(deltas.begin(), deltas.end(), [](const FDelta& a, const FDelta& b) { return a.DeltaBytes > b.DeltaBytes; });
+
+		const double MB = 1024.0 * 1024.0;
+		const size_t kMaxLines = 6;
+		size_t printed = 0;
+		for (const auto& d : deltas)
+		{
+			if (d.DeltaBytes < (uint64_t)(1.0 * 1024.0 * 1024.0))
+				break; // ignore sub-1MB noise
+			core::LOG(core::log_inf,
+				L"[D3D12] WCCommit/s +%.1fMB (cur=%.1fMB) tag=%s base=%p tracked=%.1fMB",
+				(double)d.DeltaBytes / MB,
+				(double)d.CurCommitted / MB,
+				(d.Region ? d.Region->Tag : L"?"),
+				(d.Region ? d.Region->Base : nullptr),
+				(double)(d.Region ? d.Region->SizeBytes : 0) / MB);
+			if (++printed >= kMaxLines)
+				break;
 		}
 	}
 
@@ -93,6 +281,9 @@ namespace RenderCore
 			return;
 		if ((mbi.Protect & PAGE_WRITECOMBINE) == 0)
 			return;
+
+		// Track this WC allocation base for gradual-commit attribution.
+		D3D12UploadWCDiagnostics_RegisterMappedRegion(Tag, mbi.AllocationBase, (uint64_t)mbi.RegionSize);
 
 		static std::mutex sMu;
 		static std::unordered_set<void*> sSeenBases;
@@ -223,6 +414,43 @@ namespace RenderCore
 			return;
 		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
 			return;
+
+		// If deep memmon is enabled, print each call immediately with a stack so we don't miss
+		// one-shot allocations (e.g. backing heaps created once at startup).
+		if (RenderCore::D3D12RHI_ShouldEnableMemMonDeep())
+		{
+			static thread_local bool sReentryGuard = false;
+			if (sReentryGuard)
+				return;
+			sReentryGuard = true;
+
+			void* frames[16] = {};
+			const USHORT n = ::RtlCaptureStackBackTrace(1, 16, frames, nullptr);
+
+			wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
+			wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
+			if (n > 0)
+			{
+				FormatAddrSymbol(s0, _countof(s0), frames[0]);
+				FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
+				FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
+				FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
+				FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
+				FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
+				FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
+				FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
+			}
+
+			const double MB = 1024.0 * 1024.0;
+			core::LOG(core::log_inf,
+				L"[D3D12] UploadCommittedBuffer (%s) +1 alloc %.1fMB stack: %s | %s | %s | %s | %s | %s | %s | %s",
+				(Tag ? Tag : L"?"),
+				(double)SizeBytes / MB,
+				s0, s1, s2, s3, s4, s5, s6, s7);
+
+			sReentryGuard = false;
+			return;
+		}
 
 		// Aggregate and print at most once per second.
 		static ULONGLONG sLastTick = 0;

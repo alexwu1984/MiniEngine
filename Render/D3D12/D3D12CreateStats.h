@@ -118,6 +118,34 @@ namespace RenderCore::D3D12CreateStats
 		return v;
 	}
 
+	// Transient upload ring (bounded UPLOAD heap) behavior.
+	// These counters help diagnose WC growth caused by ring not reclaiming / not wrapping.
+	inline std::atomic_uint64_t& TransientRing_WrapCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& TransientRing_WrapBytes()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& TransientRing_WaitCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& TransientRing_WaitBytes()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+	inline std::atomic_uint64_t& TransientRing_AllocFailCount()
+	{
+		static std::atomic_uint64_t v{0};
+		return v;
+	}
+
 	// Command list pool churn (per FD3D12CommandListManager).
 	inline std::atomic_uint64_t& CmdList_ObtainFromReadyCount_Direct()
 	{

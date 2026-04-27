@@ -1,5 +1,6 @@
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12UploadWCDiagnostics.h"
 
 namespace RenderCore
 {
@@ -31,6 +32,14 @@ namespace RenderCore
 		, GPUVirtualAddress(0)
 		, ResourceBaseAddress(nullptr)
 	{
+		// Deep memmon: attribute all upload-heap committed resources to their call sites.
+		// WC virtual memory growth often comes from upload committed buffers that are not part of linear allocators.
+		if (HeapType == D3D12_HEAP_TYPE_UPLOAD && RenderCore::D3D12RHI_ShouldEnableMemMonDeep())
+		{
+			const uint64_t Bytes = EstimateBytes(Desc);
+			D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"FD3D12Resource.Upload", (std::size_t)Bytes);
+		}
+
 		if (Resource
 			&& Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
 			)

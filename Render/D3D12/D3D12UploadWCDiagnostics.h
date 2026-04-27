@@ -8,6 +8,11 @@ namespace RenderCore
 	// Kept separate from allocators to avoid pulling heavy debug/symbol deps into core paths.
 	void D3D12UploadWCDiagnostics_OnUploadMap(const wchar_t* Tag, void* MappedPtr, uint64_t SizeBytes);
 
+	// Track mapped WC regions and attribute "gradual commit" growth.
+	// Register is cheap; dump does VirtualQuery scanning (once per second in memmon mode).
+	void D3D12UploadWCDiagnostics_RegisterMappedRegion(const wchar_t* Tag, void* BasePtr, uint64_t SizeBytes);
+	void D3D12UploadWCDiagnostics_DumpMappedRegionCommitDeltas();
+
 	// Large-page allocation diagnostics (typically UPLOAD/WC). Enabled by command line: d3d12_memmon=1
 	// Aggregated and logged at most once per second.
 	void D3D12UploadWCDiagnostics_OnAllocateLargePage(const wchar_t* Tag, std::size_t SizeBytes);

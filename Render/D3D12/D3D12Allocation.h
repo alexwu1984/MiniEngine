@@ -68,6 +68,12 @@ namespace RenderCore
 		uint64_t Allocate(uint64_t Count);
 		uint64_t AllocateOrWait(uint64_t Count);
 
+		uint64_t GetSize() const { return Size; }
+		uint64_t GetHead() const { return Head; }
+		uint64_t GetTail() const { return Tail; }
+		uint64_t GetUsedSize() const { return UsedSize; }
+		std::size_t GetOutstandingFenceCount() const { return OutstandingAllocs.size(); }
+
 	private:
 		void UpdateCompleted();
 		uint64_t OldestOutstandingFenceValue() const;
@@ -100,6 +106,10 @@ namespace RenderCore
 		ID3D12Resource* GetResource() const { return UploadResource.get(); }
 		void* GetMappedBase() const { return MappedBase; }
 		uint64_t GetSizeBytes() const { return SizeBytes; }
+		uint64_t GetHeadBytes() const { return Ring.GetHead(); }
+		uint64_t GetTailBytes() const { return Ring.GetTail(); }
+		uint64_t GetUsedBytes() const { return Ring.GetUsedSize(); }
+		std::size_t GetOutstandingFenceCount() const { return Ring.GetOutstandingFenceCount(); }
 
 	private:
 		uint64_t AlignUp(uint64_t v, uint64_t a) const { return (a == 0) ? v : ((v + (a - 1)) & ~(a - 1)); }

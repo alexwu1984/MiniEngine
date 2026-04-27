@@ -6,6 +6,7 @@
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
+#include "core/commandline.h"
 
 namespace RenderCore
 {
@@ -337,18 +338,27 @@ namespace RenderCore
 		{
 			// If head is at 0, we can't wrap yet.
 			if (Head == 0)
+			{
+				D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_AllocFailCount());
 				return FailedReturnValue;
+			}
 			const uint64_t Padding = Size - Tail;
 			// Padding is purely to advance Tail; still must be fenced because it occupies bytes.
 			const uint64_t FenceKey = Fence ? Fence->GetCurrentFence() : 0;
 			OutstandingAllocs[FenceKey] += Padding;
 			UsedSize += Padding;
 			Tail = 0;
+
+			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_WrapCount());
+			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_WrapBytes(), Padding);
 		}
 
 		// Space check: ring is full when UsedSize + Count > Size.
 		if (UsedSize + Count > Size)
+		{
+			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_AllocFailCount());
 			return FailedReturnValue;
+		}
 
 		// If the allocation would overlap Head (when wrapped), fail.
 		if (Tail >= Head)
@@ -362,7 +372,10 @@ namespace RenderCore
 		{
 			// Tail < Head: free region is [Tail..Head). Must fit.
 			if (Tail + Count > Head)
+			{
+				D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_AllocFailCount());
 				return FailedReturnValue;
+			}
 		}
 
 		const uint64_t ReturnValue = Tail;
@@ -402,6 +415,9 @@ namespace RenderCore
 			if (Oldest == 0)
 				return FailedReturnValue;
 
+			// Ring is full: wait for the oldest outstanding allocation to complete (UE-style).
+			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_WaitCount());
+			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_WaitBytes(), Count);
 			Fence->WaitForFence(Oldest);
 			UpdateCompleted();
 		}
@@ -466,6 +482,34 @@ namespace RenderCore
 
 		UploadResource = std::move(R);
 		MappedBase = Cpu;
+
+		if (D3D12RHI_ShouldEnableMemMon())
+		{
+			D3D12UploadWCDiagnostics_OnUploadMap(L"TransientUploadRing", MappedBase, SizeBytes);
+		}
+
+		// Optional: pre-touch the ring to commit WC pages upfront.
+		// This avoids the appearance of a "leak" where VMemPrivate WC bytes climbs for many seconds
+		// as the CPU touches new upload pages over time.
+		// Enable via command line: d3d12_upload_ring_pretouch=1
+		{
+			int32_t Pretouch = 0;
+			core::CommandLine::Get().GetInteger("d3d12_upload_ring_pretouch", Pretouch);
+			if (Pretouch != 0 && MappedBase && SizeBytes)
+			{
+				// Touch one byte per 4KB page to force commit.
+				// Using 64KB steps would only touch 1 page out of 16 on 4KB-page systems.
+				volatile uint8_t* p = (volatile uint8_t*)MappedBase;
+				const uint64_t Step = 4ull * 1024ull;
+				for (uint64_t off = 0; off < SizeBytes; off += Step)
+				{
+					p[off] = 0;
+				}
+				// Touch the last byte as well.
+				p[SizeBytes - 1] = 0;
+			}
+		}
+
 		return true;
 	}
 
@@ -698,11 +742,21 @@ namespace RenderCore
 			BuddyPool = GetParentDevice()->GetUploadPlacedBuddyPool();
 			uint64_t GpuVA = 0;
 			void* Cpu = nullptr;
-			if (BuddyPool && BuddyPool->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd))
+			if (BuddyPool)
 			{
-				(void)GpuVA;
-				(void)Cpu;
-				bPlacedBuddyPage = true;
+				// If the pool is temporarily out of space (GPU behind, frees not processed yet),
+				// wait for the oldest deferred free and retry. This prevents unbounded WC region growth.
+				if (!BuddyPool->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd))
+				{
+					DrainPlacedBuddyDeferredWithWait();
+					(void)BuddyPool->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd);
+				}
+				if (pBuffer)
+				{
+					(void)GpuVA;
+					(void)Cpu;
+					bPlacedBuddyPage = true;
+				}
 			}
 		}
 

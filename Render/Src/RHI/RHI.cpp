@@ -276,4 +276,11 @@ namespace RenderCore
 			return false;
 		return CmdBool("d3d12_memmon_stacks", false);
 	}
+
+	bool D3D12RHI_ShouldEnableMemMonDeep()
+	{
+		if (!D3D12RHI_ShouldEnableMemMon())
+			return false;
+		return CmdBool("d3d12_memmon_deep", false) || CmdBool("d3d_mem_deep", false);
+	}
 }

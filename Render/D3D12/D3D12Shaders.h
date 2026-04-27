@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIShdader.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 
@@ -23,6 +23,8 @@ namespace RenderCore
 		std::vector<VertexElementDesc> ElementDescs;
 		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
+		/** If non-zero, b0 is bound as root constants (DWORD count); otherwise b0 uses a CBV root parameter. */
+		uint8_t CBBind0RootConstantsDwords = 0;
 	};
 
 	class FD3D12PixelShader : public RHIPixelShader, std::enable_shared_from_this<FD3D12PixelShader>
@@ -40,6 +42,7 @@ namespace RenderCore
 		win32::com_ptr<ID3DBlob> Code;
 		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
+		uint8_t CBBind0RootConstantsDwords = 0;
 	};
 
 	class FD3D12ComputeShader : public RHIComputeShader
@@ -57,5 +60,6 @@ namespace RenderCore
 		win32::com_ptr<ID3DBlob> Code;
 		uint32_t Hash = 0;
 		FShaderCodePackedResourceCounts ResourceCounts;
+		uint8_t CBBind0RootConstantsDwords = 0;
 	};
 }

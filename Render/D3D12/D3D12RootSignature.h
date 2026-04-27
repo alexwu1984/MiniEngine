@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12RHICommon.h"
 
@@ -98,6 +98,8 @@ namespace RenderCore
 			std::fill(CBRootIndex, CBRootIndex + SF_NumStandardFrequencies, -1);
 			std::fill(SRVRootIndex, SRVRootIndex + SF_NumStandardFrequencies, -1);
 			std::fill(UAVRootIndex, UAVRootIndex + SF_NumStandardFrequencies, -1);
+			std::fill(RootConstantsRootIndex, RootConstantsRootIndex + SF_NumStandardFrequencies, -1);
+			std::fill(RootConstantsNum32BitValues, RootConstantsNum32BitValues + SF_NumStandardFrequencies, 0);
 		}
 
 		~FRootSignature() = default;
@@ -137,6 +139,9 @@ namespace RenderCore
 		int32_t CBRootIndex[SF_NumStandardFrequencies]{-1};
 		int32_t SRVRootIndex[SF_NumStandardFrequencies]{-1};
 		int32_t UAVRootIndex[SF_NumStandardFrequencies]{-1};
+		/** Root parameter index for D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS, or -1. */
+		int32_t RootConstantsRootIndex[SF_NumStandardFrequencies]{-1};
+		uint8_t RootConstantsNum32BitValues[SF_NumStandardFrequencies]{};
 	protected:
 		bool m_Finalized = false;
 		uint32_t m_NumParameters = 0;

@@ -54,9 +54,11 @@ namespace RenderCore
 		void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip,std::shared_ptr<RHITextureCube> TextureCubeRHI);
 		virtual void RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV) override;
 		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) override;
+		virtual void RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues = 0) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) override;
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
+		virtual void DrawPrimitiveInstanced(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount, uint32_t StartInstanceLocation = 0) override;
 		virtual void Draw(uint32_t VertexCount, uint32_t VertexStartOffset = 0);
 		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) override;
 		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) override;

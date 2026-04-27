@@ -52,6 +52,7 @@ namespace RenderCore
 		ResourceCounts.NumSRVs = NumSRVs;
 		ResourceCounts.NumUAVs = NumUAVs;
 		ResourceCounts.NumSamplers = NumSamplers;
+		CBBind0RootConstantsDwords = ShaderUtil::GetCBBindPoint0RootConstantDwordCount(0, shaderCode);
 		ElementDescs = VertexDeclare.GetDeclareDesc();
 
 		std::filesystem::path Path(core::ucs2_u8(FileName));
@@ -97,6 +98,7 @@ namespace RenderCore
 		ResourceCounts.NumSRVs = NumSRVs;
 		ResourceCounts.NumUAVs = NumUAVs;
 		ResourceCounts.NumSamplers = NumSamplers;
+		CBBind0RootConstantsDwords = ShaderUtil::GetCBBindPoint0RootConstantDwordCount(0, shaderCode);
 
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", PSMain);
@@ -139,6 +141,7 @@ namespace RenderCore
 		ResourceCounts.NumSRVs = NumSRVs;
 		ResourceCounts.NumUAVs = NumUAVs;
 		ResourceCounts.NumSamplers = NumSamplers;
+		CBBind0RootConstantsDwords = ShaderUtil::GetCBBindPoint0RootConstantDwordCount(0, shaderCode);
 
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", CSMain);

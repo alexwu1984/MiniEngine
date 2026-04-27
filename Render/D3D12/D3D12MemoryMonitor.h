@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -8,8 +8,8 @@ namespace RenderCore
 	class FD3D12Adapter;
 	class FD3D12Device;
 
-	// Centralizes all "memory related" diagnostic logging behind a single switch.
-	// Enable with command line: d3d12_memmon=1
+	// Diagnostic logging behind d3d12_memmon=1 / d3d_mem=1. VidMem+ProcMem each tick;
+	// HeapWalk + full VirtualQuery only when d3d12_memmon_deep=1 (or d3d_mem_deep=1).
 	class D3D12MemoryMonitor
 	{
 	public:

@@ -1,8 +1,6 @@
-#include "D3D12/D3D12MemoryMonitor.h"
+﻿#include "D3D12/D3D12MemoryMonitor.h"
 
 #include "D3D12/D3D12Adapter.h"
-#include "D3D12/D3D12CallStats.h"
-
 #include "RHI/RHI.h"
 #include "core/commandline.h"
 #include "core/logger.h"
@@ -151,6 +149,10 @@ namespace RenderCore
 					(double)pmc.PagefileUsage / MB);
 			}
 		}
+
+		// HeapWalk + full VirtualQuery: very expensive; opt-in (d3d12_memmon_deep=1).
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMonDeep())
+			return;
 
 		// Heap walk (CPU heap pressure)
 		{

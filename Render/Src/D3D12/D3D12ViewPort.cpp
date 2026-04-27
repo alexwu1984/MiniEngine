@@ -247,7 +247,6 @@ namespace RenderCore
 				D3D12PresentStats::WindowNotVisible().fetch_add(1, std::memory_order_relaxed);
 		}
 
-		Render::D3D12CallStats::IncPresent();
 		const HRESULT hrPresent = SwapChain4->Present(syncInterval, presentFlags);
 		if (memMon)
 		{
@@ -255,6 +254,7 @@ namespace RenderCore
 				D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
 			else if (FAILED(hrPresent))
 				D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
+			Render::D3D12CallStats::IncPresent();
 		}
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();

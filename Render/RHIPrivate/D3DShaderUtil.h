@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "win/com_ptr.h"
 #include <D3Dcompiler.h>
@@ -18,6 +18,8 @@ namespace RenderCore
 		static HRESULT D3DCreateReflectionFromBlob(ID3DBlob* DxilBlob, win32::com_ptr<ID3D12ShaderReflection>& OutReflection);
 		static void ExtractParameterMapFromD3DShader(uint32_t BindingSpace, const std::vector<uint8_t>& Code,
 			uint32_t& NumSamplers, uint32_t& NumSRVs, uint32_t& NumCBs, uint32_t& NumUAVs, FShaderCompilerOutput& Output);
+		/** If cbuffer at b0 is small (<=256 bytes, <=64 DWORDs root constants), returns padded DWORD count; else 0 (use CBV). Skips $Globals. */
+		static uint8_t GetCBBindPoint0RootConstantDwordCount(uint32_t BindingSpace, const std::vector<uint8_t>& Code);
 		static std::vector<uint8_t> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,
 			const std::string& entrypoint, const std::string& target);
 		static bool CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,

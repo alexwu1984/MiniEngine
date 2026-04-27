@@ -205,6 +205,8 @@ namespace RenderCore
 	bool D3D12RHI_ShouldEnableMemMon();
 	// Requires memmon on; d3d12_memmon_stacks=1 (default off).
 	bool D3D12RHI_ShouldEnableMemMonStacks();
+	/** HeapWalk + full VirtualQuery scan (expensive). d3d12_memmon_deep=1 or d3d_mem_deep=1 */
+	bool D3D12RHI_ShouldEnableMemMonDeep();
 
 	/** Increment D3D12CreateStats counters only when D3D12RHI_ShouldEnableMemMon() is true. */
 	inline void D3D12MemMonAtomicAdd(std::atomic_uint64_t& Counter, std::uint64_t Delta = 1)

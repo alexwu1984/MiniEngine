@@ -8,6 +8,8 @@
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12RenderTarget.h"
 #include "core/logger.h"
+#include <cstring>
+#include <string>
 
 namespace RenderCore
 {
@@ -93,7 +95,8 @@ namespace RenderCore
 
 		static size_t HashGraphicsPSOStable(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& Desc,
 										   uint32_t VSHash, uint32_t PSHash,
-										   const std::vector<VertexElementDesc>& ElementDescs)
+										   const std::vector<VertexElementDesc>& ElementDescs,
+										   const std::string& RootSigLayoutKey)
 		{
 			size_t H = 0;
 			H = HashBytesStable(&VSHash, sizeof(VSHash), H);
@@ -112,17 +115,41 @@ namespace RenderCore
 			H = HashBytesStable(&Desc.Flags, sizeof(Desc.Flags), H);
 
 			H = HashVertexLayoutStable(ElementDescs, H);
+			if (!RootSigLayoutKey.empty())
+				H = HashBytesStable(RootSigLayoutKey.data(), RootSigLayoutKey.size(), H);
 			return H;
 		}
 
-		static size_t HashComputePSOStable(const D3D12_COMPUTE_PIPELINE_STATE_DESC& Desc, uint32_t CSHash)
+		static size_t HashComputePSOStable(const D3D12_COMPUTE_PIPELINE_STATE_DESC& Desc, uint32_t CSHash,
+										   const std::string& RootSigLayoutKey)
 		{
 			size_t H = 0;
 			H = HashBytesStable(&CSHash, sizeof(CSHash), H);
 			// Exclude pointer fields: pRootSignature and CS bytecode pointers.
 			H = HashBytesStable(&Desc.NodeMask, sizeof(Desc.NodeMask), H);
 			H = HashBytesStable(&Desc.Flags, sizeof(Desc.Flags), H);
+			if (!RootSigLayoutKey.empty())
+				H = HashBytesStable(RootSigLayoutKey.data(), RootSigLayoutKey.size(), H);
 			return H;
+		}
+
+		static void AppendStaticSamplerDigestToRootCacheKey(std::string& KeyName,
+			uint32_t VsNumSamplers,
+			uint32_t PsNumSamplers,
+			uint32_t CsNumSamplers,
+			const FD3D12SamplerStateCache& SamplerCache)
+		{
+			uint32_t h = 2166136261u;
+			auto digestRange = [&](EShaderFrequency F, uint32_t n)
+			{
+				for (uint32_t i = 0; i < n; ++i)
+					h = core::Crc::MemCrc32(&SamplerCache.States[F][i], sizeof(D3D12_STATIC_SAMPLER_DESC), (int32_t)h);
+			};
+			digestRange(SF_Vertex, VsNumSamplers);
+			digestRange(SF_Pixel, PsNumSamplers);
+			digestRange(SF_Compute, CsNumSamplers);
+			KeyName.push_back('_');
+			KeyName += std::to_string(static_cast<unsigned long long>(h));
 		}
 	}
 
@@ -146,6 +173,10 @@ namespace RenderCore
 
 	void FD3D12StateCache::SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader)
 	{
+		const uint32_t NewHash = InVertexShader ? InVertexShader->Hash : 0u;
+		if (NewHash == CurrentVertexHash)
+			return;
+
 		if (InVertexShader)
 		{
 			if (VertexShaders.count(InVertexShader->Hash)== 0)
@@ -158,10 +189,15 @@ namespace RenderCore
 			CurrentVertexHash = 0;
 			PSDesc.VS = CD3DX12_SHADER_BYTECODE();
 		}
+		MarkGraphicsLayoutDirty();
 	}
 
 	void FD3D12StateCache::SetPixelShader(std::shared_ptr<FD3D12PixelShader> InPixelShader)
 	{
+		const uint32_t NewHash = InPixelShader ? InPixelShader->Hash : 0u;
+		if (NewHash == CurrentPixelHash)
+			return;
+
 		if (InPixelShader)
 		{
 			if(PixelShaders.count(InPixelShader->Hash) == 0)
@@ -174,6 +210,7 @@ namespace RenderCore
 			CurrentPixelHash = 0;
 			PSDesc.PS = CD3DX12_SHADER_BYTECODE();
 		}
+		MarkGraphicsLayoutDirty();
 	}
 
 	void FD3D12StateCache::SetComputeShader(std::shared_ptr<FD3D12ComputeShader> InComputeShader)
@@ -198,6 +235,7 @@ namespace RenderCore
 		{
 			CurrentPrimitiveTopology = PrimitiveTopology;
 			PSDesc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(PrimitiveTopology);
+			MarkGraphicsLayoutDirty();
 		}
 		bNeedSetPrimitiveTopology = true;
 	}
@@ -205,10 +243,14 @@ namespace RenderCore
 	void FD3D12StateCache::SetDynamicConstantBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer)
 	{
 		Assert(BufferIndex < MAX_CBS);
-		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex] != UniformBuffer->GetGPUVirtualAddress())
+		const D3D12_GPU_VIRTUAL_ADDRESS va = UniformBuffer->GetGPUVirtualAddress();
+		if (ConstantBufferCache.Buffers[ShaderType][BufferIndex] != va)
 		{
-			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = UniformBuffer->GetGPUVirtualAddress();
+			ConstantBufferCache.Buffers[ShaderType][BufferIndex] = va;
+			m_GraphicsBindDirtyMask |= kGraphicsDirtyCBV;
 		}
+		if (BufferIndex == 0 && ShaderType < SF_NumStandardFrequencies)
+			m_RootConstantUniformBuffer[ShaderType] = UniformBuffer;
 	}
 
 	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D)
@@ -217,6 +259,7 @@ namespace RenderCore
 		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != Texture2D->GetSRV().ptr)
 		{
 			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Texture2D->GetSRV();
+			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
 		}
 	}
 
@@ -226,6 +269,7 @@ namespace RenderCore
 		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != TextureCube->GetCubeSRV(Mip).ptr)
 		{
 			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = TextureCube->GetCubeSRV(Mip);
+			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
 		}
 	}
 
@@ -235,6 +279,7 @@ namespace RenderCore
 		if (UAVCache.Views[TextureIndex].ptr != Texture2D->GetUAV().ptr)
 		{
 			UAVCache.Views[TextureIndex] = Texture2D->GetUAV();
+			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
 		}
 	}
 
@@ -275,8 +320,25 @@ namespace RenderCore
 		}
 	}
 
+	void FD3D12StateCache::ResetGraphicsApplyTracking()
+	{
+		m_LastAppliedGraphicsPSOHash = (size_t)-1;
+		m_LastAppliedGraphicsRootSig = nullptr;
+		m_LastAppliedGraphicsPSO.reset();
+		m_GraphicsBindDirtyMask = 0;
+		m_GraphicsLayoutDirty = true;
+		m_LastUnifiedRootCacheKey.clear();
+		for (std::shared_ptr<D3D12UniformBuffer>& Ptr : m_RootConstantUniformBuffer)
+			Ptr.reset();
+	}
+
 	void FD3D12StateCache::SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
 	{
+		DXGI_FORMAT OldRtv[MaxSimultaneousRenderTargets];
+		std::memcpy(OldRtv, PSDesc.RTVFormats, sizeof(OldRtv));
+		const uint32_t OldNum = PSDesc.NumRenderTargets;
+		const DXGI_FORMAT OldDsv = PSDesc.DSVFormat;
+
 		for (uint32_t i = 0; i < (uint32_t)Targets.size(); ++i)
 		{
 			const std::shared_ptr<RHITexture2D>& T = Targets[i];
@@ -301,10 +363,19 @@ namespace RenderCore
 		PSDesc.DSVFormat = DepthTex ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
+
+		if (OldNum != PSDesc.NumRenderTargets || OldDsv != PSDesc.DSVFormat
+			|| std::memcmp(OldRtv, PSDesc.RTVFormats, sizeof(OldRtv)) != 0)
+			MarkGraphicsLayoutDirty();
 	}
 
 	void FD3D12StateCache::SetRenderTargetFormat(const D3D12RenderTarget* RenderTarget)
 	{
+		DXGI_FORMAT OldRtv[MaxSimultaneousRenderTargets];
+		std::memcpy(OldRtv, PSDesc.RTVFormats, sizeof(OldRtv));
+		const uint32_t OldNum = PSDesc.NumRenderTargets;
+		const DXGI_FORMAT OldDsv = PSDesc.DSVFormat;
+
 		D3D12Texture2D* Tex2D = (RenderTarget && RenderTarget->GetTex()) ? RHIResourceCast(RenderTarget->GetTex().get()) : nullptr;
 		if (!Tex2D)
 		{
@@ -329,10 +400,19 @@ namespace RenderCore
 			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
+
+		if (OldNum != PSDesc.NumRenderTargets || OldDsv != PSDesc.DSVFormat
+			|| std::memcmp(OldRtv, PSDesc.RTVFormats, sizeof(OldRtv)) != 0)
+			MarkGraphicsLayoutDirty();
 	}
 
 	void FD3D12StateCache::SetRenderTargetFormat(const D3D12TextureCube* RenderTarget)
 	{
+		DXGI_FORMAT OldRtv[MaxSimultaneousRenderTargets];
+		std::memcpy(OldRtv, PSDesc.RTVFormats, sizeof(OldRtv));
+		const uint32_t OldNum = PSDesc.NumRenderTargets;
+		const DXGI_FORMAT OldDsv = PSDesc.DSVFormat;
+
 		PSDesc.RTVFormats[0] = RenderTarget->GetPlatformResourceFormat();
 		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
@@ -344,6 +424,10 @@ namespace RenderCore
 		PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
+
+		if (OldNum != PSDesc.NumRenderTargets || OldDsv != PSDesc.DSVFormat
+			|| std::memcmp(OldRtv, PSDesc.RTVFormats, sizeof(OldRtv)) != 0)
+			MarkGraphicsLayoutDirty();
 	}
 
 	void FD3D12StateCache::SetIndexBuffer(D3D12CommandListHandle& CommandList, const D3D12_INDEX_BUFFER_VIEW& View)
@@ -397,6 +481,9 @@ namespace RenderCore
 			KeyName += itFindComputeShader->second->CSEntryPoint;
 		}
 
+		AppendStaticSamplerDigestToRootCacheKey(KeyName, VertexResCount.NumSamplers, PixelResCount.NumSamplers, ComputeResCount.NumSamplers, SamplerCache);
+		m_LastUnifiedRootCacheKey = KeyName;
+
 		std::shared_ptr<FRootSignature> RootSignature;
 		auto ItRootSignature = RootSignatures.find(KeyName);
 		if (ItRootSignature != RootSignatures.end())
@@ -407,6 +494,8 @@ namespace RenderCore
 		NumRootParams += VertexResCount.NumCBs;
 		NumRootParams += PixelResCount.NumCBs;
 		NumRootParams += ComputeResCount.NumCBs;
+		if (VertexResCount.NumSRVs > 0)
+			NumRootParams += 1;
 		if (PixelResCount.NumSRVs > 0)
 			NumRootParams += 1;
 		if (PixelResCount.NumUAVs > 0)
@@ -421,37 +510,105 @@ namespace RenderCore
 		int32_t RootIndex = 0;
 		if (VertexResCount.NumCBs > 0)
 		{
-			RootSignature->CBRootIndex[SF_Vertex] = RootIndex;
-			for (int32_t index = 0; index < VertexResCount.NumCBs; ++index)
+			const uint8_t vsRootDw = VertexShader ? VertexShader->CBBind0RootConstantsDwords : 0u;
+			if (vsRootDw > 0)
 			{
-				(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_VERTEX);
+				RootSignature->RootConstantsRootIndex[SF_Vertex] = RootIndex;
+				RootSignature->RootConstantsNum32BitValues[SF_Vertex] = vsRootDw;
+				(*RootSignature)[RootIndex].InitAsConstants(0, vsRootDw, D3D12_SHADER_VISIBILITY_VERTEX);
 				++RootIndex;
+				if (VertexResCount.NumCBs > 1)
+				{
+					RootSignature->CBRootIndex[SF_Vertex] = RootIndex;
+					for (int32_t cbReg = 1; cbReg < VertexResCount.NumCBs; ++cbReg)
+					{
+						(*RootSignature)[RootIndex].InitAsBufferCBV((UINT)cbReg, D3D12_SHADER_VISIBILITY_VERTEX);
+						++RootIndex;
+					}
+				}
+			}
+			else
+			{
+				RootSignature->CBRootIndex[SF_Vertex] = RootIndex;
+				for (int32_t index = 0; index < VertexResCount.NumCBs; ++index)
+				{
+					(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_VERTEX);
+					++RootIndex;
+				}
 			}
 		}
-	
+
+		// UE4.26-style: VS SRV table (e.g. bone SRV / structured buffer) — was missing; only PS/CS tables existed.
+		if (VertexResCount.NumSRVs > 0)
+		{
+			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, VertexResCount.NumSRVs, D3D12_SHADER_VISIBILITY_VERTEX);
+			RootSignature->SRVRootIndex[SF_Vertex] = RootIndex;
+			++RootIndex;
+		}
+
 		if (PixelResCount.NumCBs > 0)
 		{
-			RootSignature->CBRootIndex[SF_Pixel] = RootIndex;
-			for (int32_t index = 0; index < PixelResCount.NumCBs; ++index)
+			const uint8_t psRootDw = PixelShader ? PixelShader->CBBind0RootConstantsDwords : 0u;
+			if (psRootDw > 0)
 			{
-				(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_PIXEL);
+				RootSignature->RootConstantsRootIndex[SF_Pixel] = RootIndex;
+				RootSignature->RootConstantsNum32BitValues[SF_Pixel] = psRootDw;
+				(*RootSignature)[RootIndex].InitAsConstants(0, psRootDw, D3D12_SHADER_VISIBILITY_PIXEL);
 				++RootIndex;
+				if (PixelResCount.NumCBs > 1)
+				{
+					RootSignature->CBRootIndex[SF_Pixel] = RootIndex;
+					for (int32_t cbReg = 1; cbReg < PixelResCount.NumCBs; ++cbReg)
+					{
+						(*RootSignature)[RootIndex].InitAsBufferCBV((UINT)cbReg, D3D12_SHADER_VISIBILITY_PIXEL);
+						++RootIndex;
+					}
+				}
+			}
+			else
+			{
+				RootSignature->CBRootIndex[SF_Pixel] = RootIndex;
+				for (int32_t index = 0; index < PixelResCount.NumCBs; ++index)
+				{
+					(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_PIXEL);
+					++RootIndex;
+				}
 			}
 		}
 
 		if (ComputeResCount.NumCBs > 0)
 		{
-			RootSignature->CBRootIndex[SF_Compute] = RootIndex;
-			for (int32_t index = 0; index < ComputeResCount.NumCBs; ++index)
+			const uint8_t csRootDw = ComputeShader ? ComputeShader->CBBind0RootConstantsDwords : 0u;
+			if (csRootDw > 0)
 			{
-				(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_ALL);
+				RootSignature->RootConstantsRootIndex[SF_Compute] = RootIndex;
+				RootSignature->RootConstantsNum32BitValues[SF_Compute] = csRootDw;
+				(*RootSignature)[RootIndex].InitAsConstants(0, csRootDw, D3D12_SHADER_VISIBILITY_ALL);
 				++RootIndex;
+				if (ComputeResCount.NumCBs > 1)
+				{
+					RootSignature->CBRootIndex[SF_Compute] = RootIndex;
+					for (int32_t cbReg = 1; cbReg < ComputeResCount.NumCBs; ++cbReg)
+					{
+						(*RootSignature)[RootIndex].InitAsBufferCBV((UINT)cbReg, D3D12_SHADER_VISIBILITY_ALL);
+						++RootIndex;
+					}
+				}
+			}
+			else
+			{
+				RootSignature->CBRootIndex[SF_Compute] = RootIndex;
+				for (int32_t index = 0; index < ComputeResCount.NumCBs; ++index)
+				{
+					(*RootSignature)[RootIndex].InitAsBufferCBV(index, D3D12_SHADER_VISIBILITY_ALL);
+					++RootIndex;
+				}
 			}
 		}
 
 		if (PixelResCount.NumSRVs > 0)
 		{
-			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, PixelResCount.NumSRVs);
+			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, PixelResCount.NumSRVs, D3D12_SHADER_VISIBILITY_PIXEL);
 			RootSignature->SRVRootIndex[SF_Pixel] = RootIndex;
 			++RootIndex;
 		}
@@ -515,6 +672,7 @@ namespace RenderCore
 
 		PSDesc.pRootSignature = RootSignature->GetSignature();
 		Assert(PSDesc.pRootSignature != nullptr);
+		void* const RootSigPtr = reinterpret_cast<void*>(PSDesc.pRootSignature);
 
 		auto itVertexShader = VertexShaders.find(CurrentVertexHash);
 		if (itVertexShader == VertexShaders.end())
@@ -550,7 +708,7 @@ namespace RenderCore
 			bNeedSetPrimitiveTopology = false;
 		}
 
-		auto &ElementDescs  = itVertexShader->second->ElementDescs;
+		auto& ElementDescs = itVertexShader->second->ElementDescs;
 		InputLayouts.resize(ElementDescs.size());
 
 		int32_t Index = 0;
@@ -573,8 +731,17 @@ namespace RenderCore
 		else
 			PSDesc.InputLayout.pInputElementDescs = nullptr;
 
-		// Use a stable key that doesn't include pointer addresses inside PSDesc (root sig / shader bytecode / input layout).
-		size_t HashCode = HashGraphicsPSOStable(PSDesc, CurrentVertexHash, CurrentPixelHash, ElementDescs);
+		// Stable hash: include root layout key (samplers + b0 root-constants vs CBV) so PSO matches the root signature it was created with.
+		const size_t HashCode = HashGraphicsPSOStable(PSDesc, CurrentVertexHash, CurrentPixelHash, ElementDescs, m_LastUnifiedRootCacheKey);
+
+		const bool bHeapOrListBindingStale = m_bDescriptorHeapBindingsStaleForCommandList;
+		const bool bLayoutDirty = m_GraphicsLayoutDirty
+			|| bHeapOrListBindingStale
+			|| HashCode != m_LastAppliedGraphicsPSOHash
+			|| RootSigPtr != m_LastAppliedGraphicsRootSig;
+
+		if (!bLayoutDirty && m_GraphicsBindDirtyMask == 0)
+			return true;
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
@@ -594,41 +761,91 @@ namespace RenderCore
 				PipelineState = GraphicsPSHashMap[HashCode];
 			}
 		}
-		CommandList->SetGraphicsRootSignature(PSDesc.pRootSignature);
-		DynamicViewDescriptorHeap.ParseGraphicsRootSignature(*RootSignature);
-		CommandList->SetPipelineState(PipelineState.get());
 
-		int32_t StartIndex = RootSignature->CBRootIndex[SF_Vertex];
-		for (uint32_t Index = 0; Index < VertexResCount.NumCBs; ++Index)
+		auto bindAllGraphicsCbvs = [&]()
 		{
-			if (ConstantBufferCache.Buffers[SF_Vertex][Index] !=  D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			auto pushRootConstants = [&](EShaderFrequency Freq)
 			{
-				auto Handle = ConstantBufferCache.Buffers[SF_Vertex][Index];
-				CommandList->SetGraphicsRootConstantBufferView(Index + StartIndex, Handle);
-			}
-		}
+				const int32_t rcIdx = RootSignature->RootConstantsRootIndex[Freq];
+				if (rcIdx < 0)
+					return;
+				const UINT N = (UINT)RootSignature->RootConstantsNum32BitValues[Freq];
+				if (N == 0)
+					return;
+				const std::shared_ptr<D3D12UniformBuffer>& ub = m_RootConstantUniformBuffer[Freq];
+				if (!ub)
+					return;
+				void* cpu = ub->GetResourceBaseAddress();
+				if (cpu)
+					CommandList->SetGraphicsRoot32BitConstants((UINT)rcIdx, N, cpu, 0);
+			};
+			pushRootConstants(SF_Vertex);
+			pushRootConstants(SF_Pixel);
 
-		StartIndex = RootSignature->CBRootIndex[SF_Pixel];
-		for (uint32_t Index = 0; Index < PixelResCount.NumCBs; ++Index)
-		{
-			if (ConstantBufferCache.Buffers[SF_Pixel][Index] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			int32_t StartIndex = RootSignature->CBRootIndex[SF_Vertex];
+			if (StartIndex >= 0)
 			{
-				auto Handle = ConstantBufferCache.Buffers[SF_Pixel][Index];
-				CommandList->SetGraphicsRootConstantBufferView(Index + StartIndex, Handle);
+				const uint32_t firstReg = (RootSignature->RootConstantsRootIndex[SF_Vertex] >= 0) ? 1u : 0u;
+				uint32_t rootParamOffset = 0;
+				for (uint32_t reg = firstReg; reg < VertexResCount.NumCBs; ++reg)
+				{
+					if (ConstantBufferCache.Buffers[SF_Vertex][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+						CommandList->SetGraphicsRootConstantBufferView(rootParamOffset + StartIndex, ConstantBufferCache.Buffers[SF_Vertex][reg]);
+					++rootParamOffset;
+				}
 			}
-		}
+			StartIndex = RootSignature->CBRootIndex[SF_Pixel];
+			if (StartIndex >= 0)
+			{
+				const uint32_t firstReg = (RootSignature->RootConstantsRootIndex[SF_Pixel] >= 0) ? 1u : 0u;
+				uint32_t rootParamOffset = 0;
+				for (uint32_t reg = firstReg; reg < PixelResCount.NumCBs; ++reg)
+				{
+					if (ConstantBufferCache.Buffers[SF_Pixel][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+						CommandList->SetGraphicsRootConstantBufferView(rootParamOffset + StartIndex, ConstantBufferCache.Buffers[SF_Pixel][reg]);
+					++rootParamOffset;
+				}
+			}
+		};
 
-		if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
+		auto stageAllGraphicsSrvs = [&]()
 		{
-			StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex]);
-		}
+			if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
+			{
+				StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex]);
+			}
+			if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
+			{
+				StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel]);
+			}
+		};
 
-		if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
+		if (bLayoutDirty)
 		{
-			StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel]);
+			CommandList->SetGraphicsRootSignature(PSDesc.pRootSignature);
+			DynamicViewDescriptorHeap.ParseGraphicsRootSignature(*RootSignature);
+			CommandList->SetPipelineState(PipelineState.get());
+			bindAllGraphicsCbvs();
+			stageAllGraphicsSrvs();
+			DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
+			m_LastAppliedGraphicsPSOHash = HashCode;
+			m_LastAppliedGraphicsRootSig = RootSigPtr;
+			m_LastAppliedGraphicsPSO = PipelineState;
+			m_GraphicsLayoutDirty = false;
+			m_GraphicsBindDirtyMask = 0;
+		}
+		else
+		{
+			if (m_GraphicsBindDirtyMask & kGraphicsDirtyCBV)
+				bindAllGraphicsCbvs();
+			if (m_GraphicsBindDirtyMask & kGraphicsDirtySRV)
+			{
+				stageAllGraphicsSrvs();
+				DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
+			}
+			m_GraphicsBindDirtyMask = 0;
 		}
 
-		DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
 		return true;
 	}
 
@@ -649,8 +866,7 @@ namespace RenderCore
 			return false;
 		}
 
-		// Use a stable key that doesn't include pointer addresses inside CSDesc (root sig / shader bytecode).
-		size_t HashCode = HashComputePSOStable(CSDesc, CurrentComputeHash);
+		size_t HashCode = HashComputePSOStable(CSDesc, CurrentComputeHash, m_LastUnifiedRootCacheKey);
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
 		{
@@ -676,13 +892,29 @@ namespace RenderCore
 
 		FShaderCodePackedResourceCounts ComputeResCount = itComputeShader->second->ResourceCounts;
 
-		int32_t StartIndex = RootSignature->CBRootIndex[SF_Compute];
-		for (uint32_t Index = 0; Index < ComputeResCount.NumCBs; ++Index)
+		const int32_t csRcIdx = RootSignature->RootConstantsRootIndex[SF_Compute];
+		if (csRcIdx >= 0)
 		{
-			if (ConstantBufferCache.Buffers[SF_Compute][Index] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			const UINT N = (UINT)RootSignature->RootConstantsNum32BitValues[SF_Compute];
+			const std::shared_ptr<D3D12UniformBuffer>& ub = m_RootConstantUniformBuffer[SF_Compute];
+			if (ub && N > 0)
 			{
-				auto Handle = ConstantBufferCache.Buffers[SF_Compute][Index];
-				CommandList->SetComputeRootConstantBufferView(Index + StartIndex, Handle);
+				void* cpu = ub->GetResourceBaseAddress();
+				if (cpu)
+					CommandList->SetComputeRoot32BitConstants((UINT)csRcIdx, N, cpu, 0);
+			}
+		}
+
+		int32_t StartIndex = RootSignature->CBRootIndex[SF_Compute];
+		if (StartIndex >= 0)
+		{
+			const uint32_t firstReg = (csRcIdx >= 0) ? 1u : 0u;
+			uint32_t rootParamOffset = 0;
+			for (uint32_t reg = firstReg; reg < ComputeResCount.NumCBs; ++reg)
+			{
+				if (ConstantBufferCache.Buffers[SF_Compute][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					CommandList->SetComputeRootConstantBufferView(rootParamOffset + StartIndex, ConstantBufferCache.Buffers[SF_Compute][reg]);
+				++rootParamOffset;
 			}
 		}
 
@@ -721,6 +953,7 @@ namespace RenderCore
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
 		m_bDescriptorHeapBindingsStaleForCommandList = true;
+		ResetGraphicsApplyTracking();
 	}
 
 	void FD3D12StateCache::ClearRenderState()

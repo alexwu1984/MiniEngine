@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIDefinitions.h"
 #include "core/color.h"
 #include "RHI/RHIPipeLineState.h"
@@ -50,9 +50,12 @@ namespace RenderCore
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI) = 0;
 		virtual void RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV) = 0;
 		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) = 0;
+		/** D3D12: forwards to SetGraphicsRoot32BitConstants (UE-style small per-draw data). Other RHIs may no-op. */
+		virtual void RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues = 0) {}
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) = 0;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) = 0;
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) = 0;
+		virtual void DrawPrimitiveInstanced(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount, uint32_t StartInstanceLocation = 0) = 0;
 		virtual void Draw(uint32_t VertexCount, uint32_t VertexStartOffset = 0) = 0;
 		virtual void GenerateMips(std::shared_ptr<RHITextureCube> TextureCubeRHI) = 0;
 		virtual void RHISetComputePipelineState(const ComputePipelineStateInitializer& Initializer) = 0;

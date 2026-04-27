@@ -13,6 +13,7 @@
 #include "D3D12/D3D12PresentStats.h"
 #include "D3D12/D3D12MemoryMonitor.h"
 #include "D3D12/D3D12RuntimeStatsMonitor.h"
+#include "RHI/RHI.h"
 #include "pix.h"
 #include "core/logger.h"
 #include "win/high_precision_tick.h"
@@ -269,7 +270,7 @@ namespace RenderCore
 		if (Adapter && core::CommandLine::Get().GetName("d3d12forceidle"))
 			Adapter->BlockUntilIdle();
 
-		if (Adapter)
+		if (Adapter && D3D12RHI_ShouldEnableMemMon())
 		{
 			D3D12RuntimeStatsMonitor::TickOncePerSecond(*this, Adapter, Device);
 			D3D12MemoryMonitor::TickOncePerSecond(Adapter, Device);
@@ -472,9 +473,21 @@ namespace RenderCore
 			CurrentStateCache->SetDynamicConstantBuffer(ShaderType,BufferIndex, std::static_pointer_cast<D3D12UniformBuffer>(UniformBufferRHI));
 	}
 
+	void D3D12CommandContext::RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues)
+	{
+		if (!CommandListHandle)
+			return;
+		CommandListHandle->SetGraphicsRoot32BitConstants(RootParameterIndex, Num32BitValues, SrcData, DestOffsetIn32BitValues);
+	}
+
 	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
 	{
-		if (!CurrentStateCache)
+		DrawPrimitiveInstanced(VertexBufferRHI, IndexBufferRHI, 1u, 0u);
+	}
+
+	void D3D12CommandContext::DrawPrimitiveInstanced(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount, uint32_t StartInstanceLocation)
+	{
+		if (!CurrentStateCache || InstanceCount == 0)
 			return;
 
 		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
@@ -487,7 +500,7 @@ namespace RenderCore
 		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle.FlushResourceBarriers();
-		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1, 0, 0,0);
+		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(), InstanceCount, 0, 0, StartInstanceLocation);
 		++numDraws;
 	}
 

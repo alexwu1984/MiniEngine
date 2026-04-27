@@ -2,6 +2,7 @@
 #include "RHI/RHIShdader.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "core/logger.h"
+#include <cstring>
 #include <Shaders/dxc/dxcapi.h>
 #include <Shaders/dxc/Support/dxcapi.use.h>
 
@@ -86,6 +87,50 @@ namespace RenderCore
 	inline bool IsCompatibleBinding(const D3D12_SHADER_INPUT_BIND_DESC& BindDesc, uint32_t BindingSpace)
 	{
 		return BindDesc.Space == BindingSpace;
+	}
+
+	uint8_t ShaderUtil::GetCBBindPoint0RootConstantDwordCount(uint32_t BindingSpace, const std::vector<uint8_t>& Code)
+	{
+		win32::com_ptr<ID3D12ShaderReflection> Reflector;
+		if (FAILED(::D3DReflect(Code.data(), Code.size(), IID_PPV_ARGS(Reflector.get_init_ref()))))
+			return 0;
+
+		D3D12_SHADER_DESC ShaderDesc{};
+		Reflector->GetDesc(&ShaderDesc);
+
+		for (uint32_t ResourceIndex = 0; ResourceIndex < ShaderDesc.BoundResources; ++ResourceIndex)
+		{
+			D3D12_SHADER_INPUT_BIND_DESC BindDesc{};
+			Reflector->GetResourceBindingDesc(ResourceIndex, &BindDesc);
+			if (!IsCompatibleBinding(BindDesc, BindingSpace))
+				continue;
+			if (BindDesc.Type != D3D10_SIT_CBUFFER && BindDesc.Type != D3D10_SIT_TBUFFER)
+				continue;
+			if (BindDesc.BindPoint != 0)
+				continue;
+
+			ID3D12ShaderReflectionConstantBuffer* ConstantBuffer = Reflector->GetConstantBufferByName(BindDesc.Name);
+			if (!ConstantBuffer)
+				return 0;
+
+			D3D12_SHADER_BUFFER_DESC CBDesc{};
+			ConstantBuffer->GetDesc(&CBDesc);
+			if (std::strcmp(CBDesc.Name, "$Globals") == 0)
+				return 0;
+
+			const uint32_t sizeBytes = CBDesc.Size;
+			if (sizeBytes == 0 || sizeBytes > 256)
+				return 0;
+
+			const uint32_t paddedBytes = (sizeBytes + 15u) & ~15u;
+			const uint32_t dwords = paddedBytes / 4u;
+			if (dwords == 0 || dwords > 64)
+				return 0;
+
+			return static_cast<uint8_t>(dwords);
+		}
+
+		return 0;
 	}
 
 	void ShaderUtil::ExtractParameterMapFromD3DShader(uint32_t BindingSpace, const std::vector<uint8_t>& Code, uint32_t& NumSamplers, 

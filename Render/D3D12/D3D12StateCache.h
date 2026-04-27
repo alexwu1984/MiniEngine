@@ -1,5 +1,8 @@
 ﻿#pragma once
 #include "D3D12/D3D12DescriptorCache.h"
+#include <cstring>
+#include <memory>
+#include <string>
 
 namespace RenderCore
 {
@@ -118,17 +121,26 @@ namespace RenderCore
 			if (Samplers[SamplerIndex] != SamplerState)
 			{
 				Samplers[SamplerIndex] = SamplerState;
+				MarkGraphicsLayoutDirty();
 			}
 		}
 
 		void SetRasterizerState(const D3D12_RASTERIZER_DESC& RasterizerDesc)
 		{
-			PSDesc.RasterizerState = RasterizerDesc;
+			if (memcmp(&PSDesc.RasterizerState, &RasterizerDesc, sizeof(RasterizerDesc)) != 0)
+			{
+				PSDesc.RasterizerState = RasterizerDesc;
+				MarkGraphicsLayoutDirty();
+			}
 		}
 
 		void SetBlendState(const D3D12_BLEND_DESC& BlendDesc)
 		{
-			memcpy(&PSDesc.BlendState, &BlendDesc, sizeof(BlendDesc));
+			if (memcmp(&PSDesc.BlendState, &BlendDesc, sizeof(BlendDesc)) != 0)
+			{
+				memcpy(&PSDesc.BlendState, &BlendDesc, sizeof(BlendDesc));
+				MarkGraphicsLayoutDirty();
+			}
 		}
 
 		void SetBlendFactor(const float BlendFactor[4])
@@ -143,7 +155,11 @@ namespace RenderCore
 
 		void SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& DepthStencilState)
 		{
-			memcpy(&PSDesc.DepthStencilState, &DepthStencilState, sizeof(DepthStencilState));
+			if (memcmp(&PSDesc.DepthStencilState, &DepthStencilState, sizeof(DepthStencilState)) != 0)
+			{
+				memcpy(&PSDesc.DepthStencilState, &DepthStencilState, sizeof(DepthStencilState));
+				MarkGraphicsLayoutDirty();
+			}
 		}
 
 		void SetStencilRef(uint32_t StencilRef)
@@ -187,6 +203,9 @@ namespace RenderCore
 		std::size_t GetGraphicsPSOCacheSize() const { return GraphicsPSHashMap.size(); }
 		std::size_t GetComputePSOCacheSize() const { return ComputePSHashMap.size(); }
 
+		/** PSO / root / input-layout may have changed (UE-style: use with ApplyGraphicState incremental path). */
+		void MarkGraphicsLayoutDirty() { m_GraphicsLayoutDirty = true; }
+
 		FD3D12SamplerStateCache SamplerCache;
 		FD3D12ConstantBufferCache ConstantBufferCache;
 		FD3D12ShaderResourceViewCache ShaderResourceViewCache;
@@ -216,5 +235,20 @@ namespace RenderCore
 		FDynamicDescriptorHeap DynamicViewDescriptorHeap;
 		win32::com_ptr<ID3D12DescriptorHeap> CurrentDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 		bool m_bDescriptorHeapBindingsStaleForCommandList = false;
+
+		// Incremental ApplyGraphicState (UE4.26-style): skip SetPipelineState/Parse/SetRootSignature when only CBV/SRV changed.
+		static constexpr uint32_t kGraphicsDirtyCBV = 1u;
+		static constexpr uint32_t kGraphicsDirtySRV = 2u;
+		size_t m_LastAppliedGraphicsPSOHash = (size_t)-1;
+		void* m_LastAppliedGraphicsRootSig = nullptr;
+		win32::com_ptr<ID3D12PipelineState> m_LastAppliedGraphicsPSO;
+		uint32_t m_GraphicsBindDirtyMask = 0;
+		bool m_GraphicsLayoutDirty = true;
+
+		/** Last key passed to RootSignatures (includes static sampler digest); drives PSO stable hash. */
+		std::string m_LastUnifiedRootCacheKey;
+		std::shared_ptr<D3D12UniformBuffer> m_RootConstantUniformBuffer[SF_NumStandardFrequencies]{};
+
+		void ResetGraphicsApplyTracking();
 	};
 }

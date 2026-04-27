@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 
+#include "RHI/RHI.h"
 #include <atomic>
 #include <cstdint>
 
@@ -41,6 +42,8 @@ namespace RenderCore::D3D12SubmitStats
 
 	inline void OnSubmit(ED3D12CommandQueueType QueueType)
 	{
+		if (!D3D12RHI_ShouldEnableMemMon())
+			return;
 		switch (QueueType)
 		{
 		case ED3D12CommandQueueType::Default: detail::Direct().fetch_add(1, std::memory_order_relaxed); break;

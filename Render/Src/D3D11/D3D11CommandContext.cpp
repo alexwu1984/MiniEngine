@@ -1,4 +1,4 @@
-#include "D3D11/D3D11CommandContext.h"
+﻿#include "D3D11/D3D11CommandContext.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "RHIPrivate/D3D11StateCachePrivate.h"
 #include "D3D11/D3D11RHI.h"
@@ -458,6 +458,14 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues)
+	{
+		(void)RootParameterIndex;
+		(void)Num32BitValues;
+		(void)SrcData;
+		(void)DestOffsetIn32BitValues;
+	}
+
 	void D3D11CommandContext::RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV)
 	{
 		D3D11UnorderedAccessView* UAVRHI = RHIResourceCast(UAV.get());
@@ -471,6 +479,14 @@ namespace RenderCore
 
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
 	{
+		DrawPrimitiveInstanced(VertexBufferRHI, IndexBufferRHI, 1u, 0u);
+	}
+
+	void D3D11CommandContext::DrawPrimitiveInstanced(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount, uint32_t StartInstanceLocation)
+	{
+		if (InstanceCount == 0)
+			return;
+
 		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
 		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
 		if (!VertexBuffer || !IndexBuffer)
@@ -479,7 +495,7 @@ namespace RenderCore
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
-		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
+		Impl->D3D11RHI->GetDeviceContext()->DrawIndexedInstanced(IndexBuffer->GetIndexCount(), InstanceCount, 0, 0, StartInstanceLocation);
 	}
 
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)

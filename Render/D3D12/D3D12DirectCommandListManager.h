@@ -137,9 +137,6 @@ namespace RenderCore
 
 		// Signals the specified fence value.
 		uint64_t Signal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal);
-
-		// Increments the current fence and returns the previous value.
-		inline uint64_t IncrementCurrentFence() { return CurrentFence++; }
 	};
 
 	class FD3D12Device;
@@ -222,10 +219,6 @@ namespace RenderCore
 		// Returns signaled Fence
 		uint64_t ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, bool bForceSignal);
 		D3D12CommandListHandle CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator);
-	public:
-		// MiniEngine-style: for the Direct queue we defer CPU->GPU fence signals and only
-		// signal once per frame (typically at Present). This reduces per-submit driver overhead.
-		void SignalDeferredFrameFenceIfNeeded();
 	private:
 		win32::com_ptr<ID3D12CommandQueue>		D3DCommandQueue;
 		ThreadsafeQueue<D3D12CommandListHandle> ReadyLists;

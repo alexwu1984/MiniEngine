@@ -320,12 +320,7 @@ namespace RenderCore
 		auto Device = GetParentDevice();
 		std::shared_ptr<FD3D12Adapter> Adapter = Device->GetParentAdapter();
 
-		// MiniEngine-style: use a manual fence for the Direct queue so we can increment fence
-		// values per submit but only Signal once per frame (at Present).
-		if (QueueType == ED3D12CommandQueueType::Default)
-			CommandListFence = std::make_shared<FD3D12ManualFence>(Adapter, L"Command List Fence");
-		else
-			CommandListFence = std::make_shared<FD3D12Fence>(Adapter, L"Command List Fence");
+		CommandListFence = std::make_shared<FD3D12Fence>(Adapter, L"Command List Fence");
 		CommandListFence->CreateFence();
 
 		Assert(D3DCommandQueue.get() == nullptr);
@@ -720,10 +715,9 @@ namespace RenderCore
 		if (Payload.NumCommandLists == 0)
 		{
 			D3D12SubmitStats::OnSubmit(QueueType);
-			if (bForceSignal || QueueType != ED3D12CommandQueueType::Default)
-				return Fence.Signal(QueueType);
-			FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(Fence);
-			return Manual.IncrementCurrentFence();
+			if (QueueType == ED3D12CommandQueueType::Default)
+				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+			return Fence.Signal(QueueType);
 		}
 		for (uint32_t i = 0; i < Payload.NumCommandLists; ++i)
 		{
@@ -737,10 +731,9 @@ namespace RenderCore
 		if (Payload.NumCommandLists == 0)
 		{
 			D3D12SubmitStats::OnSubmit(QueueType);
-			if (bForceSignal || QueueType != ED3D12CommandQueueType::Default)
-				return Fence.Signal(QueueType);
-			FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(Fence);
-			return Manual.IncrementCurrentFence();
+			if (QueueType == ED3D12CommandQueueType::Default)
+				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+			return Fence.Signal(QueueType);
 		}
 
 		if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
@@ -755,29 +748,11 @@ namespace RenderCore
 		// Track submits per queue type (diagnostics).
 		D3D12SubmitStats::OnSubmit(QueueType);
 
-		// MiniEngine-style defer: for Direct queue, reserve fence values per submit but signal once per frame.
-		// For any blocking path (WaitForCompletion) or non-direct queues, signal immediately.
-		if (bForceSignal || QueueType != ED3D12CommandQueueType::Default)
-		{
-			if (QueueType == ED3D12CommandQueueType::Default)
-				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
-			return Fence.Signal(QueueType);
-		}
-
-		FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(Fence);
-		Render::D3D12CallStats::IncDirectFenceDeferredReserve();
-		return Manual.IncrementCurrentFence();
-	}
-
-	void FD3D12CommandListManager::SignalDeferredFrameFenceIfNeeded()
-	{
-		if (QueueType != ED3D12CommandQueueType::Default || !CommandListFence)
-			return;
-
-		FD3D12ManualFence& Manual = static_cast<FD3D12ManualFence&>(*CommandListFence);
-		const uint64_t fenceToSignal = (Manual.GetCurrentFence() > 0) ? (Manual.GetCurrentFence() - 1) : 0;
-		if (fenceToSignal > Manual.GetLastSignaledFence())
-			Manual.Signal(ED3D12CommandQueueType::Default, fenceToSignal);
+		// Always signal after Execute so fence-tied retire/recycle paths progress deterministically.
+		(void)bForceSignal;
+		if (QueueType == ED3D12CommandQueueType::Default)
+			Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+		return Fence.Signal(QueueType);
 	}
 
 	D3D12CommandListHandle FD3D12CommandListManager::CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator)

@@ -334,10 +334,8 @@ namespace RenderCore
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 		
-		// Direct queue defers ID3D12CommandQueue::Signal to once per present (see ExecuteAndIncrementFence);
-		// must call SignalDeferredFrameFenceIfNeeded after the final flush or fence-tied upload/allocator cleanup never completes.
-		GetDefaultCommandContext()->FlushCommands(true);
-		GetParentAdapter()->GetDevice()->GetCommandListManager(ED3D12CommandQueueType::Default).SignalDeferredFrameFenceIfNeeded();
+		// Submit without CPU-side wait; direct queue now signals per Execute.
+		GetDefaultCommandContext()->FlushCommands(false);
 		// Only flush async compute when it actually recorded work.
 		// Submitting empty compute command lists every frame is unnecessary and can amplify driver/runtime internal allocations.
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())

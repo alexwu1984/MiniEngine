@@ -60,6 +60,7 @@ namespace RenderCore
 
 		CD3DX12_RECT ScissorRect(TopLeftX, TopLeftY, TopLeftX + SizeX, TopLeftY + SizeY);
 		CommandListHandle.GraphicsCommandList()->RSSetScissorRects(1, &ScissorRect);
+		++otherWorkCounter;
 	}
 
 	void D3D12CommandContext::SetRenderTarget(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth)
@@ -87,6 +88,7 @@ namespace RenderCore
 		// Defer barrier flush until Clear/Draw/Dispatch/Close — OMSetRenderTargets does not consume the RT/DS contents.
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
 		CurrentStateCache->SetRenderTargetFormats(Targets, Depth);	
+		++otherWorkCounter;
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth)
@@ -111,6 +113,7 @@ namespace RenderCore
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
 													RenderTargetRHI->GetDepthResource() ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
+			++otherWorkCounter;
 		}
 
 	}
@@ -131,6 +134,7 @@ namespace RenderCore
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
 				TextureCubeRHI->GetDepthResource() ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(TextureCubeRHI);
+			++otherWorkCounter;
 		}
 	}
 
@@ -146,6 +150,7 @@ namespace RenderCore
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE,
 				TextureCube->GetDepthResource() ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(TextureCube);
+			++otherWorkCounter;
 		}
 	}
 
@@ -241,20 +246,6 @@ namespace RenderCore
 			CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
 		}
 		++numClears;
-	}
-
-	void D3D12CommandContext::RHIBeing()
-	{
-		Assert(CommandAllocator);
-		if (CommandAllocator)
-			CommandListHandle.Reset(*CommandAllocator);
-		if (CurrentStateCache)
-			CurrentStateCache->InvalidateDescriptorHeapBindingsForFreshCommandList();
-		for (const auto& KV : StateCacheMap)
-		{
-			if (KV.second)
-				KV.second->InvalidateDescriptorHeapBindingsForFreshCommandList();
-		}
 	}
 
 	void D3D12CommandContext::RHIEndDrawing()
@@ -478,6 +469,7 @@ namespace RenderCore
 		if (!CommandListHandle)
 			return;
 		CommandListHandle->SetGraphicsRoot32BitConstants(RootParameterIndex, Num32BitValues, SrcData, DestOffsetIn32BitValues);
+		++otherWorkCounter;
 	}
 
 	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
@@ -618,6 +610,7 @@ namespace RenderCore
 		// Only flush barriers; avoid submitting mid-frame.
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->CopyResource(D3D12Dst->GetResource()->GetResource(), D3D12Src->GetResource()->GetResource());
+		++numCopies;
 		
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
@@ -662,6 +655,7 @@ namespace RenderCore
 			&srcLocation,
 			&srcBox
 		);
+		++numCopies;
 
 		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
@@ -669,29 +663,49 @@ namespace RenderCore
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
-		(void)FlushCommandsGetFence(WaitForCompletion);
-	}
+		// UE-style: only submit when we actually recorded work, have pending lists, or we need to wait.
+		if (!CommandListHandle)
+			return;
 
-	uint64_t D3D12CommandContext::FlushCommandsGetFence(bool WaitForCompletion /*= false*/)
-	{
-		// Submit path: always close, execute, and run per-submit cleanup (linear allocators, dynamic heaps)
-		// via the ExecuteAndClear fence callback. Skipping submit for heuristics breaks fence-tied retirement.
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		const ED3D12CommandQueueType QueueType = GetCommandListManager().GetQueueType();
+		const bool bHasPendingWork = Device ? Device->HasPendingCommandLists(QueueType) : false;
+		// Important: don't rely solely on draw/dispatch counters. We may have "real work" recorded
+		// (e.g. pending transition barriers) even when counters are 0. Skipping submit in that case
+		// prevents fence progress and makes transient allocations appear to "leak" unless Flush(true) is used.
+		const bool bHasPendingBarriers = (CommandListHandle.PendingResourceBarriers().size() > 0);
+		const bool bHasDoneWork = HasRecordedCommands() || bHasPendingBarriers || bHasPendingWork;
+		const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork;
+
+		if (!bOpenNewCmdList)
+			return;
+
 		CloseCommandList();
-		const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
+
+		if (Device && bHasPendingWork)
+		{
+			Device->EnqueuePendingCommandList(std::move(CommandListHandle), QueueType);
+			(void)Device->ExecutePendingCommandLists(QueueType, WaitForCompletion);
+			OpenCommandList();
+			return;
+		}
+
+		(void)CommandListHandle.ExecuteAndClear(WaitForCompletion);
 		OpenCommandList();
-		return SignaledFenceValue;
 	}
 
-	uint64_t D3D12CommandContext::FlushCommandsGetFence_NoReopen(bool WaitForCompletion /*= false*/)
+	void D3D12CommandContext::Finish(std::vector<D3D12CommandListHandle>& OutCommandLists)
 	{
 		if (!CommandListHandle)
-			return 0;
-		// Shutdown/idle-wait path: we only need to submit outstanding work and optionally wait.
-		// Re-opening a fresh command list here forces a Reset() on the driver hot path and can crash
-		// during teardown (observed in nvwgf2umx on some systems).
+			return;
 		CloseCommandList();
-		const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
-		return SignaledFenceValue;
+
+		if (HasRecordedCommands())
+			OutCommandLists.push_back(std::move(CommandListHandle));
+		else
+			GetCommandListManager().ReleaseCommandList(CommandListHandle);
+
+		CommandListHandle = {};
 	}
 
 	void D3D12CommandContext::RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush /*= false*/)
@@ -753,13 +767,7 @@ namespace RenderCore
 		CommandListHandle = GetCommandListManager().ObtainCommandList(*CommandAllocator);
 		CommandListHandle.SetCurrentOwningContext(this);
 
-		if (CurrentStateCache)
-			CurrentStateCache->InvalidateDescriptorHeapBindingsForFreshCommandList();
-		for (const auto& KV : StateCacheMap)
-		{
-			if (KV.second)
-				KV.second->InvalidateDescriptorHeapBindingsForFreshCommandList();
-		}
+		// UE-style: D3D12 Reset clears bindings; caches detect Reset via command list reset-serial.
 		numDraws = 0;
 		numDispatches = 0;
 		numClears = 0;
@@ -820,6 +828,8 @@ namespace RenderCore
 			}
 		}
 
+		if (bAnyTransition)
+			++numBarriers;
 		if (bAnyTransition && Flush)
 			CommandListHandle.FlushResourceBarriers();
 	}
@@ -834,6 +844,7 @@ namespace RenderCore
 			if (Flush)
 				CommandListHandle.FlushResourceBarriers();
 			Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
+			++numBarriers;
 		}
 	}
 
@@ -847,8 +858,9 @@ namespace RenderCore
 
 		size_t UploadBufferSize = (size_t)GetRequiredIntermediateSize(Dest->GetResource(), 0, NumSubResources);
 		Render::D3D12CallStats::AddUploadBytes((uint64_t)UploadBufferSize);
-		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(UploadBufferSize);
-		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.Resource->GetResource(), 0, 0, NumSubResources, SubData);
+		// UpdateSubresources requires the intermediate offset to be aligned to D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT.
+		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(UploadBufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.D3D12Resource, (UINT64)Allocation.Offset, 0, NumSubResources, SubData);
 		Render::D3D12CallStats::AddCopyBytes((uint64_t)UploadBufferSize);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -877,7 +889,7 @@ namespace RenderCore
 		}
 
 		Render::D3D12CallStats::AddCopyBytes((uint64_t)NumBytes);
-		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.Resource->GetResource(), 0, NumBytes);
+		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.D3D12Resource, (UINT64)Allocation.Offset, NumBytes);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();

@@ -33,6 +33,7 @@ namespace RenderCore
 		, CurrentOwningContext(nullptr)
 		, CurrentGeneration(1)
 		, LastCompleteGeneration(0)
+		, RecordingGeneration(1)
 		, IsClosed(false)
 		, bShouldTrackStartEndTime(false)
 		, UploadLinearAllocator(UploadFastAllocator, ParentDevice)
@@ -97,6 +98,7 @@ namespace RenderCore
 
 		CurrentCommandAllocator = &CommandAllocator;
 		IsClosed = false;
+		RecordingGeneration++;
 
 		// Indicate this command allocator is being used.
 		CurrentCommandAllocator->IncrementPendingCommandLists();

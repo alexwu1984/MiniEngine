@@ -16,61 +16,45 @@ namespace RenderCore
 	namespace
 	{
 		// Fewer StageDescriptorHandles calls → fewer stale table regions / CopyDescriptors work (UE-style batching).
-		static void StageConsecutiveGraphicsSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, D3D12_CPU_DESCRIPTOR_HANDLE* views)
+		// NOTE: With GPU-based validation enabled, leaving a root descriptor table uninitialized is a hard error.
+		// We therefore stage the *full table* when requested, filling null entries with a valid "null SRV" descriptor.
+		static void StageAllGraphicsSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullSrv)
 		{
 			if (rootParamIndex < 0)
 				return;
-			uint32_t i = 0;
-			while (i < numSrvs)
-			{
-				while (i < numSrvs && views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					++i;
-				if (i >= numSrvs)
-					break;
-				const uint32_t start = i;
-				while (i < numSrvs && views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					++i;
-				const uint32_t count = i - start;
-				heap.SetGraphicsDescriptorHandles((UINT)rootParamIndex, start, count, &views[start]);
-			}
+			if (numSrvs == 0)
+				return;
+			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> tmp;
+			tmp.resize(numSrvs);
+			for (uint32_t i = 0; i < numSrvs; ++i)
+				tmp[i] = (views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL) ? NullSrv : views[i];
+			heap.SetGraphicsDescriptorHandles((UINT)rootParamIndex, 0, numSrvs, tmp.data());
 		}
 
-		static void StageConsecutiveComputeSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, D3D12_CPU_DESCRIPTOR_HANDLE* views)
+		static void StageAllComputeSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullSrv)
 		{
 			if (rootParamIndex < 0)
 				return;
-			uint32_t i = 0;
-			while (i < numSrvs)
-			{
-				while (i < numSrvs && views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					++i;
-				if (i >= numSrvs)
-					break;
-				const uint32_t start = i;
-				while (i < numSrvs && views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					++i;
-				const uint32_t count = i - start;
-				heap.SetComputeDescriptorHandles((UINT)rootParamIndex, start, count, &views[start]);
-			}
+			if (numSrvs == 0)
+				return;
+			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> tmp;
+			tmp.resize(numSrvs);
+			for (uint32_t i = 0; i < numSrvs; ++i)
+				tmp[i] = (views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL) ? NullSrv : views[i];
+			heap.SetComputeDescriptorHandles((UINT)rootParamIndex, 0, numSrvs, tmp.data());
 		}
 
-		static void StageConsecutiveComputeUavs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numUavs, D3D12_CPU_DESCRIPTOR_HANDLE* views)
+		static void StageAllComputeUavs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numUavs, const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullUav)
 		{
 			if (rootParamIndex < 0)
 				return;
-			uint32_t i = 0;
-			while (i < numUavs)
-			{
-				while (i < numUavs && views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					++i;
-				if (i >= numUavs)
-					break;
-				const uint32_t start = i;
-				while (i < numUavs && views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-					++i;
-				const uint32_t count = i - start;
-				heap.SetComputeDescriptorHandles((UINT)rootParamIndex, start, count, &views[start]);
-			}
+			if (numUavs == 0)
+				return;
+			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> tmp;
+			tmp.resize(numUavs);
+			for (uint32_t i = 0; i < numUavs; ++i)
+				tmp[i] = (views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL) ? NullUav : views[i];
+			heap.SetComputeDescriptorHandles((UINT)rootParamIndex, 0, numUavs, tmp.data());
 		}
 
 		static size_t HashBytesStable(const void* Data, size_t NumBytes, size_t Seed)
@@ -169,7 +153,66 @@ namespace RenderCore
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
 
+		// Release CPU descriptor allocations (best effort).
+		if (m_NullSrvCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			if (auto Dev = GetParentDevice())
+				Dev->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, m_NullSrvAlloc);
+			m_NullSrvCpu.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+			m_NullSrvAlloc = {};
+		}
+		if (m_NullUavCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			if (auto Dev = GetParentDevice())
+				Dev->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, m_NullUavAlloc);
+			m_NullUavCpu.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+			m_NullUavAlloc = {};
+		}
+
 	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12StateCache::GetOrCreateNullSrvCpu()
+	{
+		if (m_NullSrvCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			return m_NullSrvCpu;
+
+		auto Dev = GetParentDevice();
+		if (!Dev)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+
+		m_NullSrvAlloc = Dev->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		m_NullSrvCpu = m_NullSrvAlloc.Cpu;
+		// D3D12 requires a valid view desc even when pResource is nullptr.
+		// Use a conservative Texture2D SRV; a nullptr resource yields a "null descriptor".
+		D3D12_SHADER_RESOURCE_VIEW_DESC Desc = {};
+		Desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		Desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		Desc.Texture2D.MipLevels = 1;
+		Dev->GetDevice()->CreateShaderResourceView(nullptr, &Desc, m_NullSrvCpu);
+		return m_NullSrvCpu;
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE FD3D12StateCache::GetOrCreateNullUavCpu()
+	{
+		if (m_NullUavCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			return m_NullUavCpu;
+
+		auto Dev = GetParentDevice();
+		if (!Dev)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+
+		m_NullUavAlloc = Dev->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		m_NullUavCpu = m_NullUavAlloc.Cpu;
+		// D3D12 requires a valid view desc even when pResource is nullptr.
+		D3D12_UNORDERED_ACCESS_VIEW_DESC Desc = {};
+		Desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		Desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		Dev->GetDevice()->CreateUnorderedAccessView(nullptr, nullptr, &Desc, m_NullUavCpu);
+		return m_NullUavCpu;
+	}
+
+	// (null uniform buffer is provided by FD3D12Device, not per-state-cache)
 
 	void FD3D12StateCache::SetVertexShader(std::shared_ptr<FD3D12VertexShader> InVertexShader)
 	{
@@ -296,20 +339,20 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12StateCache::InvalidateDescriptorHeapBindingsForFreshCommandList()
-	{
-		m_bDescriptorHeapBindingsStaleForCommandList = true;
-	}
-
 	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
 		// UE-style: avoid redundant SetDescriptorHeaps when the dynamic ring hands back the same heap pointer.
 		// After ID3D12GraphicsCommandList::Reset, heaps are not bound even if our cached pointers match — see InvalidateDescriptorHeapBindingsForFreshCommandList.
-		if (CurrentDescriptorHeaps[Type] == HeapPtr && !m_bDescriptorHeapBindingsStaleForCommandList)
+		ID3D12GraphicsCommandList* const GfxCmdList = CommandList.GraphicsCommandList();
+		const bool bCommandListChanged =
+			(GfxCmdList != m_LastDescriptorHeapBoundCmdList) ||
+			(CommandList.GetRecordingGeneration() != m_LastDescriptorHeapBoundRecordingGen);
+		if (CurrentDescriptorHeaps[Type] == HeapPtr && !bCommandListChanged)
 			return;
 		CurrentDescriptorHeaps[Type] = HeapPtr;
 		BindDescriptorHeaps(CommandList);
-		m_bDescriptorHeapBindingsStaleForCommandList = false;
+		m_LastDescriptorHeapBoundCmdList = GfxCmdList;
+		m_LastDescriptorHeapBoundRecordingGen = CommandList.GetRecordingGeneration();
 	}
 
 	void FD3D12StateCache::BindDescriptorHeaps(D3D12CommandListHandle& CommandList)
@@ -338,6 +381,8 @@ namespace RenderCore
 		m_LastAppliedGraphicsPSOHash = (size_t)-1;
 		m_LastAppliedGraphicsRootSig = nullptr;
 		m_LastAppliedGraphicsPSO.reset();
+		m_LastAppliedGraphicsCmdList = nullptr;
+		m_LastAppliedGraphicsRecordingGen = 0;
 		m_GraphicsBindDirtyMask = 0;
 		m_GraphicsLayoutDirty = true;
 		m_LastUnifiedRootCacheKey.clear();
@@ -692,6 +737,9 @@ namespace RenderCore
 
 	bool FD3D12StateCache::ApplyGraphicState(D3D12CommandListHandle& CommandList)
 	{
+		const bool bCmdListChanged =
+			(CommandList.GraphicsCommandList() != m_LastAppliedGraphicsCmdList) ||
+			(CommandList.GetRecordingGeneration() != m_LastAppliedGraphicsRecordingGen);
 		auto RootSignature = BuildRootSignature();
 		if (!RootSignature)
 			return false;
@@ -760,9 +808,8 @@ namespace RenderCore
 		// Stable hash: include root layout key (samplers + b0 root-constants vs CBV) so PSO matches the root signature it was created with.
 		const size_t HashCode = HashGraphicsPSOStable(PSDesc, CurrentVertexHash, CurrentPixelHash, ElementDescs, m_LastUnifiedRootCacheKey);
 
-		const bool bHeapOrListBindingStale = m_bDescriptorHeapBindingsStaleForCommandList;
 		const bool bLayoutDirty = m_GraphicsLayoutDirty
-			|| bHeapOrListBindingStale
+			|| bCmdListChanged
 			|| HashCode != m_LastAppliedGraphicsPSOHash
 			|| RootSigPtr != m_LastAppliedGraphicsRootSig;
 
@@ -790,6 +837,8 @@ namespace RenderCore
 
 		auto bindAllGraphicsCbvs = [&]()
 		{
+			auto Dev = GetParentDevice();
+			auto NullUB = Dev ? Dev->GetNullUniformBuffer() : nullptr;
 			auto pushRootConstants = [&](EShaderFrequency Freq)
 			{
 				const int32_t rcIdx = RootSignature->RootConstantsRootIndex[Freq];
@@ -798,10 +847,18 @@ namespace RenderCore
 				const UINT N = (UINT)RootSignature->RootConstantsNum32BitValues[Freq];
 				if (N == 0)
 					return;
-				const std::shared_ptr<D3D12UniformBuffer>& ub = m_RootConstantUniformBuffer[Freq];
-				if (!ub)
-					return;
-				CommandList.SetGraphicsRoot32BitConstantsFromUniform((UINT)rcIdx, N, ub.get(), 0);
+				std::shared_ptr<D3D12UniformBuffer> ub = m_RootConstantUniformBuffer[Freq];
+				if (ub)
+				{
+					CommandList.SetGraphicsRoot32BitConstantsFromUniform((UINT)rcIdx, N, ub.get(), 0);
+				}
+				else
+				{
+					// UE-style: if the app didn't provide constants, explicitly set zeros.
+					std::vector<uint32_t> Zero;
+					Zero.resize(N, 0u);
+					CommandList.GraphicsCommandList()->SetGraphicsRoot32BitConstants((UINT)rcIdx, N, Zero.data(), 0);
+				}
 			};
 			pushRootConstants(SF_Vertex);
 			pushRootConstants(SF_Pixel);
@@ -813,11 +870,14 @@ namespace RenderCore
 				uint32_t rootParamOffset = 0;
 				for (uint32_t reg = firstReg; reg < VertexResCount.NumCBs; ++reg)
 				{
-					if (ConstantBufferCache.Buffers[SF_Vertex][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					std::shared_ptr<D3D12UniformBuffer> ub = ConstantBufferObjects[SF_Vertex][reg];
+					if (!ub)
+						ub = NullUB;
+					if (ub)
 					{
 						CommandList.SetGraphicsRootConstantBufferViewUniform(
 							rootParamOffset + StartIndex,
-							ConstantBufferObjects[SF_Vertex][reg].get());
+							ub.get());
 					}
 					++rootParamOffset;
 				}
@@ -829,11 +889,14 @@ namespace RenderCore
 				uint32_t rootParamOffset = 0;
 				for (uint32_t reg = firstReg; reg < PixelResCount.NumCBs; ++reg)
 				{
-					if (ConstantBufferCache.Buffers[SF_Pixel][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					std::shared_ptr<D3D12UniformBuffer> ub = ConstantBufferObjects[SF_Pixel][reg];
+					if (!ub)
+						ub = NullUB;
+					if (ub)
 					{
 						CommandList.SetGraphicsRootConstantBufferViewUniform(
 							rootParamOffset + StartIndex,
-							ConstantBufferObjects[SF_Pixel][reg].get());
+							ub.get());
 					}
 					++rootParamOffset;
 				}
@@ -842,13 +905,14 @@ namespace RenderCore
 
 		auto stageAllGraphicsSrvs = [&]()
 		{
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv = GetOrCreateNullSrvCpu();
 			if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
 			{
-				StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex]);
+				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex], NullSrv);
 			}
 			if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
 			{
-				StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel]);
+				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel], NullSrv);
 			}
 		};
 
@@ -863,6 +927,8 @@ namespace RenderCore
 			m_LastAppliedGraphicsPSOHash = HashCode;
 			m_LastAppliedGraphicsRootSig = RootSigPtr;
 			m_LastAppliedGraphicsPSO = PipelineState;
+			m_LastAppliedGraphicsCmdList = CommandList.GraphicsCommandList();
+			m_LastAppliedGraphicsRecordingGen = CommandList.GetRecordingGeneration();
 			m_GraphicsLayoutDirty = false;
 			m_GraphicsBindDirtyMask = 0;
 		}
@@ -883,12 +949,16 @@ namespace RenderCore
 
 	bool FD3D12StateCache::ApplyComputeState(D3D12CommandListHandle& CommandList)
 	{
+		const bool bCmdListChanged =
+			(CommandList.GraphicsCommandList() != m_LastAppliedComputeCmdList) ||
+			(CommandList.GetRecordingGeneration() != m_LastAppliedComputeRecordingGen);
 		auto RootSignature = BuildRootSignature();
 		if (!RootSignature)
 			return false;
 
 		CSDesc.pRootSignature = RootSignature->GetSignature();
 		Assert(CSDesc.pRootSignature != nullptr);
+		void* const RootSigPtr = reinterpret_cast<void*>(CSDesc.pRootSignature);
 		CSDesc.NodeMask = 1;
 
 		auto itComputeShader = ComputeShaders.find(CurrentComputeHash);
@@ -918,9 +988,20 @@ namespace RenderCore
 				PipelineState = ComputePSHashMap[HashCode];
 			}
 		}
-		CommandList->SetComputeRootSignature(RootSignature->GetSignature());
-		DynamicViewDescriptorHeap.ParseComputeRootSignature(*RootSignature);
-		CommandList->SetPipelineState(PipelineState.get());
+		// UE-style: a new Reset()'d command list has no bindings; force full rebind on cmdlist change or root/pso change.
+		const bool bNeedFullBind = bCmdListChanged
+			|| RootSigPtr != m_LastAppliedComputeRootSig
+			|| PipelineState.get() != m_LastAppliedComputePSO.get();
+		if (bNeedFullBind)
+		{
+			CommandList->SetComputeRootSignature(RootSignature->GetSignature());
+			DynamicViewDescriptorHeap.ParseComputeRootSignature(*RootSignature);
+			CommandList->SetPipelineState(PipelineState.get());
+			m_LastAppliedComputeRootSig = RootSigPtr;
+			m_LastAppliedComputePSO = PipelineState;
+			m_LastAppliedComputeCmdList = CommandList.GraphicsCommandList();
+			m_LastAppliedComputeRecordingGen = CommandList.GetRecordingGeneration();
+		}
 
 		FShaderCodePackedResourceCounts ComputeResCount = itComputeShader->second->ResourceCounts;
 
@@ -928,23 +1009,36 @@ namespace RenderCore
 		if (csRcIdx >= 0)
 		{
 			const UINT N = (UINT)RootSignature->RootConstantsNum32BitValues[SF_Compute];
-			const std::shared_ptr<D3D12UniformBuffer>& ub = m_RootConstantUniformBuffer[SF_Compute];
+			std::shared_ptr<D3D12UniformBuffer> ub = m_RootConstantUniformBuffer[SF_Compute];
 			if (ub && N > 0)
+			{
 				CommandList.SetComputeRoot32BitConstantsFromUniform((UINT)csRcIdx, N, ub.get(), 0);
+			}
+			else if (N > 0)
+			{
+				std::vector<uint32_t> Zero;
+				Zero.resize(N, 0u);
+				CommandList.GraphicsCommandList()->SetComputeRoot32BitConstants((UINT)csRcIdx, N, Zero.data(), 0);
+			}
 		}
 
 		int32_t StartIndex = RootSignature->CBRootIndex[SF_Compute];
 		if (StartIndex >= 0)
 		{
+			auto Dev = GetParentDevice();
+			auto NullUB = Dev ? Dev->GetNullUniformBuffer() : nullptr;
 			const uint32_t firstReg = (csRcIdx >= 0) ? 1u : 0u;
 			uint32_t rootParamOffset = 0;
 			for (uint32_t reg = firstReg; reg < ComputeResCount.NumCBs; ++reg)
 			{
-				if (ConstantBufferCache.Buffers[SF_Compute][reg] != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+				std::shared_ptr<D3D12UniformBuffer> ub = ConstantBufferObjects[SF_Compute][reg];
+				if (!ub)
+					ub = NullUB;
+				if (ub)
 				{
 					CommandList.SetComputeRootConstantBufferViewUniform(
 						rootParamOffset + StartIndex,
-						ConstantBufferObjects[SF_Compute][reg].get());
+						ub.get());
 				}
 				++rootParamOffset;
 			}
@@ -952,12 +1046,14 @@ namespace RenderCore
 
 		if (RootSignature->SRVRootIndex[SF_Compute] > -1)
 		{
-			StageConsecutiveComputeSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Compute], ComputeResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Compute]);
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv = GetOrCreateNullSrvCpu();
+			StageAllComputeSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Compute], ComputeResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Compute], NullSrv);
 		}
 
 		if (RootSignature->UAVRootIndex[SF_Compute] > -1)
 		{
-			StageConsecutiveComputeUavs(DynamicViewDescriptorHeap, RootSignature->UAVRootIndex[SF_Compute], ComputeResCount.NumUAVs, UAVCache.Views);
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullUav = GetOrCreateNullUavCpu();
+			StageAllComputeUavs(DynamicViewDescriptorHeap, RootSignature->UAVRootIndex[SF_Compute], ComputeResCount.NumUAVs, UAVCache.Views, NullUav);
 		}
 
 		DynamicViewDescriptorHeap.CommitComputeRootDescriptorTables(CommandList.GraphicsCommandList());
@@ -984,22 +1080,26 @@ namespace RenderCore
 
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
-		m_bDescriptorHeapBindingsStaleForCommandList = true;
+		m_LastDescriptorHeapBoundCmdList = nullptr;
+		m_LastDescriptorHeapBoundRecordingGen = 0;
 		ResetGraphicsApplyTracking();
+		m_LastAppliedComputeRootSig = nullptr;
+		m_LastAppliedComputePSO.reset();
+		m_LastAppliedComputeCmdList = nullptr;
 	}
 
 	void FD3D12StateCache::ClearRenderState()
 	{
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
-		m_bDescriptorHeapBindingsStaleForCommandList = true;
+		m_LastDescriptorHeapBoundCmdList = nullptr;
 	}
 
 	void FD3D12StateCache::ClearComputeState()
 	{
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
-		m_bDescriptorHeapBindingsStaleForCommandList = true;
+		m_LastDescriptorHeapBoundCmdList = nullptr;
 	}
 
 	void FD3D12StateCache::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)

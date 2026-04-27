@@ -9,6 +9,7 @@
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12DescriptorCache.h"
+#include "D3D12/D3D12Allocation.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include <d3d12sdklayers.h>
 #include <dxgidebug.h>
@@ -42,6 +43,7 @@ namespace RenderCore
 		std::shared_ptr<FRootSignature> RootSignature;
 
 		std::shared_ptr<FDynamicDescriptorHeap> DynamicViewDescriptorHeap;
+		std::unique_ptr<FD3D12TransientUploadRing> TransientUploadRing;
 
 		~FD3D12AdapterPrivate()
 		{
@@ -67,6 +69,7 @@ namespace RenderCore
 			FenceCorePool = {};
 			FrameFence = {};
 			DynamicViewDescriptorHeap = {};
+			TransientUploadRing = {};
 			Device = {};
 
 			if (DxgiDebug)
@@ -178,6 +181,15 @@ namespace RenderCore
 		d->Device = std::make_shared<FD3D12Device>(this->shared_from_this());
 		d->Device->Initialize();
 
+		// UE-style bounded transient upload ring (used for dynamic constant/uniform data).
+		// Keep size modest to avoid WC commit explosion when the CPU outruns the GPU.
+		d->TransientUploadRing = std::make_unique<FD3D12TransientUploadRing>(this->shared_from_this());
+		(void)d->TransientUploadRing->Initialize(64ull * 1024ull * 1024ull);
+
+		// Create device-global null uniform buffer after the upload ring exists.
+		// (D3D12UniformBuffer allocates from the ring.)
+		d->Device->InitializeNullUniformBuffer();
+
 		CreateSignatures();
 
 		// Keep ImGui backend lifetime consistent with D3D12DynamicRHI::Shutdown():
@@ -245,6 +257,13 @@ namespace RenderCore
 		C_P(FD3D12Adapter);
 		Assert(d->FrameFence.get());
 		return *d->FrameFence;
+	}
+
+	FD3D12TransientUploadRing& FD3D12Adapter::GetTransientUploadRing()
+	{
+		C_P(FD3D12Adapter);
+		Assert(d->TransientUploadRing.get());
+		return *d->TransientUploadRing;
 	}
 
 	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice() const

@@ -39,6 +39,7 @@ namespace RenderCore
 	class FD3D12Device;
 	class FD3D12Fence;
 	class FD3D12Resource;
+	class FD3D12TransientUploadRing;
 	class FRootSignature;
 
 	class FD3D12Adapter : public std::enable_shared_from_this<FD3D12Adapter>
@@ -57,6 +58,7 @@ namespace RenderCore
 		ID3D12Device2* GetD3DDevice2() const;
 		FD3D12FenceCorePool& GetFenceCorePool();
 		FD3D12ManualFence& GetFrameFence();
+		FD3D12TransientUploadRing& GetTransientUploadRing();
 		std::shared_ptr<FD3D12Device> GetDevice() const;
 		std::shared_ptr<D3D12DynamicRHI> GetOwningRHI() const;
 		D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const;

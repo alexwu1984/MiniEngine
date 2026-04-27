@@ -2,6 +2,7 @@
 #include "D3D12/D3D12Resource.h"
 
 #include <mutex>
+#include <map>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -24,10 +25,90 @@ namespace RenderCore
 
 	struct FAllocation
 	{
-		FD3D12FastAllocatorPage* Resource;
-		size_t Offset;
-		void* CPU;
-		D3D12_GPU_VIRTUAL_ADDRESS GpuAddress;
+		// Backing page resource (when allocating from FD3D12FastAllocatorPage pools).
+		FD3D12FastAllocatorPage* Resource = nullptr;
+		// Backing D3D12 resource (valid for both fast-allocator pages and transient upload ring slices).
+		ID3D12Resource* D3D12Resource = nullptr;
+		size_t Offset = 0;
+		void* CPU = nullptr;
+		D3D12_GPU_VIRTUAL_ADDRESS GpuAddress = 0;
+	};
+
+	// UE-style fence-aware ring buffer (fixed-size; waits on wrap instead of growing).
+	class FD3D12AbstractRingBuffer
+	{
+	public:
+		explicit FD3D12AbstractRingBuffer(uint64_t BufferSize)
+			: Fence(nullptr)
+			, Size(BufferSize)
+			, Head(0)
+			, Tail(0)
+			, UsedSize(0)
+			, LastFence(0)
+		{}
+
+		static const uint64_t FailedReturnValue = uint64_t(-1);
+
+		void Reset(uint64_t NewSize)
+		{
+			Size = NewSize;
+			Head = 0;
+			Tail = 0;
+			UsedSize = 0;
+			LastFence = 0;
+			OutstandingAllocs.clear();
+		}
+
+		void SetFence(FD3D12Fence* InFence)
+		{
+			Fence = InFence;
+			LastFence = 0;
+		}
+
+		uint64_t Allocate(uint64_t Count);
+		uint64_t AllocateOrWait(uint64_t Count);
+
+	private:
+		void UpdateCompleted();
+		uint64_t OldestOutstandingFenceValue() const;
+
+	private:
+		FD3D12Fence* Fence;
+		uint64_t Size;
+		uint64_t Head;
+		uint64_t Tail;
+		uint64_t UsedSize;
+		uint64_t LastFence;
+		std::map<uint64_t, uint64_t> OutstandingAllocs; // fenceValue -> blocks
+	};
+
+	// Fixed-size transient UPLOAD ring used for dynamic constant/uniform data.
+	// Matches UE strategy: bounded size, fence-aware reuse, wait on wrap.
+	class FD3D12TransientUploadRing : public FD3D12AdapterChild
+	{
+	public:
+		explicit FD3D12TransientUploadRing(std::weak_ptr<FD3D12Adapter> InParentAdapter);
+		~FD3D12TransientUploadRing();
+
+		bool Initialize(uint64_t BufferBytes);
+		void Destroy();
+
+		// Allocate from the ring (bytes, alignment). Blocks (waits) when the ring is full.
+		// Returned allocation uses Offset within the ring buffer resource.
+		FAllocation Allocate(uint64_t Bytes, uint64_t Alignment = DEFAULT_ALIGN);
+
+		ID3D12Resource* GetResource() const { return UploadResource.get(); }
+		void* GetMappedBase() const { return MappedBase; }
+		uint64_t GetSizeBytes() const { return SizeBytes; }
+
+	private:
+		uint64_t AlignUp(uint64_t v, uint64_t a) const { return (a == 0) ? v : ((v + (a - 1)) & ~(a - 1)); }
+
+	private:
+		win32::com_ptr<ID3D12Resource> UploadResource;
+		void* MappedBase = nullptr;
+		uint64_t SizeBytes = 0;
+		FD3D12AbstractRingBuffer Ring;
 	};
 
 	class FD3D12ResourceAllocator : public FD3D12DeviceChild

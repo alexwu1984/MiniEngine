@@ -18,6 +18,12 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/debug)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/release)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE_DEBINFO ${CMAKE_BINARY_DIR}/bin/RelWithDebInfo)
 
+# Keep executable output directories aligned with MSBuild configs (lower-case folder names).
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/debug)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/release)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin/relwithdebinfo)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin/minsizerel)
+
 # Use solution folders to organize projects
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -63,15 +69,16 @@ set_target_properties(GLFFViewer PROPERTIES
 	PROJECT_LABEL "GLFFViewer")
 
 function(copy_runtime_assets target_name)
-	set(runtime_output_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>")
-	add_custom_target(${target_name}_RuntimeAssets
+	# Copy assets to the config-specific runtime output directory.
+	set(runtime_output_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<LOWER_CASE:$<CONFIG>>")
+	add_custom_target(${target_name}_RuntimeAssets ALL
 		COMMAND ${CMAKE_COMMAND} -E make_directory
 				"${runtime_output_dir}"
 		# On Windows, CMake's copy_directory fails hard if any file is locked by a running exe.
 		# robocopy returns codes <= 7 for "success with some skips"; we treat those as success to keep builds stable.
 		COMMAND ${CMAKE_COMMAND} -E echo "Copy runtime assets -> ${runtime_output_dir}"
-		COMMAND cmd /c "robocopy \"${CMAKE_CURRENT_SOURCE_DIR}\\GLTFModel\" \"${runtime_output_dir}\\GLTFModel\" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP & if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))"
-		COMMAND cmd /c "robocopy \"${CMAKE_CURRENT_SOURCE_DIR}\\Render\\ShaderLibDX\" \"${runtime_output_dir}\\ShaderLibDX\" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP & if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))"
+		COMMAND cmd /c robocopy "${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel" "${runtime_output_dir}/GLTFModel" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP ^& if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))
+		COMMAND cmd /c robocopy "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX" "${runtime_output_dir}/ShaderLibDX" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP ^& if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))
 		COMMENT "Copying runtime assets for ${target_name}")
 	add_dependencies(${target_name} ${target_name}_RuntimeAssets)
 endfunction()

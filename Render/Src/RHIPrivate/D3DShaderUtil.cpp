@@ -33,7 +33,7 @@ namespace RenderCore
 		const std::string& TargetModel, const D3D_SHADER_MACRO* pDefines)
 	{
 		// Declare handles
-		ID3DBlob* errors = nullptr;
+		win32::com_ptr<ID3DBlob> errors;
 
 #ifdef _DEBUG
 		// Enable better shader debugging with the graphics debugging tools.
@@ -43,14 +43,20 @@ namespace RenderCore
 #endif
 
 		win32::com_ptr<ID3DBlob> ShaderBlob;
-		HRESULT HR = D3DCompileFromFile(ShaderFile.c_str(), pDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), 
-			TargetModel.c_str(), compileFlags, 0, ShaderBlob.get_init_ref(), &errors);
-		if (!SUCCEEDED(HR))
+		HRESULT HR = D3DCompileFromFile(ShaderFile.c_str(), pDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(),
+			TargetModel.c_str(), compileFlags, 0, ShaderBlob.get_init_ref(), errors.get_init_ref());
+		if (FAILED(HR))
 		{
-			const char* errStr = (const char*)errors->GetBufferPointer();
-			core::err() << "Compile Shader Error:" << errStr;
-			errors->Release();
-			Assert(false);
+			if (errors)
+			{
+				const char* errStr = (const char*)errors->GetBufferPointer();
+				core::err() << "Compile Shader Error: " << errStr;
+			}
+			else
+			{
+				core::err() << "Compile Shader Error: HR=0x" << std::hex << (uint32_t)HR;
+			}
+			return {};
 		}
 		return ShaderBlob;
 	}

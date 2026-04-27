@@ -230,6 +230,9 @@ namespace RenderCore
 			D3D12CommandAllocator*	CurrentCommandAllocator;	// Command allocator currently being used for recording the command list
 			uint64_t				CurrentGeneration;
 			uint64_t				LastCompleteGeneration;
+			// Increments on every Reset(). D3D12 command list pointer is stable across Reset(),
+			// but all bindings are cleared; caches must treat each Reset() as a fresh recording session.
+			uint64_t				RecordingGeneration;
 			bool					IsClosed;
 			bool					bShouldTrackStartEndTime;
 			std::queue<GenerationSyncPointPair>			ActiveGenerations;	// Queue of active command list generations and their sync points. Used to determine what command lists have been completed on the GPU.
@@ -405,6 +408,13 @@ namespace RenderCore
 			Assert(CommandListData);
 			return CommandListData->CurrentGeneration;
 		}
+
+		uint64_t GetRecordingGeneration() const
+		{
+			Assert(CommandListData);
+			return CommandListData->RecordingGeneration;
+		}
+
 
 		D3D12CommandAllocator* CurrentCommandAllocator()
 		{

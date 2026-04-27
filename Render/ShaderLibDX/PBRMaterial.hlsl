@@ -1,4 +1,4 @@
-﻿#include "EnvironmentShaders.hlsl"
+#include "EnvironmentShaders.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 

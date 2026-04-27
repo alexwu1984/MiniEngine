@@ -5,6 +5,7 @@
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12DescriptorCache.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include "Imgui/imgui_impl_win32.h"
 #include "core/commandline.h"
@@ -226,13 +227,61 @@ namespace RenderCore
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList());
 		}
 
-		GetDefaultCommandContext()->RHIEndDrawing();
+		auto DefaultCtx = GetDefaultCommandContext();
+		DefaultCtx->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
-		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
+		DefaultCtx->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 
-		GetDefaultCommandContext()->FlushCommands(false);
+		// UE-style: Present path flushes the default context; actual submission still depends on
+		// whether the context/pending lists did meaningful work (FlushCommands internal logic).
+		DefaultCtx->FlushCommands(false);
+
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())
 			AsyncCtx->FlushCommands(false);
+
+		// Budget-based flush: when GPU falls behind, dynamic heaps / upload allocator pages can grow
+		// because fence-tied recycling can't keep up. If we exceed thresholds, do a flush + light wait.
+		{
+			const std::shared_ptr<FD3D12Device> Device = GetParentAdapter()->GetDevice();
+			if (Device)
+			{
+				const auto Pools = Device->GetDynamicDescriptorHeapPools();
+				const std::size_t DynViewHeaps = Pools.CreatedTracking[0].size();
+				const std::size_t DynSamplerHeaps = Pools.CreatedTracking[1].size();
+
+				auto& UploadPool = Device->GetFastAllocator(UploadFastAllocator);
+				auto& DefaultPool = Device->GetFastAllocator(DefaultFastAllocator);
+
+				// Conservative defaults; tune as needed.
+				constexpr std::size_t kMaxDynViewHeaps = 256;
+				constexpr std::size_t kMaxDynSamplerHeaps = 128;
+				constexpr std::size_t kMaxUploadStdPages = 96;
+				constexpr std::size_t kMaxUploadRetiredPages = 192;
+				constexpr std::size_t kMaxDefaultStdPages = 96;
+				constexpr std::size_t kMaxDefaultRetiredPages = 192;
+
+				const bool bOverBudget =
+					(DynViewHeaps > kMaxDynViewHeaps) ||
+					(DynSamplerHeaps > kMaxDynSamplerHeaps) ||
+					(UploadPool.GetStandardPageCount() > kMaxUploadStdPages) ||
+					(UploadPool.GetRetiredPageCount() > kMaxUploadRetiredPages) ||
+					(DefaultPool.GetStandardPageCount() > kMaxDefaultStdPages) ||
+					(DefaultPool.GetRetiredPageCount() > kMaxDefaultRetiredPages);
+
+				if (bOverBudget)
+				{
+					// UE-style behavior: when over budget, do a flush that waits so fences can catch up.
+					DefaultCtx->FlushCommands(true);
+				}
+			}
+		}
+
+		// UE-style: advance the adapter frame fence once per frame.
+		// This is intentionally decoupled from whether we executed a non-empty CL.
+		{
+			auto& FrameFence = GetParentAdapter()->GetFrameFence();
+			FrameFence.FD3D12Fence::Signal(ED3D12CommandQueueType::Default);
+		}
 
 		const UINT syncInterval = 1u;
 		const UINT presentFlags = 0u;

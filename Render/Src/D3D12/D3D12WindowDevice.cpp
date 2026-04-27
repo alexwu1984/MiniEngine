@@ -5,9 +5,62 @@
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12UploadPlacedBuddyPool.h"
+#include "D3D12/D3D12UniformBuffer.h"
 
 namespace RenderCore
 {
+	void FD3D12Device::EnqueuePendingCommandList(D3D12CommandListHandle&& List, ED3D12CommandQueueType QueueType)
+	{
+		if (!List)
+			return;
+		switch (QueueType)
+		{
+		case ED3D12CommandQueueType::Default: PendingCommandListsDefault.push_back(std::move(List)); break;
+		case ED3D12CommandQueueType::Async:   PendingCommandListsAsync.push_back(std::move(List)); break;
+		case ED3D12CommandQueueType::Copy:    PendingCommandListsCopy.push_back(std::move(List)); break;
+		default:                              PendingCommandListsDefault.push_back(std::move(List)); break;
+		}
+	}
+
+	bool FD3D12Device::HasPendingCommandLists(ED3D12CommandQueueType QueueType) const
+	{
+		switch (QueueType)
+		{
+		case ED3D12CommandQueueType::Default: return !PendingCommandListsDefault.empty();
+		case ED3D12CommandQueueType::Async:   return !PendingCommandListsAsync.empty();
+		case ED3D12CommandQueueType::Copy:    return !PendingCommandListsCopy.empty();
+		default:                              return !PendingCommandListsDefault.empty();
+		}
+	}
+
+	uint64_t FD3D12Device::ExecutePendingCommandLists(ED3D12CommandQueueType QueueType, bool WaitForCompletion /*= false*/)
+	{
+		FD3D12CommandListManager* Mgr = TryGetCommandListManager(QueueType);
+		if (!Mgr)
+			return 0;
+
+		std::vector<D3D12CommandListHandle>* PendingPtr = nullptr;
+		switch (QueueType)
+		{
+		case ED3D12CommandQueueType::Default: PendingPtr = &PendingCommandListsDefault; break;
+		case ED3D12CommandQueueType::Async:   PendingPtr = &PendingCommandListsAsync; break;
+		case ED3D12CommandQueueType::Copy:    PendingPtr = &PendingCommandListsCopy; break;
+		default:                              PendingPtr = &PendingCommandListsDefault; break;
+		}
+		std::vector<D3D12CommandListHandle>& Pending = *PendingPtr;
+		if (Pending.empty())
+			return 0;
+
+		const uint64_t Fence = Mgr->ExecuteCommandLists(Pending, [PendingCopy = Pending, QueueType](uint64_t FenceID) mutable {
+			for (D3D12CommandListHandle& h : PendingCopy)
+			{
+				h.FlushPendingUniformBufferFenceTags(FenceID);
+				h.CleanupTransientResources(FenceID, QueueType);
+			}
+			}, WaitForCompletion);
+		Pending.clear();
+		return Fence;
+	}
 
 	FD3D12Device::FD3D12Device(std::weak_ptr<FD3D12Adapter> InAdapter)
 		:FD3D12AdapterChild(InAdapter)
@@ -31,6 +84,15 @@ namespace RenderCore
 			DefaultCommandContext->OpenCommandList();
 		if(AsyncComputeContext)
 			AsyncComputeContext->OpenCommandList();
+	}
+
+	void FD3D12Device::InitializeNullUniformBuffer()
+	{
+		if (NullUniformBuffer)
+			return;
+		std::vector<uint8_t> Zero(256u, 0u);
+		NullUniformBuffer = std::make_shared<D3D12UniformBuffer>(GetParentAdapter());
+		(void)NullUniformBuffer->CreateUniformBuffer(Zero.data(), (uint32_t)Zero.size());
 	}
 
 	void FD3D12Device::CreateCommandContexts()

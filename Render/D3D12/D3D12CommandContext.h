@@ -38,7 +38,6 @@ namespace RenderCore
 		virtual void Clear(std::shared_ptr< RHITexture2D> RenderTarget, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
 		virtual void Clear(std::vector<std::shared_ptr<RHITexture2D>> Targets, std::shared_ptr<RHITexture2D> DepthTarget, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
 		virtual void Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth = 1.0f, uint8_t Stencil = 0);
-		void RHIBeing() override;
 		virtual void RHIEndDrawing() override;
 
 		virtual void RHISetShaderSampler(EShaderFrequency ShaderType, uint32_t SamplerIndex, std::shared_ptr< RHISamplerState> NewState) override;
@@ -68,10 +67,8 @@ namespace RenderCore
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) { return false; };
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data) {};
 		virtual void FlushCommands(bool WaitForCompletion = false) override;
-		uint64_t FlushCommandsGetFence(bool WaitForCompletion = false);
-		// Teardown-safe variant: close + execute (optionally wait) but DO NOT reopen/reset a new command list.
-		// Used by BlockUntilIdle/shutdown to avoid driver work during teardown.
-		uint64_t FlushCommandsGetFence_NoReopen(bool WaitForCompletion = false);
+		// UE-style: close the current command list and return it for batching/submission.
+		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) override;
 		virtual void BeginUserMark(const char* name) override;
 		virtual void EndUserMark() override;

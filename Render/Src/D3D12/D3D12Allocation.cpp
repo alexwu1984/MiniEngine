@@ -1,5 +1,6 @@
 ﻿#include "D3D12/D3D12Allocation.h"
 #include "RHI/RHI.h"
+#include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12UploadPlacedBuddyPool.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
@@ -286,6 +287,221 @@ namespace RenderCore
 		}
 	}
 
+	uint64_t FD3D12AbstractRingBuffer::OldestOutstandingFenceValue() const
+	{
+		if (OutstandingAllocs.empty())
+			return 0;
+		return OutstandingAllocs.begin()->first;
+	}
+
+	void FD3D12AbstractRingBuffer::UpdateCompleted()
+	{
+		if (!Fence)
+			return;
+
+		const uint64_t LastCompletedFence = Fence->GetLastCompletedFenceFast();
+		if (LastCompletedFence <= LastFence)
+			return;
+
+		LastFence = LastCompletedFence;
+		for (auto It = OutstandingAllocs.begin(); It != OutstandingAllocs.end();)
+		{
+			// Allocations are keyed by the fence value that will be signaled on submit.
+			// Once the fence is completed (>= key), the bytes are safe to reclaim.
+			if (It->first <= LastCompletedFence)
+			{
+				const uint64_t Bytes = It->second;
+				// Reclaim in FIFO order (fence values are monotonic).
+				Head = (Size == 0) ? 0 : ((Head + Bytes) % Size);
+				UsedSize = (Bytes > UsedSize) ? 0 : (UsedSize - Bytes);
+				It = OutstandingAllocs.erase(It);
+			}
+			else
+			{
+				++It;
+			}
+		}
+	}
+
+	uint64_t FD3D12AbstractRingBuffer::Allocate(uint64_t Count)
+	{
+		UpdateCompleted();
+
+		if (Count == 0 || Size == 0)
+			return FailedReturnValue;
+		if (Count > Size)
+			return FailedReturnValue;
+
+		// If we need to wrap to the beginning, allocate padding to end (UE-style) so the next alloc starts at 0.
+		if (Tail + Count > Size)
+		{
+			// If head is at 0, we can't wrap yet.
+			if (Head == 0)
+				return FailedReturnValue;
+			const uint64_t Padding = Size - Tail;
+			// Padding is purely to advance Tail; still must be fenced because it occupies bytes.
+			const uint64_t FenceKey = Fence ? Fence->GetCurrentFence() : 0;
+			OutstandingAllocs[FenceKey] += Padding;
+			UsedSize += Padding;
+			Tail = 0;
+		}
+
+		// Space check: ring is full when UsedSize + Count > Size.
+		if (UsedSize + Count > Size)
+			return FailedReturnValue;
+
+		// If the allocation would overlap Head (when wrapped), fail.
+		if (Tail >= Head)
+		{
+			// Region [Tail, Tail+Count) is valid as long as it doesn't run past Size (handled above)
+			// and doesn't overlap head when head is between Tail..Size.
+			// When Tail>=Head, the free region is [Tail..Size) plus [0..Head).
+			// Since we ensured Tail+Count<=Size, we're good.
+		}
+		else
+		{
+			// Tail < Head: free region is [Tail..Head). Must fit.
+			if (Tail + Count > Head)
+				return FailedReturnValue;
+		}
+
+		const uint64_t ReturnValue = Tail;
+		Tail += Count;
+		UsedSize += Count;
+
+		const uint64_t FenceKey = Fence ? Fence->GetCurrentFence() : 0;
+		OutstandingAllocs[FenceKey] += Count;
+
+		return ReturnValue;
+	}
+
+	uint64_t FD3D12AbstractRingBuffer::AllocateOrWait(uint64_t Count)
+	{
+		if (!Fence)
+			return Allocate(Count);
+
+		// Can't satisfy allocations larger than the ring.
+		if (Count > Size)
+			return FailedReturnValue;
+
+		for (;;)
+		{
+			// Always try a non-blocking allocation first. At startup (before any Signal),
+			// the ring is empty and this should succeed; only the "wait for wrap" path
+			// needs a valid signaled fence.
+			const uint64_t Off = Allocate(Count);
+			if (Off != FailedReturnValue)
+				return Off;
+
+			// If we haven't signaled anything yet (startup / before first Present), waiting would deadlock.
+			// Let the caller fall back to a different allocation path.
+			if (Fence->GetLastSignaledFence() == 0)
+				return FailedReturnValue;
+
+			const uint64_t Oldest = OldestOutstandingFenceValue();
+			if (Oldest == 0)
+				return FailedReturnValue;
+
+			Fence->WaitForFence(Oldest);
+			UpdateCompleted();
+		}
+	}
+
+	FD3D12TransientUploadRing::FD3D12TransientUploadRing(std::weak_ptr<FD3D12Adapter> InParentAdapter)
+		: FD3D12AdapterChild(InParentAdapter)
+		, Ring(0)
+	{
+	}
+
+	FD3D12TransientUploadRing::~FD3D12TransientUploadRing()
+	{
+		Destroy();
+	}
+
+	bool FD3D12TransientUploadRing::Initialize(uint64_t BufferBytes)
+	{
+		if (UploadResource)
+			return true;
+
+		if (BufferBytes == 0)
+			return false;
+
+		auto Adapter = GetParentAdapter();
+		if (!Adapter)
+			return false;
+
+		SizeBytes = BufferBytes;
+		Ring.Reset(SizeBytes);
+		Ring.SetFence(&Adapter->GetFrameFence());
+
+		D3D12_HEAP_PROPERTIES HeapProps = {};
+		HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+		HeapProps.CreationNodeMask = 1;
+		HeapProps.VisibleNodeMask = 1;
+
+		D3D12_RESOURCE_DESC Desc = {};
+		Desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		Desc.Alignment = 0;
+		Desc.Width = SizeBytes;
+		Desc.Height = 1;
+		Desc.DepthOrArraySize = 1;
+		Desc.MipLevels = 1;
+		Desc.Format = DXGI_FORMAT_UNKNOWN;
+		Desc.SampleDesc.Count = 1;
+		Desc.SampleDesc.Quality = 0;
+		Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		Desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+		win32::com_ptr<ID3D12Resource> R;
+		VERIFYD3DRESULT(Adapter->GetD3DDevice()->CreateCommittedResource(
+			&HeapProps, D3D12_HEAP_FLAG_NONE, &Desc, D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr, IID_PPV_ARGS(R.get_init_ref())));
+		R->SetName(L"TransientUploadRing");
+
+		void* Cpu = nullptr;
+		D3D12_RANGE range = { 0, 0 };
+		VERIFYD3DRESULT(R->Map(0, &range, &Cpu));
+
+		UploadResource = std::move(R);
+		MappedBase = Cpu;
+		return true;
+	}
+
+	void FD3D12TransientUploadRing::Destroy()
+	{
+		if (UploadResource)
+		{
+			UploadResource->Unmap(0, nullptr);
+			UploadResource = {};
+		}
+		MappedBase = nullptr;
+		SizeBytes = 0;
+		Ring.Reset(0);
+	}
+
+	FAllocation FD3D12TransientUploadRing::Allocate(uint64_t Bytes, uint64_t Alignment)
+	{
+		FAllocation Out = {};
+		if (!UploadResource || !MappedBase || SizeBytes == 0 || Bytes == 0)
+			return Out;
+
+		const uint64_t AlignedBytes = AlignUp(Bytes, Alignment);
+		if (AlignedBytes > SizeBytes)
+			return Out;
+		const uint64_t Off = Ring.AllocateOrWait(AlignedBytes);
+		if (Off == FD3D12AbstractRingBuffer::FailedReturnValue)
+			return Out;
+
+		Out.Resource = nullptr; // this allocation is backed by UploadResource, not a fast allocator page
+		Out.Offset = (size_t)Off;
+		Out.CPU = (uint8_t*)MappedBase + Off;
+		Out.GpuAddress = UploadResource->GetGPUVirtualAddress() + Off;
+		Out.D3D12Resource = UploadResource.get();
+		return Out;
+	}
+
 	FD3D12FastAllocatorPage* FD3D12FastAllocator::RequestPage()
 	{
 		ProcessPlacedBuddyDeferredFrees();
@@ -561,6 +777,21 @@ namespace RenderCore
 		Assert((AlignmentMask & Alignment) == 0);
 		const size_t AlignedSize = math::AlignUpWithMask(SizeInBytes, AlignmentMask);
 
+		// UE-style: for transient UPLOAD allocations, prefer a bounded fence-aware ring.
+		// This prevents unbounded WC commit growth caused by linear allocation patterns touching new pages forever.
+		if (m_AllocatorType == EFastAllocatorType::UploadFastAllocator)
+		{
+			auto Dev = GetParentDevice();
+			auto Adapter = Dev ? Dev->GetParentAdapter() : nullptr;
+			if (Adapter)
+			{
+				FD3D12TransientUploadRing& Ring = Adapter->GetTransientUploadRing();
+				FAllocation a = Ring.Allocate((uint64_t)AlignedSize, (uint64_t)Alignment);
+				if (a.CPU && a.GpuAddress != 0 && a.D3D12Resource)
+					return a;
+			}
+		}
+
 		if (AlignedSize > m_PageSize)
 			return AllocateLargePage(AlignedSize);
 
@@ -583,7 +814,7 @@ namespace RenderCore
 		Assert(m_CurrentPage != nullptr);
 		FAllocation allocation;
 		allocation.Resource = m_CurrentPage;
-		//allocation.D3d12Resource = m_CurrentPage->GetResource();
+		allocation.D3D12Resource = m_CurrentPage->GetResource();
 		allocation.Offset = m_CurrentOffset;
 		allocation.CPU = (uint8_t*)m_CurrentPage->GetResourceBaseAddress() + m_CurrentOffset;
 		allocation.GpuAddress = m_CurrentPage->GetGPUVirtualAddress() + m_CurrentOffset;
@@ -618,6 +849,7 @@ namespace RenderCore
 
 		FAllocation allocation;
 		allocation.Resource = Page;
+		allocation.D3D12Resource = Page->GetResource();
 		allocation.Offset = 0;
 		allocation.CPU = (uint8_t*)Page->GetResourceBaseAddress();
 		allocation.GpuAddress = Page->GetGPUVirtualAddress();

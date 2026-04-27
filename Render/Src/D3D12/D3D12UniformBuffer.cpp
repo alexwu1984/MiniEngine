@@ -48,13 +48,14 @@ namespace RenderCore
 		d->ConstantBufferSize = ConstantBufferSize;
 		d->RingStride = (uint32_t)math::AlignUp(ConstantBufferSize, DEFAULT_ALIGN);
 
-		auto& Allocator = GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->GetLinearAllocator(UploadFastAllocator);
-		d->RingAllocation = Allocator.Allocate((size_t)d->RingStride * (size_t)D3D12UniformBufferPrivate::kRingSlots, DEFAULT_ALIGN);
-		d->RingAllocated = true;
-		// RingWriteIndex is the next slot to write; slot 0 holds the initial GPU-visible copy.
-		d->RingWriteIndex = 1;
+		// UE-style: allocate dynamic uniform data from a bounded transient upload ring.
+		// This avoids unbounded WC commit growth from "many small" allocations that touch new pages over time.
+		auto& Ring = GetParentAdapter()->GetTransientUploadRing();
+		d->RingAllocation = Ring.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);
+		d->RingAllocated = (d->RingAllocation.CPU != nullptr && d->RingAllocation.GpuAddress != 0);
+		d->RingWriteIndex = 0;
 
-		if (Contents)
+		if (Contents && d->RingAllocated)
 			memcpy(d->RingAllocation.CPU, Contents, ConstantBufferSize);
 		return true;
 	}
@@ -70,8 +71,7 @@ namespace RenderCore
 		C_P(const D3D12UniformBuffer);
 		if (!d->RingAllocated)
 			return nullptr;
-		const uint32_t last = (d->RingWriteIndex + D3D12UniformBufferPrivate::kRingSlots - 1) % D3D12UniformBufferPrivate::kRingSlots;
-		return (uint8_t*)d->RingAllocation.CPU + (size_t)last * (size_t)d->RingStride;
+		return d->RingAllocation.CPU;
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS D3D12UniformBuffer::GetGPUVirtualAddress() const
@@ -79,8 +79,7 @@ namespace RenderCore
 		C_P(const D3D12UniformBuffer);
 		if (!d->RingAllocated)
 			return 0;
-		const uint32_t last = (d->RingWriteIndex + D3D12UniformBufferPrivate::kRingSlots - 1) % D3D12UniformBufferPrivate::kRingSlots;
-		return d->RingAllocation.GpuAddress + (uint64_t)last * (uint64_t)d->RingStride;
+		return d->RingAllocation.GpuAddress;
 	}
 
 	void D3D12UniformBuffer::UpdateUniformBuffer(const void* Contents)
@@ -89,22 +88,14 @@ namespace RenderCore
 		if (!d->RingAllocated || !Contents)
 			return;
 
-		const uint32_t slot = d->RingWriteIndex;
-		const uint64_t fenceVal = d->SlotFenceValue[slot];
-		if (fenceVal != 0)
-		{
-			std::shared_ptr<FD3D12Device> device = GetParentAdapter()->GetDevice();
-			if (device)
-			{
-				FD3D12Fence& fence = device->GetCommandListManager(d->SlotFenceQueue[slot]).GetFence();
-				if (!fence.IsFenceComplete(fenceVal))
-					fence.WaitForFence(fenceVal);
-			}
-		}
+		// Allocate a fresh slice and publish it; reuse is fence-gated by the ring allocator.
+		auto& Ring = GetParentAdapter()->GetTransientUploadRing();
+		FAllocation NewAlloc = Ring.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);
+		if (!NewAlloc.CPU || NewAlloc.GpuAddress == 0)
+			return;
 
-		uint8_t* dst = (uint8_t*)d->RingAllocation.CPU + (size_t)slot * (size_t)d->RingStride;
-		memcpy(dst, Contents, d->ConstantBufferSize);
-		d->RingWriteIndex = (d->RingWriteIndex + 1) % D3D12UniformBufferPrivate::kRingSlots;
+		memcpy(NewAlloc.CPU, Contents, d->ConstantBufferSize);
+		d->RingAllocation = NewAlloc;
 	}
 
 	uint32_t D3D12UniformBuffer::GetActiveRingSlotIndex() const
@@ -112,7 +103,7 @@ namespace RenderCore
 		C_P(const D3D12UniformBuffer);
 		if (!d->RingAllocated)
 			return 0;
-		return (d->RingWriteIndex + D3D12UniformBufferPrivate::kRingSlots - 1) % D3D12UniformBufferPrivate::kRingSlots;
+		return 0;
 	}
 
 	void D3D12UniformBuffer::RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList)

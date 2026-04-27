@@ -1,13 +1,16 @@
 ﻿#pragma once
 #include "D3D12/D3D12RHICommon.h"
+#include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12Allocation.h"
 #include <d3d12.h>
 #include <memory>
+#include <vector>
 
 namespace RenderCore
 {
 	class FD3D12CommandListManager;
 	class D3D12CommandContext;
+		class D3D12UniformBuffer;
 	class FD3D12ResourceAllocator;
 	class FD3D12UploadPlacedBuddyPool;
 	struct FDynamicDescriptorHeapPoolsPerDevice;
@@ -47,6 +50,16 @@ namespace RenderCore
 		std::size_t GetCpuDescriptorGlobalPoolSize() const { return FD3D12ResourceAllocator::GetGlobalPoolSize(); }
 		void BlockUntilIdle();
 
+		// UE-style: global null resources for safety (GPU-BV / uninitialized root args).
+		// Not a replacement for correct binding; only prevents undefined reads when shaders declare resources.
+		std::shared_ptr<D3D12UniformBuffer> GetNullUniformBuffer() const { return NullUniformBuffer; }
+		void InitializeNullUniformBuffer();
+
+		// UE-style: accumulate lists (per queue) and submit in a batch.
+		void EnqueuePendingCommandList(D3D12CommandListHandle&& List, ED3D12CommandQueueType QueueType);
+		uint64_t ExecutePendingCommandLists(ED3D12CommandQueueType QueueType, bool WaitForCompletion = false);
+		bool HasPendingCommandLists(ED3D12CommandQueueType QueueType) const;
+
 	private:
 		void CreateCommandContexts();
 		void InitPlatformSpecific();
@@ -65,5 +78,11 @@ namespace RenderCore
 
 		std::unique_ptr<FDynamicDescriptorHeapPoolsPerDevice> DynamicDescriptorHeapPools;
 		std::unique_ptr<FD3D12UploadPlacedBuddyPool> UploadPlacedBuddyPool;
+
+		std::vector<D3D12CommandListHandle> PendingCommandListsDefault;
+		std::vector<D3D12CommandListHandle> PendingCommandListsAsync;
+		std::vector<D3D12CommandListHandle> PendingCommandListsCopy;
+
+		std::shared_ptr<D3D12UniformBuffer> NullUniformBuffer;
 	};
 }

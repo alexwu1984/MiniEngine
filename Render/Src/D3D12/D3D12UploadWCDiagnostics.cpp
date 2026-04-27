@@ -110,7 +110,10 @@ namespace RenderCore
 		sReentryGuard = true;
 
 		const double MB = 1024.0 * 1024.0;
-		if (!RenderCore::D3D12RHI_ShouldEnableMemMonStacks())
+		// When deep memmon is enabled, capture a stack for each new WC allocation base.
+		// This helps pinpoint which code path keeps expanding WC virtual memory, even if the user didn't enable stacks explicitly.
+		const bool bWantStacks = RenderCore::D3D12RHI_ShouldEnableMemMonStacks() || RenderCore::D3D12RHI_ShouldEnableMemMonDeep();
+		if (!bWantStacks)
 		{
 			core::LOG(core::log_inf,
 				L"[D3D12] UploadMap WC (%s) ptr=%p size=%.1fMB allocBase=%p region=%.1fMB prot=0x%X (stacks off; add d3d12_memmon_stacks=1 for backtraces)",

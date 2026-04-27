@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "D3D12/D3D12Resource.h"
 
+#include <mutex>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -9,13 +10,21 @@ namespace RenderCore
 {
 	const static uint32_t DEFAULT_ALIGN = 256;
 	const static uint32_t GpuAllocatorPageSize = 0x10000;	// 64k
-	const static uint32_t CpuAllocatorPageSize = 0x200000;	// 2MB
 
-	class LinearAllocationPage;
+	// UE 4.26 FD3D12Device: DefaultFastAllocator(..., D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4)
+	// Align UploadFastAllocator linear page size with Epic's default fast-allocator page (4 MiB).
+	const static uint32_t CpuAllocatorPageSize = 4u * 1024u * 1024u;
+
+	// UE 4.26 D3D12Allocation.h — buddy / placed-buffer path constants (for parity when suballocating placed buffers).
+	static constexpr uint32_t UE426_MIN_PLACED_BUFFER_SIZE = 64u * 1024u;
+	static constexpr uint32_t UE426_D3D_BUFFER_ALIGNMENT = 64u * 1024u;
+
+	class FD3D12UploadPlacedBuddyPool;
+	class FD3D12FastAllocatorPage;
 
 	struct FAllocation
 	{
-		LinearAllocationPage* Resource;
+		FD3D12FastAllocatorPage* Resource;
 		size_t Offset;
 		void* CPU;
 		D3D12_GPU_VIRTUAL_ADDRESS GpuAddress;
@@ -84,17 +93,18 @@ namespace RenderCore
 		std::vector<FHeapState> Heaps;
 	};
 
-	class LinearAllocationPage : public FD3D12Resource
+	// UE4-style backing page for FD3D12FastAllocator / FD3D12LinearAllocator suballocations.
+	class FD3D12FastAllocatorPage : public FD3D12Resource
 	{
-		friend class LinearAllocator;
+		friend class FD3D12LinearAllocator;
 
 	public:
-		LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice,
+		FD3D12FastAllocatorPage(std::weak_ptr<FD3D12Device> ParentDevice,
 			ID3D12Resource* InResource,
 			D3D12_RESOURCE_STATES InitialState,
 			D3D12_RESOURCE_DESC const& InDesc,
 			D3D12_HEAP_TYPE InHeapType = D3D12_HEAP_TYPE_DEFAULT);
-		~LinearAllocationPage();
+		~FD3D12FastAllocatorPage();
 
 		uint64_t GetFenceValue() const { return FenceValue; }
 		void SetFenceValue(uint64_t InFenceValue) { FenceValue = InFenceValue; }
@@ -102,21 +112,30 @@ namespace RenderCore
 		ED3D12CommandQueueType GetRetireQueueType() const { return RetireQueueType; }
 		void SetRetireQueueType(ED3D12CommandQueueType InQueueType) { RetireQueueType = InQueueType; }
 
+		void BindPlacedBuddy(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, EFastAllocatorType OwnerAllocatorType);
+
 	private:
 		uint64_t FenceValue = 0;
 		ED3D12CommandQueueType RetireQueueType = ED3D12CommandQueueType::Default;
+
+		FD3D12UploadPlacedBuddyPool* PlacedBuddyPool = nullptr;
+		uint32_t PlacedBuddyOffsetMinUnits = 0;
+		uint32_t PlacedBuddyOrder = 0;
+		EFastAllocatorType PlacedBuddyOwnerAllocatorType = InvalidFastAllocator;
+		bool bHasPlacedBuddyBinding = false;
 	};
 
-	class LinearAllocationPageManager : public FD3D12DeviceChild
+	// UE4-style FD3D12FastAllocator: owns standard linear pages (UPLOAD / DEFAULT) for FD3D12LinearAllocator.
+	class FD3D12FastAllocator : public FD3D12DeviceChild
 	{
 	public:
-		LinearAllocationPageManager(std::weak_ptr<FD3D12Device> ParentDevice);
-		LinearAllocationPage* RequestPage();
-		void DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages);
-		void DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages);
-		LinearAllocationPage* CreateNewPage(size_t SizeInBytes = 0);
+		FD3D12FastAllocator(std::weak_ptr<FD3D12Device> ParentDevice);
+		FD3D12FastAllocatorPage* RequestPage();
+		void DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<FD3D12FastAllocatorPage*>& Pages);
+		void DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<FD3D12FastAllocatorPage*>& Pages);
+		FD3D12FastAllocatorPage* CreateNewPage(size_t SizeInBytes = 0);
 		void Destroy();
-		ELinearAllocatorType GetAllocatorType() const;
+		EFastAllocatorType GetAllocatorType() const;
 		std::size_t GetRetiredPageCount() const
 		{
 			return RetiredPages[0].size() + RetiredPages[1].size() + RetiredPages[2].size();
@@ -132,14 +151,16 @@ namespace RenderCore
 			return RetiredPages[QueueTypeIndex].size();
 		}
 
+		void EnqueuePlacedBuddyFree(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, uint64_t FenceValue, ED3D12CommandQueueType QueueType);
+
 	private:
-		using PagePool = std::queue<LinearAllocationPage* >;
+		using PagePool = std::queue<FD3D12FastAllocatorPage* >;
 
 		struct FLargePageDelete
 		{
 			uint64_t FenceValue = 0;
 			ED3D12CommandQueueType QueueType = ED3D12CommandQueueType::Default;
-			LinearAllocationPage* Page = nullptr;
+			FD3D12FastAllocatorPage* Page = nullptr;
 		};
 
 		// Retired pages are tracked per D3D12 queue to preserve monotonic fence ordering.
@@ -149,29 +170,44 @@ namespace RenderCore
 		std::queue<FLargePageDelete> LargePageDeletionQueue;
 		// Owns one ref for every standard page ever created by this manager.
 		// Availability is tracked separately via ReadyPages/RetiredPages.
-		std::vector<LinearAllocationPage*> OwnedStandardPages;
+		std::vector<FD3D12FastAllocatorPage*> OwnedStandardPages;
 
-		static ELinearAllocatorType ms_TypeCounter;
-		ELinearAllocatorType AllocatorType;
+		static EFastAllocatorType ms_TypeCounter;
+		EFastAllocatorType AllocatorType;
+
+		struct FPlacedBuddyPendingFree
+		{
+			FD3D12UploadPlacedBuddyPool* Pool = nullptr;
+			uint32_t OffsetMinUnits = 0;
+			uint32_t Order = 0;
+			uint64_t FenceValue = 0;
+			ED3D12CommandQueueType QueueType = ED3D12CommandQueueType::Default;
+		};
+
+		mutable std::mutex PlacedBuddyDeferredMutex;
+		std::vector<FPlacedBuddyPendingFree> PlacedBuddyDeferred;
+
+		void ProcessPlacedBuddyDeferredFrees();
+		void DrainPlacedBuddyDeferredWithWait();
 	};
 
-	class LinearAllocator : public FD3D12DeviceChild
+	class FD3D12LinearAllocator : public FD3D12DeviceChild
 	{
 	public:
-		LinearAllocator(ELinearAllocatorType Type, std::weak_ptr<FD3D12Device> ParentDevice);
+		FD3D12LinearAllocator(EFastAllocatorType Type, std::weak_ptr<FD3D12Device> ParentDevice);
 		FAllocation Allocate(size_t SizeInBytes, size_t Alignment = DEFAULT_ALIGN);
 		void CleanupUsedPages(uint64_t FenceID, ED3D12CommandQueueType QueueType);
 
 	private:
 		FAllocation AllocateLargePage(size_t SizeInBytes);
 
-		ELinearAllocatorType m_AllocatorType;
+		EFastAllocatorType m_AllocatorType;
 		size_t m_PageSize;
 		size_t m_CurrentOffset;
 
-		std::vector<LinearAllocationPage*> m_StandardPages;
-		std::vector<LinearAllocationPage*> m_LargePages;
+		std::vector<FD3D12FastAllocatorPage*> m_StandardPages;
+		std::vector<FD3D12FastAllocatorPage*> m_LargePages;
 
-		LinearAllocationPage* m_CurrentPage;
+		FD3D12FastAllocatorPage* m_CurrentPage;
 	};
 }

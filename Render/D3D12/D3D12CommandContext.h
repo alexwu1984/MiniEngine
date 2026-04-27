@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Allocation.h"
@@ -91,7 +91,7 @@ namespace RenderCore
 		void TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush);
 		void InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[]);
 		void InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/);
-		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type);
+		FD3D12LinearAllocator& GetLinearAllocator(EFastAllocatorType type);
 		void Initialize(void);
 		void Destroy();
 		void ClearState();

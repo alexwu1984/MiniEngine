@@ -1,9 +1,10 @@
-#include "D3D12/D3D12WindowDevice.h"
+﻿#include "D3D12/D3D12WindowDevice.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12DescriptorCache.h"
+#include "D3D12/D3D12UploadPlacedBuddyPool.h"
 
 namespace RenderCore
 {
@@ -50,8 +51,13 @@ namespace RenderCore
 		CopyCommandListManager->Create(L"Copy Queue");
 		AsyncCommandListManager->Create(L"Async Compute Queue", 0, 0);
 
-		PageManager[0] = std::make_shared<LinearAllocationPageManager>(this->shared_from_this());
-		PageManager[1] = std::make_shared<LinearAllocationPageManager>(this->shared_from_this());
+		FastAllocator[0] = std::make_shared<FD3D12FastAllocator>(this->shared_from_this());
+		FastAllocator[1] = std::make_shared<FD3D12FastAllocator>(this->shared_from_this());
+
+		UploadPlacedBuddyPool = std::make_unique<FD3D12UploadPlacedBuddyPool>(this->shared_from_this());
+		constexpr uint64_t kUploadBuddyHeapBytes = 128ull * 1024ull * 1024ull;
+		if (!UploadPlacedBuddyPool->Initialize(kUploadBuddyHeapBytes))
+			UploadPlacedBuddyPool.reset();
 	}
 
 	void FD3D12Device::InitDescriptorAllocator()
@@ -71,7 +77,21 @@ namespace RenderCore
 		DefaultCommandContext = {};
 		AsyncComputeContext = {};
 
-		// Destroy command-list managers after contexts drop their handles.
+		// FastAllocator Destroy may run ProcessPlacedBuddyDeferredFrees / Drain, which query fences on
+		// CommandListManagers. Tear those managers down only after allocators no longer need them.
+		if (FastAllocator[0])
+		{
+			FastAllocator[0]->Destroy();
+			FastAllocator[0] = {};
+		}
+		if (FastAllocator[1])
+		{
+			FastAllocator[1]->Destroy();
+			FastAllocator[1] = {};
+		}
+
+		UploadPlacedBuddyPool.reset();
+
 		if (CommandListManager)
 			CommandListManager->Destroy();
 		if (CopyCommandListManager)
@@ -81,17 +101,6 @@ namespace RenderCore
 		CommandListManager = {};
 		CopyCommandListManager = {};
 		AsyncCommandListManager = {};
-
-		if (PageManager[0])
-		{
-			PageManager[0]->Destroy();
-			PageManager[0] = {};
-		}
-		if (PageManager[1])
-		{
-			PageManager[1]->Destroy();
-			PageManager[1] = {};
-		}
 
 		DescriptorAllocator[0] = {};
 		DescriptorAllocator[1] = {};
@@ -151,19 +160,34 @@ namespace RenderCore
 		}
 	}
 
-	LinearAllocationPageManager& FD3D12Device::GetLinearPageManager(ELinearAllocatorType InType) const
+	FD3D12CommandListManager* FD3D12Device::TryGetCommandListManager(ED3D12CommandQueueType InQueueType) const noexcept
 	{
-		Assert(PageManager[0].get() && PageManager[1].get());
+		switch (InQueueType)
+		{
+		case ED3D12CommandQueueType::Default:
+			return CommandListManager.get();
+		case ED3D12CommandQueueType::Async:
+			return AsyncCommandListManager.get();
+		case ED3D12CommandQueueType::Copy:
+			return CopyCommandListManager.get();
+		default:
+			return CommandListManager.get();
+		}
+	}
+
+	FD3D12FastAllocator& FD3D12Device::GetFastAllocator(EFastAllocatorType InType) const
+	{
+		Assert(FastAllocator[0].get() && FastAllocator[1].get());
 		switch (InType)
 		{
-		case ELinearAllocatorType::GpuExclusive:
-			Assert(PageManager[0]->GetAllocatorType() == InType);
-			return *PageManager[0];
-		case ELinearAllocatorType::CpuWritable:
-			Assert(PageManager[1]->GetAllocatorType() == InType);
-			return *PageManager[1];
+		case DefaultFastAllocator:
+			Assert(FastAllocator[0]->GetAllocatorType() == InType);
+			return *FastAllocator[0];
+		case UploadFastAllocator:
+			Assert(FastAllocator[1]->GetAllocatorType() == InType);
+			return *FastAllocator[1];
 		default:
-			return *PageManager[0];
+			return *FastAllocator[0];
 		}
 	}
 

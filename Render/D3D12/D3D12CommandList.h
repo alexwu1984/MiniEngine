@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Resource.h"
@@ -237,8 +237,8 @@ namespace RenderCore
 			FD3D12ResourceBarrierBatcher ResourceBarrierBatcher;
 
 
-			LinearAllocator CpuLinearAllocator;
-			LinearAllocator GpuLinearAllocator;
+			FD3D12LinearAllocator UploadLinearAllocator;
+			FD3D12LinearAllocator DefaultLinearAllocator;
 		};
 	public:
 		D3D12CommandListHandle() : CommandListData(nullptr) {}
@@ -485,16 +485,16 @@ namespace RenderCore
 			CommandListData->FlushResourceBarriers();
 		}
 
-		LinearAllocator& GetLinerAllocator(ELinearAllocatorType type)
+		FD3D12LinearAllocator& GetLinearAllocator(EFastAllocatorType type)
 		{
 			Assert(CommandListData);
-			if (type == CpuWritable)
+			if (type == UploadFastAllocator)
 			{
-				return CommandListData->CpuLinearAllocator;
+				return CommandListData->UploadLinearAllocator;
 			}
 			else
 			{
-				return CommandListData->GpuLinearAllocator;
+				return CommandListData->DefaultLinearAllocator;
 			}
 		}
 

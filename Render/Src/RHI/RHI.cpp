@@ -1,4 +1,4 @@
-#include "RHI/RHI.h"
+﻿#include "RHI/RHI.h"
 #include "win/win32.h"
 #include "core/commandline.h"
 
@@ -267,11 +267,13 @@ namespace RenderCore
 
 	bool D3D12RHI_ShouldEnableMemMon()
 	{
-		return CmdBool("d3d12_memmon", true);
+		return CmdBool("d3d12_memmon", false) || CmdBool("d3d_mem", false);
 	}
 
 	bool D3D12RHI_ShouldEnableMemMonStacks()
 	{
-		return CmdBool("d3d12_memmon_stacks", true);
+		if (!D3D12RHI_ShouldEnableMemMon())
+			return false;
+		return CmdBool("d3d12_memmon_stacks", false);
 	}
 }

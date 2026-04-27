@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHI.h"
 #include <d3d12.h>
 
@@ -14,12 +14,15 @@ namespace RenderCore
 		Async
 	};
 
-	enum ELinearAllocatorType
+	// UE4 FD3D12Device: parallel fast-allocator channels (DEFAULT heap vs UPLOAD heap linear pages).
+	enum EFastAllocatorType
 	{
-		InvalidAllocator = -1,
-		GpuExclusive = 0,
-		CpuWritable = 1,
-		NumAllocatorTypes,
+		InvalidFastAllocator = -1,
+		/** DEFAULT heap linear-buffer pool (GPU-resident ring / scratch). */
+		DefaultFastAllocator = 0,
+		/** UPLOAD heap pool (UE DefaultFastAllocator upload path). */
+		UploadFastAllocator = 1,
+		FastAllocator_Num,
 	};
 
 	class FD3D12AdapterChild

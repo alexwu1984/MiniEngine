@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12DescriptorCache.h"
+#include "RHI/RHI.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
@@ -170,9 +171,9 @@ namespace RenderCore
 			win32::com_ptr<ID3D12DescriptorHeap> Heap = P.Ready[idx].front();
 			P.Ready[idx].pop();
 			if (idx == 0)
-				D3D12CreateStats::DynDesc_RecycleReadyCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_RecycleReadyCount_CbvSrvUav());
 			else
-				D3D12CreateStats::DynDesc_RecycleReadyCount_Sampler().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_RecycleReadyCount_Sampler());
 			return Heap;
 		}
 		else
@@ -192,9 +193,9 @@ namespace RenderCore
 				FD3D12CommandListManager& Mgr = Device->GetCommandListManager(Oldest.QueueType);
 				Mgr.GetFence().WaitForFence(Oldest.FenceValue);
 				if (idx == 0)
-					D3D12CreateStats::DynDesc_FenceWaitReuseCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+					D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_FenceWaitReuseCount_CbvSrvUav());
 				else
-					D3D12CreateStats::DynDesc_FenceWaitReuseCount_Sampler().fetch_add(1, std::memory_order_relaxed);
+					D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_FenceWaitReuseCount_Sampler());
 				P.Ready[idx].push(Oldest.Heap);
 
 				win32::com_ptr<ID3D12DescriptorHeap> Heap = P.Ready[idx].front();
@@ -211,9 +212,9 @@ namespace RenderCore
 			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Heap)));
 			P.CreatedTracking[idx].emplace_back(Heap);
 			if (idx == 0)
-				D3D12CreateStats::DynDesc_CreateCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CreateCount_CbvSrvUav());
 			else
-				D3D12CreateStats::DynDesc_CreateCount_Sampler().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CreateCount_Sampler());
 			return Heap;
 		}
 	}
@@ -234,13 +235,13 @@ namespace RenderCore
 		ID3D12Device* Device = GetParentDevice()->GetDevice();
 		if (m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
 		{
-			D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler().fetch_add(1, std::memory_order_relaxed);
-			D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler().fetch_add(1, std::memory_order_relaxed);
+			D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler());
+			D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler());
 		}
 		else
 		{
-			D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
-			D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
+			D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav());
+			D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav());
 		}
 		Device->CopyDescriptorsSimple(1, DestHandle.GetCpuHandle(), Handle, m_HeapType);
 
@@ -261,13 +262,13 @@ namespace RenderCore
 		{
 			if (m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
 			{
-				D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler().fetch_add(1, std::memory_order_relaxed);
-				D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler().fetch_add(NeededSize, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCalls_Sampler());
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCount_Sampler(), NeededSize);
 			}
 			else
 			{
-				D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav().fetch_add(1, std::memory_order_relaxed);
-				D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav().fetch_add(NeededSize, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCalls_CbvSrvUav());
+				D3D12MemMonAtomicAdd(D3D12CreateStats::DynDesc_CopyDescriptorsCount_CbvSrvUav(), NeededSize);
 			}
 		}
 		if (!HasSpace(NeededSize))

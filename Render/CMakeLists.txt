@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 project(Render)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 #-------------------------------------------------------------------------------------------
@@ -23,7 +23,7 @@ source_group("Header Files\\Imgui" FILES ${Header_Imgui} )
 
 file(GLOB Src_RHI Src/RHI/*.cpp)
 file(GLOB Src_D3D11 Src/D3D11/*.cpp)
-file(GLOB Src_D3D12 Src/D3D12/*.cpp)
+file(GLOB Src_D3D12 CONFIGURE_DEPENDS Src/D3D12/*.cpp)
 file(GLOB Src_RHIPrivate Src/RHIPrivate/*.cpp)
 file(GLOB Src_Imgui Src/Imgui/*.cpp)
 
@@ -35,7 +35,7 @@ source_group("Source Files\\Imgui" FILES ${Src_Imgui} )
 
 #-----shader
 
-add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_D3D12} Src/D3D12/D3D12CallStats.cpp Src/D3D12/D3D12UploadWCDiagnostics.cpp Src/D3D12/D3D12RuntimeStatsMonitor.cpp ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
+add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_D3D12} Src/D3D12/D3D12CallStats.cpp Src/D3D12/D3D12UploadWCDiagnostics.cpp Src/D3D12/D3D12RuntimeStatsMonitor.cpp Src/D3D12/D3D12UploadPlacedBuddyPool.cpp ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
 
 #-------------------------------------------------------------------------------------------
 # Defines

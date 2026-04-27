@@ -1,7 +1,9 @@
-#pragma once
+﻿#pragma once
 #include "templates/EnumAsByte.h"
 #include "RHI/RHIDefinitions.h"
 #include "math/math.h"
+#include <atomic>
+#include <cstdint>
 
 namespace RenderCore
 {
@@ -199,7 +201,15 @@ namespace RenderCore
 	};
 
 	bool D3D12RHI_ShouldCreateWithD3DDebug();
-	// Command-line driven memmon switches. Supports both presence ("d3d12_memmon") and explicit values ("d3d12_memmon=0/1").
+	// Command-line driven memmon switches: d3d12_memmon=1 or d3d_mem=1 (default off).
 	bool D3D12RHI_ShouldEnableMemMon();
+	// Requires memmon on; d3d12_memmon_stacks=1 (default off).
 	bool D3D12RHI_ShouldEnableMemMonStacks();
+
+	/** Increment D3D12CreateStats counters only when D3D12RHI_ShouldEnableMemMon() is true. */
+	inline void D3D12MemMonAtomicAdd(std::atomic_uint64_t& Counter, std::uint64_t Delta = 1)
+	{
+		if (D3D12RHI_ShouldEnableMemMon())
+			Counter.fetch_add(Delta, std::memory_order_relaxed);
+	}
 }

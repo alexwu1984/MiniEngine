@@ -1,4 +1,4 @@
-#include "D3D12/D3D12CommandList.h"
+﻿#include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -34,8 +34,8 @@ namespace RenderCore
 		, LastCompleteGeneration(0)
 		, IsClosed(false)
 		, bShouldTrackStartEndTime(false)
-		, CpuLinearAllocator(ELinearAllocatorType::CpuWritable, ParentDevice)
-		, GpuLinearAllocator(ELinearAllocatorType::GpuExclusive, ParentDevice)
+		, UploadLinearAllocator(UploadFastAllocator, ParentDevice)
+		, DefaultLinearAllocator(DefaultFastAllocator, ParentDevice)
 
 	{
 		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommandList(0, CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.get_init_ref())));
@@ -101,8 +101,8 @@ namespace RenderCore
 		const uint64_t SignaledFenceValue =
 			CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 			const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
-			CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
-			CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceID, QueueType);
+			CommandListData->UploadLinearAllocator.CleanupUsedPages(FenceID, QueueType);
+			CommandListData->DefaultLinearAllocator.CleanupUsedPages(FenceID, QueueType);
 			if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
 				Ctx->CleanupUsedHeaps(FenceID, QueueType);
 			}, WaitForCompletion);
@@ -112,8 +112,8 @@ namespace RenderCore
 	void D3D12CommandListHandle::CleanupTransientResources(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
 		Assert(CommandListData);
-		CommandListData->CpuLinearAllocator.CleanupUsedPages(FenceValue, QueueType);
-		CommandListData->GpuLinearAllocator.CleanupUsedPages(FenceValue, QueueType);
+			CommandListData->UploadLinearAllocator.CleanupUsedPages(FenceValue, QueueType);
+			CommandListData->DefaultLinearAllocator.CleanupUsedPages(FenceValue, QueueType);
 		if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
 			Ctx->CleanupUsedHeaps(FenceValue, QueueType);
 	}

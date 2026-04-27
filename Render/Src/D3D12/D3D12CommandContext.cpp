@@ -834,7 +834,7 @@ namespace RenderCore
 
 		size_t UploadBufferSize = (size_t)GetRequiredIntermediateSize(Dest->GetResource(), 0, NumSubResources);
 		Render::D3D12CallStats::AddUploadBytes((uint64_t)UploadBufferSize);
-		FAllocation Allocation = CommandList.GetLinerAllocator(ELinearAllocatorType::CpuWritable).Allocate(UploadBufferSize);
+		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(UploadBufferSize);
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.Resource->GetResource(), 0, 0, NumSubResources, SubData);
 		Render::D3D12CallStats::AddCopyBytes((uint64_t)UploadBufferSize);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
@@ -853,7 +853,7 @@ namespace RenderCore
 		CommandList.SetCurrentOwningContext(this);
 
 		Render::D3D12CallStats::AddUploadBytes((uint64_t)NumBytes);
-		FAllocation Allocation = CommandList.GetLinerAllocator(ELinearAllocatorType::CpuWritable).Allocate(NumBytes);
+		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(NumBytes);
 		memcpy(Allocation.CPU, Data, NumBytes);
 
 		D3D12_RESOURCE_STATES OldState = Dest->GetResourceState().GetSubresourceState(0);
@@ -872,11 +872,11 @@ namespace RenderCore
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 
-	LinearAllocator& D3D12CommandContext::GetLinerAllocator(ELinearAllocatorType type)
+	FD3D12LinearAllocator& D3D12CommandContext::GetLinearAllocator(EFastAllocatorType type)
 	{
-		Assert(type == CpuWritable || type == GpuExclusive);
+		Assert(type == UploadFastAllocator || type == DefaultFastAllocator);
 		Assert(CommandListHandle != nullptr);
-		return CommandListHandle.GetLinerAllocator(type);
+		return CommandListHandle.GetLinearAllocator(type);
 	}
 
 	void D3D12CommandContext::Initialize(void)

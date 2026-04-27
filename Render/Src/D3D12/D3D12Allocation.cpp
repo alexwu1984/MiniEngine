@@ -1,14 +1,17 @@
-#include "D3D12/D3D12Allocation.h"
+﻿#include "D3D12/D3D12Allocation.h"
+#include "RHI/RHI.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12UploadPlacedBuddyPool.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12CallStats.h"
 
-#include "core/logger.h"
-
 namespace RenderCore
 {
+	static_assert(CpuAllocatorPageSize == 4u * 1024u * 1024u, "UE 4.26 DefaultFastAllocator upload page size");
+	static_assert(UE426_MIN_PLACED_BUFFER_SIZE == UE426_D3D_BUFFER_ALIGNMENT, "UE 4.26 D3D12Allocation.h placed-buffer min");
+
 	std::vector<win32::com_ptr<ID3D12DescriptorHeap> > FD3D12ResourceAllocator::sm_DescriptorPool;
 
 	FD3D12ResourceAllocator::FD3D12ResourceAllocator(std::weak_ptr<FD3D12Device> InParentDevice,
@@ -62,8 +65,8 @@ namespace RenderCore
 			Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 			Desc.NodeMask = 1;
 			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(NewHeap.Heap.get_init_ref())));
-			// Keep static tracking for global teardown/diagnostics.
-			sm_DescriptorPool.emplace_back(NewHeap.Heap);
+			if (D3D12RHI_ShouldEnableMemMon())
+				sm_DescriptorPool.emplace_back(NewHeap.Heap);
 		}
 		NewHeap.FreeList.clear();
 		if (sm_NumDescriptorsPerHeap > Count)
@@ -139,11 +142,12 @@ namespace RenderCore
 
 		win32::com_ptr<ID3D12DescriptorHeap> descriptorHeap;
 		VERIFYD3DRESULT(InDevice->GetDevice()->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(descriptorHeap.get_init_ref())));
-		sm_DescriptorPool.emplace_back(descriptorHeap);
+		if (D3D12RHI_ShouldEnableMemMon())
+			sm_DescriptorPool.emplace_back(descriptorHeap);
 		return descriptorHeap.get();
 	}
 
-	LinearAllocationPage::LinearAllocationPage(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource, 
+	FD3D12FastAllocatorPage::FD3D12FastAllocatorPage(std::weak_ptr<FD3D12Device> ParentDevice, ID3D12Resource* InResource, 
 												D3D12_RESOURCE_STATES InitialState, D3D12_RESOURCE_DESC const& InDesc, 
 												D3D12_HEAP_TYPE InHeapType /*= D3D12_HEAP_TYPE_DEFAULT*/)
 		:FD3D12Resource(ParentDevice,InResource,InitialState,InDesc,InHeapType)
@@ -151,23 +155,109 @@ namespace RenderCore
 		void* mapped = Map();
 		if (InHeapType == D3D12_HEAP_TYPE_UPLOAD)
 		{
-			D3D12UploadWCDiagnostics_OnUploadMap(L"LinearAllocationPage", mapped, (uint64_t)InDesc.Width);
+			D3D12UploadWCDiagnostics_OnUploadMap(L"FD3D12FastAllocatorPage", mapped, (uint64_t)InDesc.Width);
 		}
 	}
 
-	LinearAllocationPage::~LinearAllocationPage()
+	void FD3D12FastAllocatorPage::BindPlacedBuddy(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, EFastAllocatorType OwnerAllocatorType)
 	{
-		Unmap();
+		PlacedBuddyPool = Pool;
+		PlacedBuddyOffsetMinUnits = OffsetMinUnits;
+		PlacedBuddyOrder = Order;
+		PlacedBuddyOwnerAllocatorType = OwnerAllocatorType;
+		bHasPlacedBuddyBinding = true;
 	}
 
-	ELinearAllocatorType LinearAllocationPageManager::ms_TypeCounter = GpuExclusive;
+	FD3D12FastAllocatorPage::~FD3D12FastAllocatorPage()
+	{
+		Unmap();
+		if (bHasPlacedBuddyBinding && PlacedBuddyPool)
+		{
+			if (auto Dev = GetParentDevice())
+			{
+				Dev->GetFastAllocator(PlacedBuddyOwnerAllocatorType).EnqueuePlacedBuddyFree(
+					PlacedBuddyPool, PlacedBuddyOffsetMinUnits, PlacedBuddyOrder, GetFenceValue(), GetRetireQueueType());
+			}
+			PlacedBuddyPool = nullptr;
+			bHasPlacedBuddyBinding = false;
+		}
+	}
 
-	LinearAllocationPageManager::LinearAllocationPageManager(std::weak_ptr<FD3D12Device> InParentDevice)
+	EFastAllocatorType FD3D12FastAllocator::ms_TypeCounter = DefaultFastAllocator;
+
+	FD3D12FastAllocator::FD3D12FastAllocator(std::weak_ptr<FD3D12Device> InParentDevice)
 		:FD3D12DeviceChild(InParentDevice)
 	{
 		AllocatorType = ms_TypeCounter;
-		ms_TypeCounter = (ELinearAllocatorType)(ms_TypeCounter + 1);
-		Assert(ms_TypeCounter <= NumAllocatorTypes);
+		ms_TypeCounter = (EFastAllocatorType)(ms_TypeCounter + 1);
+		Assert(ms_TypeCounter <= FastAllocator_Num);
+	}
+
+	void FD3D12FastAllocator::EnqueuePlacedBuddyFree(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, uint64_t FenceValue, ED3D12CommandQueueType QueueType)
+	{
+		if (!Pool)
+			return;
+		std::lock_guard<std::mutex> Lock(PlacedBuddyDeferredMutex);
+		FPlacedBuddyPendingFree E{};
+		E.Pool = Pool;
+		E.OffsetMinUnits = OffsetMinUnits;
+		E.Order = Order;
+		E.FenceValue = FenceValue;
+		E.QueueType = QueueType;
+		PlacedBuddyDeferred.push_back(E);
+	}
+
+	void FD3D12FastAllocator::ProcessPlacedBuddyDeferredFrees()
+	{
+		auto Dev = GetParentDevice();
+		if (!Dev)
+			return;
+
+		std::lock_guard<std::mutex> Lock(PlacedBuddyDeferredMutex);
+		for (size_t i = 0; i < PlacedBuddyDeferred.size(); )
+		{
+			const FPlacedBuddyPendingFree& E = PlacedBuddyDeferred[i];
+			FD3D12CommandListManager* Mgr = Dev->TryGetCommandListManager(E.QueueType);
+			if (!Mgr)
+			{
+				++i;
+				continue;
+			}
+			if (Mgr->GetFence().IsFenceComplete(E.FenceValue))
+			{
+				if (E.Pool)
+					E.Pool->DeallocateBlock(E.OffsetMinUnits, E.Order);
+				PlacedBuddyDeferred.erase(PlacedBuddyDeferred.begin() + (ptrdiff_t)i);
+			}
+			else
+			{
+				++i;
+			}
+		}
+	}
+
+	void FD3D12FastAllocator::DrainPlacedBuddyDeferredWithWait()
+	{
+		auto Dev = GetParentDevice();
+		if (!Dev)
+			return;
+		for (int iter = 0; iter < 4096; ++iter)
+		{
+			ProcessPlacedBuddyDeferredFrees();
+			uint64_t FenceVal = 0;
+			ED3D12CommandQueueType Q = ED3D12CommandQueueType::Default;
+			{
+				std::lock_guard<std::mutex> Lock(PlacedBuddyDeferredMutex);
+				if (PlacedBuddyDeferred.empty())
+					return;
+				FenceVal = PlacedBuddyDeferred.front().FenceValue;
+				Q = PlacedBuddyDeferred.front().QueueType;
+			}
+			FD3D12CommandListManager* QMgr = Dev->TryGetCommandListManager(Q);
+			if (!QMgr)
+				return;
+			QMgr->GetFence().WaitForFence(FenceVal);
+		}
 	}
 
 	namespace
@@ -183,24 +273,25 @@ namespace RenderCore
 			}
 		}
 
-		static size_t MaxCachedStandardPages(ELinearAllocatorType Type)
+		static size_t MaxCachedStandardPages(EFastAllocatorType Type)
 		{
 			// These pools are a cache, not a requirement. Without a cap they can look like a leak
 			// in Release builds where the CPU can outrun the GPU and peak allocations keep rising.
 			switch (Type)
 			{
-			case ELinearAllocatorType::GpuExclusive: return 256;
-			// CpuWritable pages are typically 2MB. Keep a small cap and block when GPU falls behind,
-			// otherwise WriteCombine upload pages can grow unbounded in Release.
-			case ELinearAllocatorType::CpuWritable:  return 32;
+			case EFastAllocatorType::DefaultFastAllocator: return 256;
+			// Upload pool: UE 4.26 fast allocator uses 4MB pages; cap total cached standard pages (~80MB) when GPU lags.
+			case EFastAllocatorType::UploadFastAllocator:  return 20;
 			default: return 64;
 			}
 		}
 	}
 
-	LinearAllocationPage* LinearAllocationPageManager::RequestPage()
+	FD3D12FastAllocatorPage* FD3D12FastAllocator::RequestPage()
 	{
-		LinearAllocationPage* Page = nullptr;
+		ProcessPlacedBuddyDeferredFrees();
+
+		FD3D12FastAllocatorPage* Page = nullptr;
 
 		// Promote completed retired pages into a ready queue (O(1)).
 		// Retired pages are monotonic in fence value per-queue, so checking only the front is enough.
@@ -208,7 +299,7 @@ namespace RenderCore
 		{
 			while (!RetiredPages[q].empty())
 			{
-				LinearAllocationPage* Candidate = RetiredPages[q].front();
+				FD3D12FastAllocatorPage* Candidate = RetiredPages[q].front();
 				auto& Mgr = GetParentDevice()->GetCommandListManager(Candidate->GetRetireQueueType());
 				if (!Mgr.GetFence().IsFenceComplete(Candidate->GetFenceValue()))
 					break;
@@ -221,7 +312,7 @@ namespace RenderCore
 		{
 			Page = ReadyPages.front();
 			ReadyPages.pop();
-			D3D12CreateStats::LinearPage_ReuseFromReadyCount().fetch_add(1, std::memory_order_relaxed);
+			D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_ReuseFromReadyCount());
 		}
 
 		if (Page == nullptr)
@@ -235,37 +326,21 @@ namespace RenderCore
 			{
 				// Pick a queue to wait on (prefer Default queue).
 				int PickQ = !RetiredPages[0].empty() ? 0 : (!RetiredPages[1].empty() ? 1 : 2);
-				LinearAllocationPage* Oldest = RetiredPages[PickQ].front();
+				FD3D12FastAllocatorPage* Oldest = RetiredPages[PickQ].front();
 				RetiredPages[PickQ].pop();
 
 				auto& Mgr = GetParentDevice()->GetCommandListManager(Oldest->GetRetireQueueType());
-				// Evidence log (throttled): we are blocking the CPU to avoid unbounded upload page growth.
-				{
-					static ULONGLONG sLastLog = 0;
-					const ULONGLONG now = ::GetTickCount64();
-					if (now - sLastLog > 1000)
-					{
-						sLastLog = now;
-						core::LOG(core::log_inf,
-							L"[D3D12] LinearPageManager(%d) waiting for fence=%llu (owned=%zu ready=%zu retired=%zu/%zu/%zu)",
-							(int)AllocatorType,
-							(unsigned long long)Oldest->GetFenceValue(),
-							OwnedStandardPages.size(),
-							ReadyPages.size(),
-							RetiredPages[0].size(), RetiredPages[1].size(), RetiredPages[2].size());
-					}
-				}
-				D3D12CreateStats::LinearPage_FenceWaitReuseCount().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_FenceWaitReuseCount());
 				Mgr.GetFence().WaitForFence(Oldest->GetFenceValue());
 				ReadyPages.push(Oldest);
 
 				Page = ReadyPages.front();
 				ReadyPages.pop();
-				D3D12CreateStats::LinearPage_ReuseFromReadyCount().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_ReuseFromReadyCount());
 			}
 			else
 			{
-			Page = CreateNewPage();
+				Page = CreateNewPage();
 			}
 		}
 		
@@ -273,12 +348,11 @@ namespace RenderCore
 		return Page;
 	}
 
-	void LinearAllocationPageManager::DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages)
+	void FD3D12FastAllocator::DiscardStandardPages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<FD3D12FastAllocatorPage*>& Pages)
 	{
 		if (!Pages.empty())
 		{
-			D3D12CreateStats::LinearPage_DiscardStandardPageCount().fetch_add(
-				(uint64_t)Pages.size(), std::memory_order_relaxed);
+			D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_DiscardStandardPageCount(), (uint64_t)Pages.size());
 		}
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
@@ -292,7 +366,7 @@ namespace RenderCore
 		const size_t MaxPages = MaxCachedStandardPages(AllocatorType);
 		while (OwnedStandardPages.size() > MaxPages && !ReadyPages.empty())
 		{
-			LinearAllocationPage* Candidate = ReadyPages.front();
+			FD3D12FastAllocatorPage* Candidate = ReadyPages.front();
 			ReadyPages.pop();
 
 			// Candidate is already "ready", so its fence must be complete. Evict it from ownership.
@@ -305,12 +379,12 @@ namespace RenderCore
 					break;
 				}
 			}
-			D3D12CreateStats::LinearPage_StandardCacheReleaseCount().fetch_add(1, std::memory_order_relaxed);
+			D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_StandardCacheReleaseCount());
 			Candidate->Release();
 		}
 	}
 
-	void LinearAllocationPageManager::DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<LinearAllocationPage*>& Pages)
+	void FD3D12FastAllocator::DiscardLargePages(uint64_t FenceID, ED3D12CommandQueueType QueueType, const std::vector<FD3D12FastAllocatorPage*>& Pages)
 	{
 		// Large pages are one-off allocations. Don't pool them: retire and delete after the fence passes.
 		// This matches the behavior in DirectX-Graphics-Samples MiniEngine and avoids unbounded WC growth.
@@ -323,7 +397,7 @@ namespace RenderCore
 
 			if (Front.Page)
 			{
-				D3D12CreateStats::LinearPage_LargePageDestroyedCount().fetch_add(1, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_LargePageDestroyedCount());
 				Front.Page->Release();
 			}
 			LargePageDeletionQueue.pop();
@@ -331,7 +405,7 @@ namespace RenderCore
 
 		for (auto Iter = Pages.begin(); Iter != Pages.end(); ++Iter)
 		{
-			LinearAllocationPage* P = *Iter;
+			FD3D12FastAllocatorPage* P = *Iter;
 			if (!P)
 				continue;
 			P->SetFenceValue(FenceID);
@@ -342,7 +416,7 @@ namespace RenderCore
 		}
 	}
 
-	LinearAllocationPage* LinearAllocationPageManager::CreateNewPage(size_t PageSize /*= 0*/)
+	FD3D12FastAllocatorPage* FD3D12FastAllocator::CreateNewPage(size_t PageSize /*= 0*/)
 	{
 		D3D12_HEAP_PROPERTIES HeapProps;
 		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -364,7 +438,7 @@ namespace RenderCore
 		ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 		D3D12_RESOURCE_STATES DefaultUsage;
-		if (AllocatorType == ELinearAllocatorType::GpuExclusive)
+		if (AllocatorType == EFastAllocatorType::DefaultFastAllocator)
 		{
 			HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 			ResourceDesc.Width = PageSize == 0 ? GpuAllocatorPageSize : PageSize;
@@ -380,36 +454,58 @@ namespace RenderCore
 		}
 
 		win32::com_ptr<ID3D12Resource> pBuffer;
-		// This CreateCommittedResource bypasses FD3D12Resource tracking; keep a direct counter for leak/churn triage.
+		FD3D12UploadPlacedBuddyPool* BuddyPool = nullptr;
+		uint32_t BuddyOff = 0, BuddyOrd = 0;
+		bool bPlacedBuddyPage = false;
+
+		// Stats (same counters whether committed or placed-buddy suballoc).
 		{
 			const uint64_t Bytes = (uint64_t)ResourceDesc.Width;
 			if (HeapProps.Type == D3D12_HEAP_TYPE_DEFAULT)
 			{
-				D3D12CreateStats::LinearPage_CreateCount_Default().fetch_add(1, std::memory_order_relaxed);
-				D3D12CreateStats::LinearPage_CreateBytes_Default().fetch_add(Bytes, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_CreateCount_Default());
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_CreateBytes_Default(), Bytes);
 			}
 			else if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD)
 			{
-				D3D12CreateStats::LinearPage_CreateCount_Upload().fetch_add(1, std::memory_order_relaxed);
-				D3D12CreateStats::LinearPage_CreateBytes_Upload().fetch_add(Bytes, std::memory_order_relaxed);
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_CreateCount_Upload());
+				D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_CreateBytes_Upload(), Bytes);
 				if (PageSize != 0)
 				{
-					D3D12CreateStats::LinearPage_UploadLargeCreateCount().fetch_add(1, std::memory_order_relaxed);
-					D3D12CreateStats::LinearPage_UploadLargeCreateBytes().fetch_add(Bytes, std::memory_order_relaxed);
+					D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_UploadLargeCreateCount());
+					D3D12MemMonAtomicAdd(D3D12CreateStats::LinearPage_UploadLargeCreateBytes(), Bytes);
 				}
 			}
 		}
-		VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(
-			&HeapProps,
-			D3D12_HEAP_FLAG_NONE,
-			&ResourceDesc,
-			DefaultUsage,
-			nullptr,
-			IID_PPV_ARGS(&pBuffer)));
 
-		pBuffer->SetName(L"LinearAllocatorPage");
+		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD && PageSize == 0 && AllocatorType == EFastAllocatorType::UploadFastAllocator)
+		{
+			BuddyPool = GetParentDevice()->GetUploadPlacedBuddyPool();
+			uint64_t GpuVA = 0;
+			void* Cpu = nullptr;
+			if (BuddyPool && BuddyPool->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd))
+			{
+				(void)GpuVA;
+				(void)Cpu;
+				bPlacedBuddyPage = true;
+			}
+		}
 
-		LinearAllocationPage * AllocationPage =  new LinearAllocationPage(GetParentDevice(),pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.Type);
+		if (!bPlacedBuddyPage)
+		{
+			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(
+				&HeapProps,
+				D3D12_HEAP_FLAG_NONE,
+				&ResourceDesc,
+				DefaultUsage,
+				nullptr,
+				IID_PPV_ARGS(&pBuffer)));
+			pBuffer->SetName(L"FD3D12FastAllocatorPage");
+		}
+
+		FD3D12FastAllocatorPage* AllocationPage = new FD3D12FastAllocatorPage(GetParentDevice(), pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.Type);
+		if (bPlacedBuddyPage && BuddyPool)
+			AllocationPage->BindPlacedBuddy(BuddyPool, BuddyOff, BuddyOrd, AllocatorType);
 		AllocationPage->AddRef();
 		// Own one ref for the lifetime of this manager (availability is tracked via ready/retired queues).
 		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD || HeapProps.Type == D3D12_HEAP_TYPE_DEFAULT)
@@ -423,7 +519,7 @@ namespace RenderCore
 		return AllocationPage;
 	}
 
-	void LinearAllocationPageManager::Destroy()
+	void FD3D12FastAllocator::Destroy()
 	{
 		while (!LargePageDeletionQueue.empty())
 		{
@@ -431,7 +527,7 @@ namespace RenderCore
 				LargePageDeletionQueue.front().Page->Release();
 			LargePageDeletionQueue.pop();
 		}
-		for (LinearAllocationPage* P : OwnedStandardPages)
+		for (FD3D12FastAllocatorPage* P : OwnedStandardPages)
 			P->Release();
 		OwnedStandardPages.clear();
 		while (!ReadyPages.empty())
@@ -442,24 +538,25 @@ namespace RenderCore
 			while (!RetiredPages[q].empty())
 				RetiredPages[q].pop();
 		}
+		DrainPlacedBuddyDeferredWithWait();
 	}
 
-	ELinearAllocatorType LinearAllocationPageManager::GetAllocatorType() const
+	EFastAllocatorType FD3D12FastAllocator::GetAllocatorType() const
 	{
 		return AllocatorType;
 	}
 
-	LinearAllocator::LinearAllocator(ELinearAllocatorType Type, std::weak_ptr<FD3D12Device> ParentDevice)
+	FD3D12LinearAllocator::FD3D12LinearAllocator(EFastAllocatorType Type, std::weak_ptr<FD3D12Device> ParentDevice)
 		:FD3D12DeviceChild(ParentDevice)
 		,m_AllocatorType(Type)
 		, m_CurrentPage(nullptr)
 		, m_CurrentOffset(0)
 	{
-		Assert(Type > ELinearAllocatorType::InvalidAllocator && Type < ELinearAllocatorType::NumAllocatorTypes);
-		m_PageSize = (Type == ELinearAllocatorType::GpuExclusive ? GpuAllocatorPageSize : CpuAllocatorPageSize);
+		Assert(Type > EFastAllocatorType::InvalidFastAllocator && Type < EFastAllocatorType::FastAllocator_Num);
+		m_PageSize = (Type == EFastAllocatorType::DefaultFastAllocator ? GpuAllocatorPageSize : CpuAllocatorPageSize);
 	}
 
-	FAllocation LinearAllocator::Allocate(size_t SizeInBytes, size_t Alignment /*= DEFAULT_ALIGN*/)
+	FAllocation FD3D12LinearAllocator::Allocate(size_t SizeInBytes, size_t Alignment /*= DEFAULT_ALIGN*/)
 	{
 		const size_t AlignmentMask = Alignment - 1;
 		Assert((AlignmentMask & Alignment) == 0);
@@ -479,7 +576,7 @@ namespace RenderCore
 
 		if (m_CurrentPage == nullptr)
 		{
-			m_CurrentPage = GetParentDevice()->GetLinearPageManager(m_AllocatorType).RequestPage();
+			m_CurrentPage = GetParentDevice()->GetFastAllocator(m_AllocatorType).RequestPage();
 			Assert(m_CurrentPage != nullptr);
 			m_CurrentOffset = 0;
 		}
@@ -495,7 +592,7 @@ namespace RenderCore
 		return allocation;
 	}
 
-	void LinearAllocator::CleanupUsedPages(uint64_t FenceID, ED3D12CommandQueueType QueueType)
+	void FD3D12LinearAllocator::CleanupUsedPages(uint64_t FenceID, ED3D12CommandQueueType QueueType)
 	{
 		if (m_CurrentPage != nullptr)
 		{
@@ -504,20 +601,20 @@ namespace RenderCore
 			m_CurrentOffset = 0;
 		}
 
-		GetParentDevice()->GetLinearPageManager(m_AllocatorType).DiscardStandardPages(FenceID, QueueType, m_StandardPages);
+		GetParentDevice()->GetFastAllocator(m_AllocatorType).DiscardStandardPages(FenceID, QueueType, m_StandardPages);
 		m_StandardPages.clear();
 
-		GetParentDevice()->GetLinearPageManager(m_AllocatorType).DiscardLargePages(FenceID, QueueType, m_LargePages);
+		GetParentDevice()->GetFastAllocator(m_AllocatorType).DiscardLargePages(FenceID, QueueType, m_LargePages);
 		m_LargePages.clear();
 	}
 
-	FAllocation LinearAllocator::AllocateLargePage(size_t SizeInBytes)
+	FAllocation FD3D12LinearAllocator::AllocateLargePage(size_t SizeInBytes)
 	{
 		// Diagnostics are kept out of allocator core logic.
-		if (m_AllocatorType == ELinearAllocatorType::CpuWritable)
-			D3D12UploadWCDiagnostics_OnAllocateLargePage(L"CpuWritable", SizeInBytes);
+		if (m_AllocatorType == EFastAllocatorType::UploadFastAllocator)
+			D3D12UploadWCDiagnostics_OnAllocateLargePage(L"EFastAllocator_Upload", SizeInBytes);
 
-		LinearAllocationPage* Page = GetParentDevice()->GetLinearPageManager(m_AllocatorType).CreateNewPage(SizeInBytes);
+		FD3D12FastAllocatorPage* Page = GetParentDevice()->GetFastAllocator(m_AllocatorType).CreateNewPage(SizeInBytes);
 		m_LargePages.push_back(Page);
 
 		FAllocation allocation;

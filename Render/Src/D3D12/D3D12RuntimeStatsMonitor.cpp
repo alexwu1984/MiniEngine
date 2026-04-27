@@ -1,4 +1,4 @@
-#include "D3D12/D3D12RuntimeStatsMonitor.h"
+﻿#include "D3D12/D3D12RuntimeStatsMonitor.h"
 
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
@@ -53,8 +53,8 @@ namespace RenderCore
 		const std::size_t DynViewHeaps = Pools.CreatedTracking[0].size();
 		const std::size_t DynSamplerHeaps = Pools.CreatedTracking[1].size();
 
-		const auto CpuW = Device->GetLinearPageManager(ELinearAllocatorType::CpuWritable);
-		const auto GpuX = Device->GetLinearPageManager(ELinearAllocatorType::GpuExclusive);
+		auto& UploadPool = Device->GetFastAllocator(UploadFastAllocator);
+		auto& DefaultPool = Device->GetFastAllocator(DefaultFastAllocator);
 
 		std::size_t RS = 0, GPSO = 0, CPSO = 0;
 		if (Context.CurrentStateCache)
@@ -81,11 +81,11 @@ namespace RenderCore
 		++sFrame;
 
 		core::LOG(core::log_inf,
-			L"[D3D12] Frame=%llu DynHeaps(View=%zu Sampler=%zu) Pages(CpuStd=%zu CpuLarge=%zu CpuRet=%zu GpuStd=%zu GpuLarge=%zu GpuRet=%zu)",
+			L"[D3D12] Frame=%llu DynHeaps(View=%zu Sampler=%zu) Pages(UploadStd=%zu UploadLarge=%zu UploadRet=%zu DefaultStd=%zu DefaultLarge=%zu DefaultRet=%zu)",
 			(unsigned long long)sFrame,
 			DynViewHeaps, DynSamplerHeaps,
-			CpuW.GetStandardPageCount(), CpuW.GetLargePageCount(), CpuW.GetRetiredPageCount(),
-			GpuX.GetStandardPageCount(), GpuX.GetLargePageCount(), GpuX.GetRetiredPageCount());
+			UploadPool.GetStandardPageCount(), UploadPool.GetLargePageCount(), UploadPool.GetRetiredPageCount(),
+			DefaultPool.GetStandardPageCount(), DefaultPool.GetLargePageCount(), DefaultPool.GetRetiredPageCount());
 
 		{
 			static uint64_t sPrevCreateView = 0, sPrevCreateSampler = 0;
@@ -181,11 +181,11 @@ namespace RenderCore
 		}
 
 		core::LOG(core::log_inf,
-			L"[D3D12] LinearPagePools CpuWritable(owned=%zu ready=%zu retired=%zu/%zu/%zu) GpuExclusive(owned=%zu ready=%zu retired=%zu/%zu/%zu)",
-			CpuW.GetStandardPageCount(), CpuW.GetReadyPageCount(),
-			CpuW.GetRetiredPageCountForQueue(0), CpuW.GetRetiredPageCountForQueue(1), CpuW.GetRetiredPageCountForQueue(2),
-			GpuX.GetStandardPageCount(), GpuX.GetReadyPageCount(),
-			GpuX.GetRetiredPageCountForQueue(0), GpuX.GetRetiredPageCountForQueue(1), GpuX.GetRetiredPageCountForQueue(2));
+			L"[D3D12] FastAllocatorPools Upload(owned=%zu ready=%zu retired=%zu/%zu/%zu) Default(owned=%zu ready=%zu retired=%zu/%zu/%zu)",
+			UploadPool.GetStandardPageCount(), UploadPool.GetReadyPageCount(),
+			UploadPool.GetRetiredPageCountForQueue(0), UploadPool.GetRetiredPageCountForQueue(1), UploadPool.GetRetiredPageCountForQueue(2),
+			DefaultPool.GetStandardPageCount(), DefaultPool.GetReadyPageCount(),
+			DefaultPool.GetRetiredPageCountForQueue(0), DefaultPool.GetRetiredPageCountForQueue(1), DefaultPool.GetRetiredPageCountForQueue(2));
 
 		core::LOG(core::log_inf,
 			L"[D3D12] DXTex Calls Capture=%llu SaveWIC=%llu SaveDDS=%llu LoadWIC=%llu LoadDDS=%llu",

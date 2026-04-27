@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "D3D12/D3D12Allocation.h"
 #include <d3d12.h>
@@ -9,7 +9,7 @@ namespace RenderCore
 	class FD3D12CommandListManager;
 	class D3D12CommandContext;
 	class FD3D12ResourceAllocator;
-	class LinearAllocationPageManager;
+	class FD3D12UploadPlacedBuddyPool;
 	struct FDynamicDescriptorHeapPoolsPerDevice;
 
 	class FD3D12Device :public std::enable_shared_from_this<FD3D12Device>,public FD3D12AdapterChild
@@ -30,9 +30,12 @@ namespace RenderCore
 
 		ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 		FD3D12CommandListManager& GetCommandListManager(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
+		/** nullptr if the manager was not created yet or already torn down (e.g. partial Cleanup order). */
+		FD3D12CommandListManager* TryGetCommandListManager(ED3D12CommandQueueType InQueueType) const noexcept;
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext() const { return DefaultCommandContext;}
 		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext() const { return AsyncComputeContext; }
-		LinearAllocationPageManager& GetLinearPageManager(ELinearAllocatorType Type) const;
+		FD3D12FastAllocator& GetFastAllocator(EFastAllocatorType Type) const;
+		FD3D12UploadPlacedBuddyPool* GetUploadPlacedBuddyPool() const { return UploadPlacedBuddyPool.get(); }
 
 		FDynamicDescriptorHeapPoolsPerDevice& GetDynamicDescriptorHeapPools();
 
@@ -58,8 +61,9 @@ namespace RenderCore
 		std::shared_ptr<D3D12CommandContext> AsyncComputeContext;
 
 		std::shared_ptr<FD3D12ResourceAllocator> DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-		std::shared_ptr<LinearAllocationPageManager> PageManager[ELinearAllocatorType::NumAllocatorTypes];
+		std::shared_ptr<FD3D12FastAllocator> FastAllocator[FastAllocator_Num];
 
 		std::unique_ptr<FDynamicDescriptorHeapPoolsPerDevice> DynamicDescriptorHeapPools;
+		std::unique_ptr<FD3D12UploadPlacedBuddyPool> UploadPlacedBuddyPool;
 	};
 }

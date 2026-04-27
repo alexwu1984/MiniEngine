@@ -1,4 +1,4 @@
-#include "D3D12/D3D12ViewPort.h"
+﻿#include "D3D12/D3D12ViewPort.h"
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -334,8 +334,10 @@ namespace RenderCore
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 		
-		// Flush commands and wait for completion (temporary mitigation for WC growth).
+		// Direct queue defers ID3D12CommandQueue::Signal to once per present (see ExecuteAndIncrementFence);
+		// must call SignalDeferredFrameFenceIfNeeded after the final flush or fence-tied upload/allocator cleanup never completes.
 		GetDefaultCommandContext()->FlushCommands(true);
+		GetParentAdapter()->GetDevice()->GetCommandListManager(ED3D12CommandQueueType::Default).SignalDeferredFrameFenceIfNeeded();
 		// Only flush async compute when it actually recorded work.
 		// Submitting empty compute command lists every frame is unnecessary and can amplify driver/runtime internal allocations.
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())

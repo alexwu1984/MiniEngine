@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "win/win32.h"
 #include "win/com_ptr.h"
 #include "d3dx12.h"
@@ -482,7 +482,9 @@ namespace RenderCore
 	{
 	public:
 		explicit FD3D12ResourceBarrierBatcher()
-		{};
+		{
+			Barriers.reserve(512);
+		};
 
 		// Add a UAV barrier to the batch. Ignoring the actual resource for now.
 		void AddUAV()
@@ -524,12 +526,22 @@ namespace RenderCore
 		// Flush the batch to the specified command list then reset.
 		void Flush(ID3D12GraphicsCommandList* pCommandList)
 		{
-			if (Barriers.size())
+			if (Barriers.empty())
+				return;
+			Assert(pCommandList);
+			// Chunk very large batches (same pattern as UE FD3D12ResourceBarrierBatcher::Flush; limit is high on PC).
+			static const UINT kBarrierChunk = 65536;
+			const UINT total = (UINT)Barriers.size();
+			const D3D12_RESOURCE_BARRIER* ptr = Barriers.data();
+			UINT remaining = total;
+			while (remaining > 0)
 			{
-				Assert(pCommandList);
-				pCommandList->ResourceBarrier((UINT)Barriers.size(), Barriers.data());
-				Reset();
+				const UINT n = (remaining > kBarrierChunk) ? kBarrierChunk : remaining;
+				pCommandList->ResourceBarrier(n, ptr);
+				ptr += n;
+				remaining -= n;
 			}
+			Reset();
 		}
 
 		// Clears the batch.

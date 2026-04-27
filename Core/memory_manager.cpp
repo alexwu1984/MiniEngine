@@ -1,4 +1,4 @@
-#include "win/win32.h"
+﻿#include "win/win32.h"
 #include "memory_manager.h"
 #include "core/system.h"
 #include <DbgHelp.h>
@@ -316,7 +316,7 @@ namespace win32
 		//	*p = 0;
 		//_tcscat_s(szDbgName, MAX_PATH, L"\\dbghelp.dll");
 
-		// ���ҵ�ǰĿ¼��DLL
+		// ²éÕÒµ±Ç°Ä¿Â¼µÄDLL
 		s_DbgHelpLib = LoadLibraryW(L"dbghelp.dll");
 	
 		fnSymGetLineFromAddr64 = (tFSymGetLineFromAddr64)GetProcAddress(s_DbgHelpLib, "SymGetLineFromAddr64");
@@ -534,6 +534,5 @@ namespace win32
 	}
 
 }
-
 
 

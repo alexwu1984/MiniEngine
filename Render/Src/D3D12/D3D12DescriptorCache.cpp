@@ -1,4 +1,4 @@
-#include "D3D12/D3D12DescriptorCache.h"
+﻿#include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
@@ -152,7 +152,7 @@ namespace RenderCore
 			// Prevent unbounded growth when the GPU falls behind (common without the debug layer).
 			// If we have created "too many" shader-visible heaps and none are ready, wait for the
 			// oldest retired heap to complete and reuse it instead of creating more.
-			static constexpr size_t kMaxShaderVisibleHeapsPerType = 64;
+			static constexpr size_t kMaxShaderVisibleHeapsPerType = 256;
 			const bool bHasAnyRetired = (!P.Retired[idx][0].empty() || !P.Retired[idx][1].empty() || !P.Retired[idx][2].empty());
 			if (P.CreatedTracking[idx].size() >= kMaxShaderVisibleHeapsPerType && bHasAnyRetired)
 			{
@@ -326,14 +326,28 @@ namespace RenderCore
 		ID3D12GraphicsCommandList* CmdList,
 		void (STDMETHODCALLTYPE ID3D12GraphicsCommandList::* SetFunc)(UINT, D3D12_GPU_DESCRIPTOR_HANDLE))
 	{
-		static const uint32_t kMaxDescriptorsPerCopy = 16;
+		// Range count limit for CopyDescriptors (dst+src entries). Large enough to avoid splitting one bind table.
+		static const uint32_t kMaxRanges = 1024;
+
 		UINT NumDstDescriptorRanges = 0;
-		D3D12_CPU_DESCRIPTOR_HANDLE pDstDescriptorRangeStarts[kMaxDescriptorsPerCopy];
-		UINT pDstDescriptorRangeSizes[kMaxDescriptorsPerCopy];
+		D3D12_CPU_DESCRIPTOR_HANDLE pDstDescriptorRangeStarts[kMaxRanges];
+		UINT pDstDescriptorRangeSizes[kMaxRanges];
 
 		UINT NumSrcDescriptorRanges = 0;
-		D3D12_CPU_DESCRIPTOR_HANDLE pSrcDescriptorRangeStarts[kMaxDescriptorsPerCopy];
-		UINT pSrcDescriptorRangeSizes[kMaxDescriptorsPerCopy];
+		D3D12_CPU_DESCRIPTOR_HANDLE pSrcDescriptorRangeStarts[kMaxRanges];
+		UINT pSrcDescriptorRangeSizes[kMaxRanges];
+
+		auto flushBatch = [&]()
+		{
+			if (NumDstDescriptorRanges == 0)
+				return;
+			InDevice->CopyDescriptors(
+				NumDstDescriptorRanges, pDstDescriptorRangeStarts, pDstDescriptorRangeSizes,
+				NumSrcDescriptorRanges, pSrcDescriptorRangeStarts, pSrcDescriptorRangeSizes,
+				Type);
+			NumDstDescriptorRanges = 0;
+			NumSrcDescriptorRanges = 0;
+		};
 
 		DWORD RootIndex;
 		DWORD StaleParams = m_StaleRootParamsBitMap;
@@ -365,25 +379,36 @@ namespace RenderCore
 				_BitScanForward(&DescriptorCount, ~SetHandles);
 				SetHandles >>= DescriptorCount;
 
-				if (NumSrcDescriptorRanges + DescriptorCount > kMaxDescriptorsPerCopy)
+				// Count merged source ranges (adjacent CPU heap slots share one CopyDescriptors src range).
+				uint32_t mergedRuns = 0;
+				for (uint32_t j = 0; j < DescriptorCount; )
 				{
-					InDevice->CopyDescriptors(
-						NumDstDescriptorRanges, pDstDescriptorRangeStarts, pDstDescriptorRangeSizes,
-						NumSrcDescriptorRanges, pSrcDescriptorRangeStarts, pSrcDescriptorRangeSizes,
-						Type);
-					NumSrcDescriptorRanges = 0;
-					NumDstDescriptorRanges = 0;
+					++mergedRuns;
+					uint32_t runLen = 1;
+					while (j + runLen < DescriptorCount &&
+						   SrcHandles[j + runLen].ptr == SrcHandles[j + runLen - 1].ptr + DescriptorSize)
+						++runLen;
+					j += runLen;
 				}
+
+				if (NumDstDescriptorRanges + 1 > kMaxRanges || NumSrcDescriptorRanges + mergedRuns > kMaxRanges)
+					flushBatch();
 
 				pDstDescriptorRangeStarts[NumDstDescriptorRanges] = CurDest;
 				pDstDescriptorRangeSizes[NumDstDescriptorRanges] = DescriptorCount;
 				++NumDstDescriptorRanges;
 
-				for (uint32_t i = 0; i < DescriptorCount; ++i)
+				for (uint32_t j = 0; j < DescriptorCount; )
 				{
-					pSrcDescriptorRangeStarts[NumSrcDescriptorRanges] = SrcHandles[i];
-					pSrcDescriptorRangeSizes[NumSrcDescriptorRanges] = 1;
+					uint32_t runLen = 1;
+					while (j + runLen < DescriptorCount &&
+						   SrcHandles[j + runLen].ptr == SrcHandles[j + runLen - 1].ptr + DescriptorSize)
+						++runLen;
+
+					pSrcDescriptorRangeStarts[NumSrcDescriptorRanges] = SrcHandles[j];
+					pSrcDescriptorRangeSizes[NumSrcDescriptorRanges] = runLen;
 					++NumSrcDescriptorRanges;
+					j += runLen;
 				}
 
 				SrcHandles += DescriptorCount;
@@ -391,10 +416,9 @@ namespace RenderCore
 			}
 		}
 
-		InDevice->CopyDescriptors(
-			NumDstDescriptorRanges, pDstDescriptorRangeStarts, pDstDescriptorRangeSizes,
-			NumSrcDescriptorRanges, pSrcDescriptorRangeStarts, pSrcDescriptorRangeSizes,
-			Type);
+		flushBatch();
+		// Tables are now uploaded; avoid re-copy on the next bind unless Stage* marks stale again.
+		m_StaleRootParamsBitMap = 0;
 	}
 
 }

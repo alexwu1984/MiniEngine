@@ -12,65 +12,13 @@
 #include "RHI/RHI.h"
 #include "D3D12/D3D12PresentStats.h"
 #include "D3D12/D3D12CallStats.h"
+#include "D3D12/D3D12RHICommon.h"
 #include <dxgi1_4.h>
 #include <windows.h>
 
 namespace RenderCore
 {
-	static double D3D12RHI_QpcToMicroseconds(LONGLONG dt)
-	{
-		static LARGE_INTEGER sFreq = {};
-		if (sFreq.QuadPart == 0)
-			::QueryPerformanceFrequency(&sFreq);
-		return (double)dt * 1000000.0 / (double)sFreq.QuadPart;
-	}
-
-	static void D3D12RHI_LogFramePacingOncePerSecond(uint64_t WaitableWaits, uint64_t WaitableTimeouts, uint64_t FenceWaits, double FenceWaitMs, uint64_t LastSignaled, uint64_t Completed)
-	{
-		static ULONGLONG sLastTick = 0;
-		static uint64_t sPrevWaitableWaits = 0;
-		static uint64_t sPrevWaitableTimeouts = 0;
-		static uint64_t sPrevFenceWaits = 0;
-		static double sPrevFenceWaitMs = 0.0;
-		static uint64_t sPrevLastSignaled = 0;
-		static uint64_t sPrevCompleted = 0;
-
-		const ULONGLONG now = ::GetTickCount64();
-		if (sLastTick == 0)
-			sLastTick = now;
-		if (now - sLastTick < 1000)
-			return;
-		sLastTick = now;
-
-		const uint64_t dWaitableWaits = WaitableWaits - sPrevWaitableWaits;
-		const uint64_t dWaitableTimeouts = WaitableTimeouts - sPrevWaitableTimeouts;
-		const uint64_t dFenceWaits = FenceWaits - sPrevFenceWaits;
-		const double dFenceWaitMs = FenceWaitMs - sPrevFenceWaitMs;
-		const uint64_t dLastSignaled = LastSignaled - sPrevLastSignaled;
-		const uint64_t dCompleted = Completed - sPrevCompleted;
-		const uint64_t gap = (LastSignaled >= Completed) ? (LastSignaled - Completed) : 0;
-
-		sPrevWaitableWaits = WaitableWaits;
-		sPrevWaitableTimeouts = WaitableTimeouts;
-		sPrevFenceWaits = FenceWaits;
-		sPrevFenceWaitMs = FenceWaitMs;
-		sPrevLastSignaled = LastSignaled;
-		sPrevCompleted = Completed;
-
-		core::LOG(core::log_inf,
-				  L"[D3D12] FramePacing Waitable(waits=%llu timeouts=%llu) Fence(waits=%llu waitMs=%.2f) DirectFence(last=%llu comp=%llu gap=%llu dLast=%llu dComp=%llu)",
-				  (unsigned long long)dWaitableWaits,
-				  (unsigned long long)dWaitableTimeouts,
-				  (unsigned long long)dFenceWaits,
-				  dFenceWaitMs,
-				  (unsigned long long)LastSignaled,
-				  (unsigned long long)Completed,
-				  (unsigned long long)gap,
-				  (unsigned long long)dLastSignaled,
-				  (unsigned long long)dCompleted);
-	}
-
-	// Match Microsoft MiniEngine (DirectX-Graphics-Samples) behavior: triple-buffered flip-discard swapchain.
+	// Match Microsoft MiniEngine / UE flip-discard swapchain depth.
 	static const uint32_t WindowsDefaultNumBackBuffers = 3;
 	static bool D3D12RHI_ShouldUseImGui()
 	{
@@ -93,11 +41,8 @@ namespace RenderCore
 
 	D3D12ViewPort::~D3D12ViewPort()
 	{
-		if (FrameLatencyWaitableObject)
-		{
-			::CloseHandle(FrameLatencyWaitableObject);
-			FrameLatencyWaitableObject = nullptr;
-		}
+		PresentEndFence.reset();
+		PresentEndFenceLastSignaled = 0;
 		BackBuffers.clear();
 	}
 
@@ -105,27 +50,19 @@ namespace RenderCore
 	{
 		auto Adapter = GetParentAdapter();
 
-		// Sync with Microsoft MiniEngine behavior:
-		// - Use a waitable swapchain and cap frame latency to keep CPU from outrunning GPU.
-		// - Present with VSync ON (Present(1,0)), no tearing.
+		// Align with UE 4.26 WindowsD3D12Viewport: no DXGI waitable object; frame pacing via fence after Present.
 		bAllowTearing = false;
 
 		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
-		// Microsoft MiniEngine uses no ALLOW_MODE_SWITCH flag here.
-		const UINT SwapChainFlags =
-			(bAllowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u) |
-			DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+		UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+		if (bAllowTearing)
+			SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-		// Default behavior: rely on VSync (Present(1,0)) for pacing.
 		const DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
-		// if stereo was not activated or not enabled in settings
 		if (SwapChain1 == nullptr)
 		{
-			// Create the swapchain.
 			{
-				// Prefer CreateSwapChainForHwnd + DXGI_SWAP_CHAIN_DESC1 for flip-model swapchains.
-				// It's more explicit/robust for tearing + frame-latency waitable object behavior.
 				DXGI_SWAP_CHAIN_DESC1 Desc1 = {};
 				Desc1.Width = BufferDesc.Width;
 				Desc1.Height = BufferDesc.Height;
@@ -152,12 +89,10 @@ namespace RenderCore
 				VERIFYD3DRESULT(hrCreate);
 
 				SwapChain1 = NewSwapChain1;
-				// Get a SwapChain4 if supported.
 				NewSwapChain1->QueryInterface(IID_PPV_ARGS(SwapChain4.get_init_ref()));
 
-				// One-shot evidence: print swapchain parameters for diffing against MiniEngine.
 				core::LOG(core::log_inf,
-						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x waitable=1 vsync=1 tearing=%d",
+						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x vsync=1 tearing=%d (UE-style, no waitable)",
 						  (unsigned)Desc1.Width,
 						  (unsigned)Desc1.Height,
 						  (unsigned)Desc1.Format,
@@ -166,12 +101,9 @@ namespace RenderCore
 						  (int)bAllowTearing);
 			}
 
-			// Set the DXGI message hook to not change the window behind our back.
 			Adapter->GetDXGIFactory2()->MakeWindowAssociation(WindowHandle, DXGI_MWA_NO_WINDOW_CHANGES);
 		}
 
-		// Tell the window to redraw when they can.
-		// @todo: For Slate viewports, it doesn't make sense to post WM_PAINT messages (we swallow those.)
 		::PostMessage(WindowHandle, WM_PAINT, 0, 0);
 
 		for (int i = 0; i < NumBackBuffers; ++i)
@@ -183,22 +115,13 @@ namespace RenderCore
 			BackBuffers.emplace_back(BackBufTex2D);
 		}
 
-		// Initialize to the swapchain's first renderable backbuffer.
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-		// MiniEngine-style: cap frame latency and use the waitable object.
-		if (SwapChain4)
+		if (SwapChain4 && !PresentEndFence)
 		{
-			const int maxLatency = 1;
-			SwapChain4->SetMaximumFrameLatency((UINT)maxLatency);
-			core::LOG(core::log_inf, L"[D3D12] SwapChain MaxFrameLatency=%d", maxLatency);
-
-			win32::com_ptr<IDXGISwapChain2> SwapChain2;
-			if (SUCCEEDED(SwapChain4->QueryInterface(IID_PPV_ARGS(SwapChain2.get_init_ref()))))
-			{
-				FrameLatencyWaitableObject = SwapChain2->GetFrameLatencyWaitableObject();
-				core::LOG(core::log_inf, L"[D3D12] SwapChain FrameLatencyWaitableObject=%p", FrameLatencyWaitableObject);
-			}
+			PresentEndFence = std::make_shared<FD3D12Fence>(GetParentAdapter(), L"ViewportPresentEnd");
+			PresentEndFence->CreateFence();
+			PresentEndFenceLastSignaled = 0;
 		}
 
 		if (D3D12RHI_ShouldUseImGui())
@@ -207,7 +130,6 @@ namespace RenderCore
 			ImGuiIO& io = ImGui::GetIO();
 
 			io.FontGlobalScale = ::GetDpiForWindow(WindowHandle) / 96.0f;
-			// Allow user UI scaling using CTRL+Mouse Wheel scrolling
 			io.FontAllowUserScaling = true;
 		}
 	}
@@ -231,10 +153,9 @@ namespace RenderCore
 
 			CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
-			// IMPORTANT: keep ResizeBuffers flags consistent with creation.
-			const UINT SwapChainFlags =
-				(bAllowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u) |
-				DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+			UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+			if (bAllowTearing)
+				SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
 			HRESULT hr = SwapChain4->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags);
 			if (FAILED(hr))
@@ -258,21 +179,9 @@ namespace RenderCore
 			}
 			FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-			// Re-apply frame latency cap and waitable object after resize.
-			if (FrameLatencyWaitableObject)
-			{
-				::CloseHandle(FrameLatencyWaitableObject);
-				FrameLatencyWaitableObject = nullptr;
-			}
-			SwapChain4->SetMaximumFrameLatency(1);
-			win32::com_ptr<IDXGISwapChain2> SwapChain2;
-			if (SUCCEEDED(SwapChain4->QueryInterface(IID_PPV_ARGS(SwapChain2.get_init_ref()))))
-			{
-				FrameLatencyWaitableObject = SwapChain2->GetFrameLatencyWaitableObject();
-				core::LOG(core::log_inf, L"[D3D12] SwapChain FrameLatencyWaitableObject=%p", FrameLatencyWaitableObject);
-			}
+			// GPU is idle; next Present will re-establish frame-fence timeline.
+			PresentEndFenceLastSignaled = 0;
 		}
-
 	}
 
 	core::vec2u D3D12ViewPort::GetSize() const
@@ -292,56 +201,39 @@ namespace RenderCore
 		GetDefaultCommandContext()->SetRenderTarget(BackBufTex2D, {});
 	}
 
+	void D3D12ViewPort::WaitForFrameEventCompletion()
+	{
+		if (!PresentEndFence || PresentEndFenceLastSignaled == 0)
+			return;
+		PresentEndFence->WaitForFence(PresentEndFenceLastSignaled);
+	}
+
+	void D3D12ViewPort::IssueFrameEvent()
+	{
+		if (!PresentEndFence)
+			return;
+		PresentEndFenceLastSignaled = PresentEndFence->Signal(ED3D12CommandQueueType::Default);
+	}
+
 	void D3D12ViewPort::Present()
 	{
 		if (!SwapChain4)
 			return;
 
-		// If we created a waitable swapchain, we must wait BEFORE submitting the next frame's work.
-		// Waiting after Flush/Execute is too late to apply back-pressure and won't cap driver buffering.
-		if (FrameLatencyWaitableObject)
-		{
-			// Never wait forever here: during shutdown, the render thread can be asked to exit
-			// while the swapchain/device is in teardown, and an infinite wait would deadlock exit.
-			const DWORD kWaitMs = 16; // ~one frame; enough to apply back-pressure without risking hangs
-			const DWORD wr = ::WaitForSingleObjectEx(FrameLatencyWaitableObject, kWaitMs, FALSE);
-			if (wr == WAIT_TIMEOUT)
-			{
-				// If the window is going away or not visible, don't stall shutdown.
-				if (!::IsWindow(WindowHandle) || ::IsIconic(WindowHandle) || !::IsWindowVisible(WindowHandle))
-				{
-					// If we started an ImGui frame in Prepare(), we must end it even when skipping Present.
-					// Otherwise ImGui will assert on the next frame / during shutdown.
-					if (D3D12RHI_ShouldUseImGui())
-						::ImGui::EndFrame();
-					return;
-				}
-			}
-			else if (wr != WAIT_OBJECT_0)
-			{
-				core::LOG(core::log_inf, L"[D3D12] FrameLatencyWaitable wait result=%u", (unsigned)wr);
-			}
-		}
-
 		if (D3D12RHI_ShouldUseImGui())
 		{
 			ImGui::Render();
-			//GetDefaultCommandContext()->GetCurrentCommandListHandle()->SetDescriptorHeaps(1, HeapsToBind);
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList());
 		}
 
 		GetDefaultCommandContext()->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
-		
-		// Submit without CPU-side wait; direct queue now signals per Execute.
-		GetDefaultCommandContext()->FlushCommands(false);
-		// Only flush async compute when it actually recorded work.
-		// Submitting empty compute command lists every frame is unnecessary and can amplify driver/runtime internal allocations.
+
+		GetDefaultCommandContext()->FlushCommands(true);
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())
 			AsyncCtx->FlushCommands(false);
-		
-		// MiniEngine-style present: VSync ON, no tearing.
+
 		const UINT syncInterval = 1u;
 		const UINT presentFlags = 0u;
 
@@ -366,6 +258,13 @@ namespace RenderCore
 		}
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+
+		// Match UE default (r.FinishCurrentFrame == false): wait previous frame completion, then signal.
+		if (PresentEndFence && (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
+		{
+			WaitForFrameEventCompletion();
+			IssueFrameEvent();
+		}
 	}
 
 	void D3D12ViewPort::Prepare()
@@ -396,8 +295,8 @@ namespace RenderCore
 
 		Ret.Width = SizeX;
 		Ret.Height = SizeY;
-		Ret.RefreshRate.Numerator = 0;	// illamas: use 0 to avoid a potential mismatch with hw
-		Ret.RefreshRate.Denominator = 0;	// illamas: ditto
+		Ret.RefreshRate.Numerator = 0;
+		Ret.RefreshRate.Denominator = 0;
 		Ret.Format = GetRenderTargetFormat(PixelFormat);
 		Ret.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 		Ret.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;

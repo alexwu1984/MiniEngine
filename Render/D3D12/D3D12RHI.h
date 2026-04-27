@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIShdader.h"
 #include "win/com_ptr.h"
@@ -18,8 +18,9 @@ namespace RenderCore
 		bool IsSupported() override;
 		std::shared_ptr<DynamicRHI> CreateRHI() override;
 	protected:
-		std::shared_ptr< D3D12DynamicRHI> _DynamicRHI;
+		// _DynamicRHI must be destroyed before _ChosenAdapters so the RHI drops its adapter ref first.
 		std::vector<std::shared_ptr<FD3D12Adapter>> _ChosenAdapters;
+		std::shared_ptr<D3D12DynamicRHI> _DynamicRHI;
 
 		// set MaxSupportedFeatureLevel and ChosenAdapter
 		void FindAdapter();

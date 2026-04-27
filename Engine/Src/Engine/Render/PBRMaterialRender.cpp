@@ -1,4 +1,4 @@
-#include "Engine/Render/PBRMaterialRender.h"
+﻿#include "Engine/Render/PBRMaterialRender.h"
 #include "Engine.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -113,6 +113,10 @@ namespace Engine
 			}
 
 			AddShaderMacro(ShaderMacros);
+
+			// D3D12: batch first five material SRVs as one ps_5_1 texture array (see RHI_BINDLESS in PBRMaterial.hlsl).
+			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0)
+				ShaderMacros.push_back({ "RHI_BINDLESS", "1" });
 
 			d->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 			d->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);

@@ -1,4 +1,4 @@
-#include "D3D12/D3D12GenerateMips.h"
+﻿#include "D3D12/D3D12GenerateMips.h"
 #include "D3D12/D3D12RHI.h"
 #include "math/matrix4x4.h"
 #include "core/system.h"
@@ -74,22 +74,19 @@ namespace RenderCore
 				CommandContext->TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, SrcSubIndex, F == 5);
 			}
 
+			GraphicsPipelineStateInitializer Init;
+			Init.VertexShader = d->CubeVS;
+			Init.PixelShader = d->CubePS;
+			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+			Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
+			CommandContext->RHISetGraphicsPipelineState(Init);
+			CommandContext->RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+
 			for (int Face = 0; Face < 6; ++Face)
 			{
-				
-				GraphicsPipelineStateInitializer Init;
-				Init.VertexShader = d->CubeVS;
-				Init.PixelShader = d->CubePS;
-
-				Init.BlendState = RHICachedStates::BlendOnAlphaOff;
-				Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-				Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
-
-				CommandContext->RHISetGraphicsPipelineState(Init);
-				CommandContext->RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-
 				CommandContext->SetRenderTarget(TextureCube, Face, MipLevel);
-				CommandContext->Clear(TextureCubeRHI, Face, MipLevel,core::FLinearColor::Black);
+				CommandContext->Clear(TextureCubeRHI, Face, MipLevel, core::FLinearColor::Black);
 				CommandContext->SetViewPort(0, 0, DstSize, DstSize);
 
 				d->GET_UNIFORMDATA(PSContant).CubeFace = Face;
@@ -103,9 +100,10 @@ namespace RenderCore
 					uint32_t DstSubIndex = TextureCube->GetSubresourceIndex(Face, MipLevel);
 					CommandContext->TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, DstSubIndex, true);
 				}
-
-				CommandContext->FlushCommands(true);
 			}
+
+			// One submit per mip (6 faces): fewer dynamic-descriptor heap ClearCache / fence churn than per-face Flush(true).
+			CommandContext->FlushCommands(false);
 		}
 	}
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #pragma warning(disable:4595)
 
 namespace win32
@@ -65,7 +65,7 @@ namespace win32
 		{
 			BEGIN_MASK = 0xDEADC0DE,
 			END_MASK = 0xDEADC0DE,
-			RECORD_NUM = 32, //�������2
+			RECORD_NUM = 32, //±ØÐë´óÓÚ2
 			CALLSTACK_NUM = 32
 		};
 
@@ -86,13 +86,13 @@ namespace win32
 				m_uiSize = 0;
 				m_uiStackInfoNum = 0;
 			}
-			void* pAddr[CALLSTACK_NUM];	//�����ڴ�ʱ��ĵ��ö�ջ��Ϣ
-			unsigned int m_uiStackInfoNum;	//��ջ����
-			size_t	 m_uiSize;			//����ռ�Ĵ�С
-			bool m_bIsArray;				//�Ƿ�������
-			bool m_bAlignment;				//�Ƿ��ֽڶ���
-			Block* m_pPrev;				//ǰһ���ڵ�
-			Block* m_pNext;				//��һ���ڵ�
+			void* pAddr[CALLSTACK_NUM];	//ÉêÇëÄÚ´æÊ±ºòµÄµ÷ÓÃ¶ÑÕ»ÐÅÏ¢
+			unsigned int m_uiStackInfoNum;	//¶ÑÕ»²ãÊý
+			size_t	 m_uiSize;			//ÉêÇë¿Õ¼äµÄ´óÐ¡
+			bool m_bIsArray;				//ÊÇ·ñÊÇÊý×é
+			bool m_bAlignment;				//ÊÇ·ñ×Ö½Ú¶ÔÆë
+			Block* m_pPrev;				//Ç°Ò»¸ö½Úµã
+			Block* m_pNext;				//ºóÒ»¸ö½Úµã
 		};
 		unsigned int m_uiNumNewCalls;
 		unsigned int m_uiNumDeleteCalls;
@@ -121,7 +121,7 @@ namespace win32
 		virtual void* Allocate(size_t uiSize, size_t uiAlignment, bool bIsArray);
 		virtual void Deallocate(char* pcAddr, size_t uiAlignment, bool bIsArray) {}
 
-		//ÿ֡�������߿�ʼ��ʱ�����
+		//Ã¿Ö¡½áÊø»òÕß¿ªÊ¼µÄÊ±ºòµ÷ÓÃ
 		void Clear();
 		void PopMemory();
 
@@ -155,14 +155,16 @@ namespace win32
 		uint8_t* AllocateNewChunk(int32_t MinSize);
 
 		/** Frees the chunks above the specified chunk on the stack. */
-		/*�Ƴ����chunk�����chunk֮ǰ������chunk*/
+		/*ÒÆ³ýÕâ¸öchunkºÍÕâ¸öchunkÖ®Ç°µÄËùÓÐchunk*/
 		void FreeChunks(FTaggedMemory* NewTopChunk);
 
 		
 	};
 }
 
-
+// Global allocation hooks: inline so MSVC emits one COMDAT per symbol across all TUs.
+// A single non-inline definition in Core only would LNK2005 against stale Render.lib .obj
+// that were built when this header still emitted the same symbols into each TU.
 inline void* operator new(size_t uiSize)
 {
 #ifdef _DEBUG
@@ -198,7 +200,7 @@ inline void* __cdecl operator new[](size_t _Size, const std::nothrow_t&) noexcep
 #endif
 }
 
-inline void operator delete (void* pvAddr)
+inline void operator delete(void* pvAddr)
 {
 #ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, false);
@@ -209,8 +211,8 @@ inline void operator delete (void* pvAddr)
 inline void operator delete[](void* pvAddr)
 {
 #ifdef _DEBUG
-		return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, true);
+	return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, true);
 #else
-		free(pvAddr);
+	free(pvAddr);
 #endif
 }

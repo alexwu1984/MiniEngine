@@ -1,4 +1,4 @@
-#include "D3D12/D3D12DirectCommandListManager.h"
+﻿#include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -95,7 +95,7 @@ namespace RenderCore
 
 	FD3D12Fence::~FD3D12Fence()
 	{
-
+		Destroy();
 	}
 
 	void FD3D12Fence::CreateFence()
@@ -201,15 +201,18 @@ namespace RenderCore
 
 	void FD3D12Fence::Destroy()
 	{
-		constexpr int32_t GPUIndex = 0;
-		if (FenceCoreCache)
+		if (!FenceCoreCache)
+			return;
+		// Return the core to the pool when the adapter still exists; otherwise the pool may already be gone (shutdown order).
+		if (auto Adapter = TryGetParentAdapter())
 		{
-			// Return the underlying fence to the pool, store the last value signaled on this fence. 
-			// If not fence was signaled since CreateFence() was called, then the last completed value is the last signaled value for this GPU.
-			GetParentAdapter()->GetFenceCorePool().ReleaseFenceCore(FenceCoreCache, LastSignaledFence > 0 ? LastSignaledFence : LastCompletedFenceCache);
-
-			FenceCoreCache = nullptr;
+			Adapter->GetFenceCorePool().ReleaseFenceCore(FenceCoreCache, LastSignaledFence > 0 ? LastSignaledFence : LastCompletedFenceCache);
 		}
+		else
+		{
+			delete FenceCoreCache;
+		}
+		FenceCoreCache = nullptr;
 	}
 
 	void FD3D12Fence::InternalSignal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal)

@@ -1,4 +1,4 @@
-#include "RHIPrivate/D3DShaderUtil.h"
+﻿#include "RHIPrivate/D3DShaderUtil.h"
 #include "RHI/RHIShdader.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "core/logger.h"
@@ -156,9 +156,8 @@ namespace RenderCore
 				}
 				else if (BindDesc.Type == D3D10_SIT_TEXTURE || BindDesc.Type == D3D10_SIT_SAMPLER)
 				{
-					assert(BindDesc.BindCount == 1);
-
-					const uint32_t BindCount = 1;
+					// BindCount can be >1 for SM5.1+ texture arrays (e.g. PBR bindless material slot batch).
+					const uint32_t BindCount = (BindDesc.BindCount > 0u) ? BindDesc.BindCount : 1u;
 					EShaderParameterType ParameterType = EShaderParameterType::Num;
 					if (BindDesc.Type == D3D10_SIT_SAMPLER)
 					{

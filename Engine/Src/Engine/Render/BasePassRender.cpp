@@ -1,4 +1,4 @@
-#include "Render/BasePassRender.h"
+﻿#include "Render/BasePassRender.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/GltfMaterial.h"
 #include "Scene/GltfMeshComponent.h"
@@ -11,8 +11,30 @@
 #include "Material/GltfFurMaterial.h"
 #include "Engine/Scene/SceneView.h"
 
+#include <unordered_map>
+
 namespace Engine
 {
+	struct MaterialRenderCacheKey
+	{
+		const void* meshBuffer = nullptr;
+		const void* material = nullptr;
+		bool operator==(const MaterialRenderCacheKey& o) const noexcept
+		{
+			return meshBuffer == o.meshBuffer && material == o.material;
+		}
+	};
+
+	struct MaterialRenderCacheKeyHash
+	{
+		size_t operator()(const MaterialRenderCacheKey& k) const noexcept
+		{
+			const uintptr_t a = reinterpret_cast<uintptr_t>(k.meshBuffer);
+			const uintptr_t b = reinterpret_cast<uintptr_t>(k.material);
+			return a ^ (b + 0x9e3779b9ull + (a << 6) + (a >> 2));
+		}
+	};
+
 	struct MeshDistanceInfo
 	{
 		float Distance;
@@ -28,7 +50,8 @@ namespace Engine
 	struct BasePassRenderPrivate
 	{
 		std::vector<MeshDistanceInfo> SortMesh;
-		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<MaterialRender>> Renders;
+		// Share MaterialRender across meshes with the same geometry + material (fewer PSO/root/bind objects).
+		std::unordered_map<MaterialRenderCacheKey, std::shared_ptr<MaterialRender>, MaterialRenderCacheKeyHash> Renders;
 		std::shared_ptr<SceneView> sceneView;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		float xHDRRotate{ 0.f };
@@ -131,6 +154,11 @@ namespace Engine
 			std::vector<MeshDistanceInfo> RenderResult;
 			GraphMeshByDistance(MeshInfo, Camera->GetCameraPos(), RenderResult);
 			std::sort(RenderResult.begin(), RenderResult.end(), MeshDistanceInfo());
+			// Secondary: cluster by material to improve root/descriptor cache locality (opaque order is approximate here).
+			std::stable_sort(RenderResult.begin(), RenderResult.end(),
+							  [](const MeshDistanceInfo& A, const MeshDistanceInfo& B) {
+								  return A.Mesh->GetMaterial().get() < B.Mesh->GetMaterial().get();
+							  });
 
 			for (const auto& RenderInfo : RenderResult)
 			{
@@ -214,12 +242,12 @@ namespace Engine
 	std::shared_ptr<Engine::MaterialRender> BasePassRender::GetOrCreateRender(std::shared_ptr<MeshBase> Mesh)
 	{
 		C_P(BasePassRender);
-		
-		auto ItFind = d->Renders.find(Mesh);
+
+		const MaterialRenderCacheKey key{ Mesh->GetMeshBuffer().get(), Mesh->GetMaterial().get() };
+		const auto ItFind = d->Renders.find(key);
 		if (ItFind != d->Renders.end())
-		{
 			return ItFind->second;
-		}
+
 		std::shared_ptr<PBRMaterialRender> PBRMaterial;
 		switch (Mesh->GetMaterial()->GetMaterialType())
 		{
@@ -237,7 +265,7 @@ namespace Engine
 		}
 
 		PBRMaterial->InitRenderResource();
-		d->Renders.insert({ Mesh,PBRMaterial });
+		d->Renders.emplace(key, PBRMaterial);
 		return PBRMaterial;
 	}
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "win/win32.h"
 #include "core/color.h"
 #include "core/vec2.h"
@@ -45,6 +45,8 @@ namespace RenderCore
 		virtual void* GetNativeWindow(void** AddParam = nullptr) const { return nullptr; }
 
 		virtual void SetRenderTarget() {};
+		/** Legacy no-op hook (was DXGI waitable swapchain pacing). D3D12 uses Present-time frame fence instead. */
+		virtual void WaitFrameLatency() {}
 		virtual void Prepare() = 0;
 		virtual void Clear(const core::FLinearColor& Color) {};
 		virtual void Present() {};

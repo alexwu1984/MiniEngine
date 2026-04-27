@@ -1,12 +1,22 @@
-#include "EnvironmentShaders.hlsl"
+﻿#include "EnvironmentShaders.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 
+// D3D12: five material maps as one descriptor range (ps_5_1). D3D11: same file, no RHI_BINDLESS macro.
+#if defined(RHI_BINDLESS)
+Texture2D PBR_Material2D[5] : register(t0);
+#define AlbedoMap PBR_Material2D[0]
+#define NormalMap PBR_Material2D[1]
+#define Roughness_metallicMap PBR_Material2D[2]
+#define EmissMap PBR_Material2D[3]
+#define AoMap PBR_Material2D[4]
+#else
 Texture2D AlbedoMap : register(t0);
 Texture2D NormalMap : register(t1);
 Texture2D Roughness_metallicMap : register(t2);
 Texture2D EmissMap : register(t3);
 Texture2D AoMap : register(t4);
+#endif
 TextureCube IrradianceTex : register(t5);
 Texture2D BrdfLut : register(t6);
 TextureCube PrefliterCubeMap : register(t7);
@@ -92,11 +102,10 @@ float VisibilityOcclusion(MaterialInfo MaterialInfo, AngularInfo AngularInfo)
     float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
 
     float GGX = GGXV + GGXL;
+    float vis = 0.0;
     if (GGX > 0.0)
-    {
-        return 0.5 / GGX;
-    }
-    return 0.0;
+        vis = 0.5 / GGX;
+    return vis;
 }
 
 // The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
@@ -112,6 +121,7 @@ float MicrofacetDistribution(MaterialInfo MaterialInfo, AngularInfo AngularInfo)
 float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Normal, float3 View)
 {
     AngularInfo angularInfo = GetAngularInfo(PointToLight, Normal, View);
+    float3 shade = float3(0.0, 0.0, 0.0);
 
     if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
     {
@@ -124,37 +134,35 @@ float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Norm
         float3 diffuseContrib = (1.0 - F) * Diffuse(MaterialInfo);
         float3 specContrib = F * Vis * D;
         // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
-        return angularInfo.NdotL * (diffuseContrib + specContrib);
+        shade = angularInfo.NdotL * (diffuseContrib + specContrib);
     }
 
-    return float3(0.0, 0.0, 0.0);
+    return shade;
 }
 
 // https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#range-property
 float GetRangeAttenuation(float Range, float Distance)
 {
+    // negative range means unlimited
     if (Range < 0.0)
-    {
-        // negative range means unlimited
         return 1.0;
-    }
-    return max(lerp(1, 0, Distance / Range), 0);
-    //return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
+    float att = max(lerp(1.0, 0.0, Distance / Range), 0.0);
+    return att;
 }
 
 // https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles
 float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterConeCos, float InnerConeCos)
 {
+    float att = 0.0;
     float actualCos = dot(normalize(SpotDirection), normalize(-PointToLight));
     if (actualCos > OuterConeCos)
     {
         if (actualCos < InnerConeCos)
-        {
-            return smoothstep(OuterConeCos, InnerConeCos, actualCos);
-        }
-        return 1.0;
+            att = smoothstep(OuterConeCos, InnerConeCos, actualCos);
+        else
+            att = 1.0;
     }
-    return 0.0;
+    return att;
 }
 
 float Linstep(float a, float b, float v)
@@ -457,8 +465,13 @@ float3 Calculate3DVelocity(float4 CurrentVelocity, float4 PreVelocity)
 
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 {
-	PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;
-    
+	PS_OUTPUT_SCENE Output;
+	Output.Target0 = float4(0.0, 0.0, 0.0, 0.0);
+	Output.Target1 = float4(0.0, 0.0, 0.0, 0.0);
+	Output.Target2 = float4(0.0, 0.0, 0.0, 0.0);
+	Output.Target3 = float4(0.0, 0.0, 0.0, 0.0);
+	Output.Target4 = float4(0.0, 0.0, 0.0, 0.0);
+
     float alpha;
     float perceptualRoughness;
     float3 diffuseColor;

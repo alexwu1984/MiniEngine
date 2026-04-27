@@ -1,4 +1,4 @@
-#include "D3D12/D3D12StateCache.h"
+﻿#include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12Shaders.h"
 #include "common/crc.h"
 #include "D3D12/D3D12RootSignature.h"
@@ -13,6 +13,64 @@ namespace RenderCore
 {
 	namespace
 	{
+		// Fewer StageDescriptorHandles calls → fewer stale table regions / CopyDescriptors work (UE-style batching).
+		static void StageConsecutiveGraphicsSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, D3D12_CPU_DESCRIPTOR_HANDLE* views)
+		{
+			if (rootParamIndex < 0)
+				return;
+			uint32_t i = 0;
+			while (i < numSrvs)
+			{
+				while (i < numSrvs && views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					++i;
+				if (i >= numSrvs)
+					break;
+				const uint32_t start = i;
+				while (i < numSrvs && views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					++i;
+				const uint32_t count = i - start;
+				heap.SetGraphicsDescriptorHandles((UINT)rootParamIndex, start, count, &views[start]);
+			}
+		}
+
+		static void StageConsecutiveComputeSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, D3D12_CPU_DESCRIPTOR_HANDLE* views)
+		{
+			if (rootParamIndex < 0)
+				return;
+			uint32_t i = 0;
+			while (i < numSrvs)
+			{
+				while (i < numSrvs && views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					++i;
+				if (i >= numSrvs)
+					break;
+				const uint32_t start = i;
+				while (i < numSrvs && views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					++i;
+				const uint32_t count = i - start;
+				heap.SetComputeDescriptorHandles((UINT)rootParamIndex, start, count, &views[start]);
+			}
+		}
+
+		static void StageConsecutiveComputeUavs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numUavs, D3D12_CPU_DESCRIPTOR_HANDLE* views)
+		{
+			if (rootParamIndex < 0)
+				return;
+			uint32_t i = 0;
+			while (i < numUavs)
+			{
+				while (i < numUavs && views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					++i;
+				if (i >= numUavs)
+					break;
+				const uint32_t start = i;
+				while (i < numUavs && views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					++i;
+				const uint32_t count = i - start;
+				heap.SetComputeDescriptorHandles((UINT)rootParamIndex, start, count, &views[start]);
+			}
+		}
+
 		static size_t HashBytesStable(const void* Data, size_t NumBytes, size_t Seed)
 		{
 			return (size_t)core::Crc::MemCrc32(Data, (int32_t)NumBytes, (uint32_t)Seed);
@@ -550,26 +608,12 @@ namespace RenderCore
 
 		if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
 		{
-			for (uint32_t Index = 0; Index < VertexResCount.NumSRVs; ++Index)
-			{
-				if (ShaderResourceViewCache.Views[SF_Vertex][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Vertex][Index];
-					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->SRVRootIndex[SF_Vertex], Index, 1, &Handle);
-				}
-			}
+			StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex]);
 		}
 
 		if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
 		{
-			for (uint32_t Index = 0; Index < PixelResCount.NumSRVs; ++Index)
-			{
-				if (ShaderResourceViewCache.Views[SF_Pixel][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Pixel][Index];
-					DynamicViewDescriptorHeap.SetGraphicsDescriptorHandles(RootSignature->SRVRootIndex[SF_Pixel], Index, 1, &Handle);
-				}
-			}
+			StageConsecutiveGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel]);
 		}
 
 		DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
@@ -632,26 +676,12 @@ namespace RenderCore
 
 		if (RootSignature->SRVRootIndex[SF_Compute] > -1)
 		{
-			for (uint32_t Index = 0; Index < ComputeResCount.NumSRVs; ++Index)
-			{
-				if (ShaderResourceViewCache.Views[SF_Compute][Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = ShaderResourceViewCache.Views[SF_Compute][Index];
-					DynamicViewDescriptorHeap.SetComputeDescriptorHandles(RootSignature->SRVRootIndex[SF_Compute], Index, 1, &Handle);
-				}
-			}
+			StageConsecutiveComputeSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Compute], ComputeResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Compute]);
 		}
 
 		if (RootSignature->UAVRootIndex[SF_Compute] > -1)
 		{
-			for (uint32_t Index = 0; Index < ComputeResCount.NumUAVs; ++Index)
-			{
-				if (UAVCache.Views[Index].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
-				{
-					D3D12_CPU_DESCRIPTOR_HANDLE Handle = UAVCache.Views[Index];
-					DynamicViewDescriptorHeap.SetComputeDescriptorHandles(RootSignature->UAVRootIndex[SF_Compute], Index, 1, &Handle);
-				}
-			}
+			StageConsecutiveComputeUavs(DynamicViewDescriptorHeap, RootSignature->UAVRootIndex[SF_Compute], ComputeResCount.NumUAVs, UAVCache.Views);
 		}
 
 		DynamicViewDescriptorHeap.CommitComputeRootDescriptorTables(CommandList.GraphicsCommandList());

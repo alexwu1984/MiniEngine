@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIViewPort.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
@@ -31,6 +31,10 @@ namespace RenderCore
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext();
 		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext();
 
+		// UE FD3D12Viewport::WaitForFrameEventCompletion / IssueFrameEvent (RHIEndDrawingViewport after Present).
+		void WaitForFrameEventCompletion();
+		void IssueFrameEvent();
+
 	private:
 		HWND WindowHandle;
 		uint32_t SizeX;
@@ -43,10 +47,13 @@ namespace RenderCore
 
 		DXGI_COLOR_SPACE_TYPE ColorSpace;
 		win32::com_ptr<IDXGISwapChain4> SwapChain4;
-		HANDLE FrameLatencyWaitableObject = nullptr;
 
 		int32_t NumBackBuffers;
 		uint32_t FrameIndex;
 		std::vector<std::shared_ptr<D3D12Texture2D>> BackBuffers;
+
+		// UE-style frame fence after Present (see FD3D12Viewport in UE D3D12Viewport.cpp).
+		std::shared_ptr<FD3D12Fence> PresentEndFence;
+		uint64_t PresentEndFenceLastSignaled = 0;
 	};
 }

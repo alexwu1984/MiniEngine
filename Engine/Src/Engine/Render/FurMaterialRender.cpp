@@ -69,7 +69,6 @@ namespace Engine
 
 		RHIContext.RHISetBlendState(RHICachedStates::BlendTraditional, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateEnable,0);
-		//gltf������˳��
 		RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->NoiseTex);

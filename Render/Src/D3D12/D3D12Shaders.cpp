@@ -1,4 +1,4 @@
-#include "D3D12/D3D12Shaders.h"
+﻿#include "D3D12/D3D12Shaders.h"
 #include "RHIPrivate/D3DShaderUtil.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "common/crc.h"
@@ -73,7 +73,8 @@ namespace RenderCore
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
-		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, "ps_5_0", Code.get_init_ref());
+		// ps_5_1: texture arrays / bindless-style indexing (PBR RHI_BINDLESS path); still loads on D3D11 with ps_5_0.
+		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, "ps_5_1", Code.get_init_ref());
 		if (!Ret)
 		{
 			Assert(false);

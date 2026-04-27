@@ -1,4 +1,4 @@
-#include "Engine/Engine.h"
+﻿#include "Engine/Engine.h"
 #include "core/commandline.h"
 #include "App/AppWindow.h"
 #include "RHI/RHIViewPort.h"
@@ -7,6 +7,7 @@
 #include "Render/SceneRender.h"
 #include "win/high_precision_tick.h"
 #include "Engine/Render/RenderTexturePool.h"
+#include "RHI/DynamicRHI.h"
 
 namespace Engine
 {
@@ -94,6 +95,7 @@ namespace Engine
 			d->DynamicRHI->Shutdown();
 		}
 		d->DynamicRHI = {};
+		RenderCore::ReleasePlatformModule();
 	}
 
 	void MainEngine::LoadConfig(const std::wstring& FileName, const nlohmann::json& Root)

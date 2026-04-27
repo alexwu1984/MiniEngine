@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "Templates/UnrealTypeTraits.h"
 #include "D3D12/MultiGPU.h"
@@ -128,8 +128,8 @@ namespace RenderCore
 		FDynamicDescriptorHeapPoolsPerDevice& Pools();
 
 	private:
-		// Same as MiniEngine Core/DynamicDescriptorHeap.h (kNumDescriptorsPerHeap).
-		static const uint32_t NumDescriptorsPerHeap = 1024;
+		// Shader-visible ring; larger heap = fewer retire/SetDescriptorHeap churn (UE-style tuning).
+		static const uint32_t NumDescriptorsPerHeap = 16384;
 
 		std::shared_ptr<D3D12CommandContext> m_OwningContext;
 		win32::com_ptr<ID3D12DescriptorHeap> m_CurrentHeap;
@@ -179,7 +179,7 @@ namespace RenderCore
 			uint32_t m_StaleRootParamsBitMap = 0;
 			uint32_t m_MaxCachedDescriptors = 0;
 
-			static const uint32_t MaxNumDescriptors = 256;
+			static const uint32_t MaxNumDescriptors = 4096;
 			static const uint32_t MaxNumDescriptorTables = 16;
 			FDescriptorTableCache m_RootDescriptorTable[MaxNumDescriptorTables] = {};
 			D3D12_CPU_DESCRIPTOR_HANDLE m_HandleCache[MaxNumDescriptors] = {};

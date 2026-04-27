@@ -1,5 +1,6 @@
 ﻿#include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12RootSignature.h"
@@ -7,6 +8,14 @@
 
 namespace RenderCore
 {
+	bool FDescriptorHandle::IsValidShaderVisibleTableBase() const
+	{
+		const SIZE_T cpu = m_CpuHandle.ptr;
+		const UINT64 gpu = m_GpuHandle.ptr;
+		return cpu != 0 && cpu != D3D12_CPU_VIRTUAL_ADDRESS_UNKNOWN
+			&& gpu != 0 && gpu != D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN;
+	}
+
 	void FDynamicDescriptorHeapPoolsPerDevice::Clear()
 	{
 		for (int i = 0; i < 2; ++i)
@@ -49,10 +58,27 @@ namespace RenderCore
 		m_OwningContext(CommandContext.lock())
 	{
 		m_DescriptorSize = GetParentDevice()->GetDevice()->GetDescriptorHandleIncrementSize(HeapType);
+		// Sampler shader-visible heaps: stay conservative (table limits differ from CBV/SRV/UAV).
+		if (HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+		{
+			m_NumDescriptorsPerHeap = 2048u;
+		}
+		else
+		{
+			const D3D12_RESOURCE_BINDING_TIER Tier = GetParentDevice()->GetParentAdapter()->GetResourceBindingTier();
+			if (Tier >= D3D12_RESOURCE_BINDING_TIER_3)
+				m_NumDescriptorsPerHeap = 65536u;
+			else if (Tier == D3D12_RESOURCE_BINDING_TIER_2)
+				m_NumDescriptorsPerHeap = 32768u;
+			else
+				m_NumDescriptorsPerHeap = 16384u;
+		}
 	}
 
 	void FDynamicDescriptorHeap::CommitGraphicsRootDescriptorTables(ID3D12GraphicsCommandList* CommandList)
 	{
+		if (!CommandList)
+			return;
 		if (m_GraphicsHandleCache.m_StaleRootParamsBitMap)
 		{
 			CopyAndBindStagedTables(m_GraphicsHandleCache, GetParentDevice()->GetDevice(),
@@ -62,6 +88,8 @@ namespace RenderCore
 
 	void FDynamicDescriptorHeap::CommitComputeRootDescriptorTables(ID3D12GraphicsCommandList* CommandList)
 	{
+		if (!CommandList)
+			return;
 		if (m_ComputeHandleCache.m_StaleRootParamsBitMap)
 		{
 			CopyAndBindStagedTables(m_ComputeHandleCache, GetParentDevice()->GetDevice(),
@@ -176,7 +204,7 @@ namespace RenderCore
 
 			D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
 			HeapDesc.Type = HeapType;
-			HeapDesc.NumDescriptors = NumDescriptorsPerHeap;
+			HeapDesc.NumDescriptors = m_NumDescriptorsPerHeap;
 			HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 			HeapDesc.NodeMask = 1;
 			win32::com_ptr<ID3D12DescriptorHeap> Heap;
@@ -223,6 +251,12 @@ namespace RenderCore
 		void(STDMETHODCALLTYPE ID3D12GraphicsCommandList::* SetFunc)(UINT, D3D12_GPU_DESCRIPTOR_HANDLE))
 	{
 		uint32_t NeededSize = HandleCache.ComputeStagedSize();
+		if (NeededSize == 0)
+		{
+			// Stale bits without valid staged handles (e.g. cache cleared mid-frame) — do not call SetGraphicsRootDescriptorTable with a bad range.
+			HandleCache.m_StaleRootParamsBitMap = 0;
+			return;
+		}
 		if (NeededSize > 0)
 		{
 			if (m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
@@ -242,9 +276,34 @@ namespace RenderCore
 			UnbindAllInvalid();
 			NeededSize = HandleCache.ComputeStagedSize();
 		}
+		if (NeededSize == 0)
+		{
+			HandleCache.m_StaleRootParamsBitMap = 0;
+			return;
+		}
+
+		if (!m_OwningContext)
+		{
+			HandleCache.m_StaleRootParamsBitMap = 0;
+			return;
+		}
 
 		m_OwningContext->SetDescriptorHeap(m_HeapType, GetHeapPointer());
-		HandleCache.CopyAndBindStaleTables(m_HeapType,InDevice, m_DescriptorSize, AllocateDescriptor(NeededSize), CommandList, SetFunc);
+		// One commit must fit in the current shader-visible heap chunk; otherwise AllocateDescriptor walks past
+		// heap end and CopyAndBindStaleTables / the driver faults (e.g. AV reading ~0x18 in nvwgf2umx).
+		if (!HasSpace(NeededSize))
+		{
+			HandleCache.m_StaleRootParamsBitMap = 0;
+			return;
+		}
+
+		const FDescriptorHandle Allocated = AllocateDescriptor(NeededSize);
+		if (!Allocated.IsValidShaderVisibleTableBase())
+		{
+			HandleCache.m_StaleRootParamsBitMap = 0;
+			return;
+		}
+		HandleCache.CopyAndBindStaleTables(m_HeapType, InDevice, m_DescriptorSize, Allocated, CommandList, SetFunc);
 	}
 
 	void FDynamicDescriptorHeap::FDescriptorHandleCache::UnbindAllInvalid()
@@ -268,10 +327,14 @@ namespace RenderCore
 		while (_BitScanForward(&RootIndex, StaleParams))
 		{
 			StaleParams ^= (1 << RootIndex);
+			const FDescriptorTableCache& Table = m_RootDescriptorTable[RootIndex];
+			if (Table.TableStart == nullptr || Table.AssignedHandlesBitMap == 0)
+				continue;
 
-			DWORD MaxSetHandle;
-			BOOL Result = _BitScanReverse(&MaxSetHandle, m_RootDescriptorTable[RootIndex].AssignedHandlesBitMap);
-			Assert(Result);
+			DWORD MaxSetHandle = 0;
+			const BOOL Result = _BitScanReverse(&MaxSetHandle, Table.AssignedHandlesBitMap);
+			if (!Result)
+				continue;
 
 			NeededSpace += MaxSetHandle + 1;
 		}
@@ -326,6 +389,12 @@ namespace RenderCore
 		ID3D12GraphicsCommandList* CmdList,
 		void (STDMETHODCALLTYPE ID3D12GraphicsCommandList::* SetFunc)(UINT, D3D12_GPU_DESCRIPTOR_HANDLE))
 	{
+		if (!InDevice || !CmdList || !DestHandleStart.IsValidShaderVisibleTableBase())
+		{
+			m_StaleRootParamsBitMap = 0;
+			return;
+		}
+
 		// Range count limit for CopyDescriptors (dst+src entries). Large enough to avoid splitting one bind table.
 		static const uint32_t kMaxRanges = 1024;
 
@@ -355,18 +424,27 @@ namespace RenderCore
 		{
 			StaleParams ^= (1 << RootIndex);
 
+			FDescriptorTableCache& TableCache = m_RootDescriptorTable[RootIndex];
+			if (TableCache.TableStart == nullptr || TableCache.AssignedHandlesBitMap == 0)
+			{
+				m_StaleRootParamsBitMap &= ~(1u << RootIndex);
+				continue;
+			}
+
 			DWORD TableSize = 0;
-			BOOL Result = _BitScanReverse(&TableSize, m_RootDescriptorTable[RootIndex].AssignedHandlesBitMap);
-			Assert(Result);
+			const BOOL Result = _BitScanReverse(&TableSize, TableCache.AssignedHandlesBitMap);
+			if (!Result)
+			{
+				m_StaleRootParamsBitMap &= ~(1u << RootIndex);
+				continue;
+			}
 			TableSize += 1;
 
-			(CmdList->*SetFunc)(RootIndex, DestHandleStart.GetGpuHandle());
-
-			FDescriptorTableCache& TableCache = m_RootDescriptorTable[RootIndex];
+			const D3D12_GPU_DESCRIPTOR_HANDLE TableBindGpu = DestHandleStart.GetGpuHandle();
 			D3D12_CPU_DESCRIPTOR_HANDLE* SrcHandles = TableCache.TableStart;
 			uint32_t SetHandles = TableCache.AssignedHandlesBitMap;
 			D3D12_CPU_DESCRIPTOR_HANDLE CurDest = DestHandleStart.GetCpuHandle();
-			DestHandleStart += TableSize * DescriptorSize;
+			DestHandleStart += static_cast<INT>(TableSize * DescriptorSize);
 
 			DWORD SkipCount;
 			while (_BitScanForward(&SkipCount, SetHandles))
@@ -414,6 +492,9 @@ namespace RenderCore
 				SrcHandles += DescriptorCount;
 				CurDest.ptr += DescriptorCount * DescriptorSize;
 			}
+
+			flushBatch();
+			(CmdList->*SetFunc)(RootIndex, TableBindGpu);
 		}
 
 		flushBatch();

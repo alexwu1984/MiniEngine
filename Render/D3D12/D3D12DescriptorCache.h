@@ -23,6 +23,8 @@ namespace RenderCore
 		std::queue<win32::com_ptr<ID3D12DescriptorHeap>> Ready[2];
 		// Keep separate retired queues per D3D12 queue type to preserve monotonic fence ordering
 		// within each queue, enabling O(1) "while front complete" recycling like the DEMO.
+		// Retired heaps store the fence value + queue that submitted the work that last touched them;
+		// recycling checks that queue's fence (monotonic) before moving heap back to Ready.
 		std::queue<FRetiredDynamicDescriptorHeapEntry> Retired[2][3]; // [HeapTypeIndex][QueueTypeIndex]
 		std::vector<win32::com_ptr<ID3D12DescriptorHeap>> CreatedTracking[2];
 
@@ -75,6 +77,8 @@ namespace RenderCore
 
 		bool IsCpuNull() const { return m_CpuHandle.ptr == D3D12_CPU_VIRTUAL_ADDRESS_UNKNOWN; }
 		bool IsShaderVisible() const { return m_GpuHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN; }
+		/** CPU/GPU both known and non-null; 0 is not a valid descriptor heap start on Windows. */
+		bool IsValidShaderVisibleTableBase() const;
 
 	private:
 		D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
@@ -119,7 +123,7 @@ namespace RenderCore
 	private:
 		bool HasSpace(uint32_t Count)
 		{
-			return (m_CurrentHeap != nullptr && m_CurrentOffset + Count <= NumDescriptorsPerHeap);
+			return (m_CurrentHeap != nullptr && m_CurrentOffset + Count <= m_NumDescriptorsPerHeap);
 		}
 		void RetireCurrentHeap();
 		void RetireUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
@@ -128,8 +132,9 @@ namespace RenderCore
 		FDynamicDescriptorHeapPoolsPerDevice& Pools();
 
 	private:
-		// Shader-visible ring; larger heap = fewer retire/SetDescriptorHeap churn (UE-style tuning).
-		static const uint32_t NumDescriptorsPerHeap = 16384;
+		// Shader-visible ring: size is chosen per device (ResourceBindingTier) so we suballocate longer
+		// in one heap before retiring — closer to UE's large heap + ring than tiny per-chunk heaps.
+		uint32_t m_NumDescriptorsPerHeap = 16384;
 
 		std::shared_ptr<D3D12CommandContext> m_OwningContext;
 		win32::com_ptr<ID3D12DescriptorHeap> m_CurrentHeap;

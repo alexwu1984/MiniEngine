@@ -238,15 +238,27 @@ namespace RenderCore
 		}
 	}
 
+	void FD3D12StateCache::InvalidateDescriptorHeapBindingsForFreshCommandList()
+	{
+		m_bDescriptorHeapBindingsStaleForCommandList = true;
+	}
+
 	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
-		if (CurrentDescriptorHeaps[Type] != HeapPtr)
-			CurrentDescriptorHeaps[Type] = HeapPtr;
+		// UE-style: avoid redundant SetDescriptorHeaps when the dynamic ring hands back the same heap pointer.
+		// After ID3D12GraphicsCommandList::Reset, heaps are not bound even if our cached pointers match — see InvalidateDescriptorHeapBindingsForFreshCommandList.
+		if (CurrentDescriptorHeaps[Type] == HeapPtr && !m_bDescriptorHeapBindingsStaleForCommandList)
+			return;
+		CurrentDescriptorHeaps[Type] = HeapPtr;
 		BindDescriptorHeaps(CommandList);
+		m_bDescriptorHeapBindingsStaleForCommandList = false;
 	}
 
 	void FD3D12StateCache::BindDescriptorHeaps(D3D12CommandListHandle& CommandList)
 	{
+		ID3D12GraphicsCommandList* GfxCmdList = CommandList.GraphicsCommandList();
+		if (!GfxCmdList)
+			return;
 		uint32_t NonNullHeaps = 0;
 		ID3D12DescriptorHeap* HeapsToBind[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES]{};
 		for (uint32_t i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
@@ -259,7 +271,7 @@ namespace RenderCore
 
 		if (NonNullHeaps > 0)
 		{
-			CommandList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind);
+			GfxCmdList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind);
 		}
 	}
 
@@ -708,18 +720,21 @@ namespace RenderCore
 
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
+		m_bDescriptorHeapBindingsStaleForCommandList = true;
 	}
 
 	void FD3D12StateCache::ClearRenderState()
 	{
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
+		m_bDescriptorHeapBindingsStaleForCommandList = true;
 	}
 
 	void FD3D12StateCache::ClearComputeState()
 	{
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};
+		m_bDescriptorHeapBindingsStaleForCommandList = true;
 	}
 
 	void FD3D12StateCache::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)

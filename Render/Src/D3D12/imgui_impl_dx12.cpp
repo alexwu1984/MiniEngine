@@ -1,4 +1,4 @@
-// dear imgui: Renderer for DirectX12
+﻿// dear imgui: Renderer for DirectX12
 // This needs to be used along with a Platform Binding (e.g. Win32)
 
 // Implemented features:
@@ -134,7 +134,9 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
     if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
         return;
 
-    ctx->SetDescriptorHeaps(1, &g_descriptorHeap);
+    if (g_descriptorHeap)
+        ctx->SetDescriptorHeaps(1, &g_descriptorHeap);
+
     // FIXME: I'm assuming that this only gets called once per frame!
     // If not, we can't just re-allocate the IB or VB, we'll have to do a proper allocator.
     g_frameIndex = g_frameIndex + 1;

@@ -164,6 +164,8 @@ namespace RenderCore
 		void SetUAV(uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<D3D12TextureCube> TextureCube);
 		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
+		/** Reset() / new recording session clears SetDescriptorHeaps on the list; cached heap pointers may still match. */
+		void InvalidateDescriptorHeapBindingsForFreshCommandList();
 		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
 		void SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth);
 		void SetRenderTargetFormat(const D3D12RenderTarget* RenderTarget);
@@ -213,5 +215,6 @@ namespace RenderCore
 		std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayouts;
 		FDynamicDescriptorHeap DynamicViewDescriptorHeap;
 		win32::com_ptr<ID3D12DescriptorHeap> CurrentDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+		bool m_bDescriptorHeapBindingsStaleForCommandList = false;
 	};
 }

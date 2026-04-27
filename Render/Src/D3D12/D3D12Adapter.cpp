@@ -1,4 +1,4 @@
-#include "D3D12/D3D12Adapter.h"
+﻿#include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12RHI.h"
 #include "core/commandline.h"
 #include "core/logger.h"
@@ -6,9 +6,9 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12RootSignature.h"
-#include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12CallStats.h"
+#include "D3D12/D3D12DescriptorCache.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include <d3d12sdklayers.h>
 #include <dxgidebug.h>
@@ -66,8 +66,8 @@ namespace RenderCore
 			RootSignature = {};
 			FenceCorePool = {};
 			FrameFence = {};
-			Device = {};
 			DynamicViewDescriptorHeap = {};
+			Device = {};
 
 			if (DxgiDebug)
 			{
@@ -180,11 +180,11 @@ namespace RenderCore
 
 		CreateSignatures();
 
-		d->DynamicViewDescriptorHeap = std::make_shared<FDynamicDescriptorHeap>(d->Device,
-																				d->Device->GetDefaultCommandContext(), 
-																			    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		// Keep ImGui backend lifetime consistent with D3D12DynamicRHI::Shutdown():
 		// when noimgui=1, we must not initialize ImGui_ImplDX12 (it allocates g_pFrameResources).
+		d->DynamicViewDescriptorHeap = std::make_shared<FDynamicDescriptorHeap>(d->Device,
+			d->Device->GetDefaultCommandContext(),
+			D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		if (!core::CommandLine::Get().GetName("noimgui"))
 		{
 			win32::com_ptr<ID3D12DescriptorHeap> DescriptorHeap = d->DynamicViewDescriptorHeap->GetHeapPointer();

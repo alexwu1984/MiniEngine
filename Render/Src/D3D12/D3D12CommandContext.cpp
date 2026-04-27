@@ -1,4 +1,4 @@
-#include "D3D12/D3D12CommandContext.h"
+﻿#include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12ReourceTraits.h"
@@ -43,7 +43,6 @@ namespace RenderCore
 	D3D12CommandContext::~D3D12CommandContext()
 	{
 		CurrentStateCache = {};
-		
 	}
 
 	void D3D12CommandContext::SetViewPort(int32_t TopLeftX, int32_t TopLeftY, int32_t SizeX, int32_t SizeY)
@@ -248,7 +247,13 @@ namespace RenderCore
 		Assert(CommandAllocator);
 		if (CommandAllocator)
 			CommandListHandle.Reset(*CommandAllocator);
-		
+		if (CurrentStateCache)
+			CurrentStateCache->InvalidateDescriptorHeapBindingsForFreshCommandList();
+		for (const auto& KV : StateCacheMap)
+		{
+			if (KV.second)
+				KV.second->InvalidateDescriptorHeapBindingsForFreshCommandList();
+		}
 	}
 
 	void D3D12CommandContext::RHIEndDrawing()
@@ -656,9 +661,8 @@ namespace RenderCore
 
 	uint64_t D3D12CommandContext::FlushCommandsGetFence(bool WaitForCompletion /*= false*/)
 	{
-		// Align with DirectX-Graphics-Samples MiniEngine CommandContext::Flush: always close, execute,
-		// and run per-submit cleanup (linear allocators, dynamic heaps). Do not skip submit based on
-		// draw/barrier heuristics — that breaks fence-tied upload page retirement (e.g. uniform ring).
+		// Submit path: always close, execute, and run per-submit cleanup (linear allocators, dynamic heaps)
+		// via the ExecuteAndClear fence callback. Skipping submit for heuristics breaks fence-tied retirement.
 		CloseCommandList();
 		const uint64_t SignaledFenceValue = CommandListHandle.ExecuteAndClear(WaitForCompletion);
 		OpenCommandList();
@@ -736,6 +740,13 @@ namespace RenderCore
 		CommandListHandle = GetCommandListManager().ObtainCommandList(*CommandAllocator);
 		CommandListHandle.SetCurrentOwningContext(this);
 
+		if (CurrentStateCache)
+			CurrentStateCache->InvalidateDescriptorHeapBindingsForFreshCommandList();
+		for (const auto& KV : StateCacheMap)
+		{
+			if (KV.second)
+				KV.second->InvalidateDescriptorHeapBindingsForFreshCommandList();
+		}
 		numDraws = 0;
 		numDispatches = 0;
 		numClears = 0;

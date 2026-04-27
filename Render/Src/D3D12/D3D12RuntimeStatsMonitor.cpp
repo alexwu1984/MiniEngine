@@ -247,9 +247,22 @@ namespace RenderCore
 			L"[D3D12] Cache RS=%zu PSO(G=%zu C=%zu) Shaders(VS=%zu PS=%zu CS=%zu) TexCaches=%zu",
 			RS, GPSO, CPSO, VS, PS, CS, TexCaches);
 
+		// One-shot build stamp so we can verify the exact binary producing this log.
+		{
+			static bool sPrintedBuildStamp = false;
+			if (!sPrintedBuildStamp)
+			{
+				sPrintedBuildStamp = true;
+				core::LOG(core::log_inf,
+					L"[D3D12] BuildStamp %S %S (WCCommitDelta=ON)",
+					__DATE__, __TIME__);
+			}
+		}
+
 		// Attribute gradual VMemPrivate WC commit growth to mapped regions.
 		// This is the key signal when Create/Map counts are flat but WC bytes keeps increasing.
 		D3D12UploadWCDiagnostics_DumpMappedRegionCommitDeltas();
+		D3D12UploadWCDiagnostics_DumpProcessWideWcCommitDeltas();
 
 		{
 			const auto Live = FD3D12Resource::GetLiveStats();

@@ -224,7 +224,10 @@ namespace RenderCore
 		if (D3D12RHI_ShouldUseImGui())
 		{
 			ImGui::Render();
-			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList());
+			ImGui_ImplDX12_RenderDrawData(
+				ImGui::GetDrawData(),
+				GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList(),
+				GetDefaultCommandContext().get());
 		}
 
 		auto DefaultCtx = GetDefaultCommandContext();

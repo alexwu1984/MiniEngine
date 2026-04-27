@@ -20,6 +20,11 @@ struct ID3D12GraphicsCommandList;
 struct D3D12_CPU_DESCRIPTOR_HANDLE;
 struct D3D12_GPU_DESCRIPTOR_HANDLE;
 
+namespace RenderCore
+{
+	class D3D12CommandContext;
+}
+
 // cmd_list is the command list that the implementation will use to render imgui draw lists.
 // Before calling the render function, caller must prepare cmd_list by resetting it and setting the appropriate
 // render target and descriptor heap that contains font_srv_cpu_desc_handle/font_srv_gpu_desc_handle.
@@ -28,7 +33,9 @@ IMGUI_IMPL_API bool     ImGui_ImplDX12_Init(ID3D12Device* device, int num_frames
                                             D3D12_CPU_DESCRIPTOR_HANDLE font_srv_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE font_srv_gpu_desc_handle);
 IMGUI_IMPL_API void     ImGui_ImplDX12_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplDX12_NewFrame();
-IMGUI_IMPL_API void     ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandList* graphics_command_list);
+// When upload_context is non-null, vertex/index data is staged through the engine transient upload ring
+// (bounded WC) into DEFAULT heap buffers — avoids per-frame committed UPLOAD / WC growth.
+IMGUI_IMPL_API void     ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandList* graphics_command_list, RenderCore::D3D12CommandContext* upload_context = nullptr);
 
 // Use if you want to reset your rendering device without losing ImGui state.
 IMGUI_IMPL_API void     ImGui_ImplDX12_InvalidateDeviceObjects();

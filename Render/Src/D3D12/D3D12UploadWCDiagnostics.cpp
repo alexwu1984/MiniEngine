@@ -9,8 +9,10 @@
 
 #include <mutex>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <cwchar>
+#include <algorithm>
 
 namespace RenderCore
 {
@@ -44,13 +46,40 @@ namespace RenderCore
 					regionEnd = end;
 
 				const bool bCommitted = (mbi.State == MEM_COMMIT);
-				const bool bWC = ((mbi.Protect & PAGE_WRITECOMBINE) != 0);
+				// Some drivers/runtime paths report WC on AllocationProtect rather than Protect for sub-regions.
+				// Use either to classify a region as WC for attribution purposes.
+				const bool bWC = ((mbi.Protect & PAGE_WRITECOMBINE) != 0) || ((mbi.AllocationProtect & PAGE_WRITECOMBINE) != 0);
 				if (bCommitted && bWC)
 					committed += (uint64_t)(regionEnd - (uint8_t*)mbi.BaseAddress);
 
 				p = (uint8_t*)mbi.BaseAddress + (size_t)mbi.RegionSize;
 			}
 			return committed;
+		}
+
+		// Sum VirtualQuery region sizes from AllocationBase until we leave this allocation.
+		static uint64_t DiscoverAllocationSpanBytes(void* AnyPtrInAllocation)
+		{
+			MEMORY_BASIC_INFORMATION first = {};
+			if (::VirtualQuery(AnyPtrInAllocation, &first, sizeof(first)) != sizeof(first))
+				return 0;
+			void* const allocBase = first.AllocationBase;
+			uint64_t span = 0;
+			uint8_t* p = (uint8_t*)allocBase;
+			for (;;)
+			{
+				MEMORY_BASIC_INFORMATION mbi = {};
+				if (::VirtualQuery(p, &mbi, sizeof(mbi)) != sizeof(mbi))
+					break;
+				if (mbi.AllocationBase != allocBase)
+					break;
+				span += (uint64_t)mbi.RegionSize;
+				uint8_t* next = (uint8_t*)mbi.BaseAddress + (size_t)mbi.RegionSize;
+				if (next <= p)
+					break;
+				p = next;
+			}
+			return span;
 		}
 
 		static std::mutex& RegionsMutex()
@@ -181,12 +210,17 @@ namespace RenderCore
 		MEMORY_BASIC_INFORMATION mbi = {};
 		if (::VirtualQuery(BasePtr, &mbi, sizeof(mbi)) != sizeof(mbi))
 			return;
-		if ((mbi.Protect & PAGE_WRITECOMBINE) == 0)
-			return;
 
-		void* allocBase = mbi.AllocationBase;
-		uint64_t regionSize = (uint64_t)mbi.RegionSize;
-		const uint64_t trackedSize = (SizeBytes > 0) ? SizeBytes : regionSize;
+		void* const allocBase = mbi.AllocationBase;
+		const uint64_t spanBytes = DiscoverAllocationSpanBytes(BasePtr);
+		const uint64_t offsetInAlloc = (uint64_t)((uint8_t*)BasePtr - (uint8_t*)allocBase);
+		// Cover the whole D3D12 allocation (often starts with reserve/no-access at AllocationBase).
+		uint64_t trackedSize = spanBytes;
+		if (SizeBytes)
+		{
+			const uint64_t need = offsetInAlloc + SizeBytes;
+			trackedSize = (need > trackedSize) ? need : trackedSize;
+		}
 
 		std::lock_guard<std::mutex> lock(RegionsMutex());
 		auto& R = Regions();
@@ -253,10 +287,12 @@ namespace RenderCore
 		const double MB = 1024.0 * 1024.0;
 		const size_t kMaxLines = 6;
 		size_t printed = 0;
+		// Log meaningful deltas (256KB+) so we don't miss ~26MB/s growth split across regions.
+		const uint64_t kMinDeltaBytes = 256ull * 1024ull;
 		for (const auto& d : deltas)
 		{
-			if (d.DeltaBytes < (uint64_t)(1.0 * 1024.0 * 1024.0))
-				break; // ignore sub-1MB noise
+			if (d.DeltaBytes < kMinDeltaBytes)
+				break;
 			core::LOG(core::log_inf,
 				L"[D3D12] WCCommit/s +%.1fMB (cur=%.1fMB) tag=%s base=%p tracked=%.1fMB",
 				(double)d.DeltaBytes / MB,
@@ -264,6 +300,95 @@ namespace RenderCore
 				(d.Region ? d.Region->Tag : L"?"),
 				(d.Region ? d.Region->Base : nullptr),
 				(double)(d.Region ? d.Region->SizeBytes : 0) / MB);
+			if (++printed >= kMaxLines)
+				break;
+		}
+	}
+
+	void D3D12UploadWCDiagnostics_DumpProcessWideWcCommitDeltas()
+	{
+		if (!RenderCore::D3D12RHI_ShouldEnableMemMon())
+			return;
+
+		// Aggregate committed MEM_PRIVATE WC bytes by AllocationBase over the entire VA space.
+		// This matches what D3D12MemoryMonitor reports for VMemPrivate WC, but lets us attribute deltas.
+		static std::unordered_map<void*, uint64_t> sPrevByBase;
+		std::unordered_map<void*, uint64_t> curByBase;
+
+		uint8_t* p = nullptr;
+		MEMORY_BASIC_INFORMATION mbi = {};
+		while (::VirtualQuery(p, &mbi, sizeof(mbi)) == sizeof(mbi))
+		{
+			if (mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE)
+			{
+				const bool bWC = ((mbi.Protect & PAGE_WRITECOMBINE) != 0) || ((mbi.AllocationProtect & PAGE_WRITECOMBINE) != 0);
+				if (bWC)
+				{
+					curByBase[mbi.AllocationBase] += (uint64_t)mbi.RegionSize;
+				}
+			}
+
+			uint8_t* next = (uint8_t*)mbi.BaseAddress + (size_t)mbi.RegionSize;
+			if (next <= p)
+				break;
+			p = next;
+		}
+
+		struct FDelta
+		{
+			void* Base = nullptr;
+			uint64_t DeltaBytes = 0;
+			uint64_t CurBytes = 0;
+		};
+
+		std::vector<FDelta> deltas;
+		deltas.reserve(curByBase.size());
+		for (const auto& kv : curByBase)
+		{
+			const uint64_t prev = (sPrevByBase.count(kv.first) != 0) ? sPrevByBase[kv.first] : 0;
+			const uint64_t cur = kv.second;
+			if (cur > prev)
+				deltas.push_back(FDelta{ kv.first, cur - prev, cur });
+		}
+		sPrevByBase.swap(curByBase);
+
+		if (deltas.empty())
+			return;
+
+		std::sort(deltas.begin(), deltas.end(), [](const FDelta& a, const FDelta& b) { return a.DeltaBytes > b.DeltaBytes; });
+
+		const double MB = 1024.0 * 1024.0;
+		const uint64_t kMinDeltaBytes = 512ull * 1024ull; // 512KB+
+		const size_t kMaxLines = 8;
+		size_t printed = 0;
+		for (const auto& d : deltas)
+		{
+			if (d.DeltaBytes < kMinDeltaBytes)
+				break;
+
+			// Try to attribute to a known mapped WC region tag (if we saw an UploadMap WC for it).
+			const wchar_t* tagW = L"?";
+			{
+				std::lock_guard<std::mutex> lock(RegionsMutex());
+				for (const auto& r : Regions())
+				{
+					if (r.Base == d.Base)
+					{
+						tagW = r.Tag;
+						break;
+					}
+				}
+			}
+
+			// Also print the total span size of this allocation (often 32MB in the growing case).
+			const uint64_t spanBytes = DiscoverAllocationSpanBytes(d.Base);
+			core::LOG(core::log_inf,
+				L"[D3D12] WCCommitAllocs/s +%.1fMB (cur=%.1fMB) allocBase=%p span=%.1fMB tag=%s",
+				(double)d.DeltaBytes / MB,
+				(double)d.CurBytes / MB,
+				d.Base,
+				(double)spanBytes / MB,
+				tagW);
 			if (++printed >= kMaxLines)
 				break;
 		}
@@ -279,11 +404,13 @@ namespace RenderCore
 		MEMORY_BASIC_INFORMATION mbi = {};
 		if (::VirtualQuery(MappedPtr, &mbi, sizeof(mbi)) != sizeof(mbi))
 			return;
-		if ((mbi.Protect & PAGE_WRITECOMBINE) == 0)
+		const bool bWcHere = ((mbi.Protect & PAGE_WRITECOMBINE) != 0) || ((mbi.AllocationProtect & PAGE_WRITECOMBINE) != 0);
+		if (!bWcHere)
 			return;
 
-		// Track this WC allocation base for gradual-commit attribution.
-		D3D12UploadWCDiagnostics_RegisterMappedRegion(Tag, mbi.AllocationBase, (uint64_t)mbi.RegionSize);
+		// Track using the mapped pointer (not AllocationBase): the first region at AllocationBase is often
+		// reserved/no-access, so querying WC only at AllocationBase would skip registration entirely.
+		D3D12UploadWCDiagnostics_RegisterMappedRegion(Tag, MappedPtr, SizeBytes);
 
 		static std::mutex sMu;
 		static std::unordered_set<void*> sSeenBases;

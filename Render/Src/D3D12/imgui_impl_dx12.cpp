@@ -31,6 +31,12 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <d3dcompiler.h>
+#include "D3D12/D3D12UploadWCDiagnostics.h"
+#include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12RHICommon.h"
+#include "D3D12/D3D12CallStats.h"
+#include "RHI/RHI.h"
 //#ifdef _MSC_VER
 //#pragma comment(lib, "d3dcompiler") // Automatically link with d3dcompiler.lib as we are using D3DCompile() below.
 //#endif
@@ -47,12 +53,18 @@ static D3D12_CPU_DESCRIPTOR_HANDLE  g_hFontSrvCpuDescHandle = {};
 static D3D12_GPU_DESCRIPTOR_HANDLE  g_hFontSrvGpuDescHandle = {};
 static ID3D12DescriptorHeap*        g_descriptorHeap = nullptr;
 
+// Reused font atlas staging buffer to avoid a new committed UPLOAD resource (and WC span) on every device rebuild.
+static ID3D12Resource*              g_FontScratchUpload = nullptr;
+static UINT                         g_FontScratchCapBytes = 0;
+
 struct FrameResources
 {
     ID3D12Resource*     IndexBuffer;
     ID3D12Resource*     VertexBuffer;
     int                 IndexBufferSize;
     int                 VertexBufferSize;
+    D3D12_RESOURCE_STATES VbGpuState;
+    D3D12_RESOURCE_STATES IbGpuState;
 };
 static FrameResources*  g_pFrameResources = NULL;
 static UINT             g_numFramesInFlight = 0;
@@ -126,9 +138,24 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, ID3D12Graphic
     ctx->OMSetBlendFactor(blend_factor);
 }
 
+static void ImGui_ImplDX12_RawTransition(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+{
+    if (!res || before == after)
+        return;
+    D3D12_RESOURCE_BARRIER b = {};
+    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    b.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    b.Transition.pResource = res;
+    b.Transition.StateBefore = before;
+    b.Transition.StateAfter = after;
+    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd->ResourceBarrier(1, &b);
+    Render::D3D12CallStats::AddResourceBarriers(1);
+}
+
 // Render function
 // (this used to be set in io.RenderDrawListsFn and called by ImGui::Render(), but you can now call this directly from your main loop)
-void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandList* ctx)
+void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandList* ctx, RenderCore::D3D12CommandContext* upload_ctx)
 {
     // Avoid rendering when minimized
     if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
@@ -142,6 +169,12 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
     g_frameIndex = g_frameIndex + 1;
     FrameResources* fr = &g_pFrameResources[g_frameIndex % g_numFramesInFlight];
 
+    const bool bUseEngineUpload = (upload_ctx != nullptr);
+    if (bUseEngineUpload)
+    {
+        Assert(upload_ctx->GetCurrentCommandListHandle().GraphicsCommandList() == ctx);
+    }
+
     // Create and grow vertex/index buffers if needed
     if (fr->VertexBuffer == NULL || fr->VertexBufferSize < draw_data->TotalVtxCount)
     {
@@ -149,7 +182,7 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         fr->VertexBufferSize = draw_data->TotalVtxCount + 5000;
         D3D12_HEAP_PROPERTIES props;
         memset(&props, 0, sizeof(D3D12_HEAP_PROPERTIES));
-        props.Type = D3D12_HEAP_TYPE_UPLOAD;
+        props.Type = bUseEngineUpload ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
         props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
         D3D12_RESOURCE_DESC desc;
@@ -163,8 +196,10 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-        if (g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, NULL, IID_PPV_ARGS(&fr->VertexBuffer)) < 0)
+        const D3D12_RESOURCE_STATES vbInitial = bUseEngineUpload ? D3D12_RESOURCE_STATE_COPY_DEST : D3D12_RESOURCE_STATE_GENERIC_READ;
+        if (g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc, vbInitial, NULL, IID_PPV_ARGS(&fr->VertexBuffer)) < 0)
             return;
+        fr->VbGpuState = vbInitial;
     }
     if (fr->IndexBuffer == NULL || fr->IndexBufferSize < draw_data->TotalIdxCount)
     {
@@ -172,7 +207,7 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         fr->IndexBufferSize = draw_data->TotalIdxCount + 10000;
         D3D12_HEAP_PROPERTIES props;
         memset(&props, 0, sizeof(D3D12_HEAP_PROPERTIES));
-        props.Type = D3D12_HEAP_TYPE_UPLOAD;
+        props.Type = bUseEngineUpload ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
         props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
         D3D12_RESOURCE_DESC desc;
@@ -186,30 +221,90 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-        if (g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, NULL, IID_PPV_ARGS(&fr->IndexBuffer)) < 0)
+        const D3D12_RESOURCE_STATES ibInitial = bUseEngineUpload ? D3D12_RESOURCE_STATE_COPY_DEST : D3D12_RESOURCE_STATE_GENERIC_READ;
+        if (g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc, ibInitial, NULL, IID_PPV_ARGS(&fr->IndexBuffer)) < 0)
             return;
+        fr->IbGpuState = ibInitial;
     }
 
-    // Upload vertex/index data into a single contiguous GPU buffer
-    void* vtx_resource, *idx_resource;
-    D3D12_RANGE range;
-    memset(&range, 0, sizeof(D3D12_RANGE));
-    if (fr->VertexBuffer->Map(0, &range, &vtx_resource) != S_OK)
-        return;
-    if (fr->IndexBuffer->Map(0, &range, &idx_resource) != S_OK)
-        return;
-    ImDrawVert* vtx_dst = (ImDrawVert*)vtx_resource;
-    ImDrawIdx* idx_dst = (ImDrawIdx*)idx_resource;
-    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    if (bUseEngineUpload)
     {
-        const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-        memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-        vtx_dst += cmd_list->VtxBuffer.Size;
-        idx_dst += cmd_list->IdxBuffer.Size;
+        RenderCore::D3D12CommandListHandle& CLH = upload_ctx->GetCurrentCommandListHandle();
+        CLH.FlushResourceBarriers();
+
+        const UINT64 vtxBytes = (UINT64)draw_data->TotalVtxCount * sizeof(ImDrawVert);
+        const UINT64 idxBytes = (UINT64)draw_data->TotalIdxCount * sizeof(ImDrawIdx);
+        RenderCore::FAllocation vtxStaging = CLH.GetLinearAllocator(RenderCore::UploadFastAllocator).Allocate((size_t)vtxBytes, RenderCore::DEFAULT_ALIGN);
+        RenderCore::FAllocation idxStaging = CLH.GetLinearAllocator(RenderCore::UploadFastAllocator).Allocate((size_t)idxBytes, RenderCore::DEFAULT_ALIGN);
+        if (!vtxStaging.CPU || !idxStaging.CPU || !vtxStaging.D3D12Resource || !idxStaging.D3D12Resource)
+            return;
+
+        Render::D3D12CallStats::AddUploadBytes(vtxBytes + idxBytes);
+
+        ImDrawVert* vtx_dst = (ImDrawVert*)vtxStaging.CPU;
+        ImDrawIdx* idx_dst = (ImDrawIdx*)idxStaging.CPU;
+        for (int n = 0; n < draw_data->CmdListsCount; n++)
+        {
+            const ImDrawList* cmd_list = draw_data->CmdLists[n];
+            memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+
+        ImGui_ImplDX12_RawTransition(ctx, fr->VertexBuffer, fr->VbGpuState, D3D12_RESOURCE_STATE_COPY_DEST);
+        ImGui_ImplDX12_RawTransition(ctx, fr->IndexBuffer, fr->IbGpuState, D3D12_RESOURCE_STATE_COPY_DEST);
+        fr->VbGpuState = D3D12_RESOURCE_STATE_COPY_DEST;
+        fr->IbGpuState = D3D12_RESOURCE_STATE_COPY_DEST;
+
+        ctx->CopyBufferRegion(fr->VertexBuffer, 0, vtxStaging.D3D12Resource, (UINT64)vtxStaging.Offset, vtxBytes);
+        ctx->CopyBufferRegion(fr->IndexBuffer, 0, idxStaging.D3D12Resource, (UINT64)idxStaging.Offset, idxBytes);
+        Render::D3D12CallStats::AddCopyBytes(vtxBytes + idxBytes);
+
+        ImGui_ImplDX12_RawTransition(ctx, fr->VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        ImGui_ImplDX12_RawTransition(ctx, fr->IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+        fr->VbGpuState = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+        fr->IbGpuState = D3D12_RESOURCE_STATE_INDEX_BUFFER;
+
+        CLH.FlushResourceBarriers();
     }
-    fr->VertexBuffer->Unmap(0, &range);
-    fr->IndexBuffer->Unmap(0, &range);
+    else
+    {
+        // Legacy: committed UPLOAD vertex/index buffers (may grow WC private bytes when resized).
+        void* vtx_resource = nullptr;
+        void* idx_resource = nullptr;
+        D3D12_RANGE range;
+        memset(&range, 0, sizeof(D3D12_RANGE));
+        if (fr->VertexBuffer->Map(0, &range, &vtx_resource) != S_OK)
+            return;
+        if (fr->IndexBuffer->Map(0, &range, &idx_resource) != S_OK)
+        {
+            fr->VertexBuffer->Unmap(0, &range);
+            return;
+        }
+
+        RenderCore::D3D12UploadWCDiagnostics_OnUploadMap(
+            L"ImGui.VertexBuffer(UPLOAD)",
+            vtx_resource,
+            (uint64_t)fr->VertexBufferSize * (uint64_t)sizeof(ImDrawVert));
+        RenderCore::D3D12UploadWCDiagnostics_OnUploadMap(
+            L"ImGui.IndexBuffer(UPLOAD)",
+            idx_resource,
+            (uint64_t)fr->IndexBufferSize * (uint64_t)sizeof(ImDrawIdx));
+
+        ImDrawVert* vtx_dst = (ImDrawVert*)vtx_resource;
+        ImDrawIdx* idx_dst = (ImDrawIdx*)idx_resource;
+        for (int n = 0; n < draw_data->CmdListsCount; n++)
+        {
+            const ImDrawList* cmd_list = draw_data->CmdLists[n];
+            memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+        fr->VertexBuffer->Unmap(0, &range);
+        fr->IndexBuffer->Unmap(0, &range);
+    }
 
     // Setup desired DX state
     ImGui_ImplDX12_SetupRenderState(draw_data, ctx, fr);
@@ -300,21 +395,42 @@ static void ImGui_ImplDX12_CreateFontsTexture()
         props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
-        ID3D12Resource* uploadBuffer = NULL;
-        HRESULT hr = g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc,
-            D3D12_RESOURCE_STATE_GENERIC_READ, NULL, IID_PPV_ARGS(&uploadBuffer));
-        IM_ASSERT(SUCCEEDED(hr));
+        if (!g_FontScratchUpload || g_FontScratchCapBytes < uploadSize)
+        {
+            SafeRelease(g_FontScratchUpload);
+            g_FontScratchCapBytes = uploadSize;
+            desc.Width = g_FontScratchCapBytes;
+            HRESULT hrGrow = g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc,
+                D3D12_RESOURCE_STATE_GENERIC_READ, NULL, IID_PPV_ARGS(&g_FontScratchUpload));
+            IM_ASSERT(SUCCEEDED(hrGrow));
+            if (RenderCore::D3D12RHI_ShouldEnableMemMon())
+            {
+                void* tagCpu = nullptr;
+                D3D12_RANGE tagRange = { 0, 0 };
+                if (SUCCEEDED(g_FontScratchUpload->Map(0, &tagRange, &tagCpu)) && tagCpu)
+                {
+                    RenderCore::D3D12UploadWCDiagnostics_OnUploadMap(
+                        L"ImGui.FontsUpload(UPLOAD)",
+                        tagCpu,
+                        (uint64_t)g_FontScratchCapBytes);
+                    g_FontScratchUpload->Unmap(0, &tagRange);
+                }
+            }
+        }
+
+        ID3D12Resource* uploadBuffer = g_FontScratchUpload;
+        IM_ASSERT(uploadBuffer != nullptr);
 
         void* mapped = NULL;
         D3D12_RANGE range = { 0, uploadSize };
-        hr = uploadBuffer->Map(0, &range, &mapped);
+        HRESULT hr = uploadBuffer->Map(0, &range, &mapped);
         IM_ASSERT(SUCCEEDED(hr));
         for (int y = 0; y < height; y++)
             memcpy((void*) ((uintptr_t) mapped + y * uploadPitch), pixels + y * width * 4, width * 4);
         uploadBuffer->Unmap(0, &range);
 
         D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
-        srcLocation.pResource = uploadBuffer;
+        srcLocation.pResource = g_FontScratchUpload;
         srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         srcLocation.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         srcLocation.PlacedFootprint.Footprint.Width = width;
@@ -377,7 +493,6 @@ static void ImGui_ImplDX12_CreateFontsTexture()
         cmdQueue->Release();
         CloseHandle(event);
         fence->Release();
-        uploadBuffer->Release();
 
         // Create texture view
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -600,6 +715,9 @@ void    ImGui_ImplDX12_InvalidateDeviceObjects()
     if (!g_pd3dDevice)
         return;
 
+    SafeRelease(g_FontScratchUpload);
+    g_FontScratchCapBytes = 0;
+
     SafeRelease(g_pVertexShaderBlob);
     SafeRelease(g_pPixelShaderBlob);
     SafeRelease(g_pRootSignature);
@@ -643,6 +761,8 @@ bool ImGui_ImplDX12_Init(ID3D12Device* device, int num_frames_in_flight, DXGI_FO
         fr->VertexBuffer = NULL;
         fr->IndexBufferSize = 10000;
         fr->VertexBufferSize = 5000;
+        fr->VbGpuState = D3D12_RESOURCE_STATE_COMMON;
+        fr->IbGpuState = D3D12_RESOURCE_STATE_COMMON;
     }
 
     return true;

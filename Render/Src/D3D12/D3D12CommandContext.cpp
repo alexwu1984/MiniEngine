@@ -859,8 +859,9 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
-		// UE D3D12RHI::TransitionResourceWithTracking (whole resource): use per-command-list tracked state;
-		// when state is still TBD, queue FD3D12PendingResourceBarrier instead of emitting a bogus Before state.
+		// UE FD3D12CommandContext::TransitionResource / TransitionResourceWithTracking: per-command-list state;
+		// TBD → pending. If !Cl.AreAllSubresourcesSame(), never use ALL_SUBRESOURCES on pending (per-sub only),
+		// so GetResourceBarrierCommandList can resolve PRB.SubResource like UE without expanding ALL.
 		if (!CommandListHandle)
 			return;
 		if (!Resource->RequiresResourceStateTracking())

@@ -163,12 +163,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	window->Idle.unbindall();
 	window->EvtSizeChanged.unbindall();
 
-	// Release demo before RHI teardown.
+	// Release demo before tearing down GPU-backed viewport resources.
 	demo.reset();
+
+	// GPU must finish in-flight work on swapchain/backbuffers before we destroy the viewport.
+	// Doing viewPort.reset() first can leave the queue busy while RTVs are freed; with the D3D12
+	// debug layer this often surfaces as a hang or long stall at shutdown.
+	RHI->Wait();
 	viewPort.reset();
 
-	// Shutdown order: ensure GPU idle and let RHI tear down ImGui backend.
-	RHI->Wait();
 	RHI->Shutdown();
 	RHI.reset();
 	RenderCore::ReleasePlatformModule();

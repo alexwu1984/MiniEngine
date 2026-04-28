@@ -623,51 +623,25 @@ namespace RenderCore
 				Desc.Transition.pResource = PRB.Resource->GetResource();
 				const D3D12_RESOURCE_STATES After = PRB.State;
 
-				// UE 4.26 uses PRB.SubResource directly in GetResourceBarrierCommandList. MiniEngine extends that
-				// when PRB uses ALL_SUBRESOURCES: global tracking may be per-subresource, so expand (internal #523).
-				if (PRB.SubResource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES)
+				// UE 4.26 / D3D12RHI: use PRB.SubResource as-is (including ALL_SUBRESOURCES). Pending entries with
+				// ALL must only be queued from TransitionResource when command-list tracking is uniform (see
+				// D3D12CommandContext::TransitionResource); heterogeneous TBD uses per-sub pending instead.
+				Desc.Transition.Subresource = PRB.SubResource;
+				const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(Desc.Transition.Subresource);
+				Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
+				if (Before != After)
 				{
-					const uint32_t NumSub = PRB.Resource->GetSubresourceCount();
-					for (uint32_t sub = 0; sub < NumSub; ++sub)
-					{
-						Desc.Transition.Subresource = sub;
-						const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(sub);
-						Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
-						if (Before != After)
-						{
-							Desc.Transition.StateBefore = Before;
-							Desc.Transition.StateAfter = After;
-							BarrierDescs.push_back(Desc);
-						}
-
-						const D3D12_RESOURCE_STATES CommandListState = ClResourceState.GetSubresourceState(sub);
-						const D3D12_RESOURCE_STATES LastState = (CommandListState != D3D12_RESOURCE_STATE_TBD) ? CommandListState : After;
-
-						if (Before != LastState)
-						{
-							ResourceState.SetSubresourceState(sub, LastState);
-						}
-					}
+					Desc.Transition.StateBefore = Before;
+					Desc.Transition.StateAfter = After;
+					BarrierDescs.push_back(Desc);
 				}
-				else
+
+				const D3D12_RESOURCE_STATES CommandListState = ClResourceState.GetSubresourceState(Desc.Transition.Subresource);
+				const D3D12_RESOURCE_STATES LastState = (CommandListState != D3D12_RESOURCE_STATE_TBD) ? CommandListState : After;
+
+				if (Before != LastState)
 				{
-					Desc.Transition.Subresource = PRB.SubResource;
-					const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(Desc.Transition.Subresource);
-					Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
-					if (Before != After)
-					{
-						Desc.Transition.StateBefore = Before;
-						Desc.Transition.StateAfter = After;
-						BarrierDescs.push_back(Desc);
-					}
-
-					const D3D12_RESOURCE_STATES CommandListState = ClResourceState.GetSubresourceState(Desc.Transition.Subresource);
-					const D3D12_RESOURCE_STATES LastState = (CommandListState != D3D12_RESOURCE_STATE_TBD) ? CommandListState : After;
-
-					if (Before != LastState)
-					{
-						ResourceState.SetSubresourceState(Desc.Transition.Subresource, LastState);
-					}
+					ResourceState.SetSubresourceState(Desc.Transition.Subresource, LastState);
 				}
 			}
 

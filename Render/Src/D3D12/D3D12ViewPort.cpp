@@ -42,6 +42,16 @@ namespace RenderCore
 
 	D3D12ViewPort::~D3D12ViewPort()
 	{
+		// Release backbuffers only after the GPU is idle; otherwise debug layer / driver can stall
+		// or fault when RTVs are destroyed while work is still in flight.
+		if (std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter())
+		{
+			if (Adapter->GetDevice())
+			{
+				WaitForFrameEventCompletion();
+				Adapter->BlockUntilIdle();
+			}
+		}
 		PresentEndFence.reset();
 		PresentEndFenceLastSignaled = 0;
 		BackBuffers.clear();

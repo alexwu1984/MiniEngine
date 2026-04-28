@@ -1,15 +1,10 @@
-#include "ViewerApp.h"
-#include "Engine/Scene/GltfActor.h"
-#include "Engine/Engine.h"
-#include "Engine/Scene/SceneView.h"
+﻿#include "ViewerApp.h"
 #include "core/system.h"
-#include "Scene/CameraComponent.h"
+#include "RHI/DynamicRHI.h"
+#include "RHI/RHICommandContext.h"
+#include "RHI/RHIViewPort.h"
 #include "App/AppWindow.h"
-#include "Render/SceneRender.h"
-#include "Render/MaterialPreFrame.h"
-#include "Imgui/imgui.h"
 #include "Tex2DRender.h"
-#include "Thread/RenderThread.h"
 
 #include "Scene.h"
 #include "Sphere.h"
@@ -18,31 +13,11 @@
 #include "PointLight.h"
 #include "DirectionLight.h"
 
-using namespace Engine;
+ViewerApp::ViewerApp() = default;
 
-ViewerApp::ViewerApp()
-{
-	
-}
+ViewerApp::~ViewerApp() = default;
 
-ViewerApp::~ViewerApp()
-{
-
-}
-
-bool ViewerApp::Init()
-{
-	BuildRenderScene();
-	//BuildExerciseScene();
-	return true;
-}
-
-void ViewerApp::ShutDown()
-{
-	_Demo = {};
-}
-
-void ViewerApp::BuildRenderScene()
+void ViewerApp::BuildCpuRayTraceScene()
 {
 	Scene scene(1280, 960);
 
@@ -57,28 +32,18 @@ void ViewerApp::BuildRenderScene()
 	scene.Add(std::move(sph1));
 	scene.Add(std::move(sph2));
 
-	math::Vector3 verts[4] = { {-5,-3,-6}, {5,-3,-6}, {5,-3,-16}, {-5,-3,-16} };
+	math::Vector3 verts[4] = { { -5, -3, -6 }, { 5, -3, -6 }, { 5, -3, -16 }, { -5, -3, -16 } };
 	uint32_t vertIndex[6] = { 0, 1, 3, 1, 2, 3 };
-	math::Vector2 st[4] = { {0, 0}, {1, 0}, {1, 1}, {0, 1} };
+	math::Vector2 st[4] = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
 	auto mesh = std::make_unique<MeshTriangle>(verts, vertIndex, 2, st);
 	mesh->materialType = DIFFUSE_AND_GLOSSY;
 
 	scene.Add(std::move(mesh));
-	//scene.Add(std::make_unique<DirectionalLight>(math::Vector3(-20, 70, 20), 0.5));
 	scene.Add(std::make_unique<DirectionalLight>(math::Vector3(30, 50, -12), 0.5));
 	scene.Add(std::make_unique<PointPoint>(math::Vector3(-1, 4, -12), 20.f));
 
-	m_render.Render(scene);
-	core::vec2u size(scene.width, scene.height);
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND([this, size](RenderCore::DynamicRHI* RHI) {
-		if (!_Demo)
-		{
-			_Demo = std::make_shared<Tex2DRender>(RHI);
-		}
-		_Demo->InitResource();
-		_Demo->InitTex(size, m_render.GetBuffer());
-	});
+	renderer_.Render(scene);
+	cpuTexSize_ = core::vec2u(scene.width, scene.height);
 }
 
 void ViewerApp::BuildExerciseScene()
@@ -91,5 +56,24 @@ void ViewerApp::BuildExerciseScene()
 
 	scene.Add(std::move(sph1));
 
-	m_render.Exercise4(scene);
+	renderer_.Exercise4(scene);
+}
+
+void ViewerApp::GpuInit(RenderCore::DynamicRHI* rhi)
+{
+	if (!rhi || cpuTexSize_.cx == 0 || cpuTexSize_.cy == 0)
+		return;
+	demo_ = std::make_shared<Tex2DRender>(rhi);
+	demo_->InitResource();
+	demo_->InitTex(cpuTexSize_, renderer_.GetBuffer());
+}
+
+void ViewerApp::GpuDraw(RenderCore::RHICommandContext& ctx, std::shared_ptr<RenderCore::RHIViewPort> viewport,
+					   const std::shared_ptr<Engine::AppWindow>& window, float deltaSeconds)
+{
+	if (!demo_ || !viewport || !window)
+		return;
+	const int w = window->GetWidth();
+	const int h = window->GetHeight();
+	demo_->Draw(ctx, viewport, deltaSeconds, w, h);
 }

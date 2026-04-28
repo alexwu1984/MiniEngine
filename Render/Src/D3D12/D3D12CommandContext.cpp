@@ -817,6 +817,15 @@ namespace RenderCore
 		}
 	}
 
+	void D3D12CommandContext::ReleaseCommandAllocator()
+	{
+		if (CommandAllocator != nullptr)
+		{
+			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
+			CommandAllocator = nullptr;
+		}
+	}
+
 	std::shared_ptr<RenderCore::FD3D12Device> D3D12CommandContext::GetParentDevice() const
 	{
 		return GetParentAdapter()->GetDevice();

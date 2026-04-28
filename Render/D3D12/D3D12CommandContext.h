@@ -67,6 +67,9 @@ namespace RenderCore
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) { return false; };
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI, std::shared_ptr<uint8_t> Data) {};
 		virtual void FlushCommands(bool WaitForCompletion = false) override;
+		// UE FD3D12CommandContext::ReleaseCommandAllocator — return allocator to pool so the next
+		// ConditionalObtainCommandAllocator / ObtainCommandAllocator path can reset it when GPU-ready.
+		void ReleaseCommandAllocator();
 		// UE-style: close the current command list and return it for batching/submission.
 		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) override;

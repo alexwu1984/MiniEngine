@@ -235,12 +235,26 @@ namespace RenderCore
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		DefaultCtx->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 
+		// UE FD3D12CommandContextBase::RHIEndFrame: flush barriers, release allocator to pool, clear state, then flush.
+		// Returning the allocator lets ObtainCommandAllocator reset it when GPU-ready before the next OpenCommandList.
+		if (DefaultCtx->GetCurrentCommandListHandle() != nullptr)
+			DefaultCtx->GetCurrentCommandListHandle().FlushResourceBarriers();
+		DefaultCtx->ReleaseCommandAllocator();
+		DefaultCtx->ClearState();
+
 		// UE-style: Present path flushes the default context; actual submission still depends on
 		// whether the context/pending lists did meaningful work (FlushCommands internal logic).
-		DefaultCtx->FlushCommands(true);
+		DefaultCtx->FlushCommands(false);
 
-		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())
-			AsyncCtx->FlushCommands(false);
+		if (auto AsyncCtx = GetDefaultAsyncComputeContext())
+		{
+			if (AsyncCtx->GetCurrentCommandListHandle() != nullptr)
+				AsyncCtx->GetCurrentCommandListHandle().FlushResourceBarriers();
+			AsyncCtx->ReleaseCommandAllocator();
+			AsyncCtx->ClearState();
+			if (AsyncCtx->HasRecordedCommands())
+				AsyncCtx->FlushCommands(false);
+		}
 
 		// Budget-based flush: when GPU falls behind, dynamic heaps / upload allocator pages can grow
 		// because fence-tied recycling can't keep up. If we exceed thresholds, do a flush + light wait.

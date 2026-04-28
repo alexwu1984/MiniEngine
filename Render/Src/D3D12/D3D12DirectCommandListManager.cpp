@@ -262,18 +262,16 @@ namespace RenderCore
 	{
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 
-		// Match UE 4.26 FD3D12CommandAllocatorManager::ObtainCommandAllocator (D3D12DirectCommandListManager.cpp):
-		// only the head of the queue may be taken if it is already GPU-ready; otherwise allocate a new allocator.
+		// UE 4.26 FD3D12CommandAllocatorManager::ObtainCommandAllocator (D3D12DirectCommandListManager.cpp):
+		// if the first allocator in the queue is ready, reset it and remove it from the queue; else create new.
 		D3D12CommandAllocator* pCommandAllocator = nullptr;
-		bool isNeedCreated = true;
 		if (!CommandAllocatorQueue.empty())
 		{
 			pCommandAllocator = CommandAllocatorQueue.front();
 			if (pCommandAllocator->IsReady())
 			{
-				CommandAllocatorQueue.pop();
 				pCommandAllocator->Reset();
-				isNeedCreated = false;
+				CommandAllocatorQueue.pop();
 			}
 			else
 			{
@@ -281,14 +279,12 @@ namespace RenderCore
 			}
 		}
 
-		if (isNeedCreated)
+		if (pCommandAllocator == nullptr)
 		{
-			// The queue was empty, or the allocator at the head was not ready, so create a new command allocator.
 			pCommandAllocator = new D3D12CommandAllocator(GetParentDevice()->GetDevice(), Type);
 			Assert(pCommandAllocator);
 			CommandAllocators.push_back(pCommandAllocator);	// The command allocator's lifetime is managed by this manager
 
-			// Set a valid sync point
 			FD3D12Fence& FrameFence = GetParentDevice()->GetParentAdapter()->GetFrameFence();
 			const D3D12SyncPoint SyncPoint(&FrameFence, FrameFence.UpdateLastCompletedFence());
 			pCommandAllocator->SetSyncPoint(SyncPoint);

@@ -92,8 +92,8 @@ namespace RenderCore
 	void D3D12CommandListHandle::D3D12CommandListData::Reset(D3D12CommandAllocator& CommandAllocator)
 	{
 		CancelPendingUniformBufferFenceTags();
-		if (CommandAllocator.IsReady())
-			CommandAllocator.Reset();
+		// UE FD3D12CommandListData::Reset: ID3D12CommandAllocator::Reset is done in
+		// FD3D12CommandAllocatorManager::ObtainCommandAllocator when dequeuing a ready allocator.
 		VERIFYD3DRESULT(CommandList->Reset(CommandAllocator, nullptr));
 
 		CurrentCommandAllocator = &CommandAllocator;

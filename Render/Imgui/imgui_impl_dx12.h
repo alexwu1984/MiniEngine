@@ -1,4 +1,4 @@
-// dear imgui: Renderer for DirectX12
+﻿// dear imgui: Renderer for DirectX12
 // This needs to be used along with a Platform Binding (e.g. Win32)
 
 // Implemented features:
@@ -34,7 +34,7 @@ IMGUI_IMPL_API bool     ImGui_ImplDX12_Init(ID3D12Device* device, int num_frames
 IMGUI_IMPL_API void     ImGui_ImplDX12_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplDX12_NewFrame();
 // When upload_context is non-null, vertex/index data is staged through the engine transient upload ring
-// (bounded WC) into DEFAULT heap buffers — avoids per-frame committed UPLOAD / WC growth.
+// (bounded WC) into DEFAULT heap buffers - avoids per-frame committed UPLOAD / WC growth.
 IMGUI_IMPL_API void     ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandList* graphics_command_list, RenderCore::D3D12CommandContext* upload_context = nullptr);
 
 // Use if you want to reset your rendering device without losing ImGui state.

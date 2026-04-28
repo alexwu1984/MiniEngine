@@ -8,9 +8,19 @@
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "core/logger.h"
+#include <limits>
 
 namespace RenderCore
 {
+	namespace
+	{
+		// UE 4.26 FD3D12DynamicRHI::GetResourceBarrierBatchSizeLimit() (WindowsD3D12Device.cpp) returns INT32_MAX.
+		constexpr uint32_t ResourceBarrierBatchSizeLimitUE426()
+		{
+			return uint32_t((std::numeric_limits<int32_t>::max)());
+		}
+	}
+
 	void FD3D12CommandListPayload::Reset()
 	{
 		NumCommandLists = 0;
@@ -471,8 +481,6 @@ namespace RenderCore
 						ComputeBarrierPayload.Append(barrierCommandList.CommandList());
 						BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(ComputeBarrierPayload, DirectFence, true /*bForceSignal*/);
 						DirectFence.GpuWait(QueueType, BarrierFenceValue);
-						// This path bypasses ExecuteAndClear; still must recycle upload pages / dynamic heaps for the barrier list.
-						BarrierCommandList[barrierCommandListIndex - 1].CleanupTransientResources(BarrierFenceValue, ED3D12CommandQueueType::Default);
 					}
 					else
 					{
@@ -516,13 +524,6 @@ namespace RenderCore
 			else
 			{
 				BarrierSyncPoint = SyncPoint;
-			}
-
-			// Direct-queue submits bundle user CLs with auto-generated barrier CLs in one Execute; only the outer ExecuteAndClear hook runs for the user list.
-			if (CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE && barrierCommandListIndex > 0)
-			{
-				for (int32_t bi = 0; bi < barrierCommandListIndex; ++bi)
-					BarrierCommandList[bi].CleanupTransientResources(SignaledFenceValue, QueueType);
 			}
 		}
 		else
@@ -622,9 +623,8 @@ namespace RenderCore
 				Desc.Transition.pResource = PRB.Resource->GetResource();
 				const D3D12_RESOURCE_STATES After = PRB.State;
 
-				// Pending entries may use ALL_SUBRESOURCES. Once global tracking has split to per-subresource,
-				// CResourceState::GetSubresourceState(ALL) is invalid (would index past the array). Expand to
-				// one transition per subresource so StateBefore matches the runtime (fixes D3D12 #523).
+				// UE 4.26 uses PRB.SubResource directly in GetResourceBarrierCommandList. MiniEngine extends that
+				// when PRB uses ALL_SUBRESOURCES: global tracking may be per-subresource, so expand (internal #523).
 				if (PRB.SubResource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES)
 				{
 					const uint32_t NumSub = PRB.Resource->GetSubresourceCount();
@@ -671,23 +671,32 @@ namespace RenderCore
 				}
 			}
 
-			PendingResourceBarriers.clear();
+			// UE 4.26: PendingResourceBarriers are not cleared here; FD3D12CommandListData::Reset clears them on reuse.
 
-			if (BarrierDescs.size() > 0)
+			const uint32_t BarrierCount = (uint32_t)BarrierDescs.size();
+			if (BarrierCount > 0)
 			{
-				// Get a new resource barrier command allocator if we don't already have one.
 				if (ResourceBarrierCommandAllocator == nullptr)
 				{
 					ResourceBarrierCommandAllocator = ResourceBarrierCommandAllocatorManager.ObtainCommandAllocator();
 				}
 
 				hResourceBarrierList = ObtainCommandList(*ResourceBarrierCommandAllocator);
-				// Inherit owning context so post-submit cleanup can retire dynamic heaps/linear pages consistently with the list that produced the barriers.
 				hResourceBarrierList.SetCurrentOwningContext(hList.GetCurrentOwningContext());
-				hResourceBarrierList->ResourceBarrier((uint32_t)BarrierDescs.size(), BarrierDescs.data());
+
+				const uint32_t BarrierBatchMax = ResourceBarrierBatchSizeLimitUE426();
+				uint32_t remaining = BarrierCount;
+				const D3D12_RESOURCE_BARRIER* ptr = BarrierDescs.data();
+				while (remaining > 0)
+				{
+					const uint32_t dispatchNum = (remaining > BarrierBatchMax) ? BarrierBatchMax : remaining;
+					hResourceBarrierList->ResourceBarrier(dispatchNum, ptr);
+					ptr += dispatchNum;
+					remaining -= dispatchNum;
+				}
 			}
 
-			return (uint32_t)BarrierDescs.size();
+			return BarrierCount;
 		}
 
 		return 0;

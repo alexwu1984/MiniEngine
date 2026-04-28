@@ -544,11 +544,10 @@ namespace RenderCore
 			Reset();
 		}
 
-		// Clears the batch.
+		// Clears the batch (UE FD3D12ResourceBarrierBatcher::Reset: clear without shrinking capacity).
 		void Reset()
 		{
 			Barriers.clear();
-			Barriers.shrink_to_fit();
 		}
 
 		const std::vector<D3D12_RESOURCE_BARRIER>& GetBarriers() const

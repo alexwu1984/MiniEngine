@@ -312,6 +312,13 @@ namespace RenderCore
 		ResourceStates.swap(empty);
 	}
 
+	void D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::RemoveResourceState(FD3D12Resource* pResource)
+	{
+		if (!pResource)
+			return;
+		ResourceStates.erase(pResource);
+	}
+
 	void D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::CommitTrackedStatesToGlobal()
 	{
 		for (auto& Pair : ResourceStates)

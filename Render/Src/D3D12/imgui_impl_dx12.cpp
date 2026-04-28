@@ -1,4 +1,4 @@
-// dear imgui: Renderer for DirectX12
+﻿// dear imgui: Renderer for DirectX12
 // This needs to be used along with a Platform Binding (e.g. Win32)
 
 // Implemented features:
@@ -31,12 +31,19 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <d3dcompiler.h>
+#include <memory>
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12RHICommon.h"
 #include "D3D12/D3D12CallStats.h"
+#include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12Texture2D.h"
+#include "D3D12/D3D12Resource.h"
+#include "D3D12/D3D12Adapter.h"
 #include "RHI/RHI.h"
+#include "RHI/DynamicRHI.h"
+#include "RHI/RHIDefinitions.h"
 //#ifdef _MSC_VER
 //#pragma comment(lib, "d3dcompiler") // Automatically link with d3dcompiler.lib as we are using D3DCompile() below.
 //#endif
@@ -48,23 +55,18 @@ static ID3D10Blob*                  g_pPixelShaderBlob = NULL;
 static ID3D12RootSignature*         g_pRootSignature = NULL;
 static ID3D12PipelineState*         g_pPipelineState = NULL;
 static DXGI_FORMAT                  g_RTVFormat = DXGI_FORMAT_UNKNOWN;
-static ID3D12Resource*              g_pFontTextureResource = NULL;
+/** Font atlas owned as RHI texture (upload via InitializeTexture / fence like other engine textures). */
+static std::shared_ptr<RenderCore::RHITexture2D> g_FontTextureRHI;
 static D3D12_CPU_DESCRIPTOR_HANDLE  g_hFontSrvCpuDescHandle = {};
 static D3D12_GPU_DESCRIPTOR_HANDLE  g_hFontSrvGpuDescHandle = {};
 static ID3D12DescriptorHeap*        g_descriptorHeap = nullptr;
 
-// Reused font atlas staging buffer to avoid a new committed UPLOAD resource (and WC span) on every device rebuild.
-static ID3D12Resource*              g_FontScratchUpload = nullptr;
-static UINT                         g_FontScratchCapBytes = 0;
-
 struct FrameResources
 {
-    ID3D12Resource*     IndexBuffer;
-    ID3D12Resource*     VertexBuffer;
+    RenderCore::FD3D12Resource* IndexBuffer;
+    RenderCore::FD3D12Resource* VertexBuffer;
     int                 IndexBufferSize;
     int                 VertexBufferSize;
-    D3D12_RESOURCE_STATES VbGpuState;
-    D3D12_RESOURCE_STATES IbGpuState;
 };
 static FrameResources*  g_pFrameResources = NULL;
 static UINT             g_numFramesInFlight = 0;
@@ -76,6 +78,12 @@ static void SafeRelease(T*& res)
     if (res)
         res->Release();
     res = NULL;
+}
+
+static std::shared_ptr<RenderCore::FD3D12Adapter> ImGui_GetD3D12Adapter()
+{
+    auto dyn = std::dynamic_pointer_cast<RenderCore::D3D12DynamicRHI>(RenderCore::GetDynamicRHI());
+    return dyn ? dyn->GetD3D12Adapter() : nullptr;
 }
 
 struct VERTEX_CONSTANT_BUFFER
@@ -138,21 +146,6 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, ID3D12Graphic
     ctx->OMSetBlendFactor(blend_factor);
 }
 
-static void ImGui_ImplDX12_RawTransition(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
-{
-    if (!res || before == after)
-        return;
-    D3D12_RESOURCE_BARRIER b = {};
-    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    b.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    b.Transition.pResource = res;
-    b.Transition.StateBefore = before;
-    b.Transition.StateAfter = after;
-    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &b);
-    Render::D3D12CallStats::AddResourceBarriers(1);
-}
-
 // Render function
 // (this used to be set in io.RenderDrawListsFn and called by ImGui::Render(), but you can now call this directly from your main loop)
 void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandList* ctx, RenderCore::D3D12CommandContext* upload_ctx)
@@ -175,18 +168,27 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         Assert(upload_ctx->GetCurrentCommandListHandle().GraphicsCommandList() == ctx);
     }
 
-    // Create and grow vertex/index buffers if needed
-    if (fr->VertexBuffer == NULL || fr->VertexBufferSize < draw_data->TotalVtxCount)
+    std::shared_ptr<RenderCore::FD3D12Adapter> Adapter = ImGui_GetD3D12Adapter();
+    if (!Adapter)
+        return;
+
+    // Create and grow vertex/index buffers if needed (FD3D12Resource via adapter, same as D3D12VertexBuffer)
+    if (fr->VertexBuffer == nullptr || fr->VertexBufferSize < draw_data->TotalVtxCount)
     {
+        if (bUseEngineUpload && upload_ctx && fr->VertexBuffer)
+        {
+            upload_ctx->GetCurrentCommandListHandle().FlushResourceBarriers();
+            upload_ctx->GetCurrentCommandListHandle().RemoveTrackedResourceState(fr->VertexBuffer);
+        }
         SafeRelease(fr->VertexBuffer);
         fr->VertexBufferSize = draw_data->TotalVtxCount + 5000;
-        D3D12_HEAP_PROPERTIES props;
-        memset(&props, 0, sizeof(D3D12_HEAP_PROPERTIES));
+        D3D12_HEAP_PROPERTIES props = {};
         props.Type = bUseEngineUpload ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
         props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-        D3D12_RESOURCE_DESC desc;
-        memset(&desc, 0, sizeof(D3D12_RESOURCE_DESC));
+        props.CreationNodeMask = 1;
+        props.VisibleNodeMask = 1;
+        D3D12_RESOURCE_DESC desc = {};
         desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
         desc.Width = fr->VertexBufferSize * sizeof(ImDrawVert);
         desc.Height = 1;
@@ -197,21 +199,27 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         desc.Flags = D3D12_RESOURCE_FLAG_NONE;
         const D3D12_RESOURCE_STATES vbInitial = D3D12_RESOURCE_STATE_COMMON;
-        if (g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc, vbInitial, NULL, IID_PPV_ARGS(&fr->VertexBuffer)) < 0)
+        RenderCore::FD3D12Resource* pVB = nullptr;
+        if (FAILED(Adapter->CreateCommittedResource(desc, props, vbInitial, nullptr, &pVB, L"ImGui.FrameVB")))
             return;
-        fr->VbGpuState = vbInitial;
+        fr->VertexBuffer = pVB;
     }
-    if (fr->IndexBuffer == NULL || fr->IndexBufferSize < draw_data->TotalIdxCount)
+    if (fr->IndexBuffer == nullptr || fr->IndexBufferSize < draw_data->TotalIdxCount)
     {
+        if (bUseEngineUpload && upload_ctx && fr->IndexBuffer)
+        {
+            upload_ctx->GetCurrentCommandListHandle().FlushResourceBarriers();
+            upload_ctx->GetCurrentCommandListHandle().RemoveTrackedResourceState(fr->IndexBuffer);
+        }
         SafeRelease(fr->IndexBuffer);
         fr->IndexBufferSize = draw_data->TotalIdxCount + 10000;
-        D3D12_HEAP_PROPERTIES props;
-        memset(&props, 0, sizeof(D3D12_HEAP_PROPERTIES));
+        D3D12_HEAP_PROPERTIES props = {};
         props.Type = bUseEngineUpload ? D3D12_HEAP_TYPE_DEFAULT : D3D12_HEAP_TYPE_UPLOAD;
         props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-        D3D12_RESOURCE_DESC desc;
-        memset(&desc, 0, sizeof(D3D12_RESOURCE_DESC));
+        props.CreationNodeMask = 1;
+        props.VisibleNodeMask = 1;
+        D3D12_RESOURCE_DESC desc = {};
         desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
         desc.Width = fr->IndexBufferSize * sizeof(ImDrawIdx);
         desc.Height = 1;
@@ -222,9 +230,10 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         desc.Flags = D3D12_RESOURCE_FLAG_NONE;
         const D3D12_RESOURCE_STATES ibInitial = D3D12_RESOURCE_STATE_COMMON;
-        if (g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc, ibInitial, NULL, IID_PPV_ARGS(&fr->IndexBuffer)) < 0)
+        RenderCore::FD3D12Resource* pIB = nullptr;
+        if (FAILED(Adapter->CreateCommittedResource(desc, props, ibInitial, nullptr, &pIB, L"ImGui.FrameIB")))
             return;
-        fr->IbGpuState = ibInitial;
+        fr->IndexBuffer = pIB;
     }
 
     if (bUseEngineUpload)
@@ -252,24 +261,19 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
             idx_dst += cmd_list->IdxBuffer.Size;
         }
 
-        ImGui_ImplDX12_RawTransition(ctx, fr->VertexBuffer, fr->VbGpuState, D3D12_RESOURCE_STATE_COPY_DEST);
-        ImGui_ImplDX12_RawTransition(ctx, fr->IndexBuffer, fr->IbGpuState, D3D12_RESOURCE_STATE_COPY_DEST);
-        fr->VbGpuState = D3D12_RESOURCE_STATE_COPY_DEST;
-        fr->IbGpuState = D3D12_RESOURCE_STATE_COPY_DEST;
+        // D3D12CommandContext::TransitionResource — participates in per-CL + global CResourceState / pending barriers.
+        upload_ctx->TransitionResource(fr->VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, false);
+        upload_ctx->TransitionResource(fr->IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, false);
+        CLH.FlushResourceBarriers();
 
-        ctx->CopyBufferRegion(fr->VertexBuffer, 0, vtxStaging.D3D12Resource, (UINT64)vtxStaging.Offset, vtxBytes);
-        ctx->CopyBufferRegion(fr->IndexBuffer, 0, idxStaging.D3D12Resource, (UINT64)idxStaging.Offset, idxBytes);
+        ctx->CopyBufferRegion(fr->VertexBuffer->GetResource(), 0, vtxStaging.D3D12Resource, (UINT64)vtxStaging.Offset, vtxBytes);
+        ctx->CopyBufferRegion(fr->IndexBuffer->GetResource(), 0, idxStaging.D3D12Resource, (UINT64)idxStaging.Offset, idxBytes);
         Render::D3D12CallStats::AddCopyBytes(vtxBytes + idxBytes);
 
-        ImGui_ImplDX12_RawTransition(ctx, fr->VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-        ImGui_ImplDX12_RawTransition(ctx, fr->IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-        fr->VbGpuState = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-        fr->IbGpuState = D3D12_RESOURCE_STATE_INDEX_BUFFER;
-
+        upload_ctx->TransitionResource(fr->VertexBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, false);
+        upload_ctx->TransitionResource(fr->IndexBuffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, false);
         CLH.FlushResourceBarriers();
-        // Raw barriers/copies bypass D3D12CommandListHandle::AddTransitionBarrier / RHICopyResource — without this,
-        // HasRecordedCommands() can miss real GPU work and FlushCommands(false) may skip submit (upload pages never retired).
-        upload_ctx->numBarriers += 4;
+        // Copies still bypass RHICopyResource — keep draw-path submit accounting for transient upload pages.
         upload_ctx->numCopies += 2;
     }
     else
@@ -279,11 +283,11 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         void* idx_resource = nullptr;
         D3D12_RANGE range;
         memset(&range, 0, sizeof(D3D12_RANGE));
-        if (fr->VertexBuffer->Map(0, &range, &vtx_resource) != S_OK)
+        if (fr->VertexBuffer->GetResource()->Map(0, &range, &vtx_resource) != S_OK)
             return;
-        if (fr->IndexBuffer->Map(0, &range, &idx_resource) != S_OK)
+        if (fr->IndexBuffer->GetResource()->Map(0, &range, &idx_resource) != S_OK)
         {
-            fr->VertexBuffer->Unmap(0, &range);
+            fr->VertexBuffer->GetResource()->Unmap(0, &range);
             return;
         }
 
@@ -306,8 +310,8 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
             vtx_dst += cmd_list->VtxBuffer.Size;
             idx_dst += cmd_list->IdxBuffer.Size;
         }
-        fr->VertexBuffer->Unmap(0, &range);
-        fr->IndexBuffer->Unmap(0, &range);
+        fr->VertexBuffer->GetResource()->Unmap(0, &range);
+        fr->IndexBuffer->GetResource()->Unmap(0, &range);
     }
 
     // Setup desired DX state
@@ -351,169 +355,36 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
 
 static void ImGui_ImplDX12_CreateFontsTexture()
 {
-    // Build texture atlas
     ImGuiIO& io = ImGui::GetIO();
-    unsigned char* pixels;
-    int width, height;
+    unsigned char* pixels = nullptr;
+    int width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    if (!pixels || width <= 0 || height <= 0)
+        return;
 
-    // Upload texture to graphics system
+    auto dynRHI = std::dynamic_pointer_cast<RenderCore::D3D12DynamicRHI>(RenderCore::GetDynamicRHI());
+    IM_ASSERT(dynRHI && g_pd3dDevice);
+
+    g_FontTextureRHI.reset();
+    std::shared_ptr<RenderCore::RHITexture2D> tex = dynRHI->RHICreateTexture2D(
+        RenderCore::EPixelFormat::PF_R8G8B8A8,
+        RenderCore::ETextureCreateFlags::TexCreate_ShaderResource,
+        width,
+        height,
+        1u,
+        pixels,
+        width * 4);
+    if (!tex)
     {
-        D3D12_HEAP_PROPERTIES props;
-        memset(&props, 0, sizeof(D3D12_HEAP_PROPERTIES));
-        props.Type = D3D12_HEAP_TYPE_DEFAULT;
-        props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-        props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-        D3D12_RESOURCE_DESC desc;
-        ZeroMemory(&desc, sizeof(desc));
-        desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        desc.Alignment = 0;
-        desc.Width = width;
-        desc.Height = height;
-        desc.DepthOrArraySize = 1;
-        desc.MipLevels = 1;
-        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        desc.SampleDesc.Count = 1;
-        desc.SampleDesc.Quality = 0;
-        desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-        desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-        ID3D12Resource* pTexture = NULL;
-        g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc,
-            D3D12_RESOURCE_STATE_COPY_DEST, NULL, IID_PPV_ARGS(&pTexture));
-
-        UINT uploadPitch = (width * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u) & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u);
-        UINT uploadSize = height * uploadPitch;
-        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Alignment = 0;
-        desc.Width = uploadSize;
-        desc.Height = 1;
-        desc.DepthOrArraySize = 1;
-        desc.MipLevels = 1;
-        desc.Format = DXGI_FORMAT_UNKNOWN;
-        desc.SampleDesc.Count = 1;
-        desc.SampleDesc.Quality = 0;
-        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-        props.Type = D3D12_HEAP_TYPE_UPLOAD;
-        props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-        props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-        if (!g_FontScratchUpload || g_FontScratchCapBytes < uploadSize)
-        {
-            SafeRelease(g_FontScratchUpload);
-            g_FontScratchCapBytes = uploadSize;
-            desc.Width = g_FontScratchCapBytes;
-            HRESULT hrGrow = g_pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc,
-                D3D12_RESOURCE_STATE_COMMON, NULL, IID_PPV_ARGS(&g_FontScratchUpload));
-            IM_ASSERT(SUCCEEDED(hrGrow));
-            if (RenderCore::D3D12RHI_ShouldEnableMemMon())
-            {
-                void* tagCpu = nullptr;
-                D3D12_RANGE tagRange = { 0, 0 };
-                if (SUCCEEDED(g_FontScratchUpload->Map(0, &tagRange, &tagCpu)) && tagCpu)
-                {
-                    RenderCore::D3D12UploadWCDiagnostics_OnUploadMap(
-                        L"ImGui.FontsUpload(UPLOAD)",
-                        tagCpu,
-                        (uint64_t)g_FontScratchCapBytes);
-                    g_FontScratchUpload->Unmap(0, &tagRange);
-                }
-            }
-        }
-
-        ID3D12Resource* uploadBuffer = g_FontScratchUpload;
-        IM_ASSERT(uploadBuffer != nullptr);
-
-        void* mapped = NULL;
-        D3D12_RANGE range = { 0, uploadSize };
-        HRESULT hr = uploadBuffer->Map(0, &range, &mapped);
-        IM_ASSERT(SUCCEEDED(hr));
-        for (int y = 0; y < height; y++)
-            memcpy((void*) ((uintptr_t) mapped + y * uploadPitch), pixels + y * width * 4, width * 4);
-        uploadBuffer->Unmap(0, &range);
-
-        D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
-        srcLocation.pResource = g_FontScratchUpload;
-        srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        srcLocation.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        srcLocation.PlacedFootprint.Footprint.Width = width;
-        srcLocation.PlacedFootprint.Footprint.Height = height;
-        srcLocation.PlacedFootprint.Footprint.Depth = 1;
-        srcLocation.PlacedFootprint.Footprint.RowPitch = uploadPitch;
-
-        D3D12_TEXTURE_COPY_LOCATION dstLocation = {};
-        dstLocation.pResource = pTexture;
-        dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        dstLocation.SubresourceIndex = 0;
-
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        barrier.Transition.pResource   = pTexture;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-        ID3D12Fence* fence = NULL;
-        hr = g_pd3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
-        IM_ASSERT(SUCCEEDED(hr));
-
-        HANDLE event = CreateEvent(0, 0, 0, 0);
-        IM_ASSERT(event != NULL);
-
-        D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-        queueDesc.Type     = D3D12_COMMAND_LIST_TYPE_DIRECT;
-        queueDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        queueDesc.NodeMask = 1;
-
-        ID3D12CommandQueue* cmdQueue = NULL;
-        hr = g_pd3dDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&cmdQueue));
-        IM_ASSERT(SUCCEEDED(hr));
-
-        ID3D12CommandAllocator* cmdAlloc = NULL;
-        hr = g_pd3dDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc));
-        IM_ASSERT(SUCCEEDED(hr));
-
-        ID3D12GraphicsCommandList* cmdList = NULL;
-        hr = g_pd3dDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc, NULL, IID_PPV_ARGS(&cmdList));
-        IM_ASSERT(SUCCEEDED(hr));
-
-        cmdList->CopyTextureRegion(&dstLocation, 0, 0, 0, &srcLocation, NULL);
-        cmdList->ResourceBarrier(1, &barrier);
-
-        hr = cmdList->Close();
-        IM_ASSERT(SUCCEEDED(hr));
-
-        cmdQueue->ExecuteCommandLists(1, (ID3D12CommandList* const*) &cmdList);
-        hr = cmdQueue->Signal(fence, 1);
-        IM_ASSERT(SUCCEEDED(hr));
-
-        fence->SetEventOnCompletion(1, event);
-        WaitForSingleObject(event, INFINITE);
-
-        cmdList->Release();
-        cmdAlloc->Release();
-        cmdQueue->Release();
-        CloseHandle(event);
-        fence->Release();
-
-        // Create texture view
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
-        ZeroMemory(&srvDesc, sizeof(srvDesc));
-        srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvDesc.Texture2D.MipLevels = desc.MipLevels;
-        srvDesc.Texture2D.MostDetailedMip = 0;
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, g_hFontSrvCpuDescHandle);
-        SafeRelease(g_pFontTextureResource);
-        g_pFontTextureResource = pTexture;
+        IM_ASSERT(false && "ImGui_ImplDX12_CreateFontsTexture: RHICreateTexture2D failed");
+        return;
     }
+    g_FontTextureRHI = tex;
 
-    // Store our identifier
+    auto* d3dTex = static_cast<RenderCore::D3D12Texture2D*>(tex.get());
+    const D3D12_CPU_DESCRIPTOR_HANDLE srcSrv = d3dTex->GetSRV();
+    g_pd3dDevice->CopyDescriptorsSimple(1, g_hFontSrvCpuDescHandle, srcSrv, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
     static_assert(sizeof(ImTextureID) >= sizeof(g_hFontSrvGpuDescHandle.ptr), "Can't pack descriptor handle into TexID, 32-bit not supported yet.");
     io.Fonts->TexID = (ImTextureID)g_hFontSrvGpuDescHandle.ptr;
 }
@@ -721,22 +592,36 @@ void    ImGui_ImplDX12_InvalidateDeviceObjects()
     if (!g_pd3dDevice)
         return;
 
-    SafeRelease(g_FontScratchUpload);
-    g_FontScratchCapBytes = 0;
+    g_FontTextureRHI.reset();
 
     SafeRelease(g_pVertexShaderBlob);
     SafeRelease(g_pPixelShaderBlob);
     SafeRelease(g_pRootSignature);
     SafeRelease(g_pPipelineState);
-    SafeRelease(g_pFontTextureResource);
 
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->TexID = NULL; // We copied g_pFontTextureView to io.Fonts->TexID so let's clear that as well.
 
+    RenderCore::D3D12CommandListHandle clh;
+    if (auto dynRHI = std::dynamic_pointer_cast<RenderCore::D3D12DynamicRHI>(RenderCore::GetDynamicRHI()))
+    {
+        if (auto cc = dynRHI->GetDefaultCommandContext())
+        {
+            if (auto d3dctx = std::dynamic_pointer_cast<RenderCore::D3D12CommandContext>(cc))
+                clh = d3dctx->GetCurrentCommandListHandle();
+        }
+    }
+    if (clh != nullptr)
+        clh.FlushResourceBarriers();
+
     for (UINT i = 0; i < g_numFramesInFlight; i++)
     {
         FrameResources* fr = &g_pFrameResources[i];
+        if (clh != nullptr && fr->IndexBuffer)
+            clh.RemoveTrackedResourceState(fr->IndexBuffer);
         SafeRelease(fr->IndexBuffer);
+        if (clh != nullptr && fr->VertexBuffer)
+            clh.RemoveTrackedResourceState(fr->VertexBuffer);
         SafeRelease(fr->VertexBuffer);
     }
 }
@@ -763,12 +648,10 @@ bool ImGui_ImplDX12_Init(ID3D12Device* device, int num_frames_in_flight, DXGI_FO
     for (int i = 0; i < num_frames_in_flight; i++)
     {
         FrameResources* fr = &g_pFrameResources[i];
-        fr->IndexBuffer = NULL;
-        fr->VertexBuffer = NULL;
+        fr->IndexBuffer = nullptr;
+        fr->VertexBuffer = nullptr;
         fr->IndexBufferSize = 10000;
         fr->VertexBufferSize = 5000;
-        fr->VbGpuState = D3D12_RESOURCE_STATE_COMMON;
-        fr->IbGpuState = D3D12_RESOURCE_STATE_COMMON;
     }
 
     return true;

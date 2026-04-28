@@ -85,6 +85,9 @@ namespace RenderCore
 
 		FCacheStats GetCacheStats() const;
 
+		/** For D3D12-only paths (e.g. ImGui backend) that need adapter/device helpers without duplicating device pointers. */
+		std::shared_ptr<FD3D12Adapter> GetD3D12Adapter() const { return D3D12Adapter; }
+
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;
 		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;

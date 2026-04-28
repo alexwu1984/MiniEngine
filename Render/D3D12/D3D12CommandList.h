@@ -227,6 +227,9 @@ namespace RenderCore
 
 				// Empty the command list's resource state map after the command list is executed
 				void Empty();
+
+				// Drop per-list tracking for a resource that is about to be destroyed (e.g. ImGui buffer resize).
+				void RemoveResourceState(FD3D12Resource* pResource);
 			};
 
 			FCommandListResourceState TrackedResourceState;
@@ -489,6 +492,12 @@ namespace RenderCore
 		{
 			Assert(CommandListData);
 			CommandListData->TrackedResourceState.CommitTrackedStatesToGlobal();
+		}
+
+		void RemoveTrackedResourceState(FD3D12Resource* pResource)
+		{
+			Assert(CommandListData);
+			CommandListData->TrackedResourceState.RemoveResourceState(pResource);
 		}
 
 		void SetCurrentOwningContext(D3D12CommandContext* context)

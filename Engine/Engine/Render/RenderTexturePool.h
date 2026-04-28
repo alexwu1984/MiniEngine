@@ -58,10 +58,25 @@ namespace Engine
 		void EndFrame();
 		void Clear();
 
+		struct Stats
+		{
+			uint64_t FrameCounter = 0;
+			std::size_t FreeTex2D = 0;
+			std::size_t FreeUav = 0;
+			std::size_t FreeRt = 0;
+			uint64_t EstimatedBytesFree = 0;
+			uint64_t BudgetBytes = 0;
+		};
+
+		Stats GetStats() const;
+		void SetBudgetBytes(uint64_t InBudgetBytes);
+		uint64_t GetBudgetBytes() const;
+
 	private:
 		RenderTexturePool() = default;
 
 		static constexpr std::size_t kMaxFreePerKey = 8;
+		static constexpr uint64_t kDefaultBudgetBytes = 512ull * 1024ull * 1024ull; // 512MB
 
 		struct Tex2DKey
 		{
@@ -89,7 +104,11 @@ namespace Engine
 			bool operator<(const RtKey& o) const;
 		};
 
+		static uint64_t EstimateTextureBytes(RenderCore::EPixelFormat Format, int32_t W, int32_t H, uint32_t NumMips);
+
 		uint64_t FrameCounter = 0;
+		uint64_t BudgetBytes = kDefaultBudgetBytes;
+		uint64_t EstimatedBytesFree = 0;
 
 		std::map<Tex2DKey, std::vector<PoolEntry<RenderCore::RHITexture2D>>> Tex2DFree;
 		std::map<UavKey, std::vector<PoolEntry<RenderCore::RHIUnorderedAccessView>>> UavFree;

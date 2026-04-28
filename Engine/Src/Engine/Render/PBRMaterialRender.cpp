@@ -200,9 +200,9 @@ namespace Engine
 		if (!RenderParam.preProcessor.expired())
 		{
 			auto IBL = RenderParam.preProcessor.lock()->GetIBLRender();
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, IBL->GetIrrCube());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 6, IBL->GetPreIntegrateBRDF());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 7, IBL->GetPreFilterCube());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, IBL->GetDiffuseIrradianceCubemap());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 6, IBL->GetBRDFIntegrationLUT());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 7, IBL->GetSpecularReflectionCubemap());
 		}
 
 		if (RenderParam.lightInfos.size() > 0 && RenderParam.lightInfos[0].ShadowMapIndex >= 0)

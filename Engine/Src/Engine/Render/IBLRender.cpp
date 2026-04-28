@@ -10,6 +10,7 @@
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/CubeRender.h"
+#include "Render/FrameGraph.h"
 
 using namespace math;
 using namespace RenderCore;
@@ -27,7 +28,7 @@ namespace Engine
 		return HighBit + 1;
 	}
 
-	struct IBLRenderPrivate
+	struct FSkyLightIBLPrecomputePrivate
 	{
 		std::shared_ptr<RenderCore::RHITextureCube> PreFilterCube;
 		std::shared_ptr<RenderCore::RHITextureCube> IrrCube;
@@ -44,7 +45,7 @@ namespace Engine
 		RenderCore::DynamicRHI* RHI;
 		std::array<Matrix4x4, 6> CaptureViews;
 
-		IBLRenderPrivate(RenderCore::DynamicRHI* _RHI)
+		FSkyLightIBLPrecomputePrivate(RenderCore::DynamicRHI* _RHI)
 			:GET_SHADER_STRUCT_MEMBER(ENVContant)(_RHI),
 			 GET_SHADER_STRUCT_MEMBER(CBPerFrame)(_RHI),
 			 GET_SHADER_STRUCT_MEMBER(CBPerObject)(_RHI),
@@ -59,20 +60,20 @@ namespace Engine
 		bool bInitRender = false;
 	};
 
-	IBLRender::IBLRender(RenderCore::DynamicRHI* RHI)
-		:d_ptr(new IBLRenderPrivate(RHI))
+	FSkyLightIBLPrecompute::FSkyLightIBLPrecompute(RenderCore::DynamicRHI* RHI)
+		:d_ptr(new FSkyLightIBLPrecomputePrivate(RHI))
 	{
 
 	}
 
-	IBLRender::~IBLRender()
+	FSkyLightIBLPrecompute::~FSkyLightIBLPrecompute()
 	{
 		delete d_ptr;
 	}
 
-	void IBLRender::InitResource()
+	void FSkyLightIBLPrecompute::InitResource()
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 
 		InitShader();
 
@@ -89,14 +90,14 @@ namespace Engine
 		d->IrrCube = d->RHI->RHICreateTextureCube(RenderCore::PF_A16B16G16R16, PREFILTERED_SIZE, PREFILTERED_SIZE, ComputeNumMips(PREFILTERED_SIZE, PREFILTERED_SIZE), false);
 		d->CubeR = std::make_shared<CubeRender>(d->RHI);
 		d->CubeR->InitResource();
-		PreIntegrateBRDF();
+		GenerateBRDFIntegrationLUT();
 	}
 
-	void IBLRender::LoadConfig(const nlohmann::json& Root)
+	void FSkyLightIBLPrecompute::LoadConfig(const nlohmann::json& Root)
 	{
 		try
 		{
-			C_P(IBLRender);
+			C_P(FSkyLightIBLPrecompute);
 			nlohmann::json EvnJson = Root["Evn"];
 			std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(EvnJson["Hdr"]);
 			d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);
@@ -107,60 +108,105 @@ namespace Engine
 		}
 	}
 
-	void IBLRender::LoadTex(const std::wstring& FileName)
+	void FSkyLightIBLPrecompute::LoadTex(const std::wstring& FileName)
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		d->HDRTex = d->RHI->RHICreateHDRTexture2D(FileName);
 		d->bInitRender = false;
 	}
 
-	void IBLRender::Draw(RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightIBLPrecompute::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		if (!d->HDRTex || d->bInitRender)
 		{
 			return;
 		}
 		d->bInitRender = true;
-		GenerateCubeMap(RHIContext);
-		GenerateIrradianceMap(RHIContext);
-		GeneratePrefilteredMap(RHIContext);
+		CaptureSkyLightCubemap(RHIContext);
+		GenerateDiffuseIrradiance(RHIContext);
+		GenerateSpecularPrefilter(RHIContext);
 	}
 
-	std::shared_ptr<RHITextureCube> IBLRender::GetPreFilterCube()
+	void FSkyLightIBLPrecompute::AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(IBLRender);
-		return d->PreFilterCube;
+		C_P(FSkyLightIBLPrecompute);
+		if (!d->HDRTex || d->bInitRender)
+			return;
+
+		// Add explicit passes (RDG-style) instead of doing all work inside one callback.
+		// Note: resources are owned by IBLRender; the graph edges are for ordering/culling only.
+		Graph.AddPass(FramePassDesc{
+			"SkyLight_CaptureCubemap",
+			{ { "SkyLight_SourceHDR", [HDR = d->HDRTex]() { return HDR; }, false, ERGTextureAccess::SRV } },
+			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::RTV } },
+			[this, &RHIContext]() { CaptureSkyLightCubemap(RHIContext); },
+			false,
+			ERGPass_Raster | ERGPass_MayCullIfUnreachableFromSink,
+			ERGQueueType::Graphics });
+
+		Graph.AddPass(FramePassDesc{
+			"SkyLight_GenerateDiffuseIrradiance",
+			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::SRV } },
+			{ { "SkyLight_DiffuseIrradiance", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::RTV } },
+			[this, &RHIContext]() { GenerateDiffuseIrradiance(RHIContext); },
+			false,
+			ERGPass_Raster | ERGPass_MayCullIfUnreachableFromSink,
+			ERGQueueType::Graphics });
+
+		Graph.AddPass(FramePassDesc{
+			"SkyLight_GenerateSpecularPrefilter",
+			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::SRV } },
+			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::RTV } },
+			[this, &RHIContext]() { GenerateSpecularPrefilter(RHIContext); },
+			false,
+			ERGPass_Raster | ERGPass_MayCullIfUnreachableFromSink,
+			ERGQueueType::Graphics });
+
+		Graph.AddPass(FramePassDesc{
+			"SkyLight_Finalize",
+			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::SRV } },
+			{},
+			[this]() { C_P(FSkyLightIBLPrecompute); d->bInitRender = true; },
+			false,
+			ERGPass_None | ERGPass_MayCullIfUnreachableFromSink,
+			ERGQueueType::Graphics });
 	}
 
-	std::shared_ptr<RHITextureCube> IBLRender::GetIrrCube()
+	std::shared_ptr<RHITextureCube> FSkyLightIBLPrecompute::GetSkyLightCubemap()
 	{
-		C_P(IBLRender);
-		return d->IrrCube;
-	}
-
-	std::shared_ptr<RHITextureCube> IBLRender::GetEvnCube()
-	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		return d->EvnCube;
 	}
 
-	std::shared_ptr<RHITexture2D> IBLRender::GetPreIntegrateBRDF()
+	std::shared_ptr<RHITextureCube> FSkyLightIBLPrecompute::GetDiffuseIrradianceCubemap()
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
+		return d->IrrCube;
+	}
+
+	std::shared_ptr<RHITextureCube> FSkyLightIBLPrecompute::GetSpecularReflectionCubemap()
+	{
+		C_P(FSkyLightIBLPrecompute);
+		return d->PreFilterCube;
+	}
+
+	std::shared_ptr<RHITexture2D> FSkyLightIBLPrecompute::GetBRDFIntegrationLUT()
+	{
+		C_P(FSkyLightIBLPrecompute);
 		return d->PreBRDF;
 	}
 
-	std::shared_ptr<RHITexture2D> IBLRender::GetHDRTex()
+	std::shared_ptr<RHITexture2D> FSkyLightIBLPrecompute::GetSkyLightSourceHDR()
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		return d->HDRTex;
 	}
 
-	void IBLRender::GenerateCubeMap(RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightIBLPrecompute::CaptureSkyLightCubemap(RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(IBLRender);
-		RenderCore::RHICommandMark Mark(RHIContext, "GenerateCubeMap");
+		C_P(FSkyLightIBLPrecompute);
+		RenderCore::RHICommandMark Mark(RHIContext, "SkyLight_CaptureCubemap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PSLongLatToCube;
@@ -191,14 +237,13 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
 		}
-		RHIContext.FlushCommands(false);
 		RHIContext.GenerateMips(d->EvnCube);
 	}
 
-	void IBLRender::GenerateIrradianceMap(RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightIBLPrecompute::GenerateDiffuseIrradiance(RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(IBLRender);
-		RenderCore::RHICommandMark Mark(RHIContext, "GenerateIrradianceMap");
+		C_P(FSkyLightIBLPrecompute);
+		RenderCore::RHICommandMark Mark(RHIContext, "SkyLight_GenerateDiffuseIrradiance");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->IrrPixelShader;
@@ -232,14 +277,13 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 			RenderCube(RHIContext);
 		}
-		RHIContext.FlushCommands(false);
 		RHIContext.GenerateMips(d->IrrCube);
 	}
 
-	void IBLRender::GeneratePrefilteredMap(RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightIBLPrecompute::GenerateSpecularPrefilter(RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(IBLRender);
-		RenderCore::RHICommandMark Mark(RHIContext, "GeneratePrefilteredMap");
+		C_P(FSkyLightIBLPrecompute);
+		RenderCore::RHICommandMark Mark(RHIContext, "SkyLight_GenerateSpecularPrefilter");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PSGenPrefiltered;
@@ -283,7 +327,6 @@ namespace Engine
 				RenderCube(RHIContext);
 			}
 		}
-		RHIContext.FlushCommands(false);
 	}
 
 	// Appoximation of joint Smith term for GGX
@@ -296,9 +339,9 @@ namespace Engine
 		return 0.5f / (Vis_SmithV + Vis_SmithL);
 	}
 
-	void IBLRender::PreIntegrateBRDF()
+	void FSkyLightIBLPrecompute::GenerateBRDFIntegrationLUT()
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		if (d->PreBRDF)
 			return;
 
@@ -364,9 +407,9 @@ namespace Engine
 		d->PreBRDF = d->RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, RenderCore::TexCreate_ShaderResource, width, height,1, ImageData.data());
 	}
 
-	void IBLRender::InitShader()
+	void FSkyLightIBLPrecompute::InitShader()
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
 		ShaderPath += L"EnvironmentShaders.hlsl";
 
@@ -379,9 +422,9 @@ namespace Engine
 		d->PSGenPrefiltered = d->RHI->RHICreatePixelShader(ShaderPath, "PS_GenPrefiltered", {});
 	}
 
-	void IBLRender::RenderCube(RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightIBLPrecompute::RenderCube(RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(IBLRender);
+		C_P(FSkyLightIBLPrecompute);
 		d->CubeR->Render(RHIContext);
 	}
 

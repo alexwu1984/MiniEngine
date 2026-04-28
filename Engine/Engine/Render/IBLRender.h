@@ -12,32 +12,36 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct IBLRenderPrivate;
+	class FrameGraph;
+	struct FSkyLightIBLPrecomputePrivate;
 
-	class IBLRender
+	// Precomputes skylight/reflection IBL resources (capture cubemap, diffuse irradiance,
+	// specular prefilter, BRDF integration LUT).
+	class FSkyLightIBLPrecompute
 	{
 	public:
-		IBLRender(RenderCore::DynamicRHI* RHI);
-		~IBLRender();
+		FSkyLightIBLPrecompute(RenderCore::DynamicRHI* RHI);
+		~FSkyLightIBLPrecompute();
 
 		void InitResource();
 		void LoadConfig(const nlohmann::json& Root);
 		void LoadTex(const std::wstring& FileName);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
-		std::shared_ptr<RenderCore::RHITextureCube> GetPreFilterCube();
-		std::shared_ptr<RenderCore::RHITextureCube> GetIrrCube();
-		std::shared_ptr<RenderCore::RHITextureCube> GetEvnCube();
-		std::shared_ptr<RenderCore::RHITexture2D> GetPreIntegrateBRDF();
-		std::shared_ptr<RenderCore::RHITexture2D> GetHDRTex();
+		void AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext);
+		std::shared_ptr<RenderCore::RHITextureCube> GetSkyLightCubemap();
+		std::shared_ptr<RenderCore::RHITextureCube> GetDiffuseIrradianceCubemap();
+		std::shared_ptr<RenderCore::RHITextureCube> GetSpecularReflectionCubemap();
+		std::shared_ptr<RenderCore::RHITexture2D> GetBRDFIntegrationLUT();
+		std::shared_ptr<RenderCore::RHITexture2D> GetSkyLightSourceHDR();
 	private:
-		void GenerateCubeMap(RenderCore::RHICommandContext& RHIContext);
-		void GenerateIrradianceMap(RenderCore::RHICommandContext& RHIContext);
-		void GeneratePrefilteredMap(RenderCore::RHICommandContext& RHIContext);
-		void PreIntegrateBRDF();
+		void CaptureSkyLightCubemap(RenderCore::RHICommandContext& RHIContext);
+		void GenerateDiffuseIrradiance(RenderCore::RHICommandContext& RHIContext);
+		void GenerateSpecularPrefilter(RenderCore::RHICommandContext& RHIContext);
+		void GenerateBRDFIntegrationLUT();
 	private:
 		void InitShader();
 		void RenderCube(RenderCore::RHICommandContext& RHIContext);
 	private:
-		IBLRenderPrivate* d_ptr = nullptr;
+		FSkyLightIBLPrecomputePrivate* d_ptr = nullptr;
 	};
 }

@@ -11,7 +11,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct PreProcessorPrivate;
-	class IBLRender;
+	class FSkyLightIBLPrecompute;
 
 	class PreProcessor
 	{
@@ -23,7 +23,7 @@ namespace Engine
 		void LoadConfig(const nlohmann::json& Root);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
-		std::shared_ptr<IBLRender> GetIBLRender();
+		std::shared_ptr<FSkyLightIBLPrecompute> GetIBLRender();
 
 	private:
 		PreProcessorPrivate* d_ptr = nullptr;

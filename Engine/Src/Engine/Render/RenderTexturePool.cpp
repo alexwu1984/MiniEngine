@@ -3,6 +3,8 @@
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIUnorderedAccessView.h"
 #include "RHI/RHIRenderTarget.h"
+#include "RHI/RHI.h"
+#include <algorithm>
 
 namespace Engine
 {
@@ -39,6 +41,30 @@ namespace Engine
 					++It;
 			}
 		}
+	}
+
+	uint64_t RenderTexturePool::EstimateTextureBytes(EPixelFormat Format, int32_t W, int32_t H, uint32_t NumMips)
+	{
+		if (W <= 0 || H <= 0 || NumMips == 0)
+			return 0;
+
+		const FPixelFormatInfo& Info = GPixelFormats[Format];
+		const int32_t BlockSizeX = std::max(Info.BlockSizeX, 1);
+		const int32_t BlockSizeY = std::max(Info.BlockSizeY, 1);
+		const int32_t BlockBytes = std::max(Info.BlockBytes, 0);
+		if (BlockBytes == 0)
+			return 0;
+
+		uint64_t Total = 0;
+		for (uint32_t Mip = 0; Mip < NumMips; ++Mip)
+		{
+			const int32_t MipW = std::max(1, W >> Mip);
+			const int32_t MipH = std::max(1, H >> Mip);
+			const uint64_t BlocksX = (uint64_t)(MipW + BlockSizeX - 1) / (uint64_t)BlockSizeX;
+			const uint64_t BlocksY = (uint64_t)(MipH + BlockSizeY - 1) / (uint64_t)BlockSizeY;
+			Total += BlocksX * BlocksY * (uint64_t)BlockBytes;
+		}
+		return Total;
 	}
 
 	bool RenderTexturePool::Tex2DKey::operator<(const Tex2DKey& o) const
@@ -84,6 +110,28 @@ namespace Engine
 		return Instance;
 	}
 
+	RenderTexturePool::Stats RenderTexturePool::GetStats() const
+	{
+		Stats S;
+		S.FrameCounter = FrameCounter;
+		S.FreeTex2D = CountCached(Tex2DFree);
+		S.FreeUav = CountCached(UavFree);
+		S.FreeRt = CountCached(RtFree);
+		S.EstimatedBytesFree = EstimatedBytesFree;
+		S.BudgetBytes = BudgetBytes;
+		return S;
+	}
+
+	void RenderTexturePool::SetBudgetBytes(uint64_t InBudgetBytes)
+	{
+		BudgetBytes = InBudgetBytes;
+	}
+
+	uint64_t RenderTexturePool::GetBudgetBytes() const
+	{
+		return BudgetBytes;
+	}
+
 	std::shared_ptr<RHITexture2D> RenderTexturePool::AcquireTexture2D(
 		DynamicRHI* RHI, EPixelFormat Format, int32_t CreateFlags, int32_t Width, int32_t Height, uint32_t NumMips)
 	{
@@ -98,6 +146,8 @@ namespace Engine
 			Bucket.pop_back();
 			if (Bucket.empty())
 				Tex2DFree.erase(K);
+			const uint64_t Bytes = EstimateTextureBytes(Format, Width, Height, NumMips);
+			EstimatedBytesFree = (EstimatedBytesFree > Bytes) ? (EstimatedBytesFree - Bytes) : 0;
 			return R;
 		}
 
@@ -114,7 +164,10 @@ namespace Engine
 		const Tex2DKey K{ Format, CreateFlags, Width, Height, NumMips };
 		auto& Bucket = Tex2DFree[K];
 		if (Bucket.size() < kMaxFreePerKey)
+		{
 			Bucket.push_back(PoolEntry<RHITexture2D>{ std::move(Tex), FrameCounter });
+			EstimatedBytesFree += EstimateTextureBytes(Format, Width, Height, NumMips);
+		}
 	}
 
 	std::shared_ptr<RHIUnorderedAccessView> RenderTexturePool::AcquireUAV(
@@ -131,6 +184,8 @@ namespace Engine
 			Bucket.pop_back();
 			if (Bucket.empty())
 				UavFree.erase(K);
+			const uint64_t Bytes = EstimateTextureBytes(Format, Width, Height, 1);
+			EstimatedBytesFree = (EstimatedBytesFree > Bytes) ? (EstimatedBytesFree - Bytes) : 0;
 			return R;
 		}
 
@@ -146,7 +201,10 @@ namespace Engine
 		const UavKey K{ Format, Width, Height };
 		auto& Bucket = UavFree[K];
 		if (Bucket.size() < kMaxFreePerKey)
+		{
 			Bucket.push_back(PoolEntry<RHIUnorderedAccessView>{ std::move(Uav), FrameCounter });
+			EstimatedBytesFree += EstimateTextureBytes(Format, Width, Height, 1);
+		}
 	}
 
 	std::shared_ptr<RHIRenderTarget> RenderTexturePool::AcquireRenderTarget(
@@ -164,6 +222,12 @@ namespace Engine
 			Bucket.pop_back();
 			if (Bucket.empty())
 				RtFree.erase(K);
+			uint64_t Bytes = EstimateTextureBytes(Format, Width, Height, NumMips);
+			if (CreateDepth)
+				Bytes += EstimateTextureBytes(EPixelFormat::PF_DepthStencil, Width, Height, 1);
+			if (IsMultiSampled)
+				Bytes *= 2; // conservative: sample count isn't tracked in current API
+			EstimatedBytesFree = (EstimatedBytesFree > Bytes) ? (EstimatedBytesFree - Bytes) : 0;
 			return R;
 		}
 
@@ -179,7 +243,15 @@ namespace Engine
 		const RtKey K{ Format, Width, Height, NumMips, IsMultiSampled, CreateDepth };
 		auto& Bucket = RtFree[K];
 		if (Bucket.size() < kMaxFreePerKey)
+		{
 			Bucket.push_back(PoolEntry<RHIRenderTarget>{ std::move(Rt), FrameCounter });
+			uint64_t Bytes = EstimateTextureBytes(Format, Width, Height, NumMips);
+			if (CreateDepth)
+				Bytes += EstimateTextureBytes(EPixelFormat::PF_DepthStencil, Width, Height, 1);
+			if (IsMultiSampled)
+				Bytes *= 2; // conservative: sample count isn't tracked in current API
+			EstimatedBytesFree += Bytes;
+		}
 	}
 
 	void RenderTexturePool::BeginFrame()
@@ -194,19 +266,99 @@ namespace Engine
 		EvictOld(UavFree, FrameCounter);
 		EvictOld(RtFree, FrameCounter);
 
-		// Safety trim: if resolution fluctuates (or effects allocate many unique sizes),
-		// the key maps can grow unbounded. This keeps runtime memory stable.
-		static constexpr std::size_t kMaxCachedTextures = 256;
-		static constexpr std::size_t kMaxCachedUavs = 256;
-		static constexpr std::size_t kMaxCachedRenderTargets = 128;
-
-		const std::size_t CachedTex = CountCached(Tex2DFree);
-		const std::size_t CachedUav = CountCached(UavFree);
-		const std::size_t CachedRt = CountCached(RtFree);
-
-		if (CachedTex > kMaxCachedTextures || CachedUav > kMaxCachedUavs || CachedRt > kMaxCachedRenderTargets)
+		// UE-like behavior: trim to a budget (LRU) instead of nuking the entire pool.
+		if (BudgetBytes > 0 && EstimatedBytesFree > BudgetBytes)
 		{
-			Clear();
+			// Keep it simple and safe: repeatedly remove the globally-oldest entry (across pools),
+			// based on each bucket's oldest element. This is close to UE's "drop least recently used".
+			while (EstimatedBytesFree > BudgetBytes)
+			{
+				// Find the currently oldest available entry among buckets.
+				uint64_t BestFrame = UINT64_MAX;
+				int BestKind = 0; // 0=Tex2D, 1=UAV, 2=RT
+				bool Found = false;
+				Tex2DKey BestTexK{};
+				UavKey BestUavK{};
+				RtKey BestRtK{};
+				uint64_t BestBytes = 0;
+
+				for (const auto& It : Tex2DFree)
+				{
+					const auto& Bucket = It.second;
+					if (!Bucket.empty() && Bucket.front().LastUsedFrame < BestFrame)
+					{
+						BestFrame = Bucket.front().LastUsedFrame;
+						BestKind = 0;
+						BestTexK = It.first;
+						BestBytes = EstimateTextureBytes(It.first.Format, It.first.W, It.first.H, It.first.NumMips);
+						Found = true;
+					}
+				}
+				for (const auto& It : UavFree)
+				{
+					const auto& Bucket = It.second;
+					if (!Bucket.empty() && Bucket.front().LastUsedFrame < BestFrame)
+					{
+						BestFrame = Bucket.front().LastUsedFrame;
+						BestKind = 1;
+						BestUavK = It.first;
+						BestBytes = EstimateTextureBytes(It.first.Format, It.first.W, It.first.H, 1);
+						Found = true;
+					}
+				}
+				for (const auto& It : RtFree)
+				{
+					const auto& Bucket = It.second;
+					if (!Bucket.empty() && Bucket.front().LastUsedFrame < BestFrame)
+					{
+						BestFrame = Bucket.front().LastUsedFrame;
+						BestKind = 2;
+						BestRtK = It.first;
+						BestBytes = EstimateTextureBytes(It.first.Format, It.first.W, It.first.H, It.first.NumMips);
+						if (It.first.Depth)
+							BestBytes += EstimateTextureBytes(EPixelFormat::PF_DepthStencil, It.first.W, It.first.H, 1);
+						if (It.first.IsMS)
+							BestBytes *= 2;
+						Found = true;
+					}
+				}
+
+				if (!Found)
+					break;
+
+				if (BestKind == 0)
+				{
+					auto It = Tex2DFree.find(BestTexK);
+					if (It != Tex2DFree.end() && !It->second.empty())
+					{
+						It->second.erase(It->second.begin());
+						if (It->second.empty())
+							Tex2DFree.erase(It);
+					}
+				}
+				else if (BestKind == 1)
+				{
+					auto It = UavFree.find(BestUavK);
+					if (It != UavFree.end() && !It->second.empty())
+					{
+						It->second.erase(It->second.begin());
+						if (It->second.empty())
+							UavFree.erase(It);
+					}
+				}
+				else
+				{
+					auto It = RtFree.find(BestRtK);
+					if (It != RtFree.end() && !It->second.empty())
+					{
+						It->second.erase(It->second.begin());
+						if (It->second.empty())
+							RtFree.erase(It);
+					}
+				}
+
+				EstimatedBytesFree = (EstimatedBytesFree > BestBytes) ? (EstimatedBytesFree - BestBytes) : 0;
+			}
 		}
 	}
 
@@ -215,5 +367,6 @@ namespace Engine
 		Tex2DFree.clear();
 		UavFree.clear();
 		RtFree.clear();
+		EstimatedBytesFree = 0;
 	}
 }

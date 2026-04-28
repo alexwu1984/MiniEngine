@@ -10,7 +10,7 @@
 
 namespace Engine
 {
-	class IBLRender;
+	class FSkyLightIBLPrecompute;
 	class CubeMapCrossRender;
 }
 
@@ -53,7 +53,7 @@ namespace DemoRunner
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<Engine::AppWindow> Window;
 
-		std::shared_ptr<Engine::IBLRender> IBL;
+		std::shared_ptr<Engine::FSkyLightIBLPrecompute> IBL;
 		std::shared_ptr<Engine::CubeMapCrossRender> CubeCross;
 
 		std::vector<std::string> AllHDRFiles;

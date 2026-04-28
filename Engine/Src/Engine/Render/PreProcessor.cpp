@@ -6,13 +6,13 @@ namespace Engine
 {
 	struct PreProcessorPrivate
 	{
-		std::shared_ptr<IBLRender> GenIBL;
+		std::shared_ptr<FSkyLightIBLPrecompute> GenIBL;
 		RenderCore::DynamicRHI* RHI;
 
 		PreProcessorPrivate(RenderCore::DynamicRHI* _RHI)
 			:RHI(_RHI)
 		{
-			GenIBL = std::make_shared<IBLRender>(_RHI);
+			GenIBL = std::make_shared<FSkyLightIBLPrecompute>(_RHI);
 		}
 	};
 
@@ -45,7 +45,7 @@ namespace Engine
 		d->GenIBL->Draw(RHIContext);
 	}
 
-	std::shared_ptr<IBLRender> PreProcessor::GetIBLRender()
+	std::shared_ptr<FSkyLightIBLPrecompute> PreProcessor::GetIBLRender()
 	{
 		C_P(PreProcessor);
 		return d->GenIBL;

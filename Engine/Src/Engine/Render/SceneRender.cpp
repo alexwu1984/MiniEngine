@@ -303,8 +303,8 @@ namespace Engine
 						RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
 
 						auto IBL = d->PreProcess->GetIBLRender();
-						auto EvnCube = IBL->GetEvnCube();
-						d->BackgroundRender->SetTextureCube(EvnCube);
+						auto SkyCube = IBL->GetSkyLightCubemap();
+						d->BackgroundRender->SetTextureCube(SkyCube);
 						d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
 					}});
 

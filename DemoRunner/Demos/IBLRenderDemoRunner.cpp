@@ -33,7 +33,7 @@ void IBLRenderDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
 	ViewPort = InViewPort;
 	Window = InWindow;
 
-	IBL = std::make_shared<Engine::IBLRender>(RHI);
+	IBL = std::make_shared<Engine::FSkyLightIBLPrecompute>(RHI);
 	CubeCross = std::make_shared<Engine::CubeMapCrossRender>(RHI);
 	if (IBL) IBL->InitResource();
 	if (CubeCross) CubeCross->InitResource();
@@ -87,12 +87,12 @@ void IBLRenderDemoRunner::OnGui()
 
 	if (IBL)
 	{
-		if (Mode == SM_CubeCross && IBL->GetEvnCube())
-			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetEvnCube()->GetNumMips() - 1);
-		else if (Mode == SM_Irradiance && IBL->GetIrrCube())
-			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetIrrCube()->GetNumMips() - 1);
-		else if (Mode == SM_Prefiltered && IBL->GetPreFilterCube())
-			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetPreFilterCube()->GetNumMips() - 1);
+		if (Mode == SM_CubeCross && IBL->GetSkyLightCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetSkyLightCubemap()->GetNumMips() - 1);
+		else if (Mode == SM_Irradiance && IBL->GetDiffuseIrradianceCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetDiffuseIrradianceCubemap()->GetNumMips() - 1);
+		else if (Mode == SM_Prefiltered && IBL->GetSpecularReflectionCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetSpecularReflectionCubemap()->GetNumMips() - 1);
 	}
 }
 
@@ -109,19 +109,19 @@ void IBLRenderDemoRunner::Draw(RenderCore::RHICommandContext& Ctx,
 	switch (Mode)
 	{
 	case SM_LongLat:
-		ShowTexture2D(Ctx, IBL->GetHDRTex());
+		ShowTexture2D(Ctx, IBL->GetSkyLightSourceHDR());
 		break;
 	case SM_CubeCross:
-		ShowSHCubeMapDebugView(Ctx, IBL->GetEvnCube());
+		ShowSHCubeMapDebugView(Ctx, IBL->GetSkyLightCubemap());
 		break;
 	case SM_Irradiance:
-		ShowSHCubeMapDebugView(Ctx, IBL->GetIrrCube());
+		ShowSHCubeMapDebugView(Ctx, IBL->GetDiffuseIrradianceCubemap());
 		break;
 	case SM_Prefiltered:
-		ShowSHCubeMapDebugView(Ctx, IBL->GetPreFilterCube());
+		ShowSHCubeMapDebugView(Ctx, IBL->GetSpecularReflectionCubemap());
 		break;
 	case SM_PreintegratedGF:
-		ShowTexture2D(Ctx, IBL->GetPreIntegrateBRDF());
+		ShowTexture2D(Ctx, IBL->GetBRDFIntegrationLUT());
 		break;
 	}
 }

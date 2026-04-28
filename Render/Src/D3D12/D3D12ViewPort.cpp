@@ -237,7 +237,7 @@ namespace RenderCore
 
 		// UE-style: Present path flushes the default context; actual submission still depends on
 		// whether the context/pending lists did meaningful work (FlushCommands internal logic).
-		DefaultCtx->FlushCommands(false);
+		DefaultCtx->FlushCommands(true);
 
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext(); AsyncCtx && AsyncCtx->HasRecordedCommands())
 			AsyncCtx->FlushCommands(false);

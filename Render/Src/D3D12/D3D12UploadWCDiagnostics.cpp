@@ -102,8 +102,9 @@ namespace RenderCore
 			std::call_once(sOnce, []() {
 				::SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
 				HANDLE proc = ::GetCurrentProcess();
-				// Invade process so we can resolve symbols from all loaded modules (RelWithDebInfo PDBs).
-				::SymInitialize(proc, nullptr, TRUE);
+				// FALSE: avoid SymInitialize(invade=TRUE) which loads symbols for every DLL and can grow Private bytes
+				// for the whole memmon session (same rationale as D3D12MemoryMonitor).
+				::SymInitialize(proc, nullptr, FALSE);
 
 				// Add common local search paths so SymFromAddr can find PDBs next to the exe and in the current working directory.
 				{
@@ -144,7 +145,9 @@ namespace RenderCore
 		{
 			if (!allocBase || !tagW || tagW[0] != L'?' || tagW[1] != 0)
 				return;
-			if (!D3D12RHI_ShouldEnableMemMonStacks() && !D3D12RHI_ShouldEnableMemMonDeep())
+			// Stacks + DbgHelp are expensive and inflate Private/heap; keep them opt-in via memmon_stacks only.
+			// memmon_deep alone enables HeapWalk/full VMem in D3D12MemoryMonitor, not sampler backtraces here.
+			if (!D3D12RHI_ShouldEnableMemMonStacks())
 				return;
 
 			{
@@ -512,9 +515,8 @@ namespace RenderCore
 		sReentryGuard = true;
 
 		const double MB = 1024.0 * 1024.0;
-		// When deep memmon is enabled, capture a stack for each new WC allocation base.
-		// This helps pinpoint which code path keeps expanding WC virtual memory, even if the user didn't enable stacks explicitly.
-		const bool bWantStacks = RenderCore::D3D12RHI_ShouldEnableMemMonStacks() || RenderCore::D3D12RHI_ShouldEnableMemMonDeep();
+		// Backtraces + DbgHelp: opt-in only (d3d12_memmon_stacks=1); memmon_deep does not imply stacks.
+		const bool bWantStacks = RenderCore::D3D12RHI_ShouldEnableMemMonStacks();
 		if (!bWantStacks)
 		{
 			core::LOG(core::log_inf,

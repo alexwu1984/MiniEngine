@@ -1,4 +1,4 @@
-﻿// dear imgui: Renderer for DirectX12
+// dear imgui: Renderer for DirectX12
 // This needs to be used along with a Platform Binding (e.g. Win32)
 
 // Implemented features:
@@ -267,6 +267,10 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         fr->IbGpuState = D3D12_RESOURCE_STATE_INDEX_BUFFER;
 
         CLH.FlushResourceBarriers();
+        // Raw barriers/copies bypass D3D12CommandListHandle::AddTransitionBarrier / RHICopyResource — without this,
+        // HasRecordedCommands() can miss real GPU work and FlushCommands(false) may skip submit (upload pages never retired).
+        upload_ctx->numBarriers += 4;
+        upload_ctx->numCopies += 2;
     }
     else
     {
@@ -336,6 +340,8 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
                 ctx->SetGraphicsRootDescriptorTable(1, *(D3D12_GPU_DESCRIPTOR_HANDLE*)&pcmd->TextureId);
                 ctx->RSSetScissorRects(1, &r);
                 ctx->DrawIndexedInstanced(pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
+                if (bUseEngineUpload && upload_ctx)
+                    upload_ctx->numDraws++;
             }
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;

@@ -12,7 +12,7 @@ namespace RenderCore
 	class D3D12CommandContext;
 		class D3D12UniformBuffer;
 	class FD3D12ResourceAllocator;
-	class FD3D12UploadPlacedBuddyPool;
+	class FD3D12BuddyAllocator;
 	struct FDynamicDescriptorHeapPoolsPerDevice;
 
 	class FD3D12Device :public std::enable_shared_from_this<FD3D12Device>,public FD3D12AdapterChild
@@ -38,7 +38,7 @@ namespace RenderCore
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext() const { return DefaultCommandContext;}
 		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext() const { return AsyncComputeContext; }
 		FD3D12FastAllocator& GetFastAllocator(EFastAllocatorType Type) const;
-		FD3D12UploadPlacedBuddyPool* GetUploadPlacedBuddyPool() const { return UploadPlacedBuddyPool.get(); }
+		FD3D12BuddyAllocator* GetBuddyAllocator() const { return BuddyAllocator.get(); }
 
 		FDynamicDescriptorHeapPoolsPerDevice& GetDynamicDescriptorHeapPools();
 
@@ -77,7 +77,7 @@ namespace RenderCore
 		std::shared_ptr<FD3D12FastAllocator> FastAllocator[FastAllocator_Num];
 
 		std::unique_ptr<FDynamicDescriptorHeapPoolsPerDevice> DynamicDescriptorHeapPools;
-		std::unique_ptr<FD3D12UploadPlacedBuddyPool> UploadPlacedBuddyPool;
+		std::unique_ptr<FD3D12BuddyAllocator> BuddyAllocator;
 
 		std::vector<D3D12CommandListHandle> PendingCommandListsDefault;
 		std::vector<D3D12CommandListHandle> PendingCommandListsAsync;

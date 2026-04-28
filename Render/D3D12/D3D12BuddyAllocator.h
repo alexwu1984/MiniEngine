@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "D3D12/D3D12RHICommon.h"
 #include "win/com_ptr.h"
@@ -12,13 +12,24 @@ namespace RenderCore
 {
 	class FD3D12Device;
 
-	// UE 4.26-style kPlacedResource buddy sub-alloc over a single ID3D12Heap (UPLOAD, buffers-only).
-	// Used for standard UploadFastAllocator linear pages to reduce implicit committed heaps / WC churn.
-	class FD3D12UploadPlacedBuddyPool : public FD3D12DeviceChild
+	// UE4 D3D12RHI::eBuddyAllocationStrategy (subset; MiniEngine only implements placed resources on UPLOAD heap).
+	enum class eBuddyAllocationStrategy : uint8_t
+	{
+		kManualSubAllocationStrategy = 0,
+		kAutomaticPlacement = 1,
+		kPlacedResourceStrategy = 2,
+	};
+
+	// UE4-style FD3D12BuddyAllocator with kPlacedResourceStrategy: buddy sub-allocation over one ID3D12Heap
+	// (UPLOAD, buffers-only, CreatePlacedResource). Used by UploadFastAllocator standard pages.
+	class FD3D12BuddyAllocator : public FD3D12DeviceChild
 	{
 	public:
-		explicit FD3D12UploadPlacedBuddyPool(std::weak_ptr<FD3D12Device> InParent);
-		~FD3D12UploadPlacedBuddyPool();
+		explicit FD3D12BuddyAllocator(std::weak_ptr<FD3D12Device> InParent,
+			eBuddyAllocationStrategy InStrategy = eBuddyAllocationStrategy::kPlacedResourceStrategy);
+		~FD3D12BuddyAllocator();
+
+		eBuddyAllocationStrategy GetAllocationStrategy() const { return AllocationStrategy; }
 
 		bool Initialize(uint64_t HeapSizeBytes);
 		void Destroy();
@@ -29,6 +40,8 @@ namespace RenderCore
 		void DeallocateBlock(uint32_t OffsetInMinUnits, uint32_t Order);
 
 	private:
+		const eBuddyAllocationStrategy AllocationStrategy;
+
 		static constexpr uint32_t kMinBlockBytes = 64u * 1024u;
 
 		uint32_t SizeToUnitSize(uint32_t SizeBytes) const;

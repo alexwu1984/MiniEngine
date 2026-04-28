@@ -191,15 +191,15 @@ namespace RenderCore
 
 		if (Adapter)
 		{
-			const auto& Ring = Adapter->GetTransientUploadRing();
+			const auto& UBA = Adapter->GetTransientUniformBufferAllocator();
 			const double MB = 1024.0 * 1024.0;
 			core::LOG(core::log_inf,
-				L"[D3D12] TransientUploadRing size=%.1fMB used=%.1fMB head=%.1fMB tail=%.1fMB outstandingFences=%zu",
-				(double)Ring.GetSizeBytes() / MB,
-				(double)Ring.GetUsedBytes() / MB,
-				(double)Ring.GetHeadBytes() / MB,
-				(double)Ring.GetTailBytes() / MB,
-				Ring.GetOutstandingFenceCount());
+				L"[D3D12] FastConstantAllocator page=%.1fMB used=%.1fMB head=%.1fMB tail=%.1fMB outstandingFences=%zu",
+				(double)UBA.GetPageSizeBytes() / MB,
+				(double)UBA.GetRingUsedBytes() / MB,
+				(double)UBA.GetRingHeadBytes() / MB,
+				(double)UBA.GetRingTailBytes() / MB,
+				UBA.GetOutstandingFenceCount());
 		}
 
 		{

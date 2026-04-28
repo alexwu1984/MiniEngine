@@ -510,6 +510,8 @@ namespace RenderCore
 				}
 			}
 			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
+			for (int32_t i = 0; i < Lists.size(); i++)
+				Lists[i].CommitTrackedResourceStateToGlobal();
 			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 			{
@@ -557,6 +559,8 @@ namespace RenderCore
 				}
 			}
 			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
+			for (int32_t i = 0; i < Lists.size(); i++)
+				Lists[i].CommitTrackedResourceStateToGlobal();
 			//check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
 			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			BarrierSyncPoint = SyncPoint;
@@ -597,7 +601,7 @@ namespace RenderCore
 
 	uint32_t FD3D12CommandListManager::GetResourceBarrierCommandList(D3D12CommandListHandle& hList, D3D12CommandListHandle& hResourceBarrierList)
 	{
-		std::vector<D3D12PendingResourceBarrier>& PendingResourceBarriers = hList.PendingResourceBarriers();
+		std::vector<FD3D12PendingResourceBarrier>& PendingResourceBarriers = hList.PendingResourceBarriers();
 		const uint32_t NumPendingResourceBarriers = (uint32_t)PendingResourceBarriers.size();
 		if (NumPendingResourceBarriers)
 		{
@@ -611,37 +615,67 @@ namespace RenderCore
 
 			for (uint32_t i = 0; i < NumPendingResourceBarriers; ++i)
 			{
-				const D3D12PendingResourceBarrier& PRB = PendingResourceBarriers[i];
+				const FD3D12PendingResourceBarrier& PRB = PendingResourceBarriers[i];
 
 				// Should only be doing this for the few resources that need state tracking
 				Assert(PRB.Resource->RequiresResourceStateTracking());
 
 				CResourceState& ResourceState = PRB.Resource->GetResourceState();
+				CResourceState& ClResourceState = hList.GetResourceState(PRB.Resource);
 
-				Desc.Transition.Subresource = PRB.SubResource;
-				const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(Desc.Transition.Subresource);
+				Desc.Transition.pResource = PRB.Resource->GetResource();
 				const D3D12_RESOURCE_STATES After = PRB.State;
 
-				Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
-				if (Before != After)
+				// Pending entries may use ALL_SUBRESOURCES. Once global tracking has split to per-subresource,
+				// CResourceState::GetSubresourceState(ALL) is invalid (would index past the array). Expand to
+				// one transition per subresource so StateBefore matches the runtime (fixes D3D12 #523).
+				if (PRB.SubResource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES)
 				{
-					Desc.Transition.pResource = PRB.Resource->GetResource();
-					Desc.Transition.StateBefore = Before;
-					Desc.Transition.StateAfter = After;
+					const uint32_t NumSub = PRB.Resource->GetSubresourceCount();
+					for (uint32_t sub = 0; sub < NumSub; ++sub)
+					{
+						Desc.Transition.Subresource = sub;
+						const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(sub);
+						Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
+						if (Before != After)
+						{
+							Desc.Transition.StateBefore = Before;
+							Desc.Transition.StateAfter = After;
+							BarrierDescs.push_back(Desc);
+						}
 
-					// Add the desc
-					BarrierDescs.push_back(Desc);
+						const D3D12_RESOURCE_STATES CommandListState = ClResourceState.GetSubresourceState(sub);
+						const D3D12_RESOURCE_STATES LastState = (CommandListState != D3D12_RESOURCE_STATE_TBD) ? CommandListState : After;
+
+						if (Before != LastState)
+						{
+							ResourceState.SetSubresourceState(sub, LastState);
+						}
+					}
 				}
-
-				// Update the state to the what it will be after hList executes
-				const D3D12_RESOURCE_STATES CommandListState = hList.GetResourceState(PRB.Resource).GetSubresourceState(Desc.Transition.Subresource);
-				const D3D12_RESOURCE_STATES LastState = (CommandListState != D3D12_RESOURCE_STATE_TBD) ? CommandListState : After;
-
-				if (Before != LastState)
+				else
 				{
-					ResourceState.SetSubresourceState(Desc.Transition.Subresource, LastState);
+					Desc.Transition.Subresource = PRB.SubResource;
+					const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(Desc.Transition.Subresource);
+					Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
+					if (Before != After)
+					{
+						Desc.Transition.StateBefore = Before;
+						Desc.Transition.StateAfter = After;
+						BarrierDescs.push_back(Desc);
+					}
+
+					const D3D12_RESOURCE_STATES CommandListState = ClResourceState.GetSubresourceState(Desc.Transition.Subresource);
+					const D3D12_RESOURCE_STATES LastState = (CommandListState != D3D12_RESOURCE_STATE_TBD) ? CommandListState : After;
+
+					if (Before != LastState)
+					{
+						ResourceState.SetSubresourceState(Desc.Transition.Subresource, LastState);
+					}
 				}
 			}
+
+			PendingResourceBarriers.clear();
 
 			if (BarrierDescs.size() > 0)
 			{

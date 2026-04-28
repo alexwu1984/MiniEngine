@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "D3D12/D3D12Resource.h"
 
+#include <memory>
 #include <mutex>
 #include <map>
 #include <queue>
@@ -9,6 +10,17 @@
 
 namespace RenderCore
 {
+	// FD3D12Resource uses intrusive AddRef/Release (Release deletes at 0). Never default-delete it from unique_ptr.
+	struct FD3D12ResourceReleaseDeleter
+	{
+		void operator()(FD3D12Resource* p) const noexcept
+		{
+			if (p)
+				p->Release();
+		}
+	};
+	using FD3D12ResourceUniquePtr = std::unique_ptr<FD3D12Resource, FD3D12ResourceReleaseDeleter>;
+
 	const static uint32_t DEFAULT_ALIGN = 256;
 	const static uint32_t GpuAllocatorPageSize = 0x10000;	// 64k
 
@@ -20,14 +32,14 @@ namespace RenderCore
 	static constexpr uint32_t UE426_MIN_PLACED_BUFFER_SIZE = 64u * 1024u;
 	static constexpr uint32_t UE426_D3D_BUFFER_ALIGNMENT = 64u * 1024u;
 
-	class FD3D12UploadPlacedBuddyPool;
+	class FD3D12BuddyAllocator;
 	class FD3D12FastAllocatorPage;
 
 	struct FAllocation
 	{
 		// Backing page resource (when allocating from FD3D12FastAllocatorPage pools).
 		FD3D12FastAllocatorPage* Resource = nullptr;
-		// Backing D3D12 resource (valid for both fast-allocator pages and transient upload ring slices).
+		// Backing D3D12 resource (fast-allocator pages or FD3D12FastConstantAllocator ring buffer).
 		ID3D12Resource* D3D12Resource = nullptr;
 		size_t Offset = 0;
 		void* CPU = nullptr;
@@ -88,36 +100,32 @@ namespace RenderCore
 		std::map<uint64_t, uint64_t> OutstandingAllocs; // fenceValue -> blocks
 	};
 
-	// Fixed-size transient UPLOAD ring used for dynamic constant/uniform data.
-	// Matches UE strategy: bounded size, fence-aware reuse, wait on wrap.
-	class FD3D12TransientUploadRing : public FD3D12AdapterChild
+	// UE 4.26-style: transient constant/uniform uploads from a single UPLOAD buffer + FD3D12AbstractRingBuffer
+	// (see d3d12studyMaster/D3D12RHI FD3D12FastConstantAllocator). Grows the backing buffer when the ring fills.
+	class FD3D12FastConstantAllocator : public FD3D12AdapterChild
 	{
 	public:
-		explicit FD3D12TransientUploadRing(std::weak_ptr<FD3D12Adapter> InParentAdapter);
-		~FD3D12TransientUploadRing();
+		explicit FD3D12FastConstantAllocator(std::weak_ptr<FD3D12Adapter> InParentAdapter, uint32_t InitialPageBytes = 2u * 1024u * 1024u);
+		~FD3D12FastConstantAllocator();
 
-		bool Initialize(uint64_t BufferBytes);
+		void Init();
 		void Destroy();
 
-		// Allocate from the ring (bytes, alignment). Blocks (waits) when the ring is full.
-		// Returned allocation uses Offset within the ring buffer resource.
 		FAllocation Allocate(uint64_t Bytes, uint64_t Alignment = DEFAULT_ALIGN);
 
-		ID3D12Resource* GetResource() const { return UploadResource.get(); }
-		void* GetMappedBase() const { return MappedBase; }
-		uint64_t GetSizeBytes() const { return SizeBytes; }
-		uint64_t GetHeadBytes() const { return Ring.GetHead(); }
-		uint64_t GetTailBytes() const { return Ring.GetTail(); }
-		uint64_t GetUsedBytes() const { return Ring.GetUsedSize(); }
+		uint64_t GetPageSizeBytes() const { return PageSizeBytes; }
+		uint64_t GetRingHeadBytes() const { return Ring.GetHead(); }
+		uint64_t GetRingTailBytes() const { return Ring.GetTail(); }
+		uint64_t GetRingUsedBytes() const { return Ring.GetUsedSize(); }
 		std::size_t GetOutstandingFenceCount() const { return Ring.GetOutstandingFenceCount(); }
 
 	private:
-		uint64_t AlignUp(uint64_t v, uint64_t a) const { return (a == 0) ? v : ((v + (a - 1)) & ~(a - 1)); }
+		bool ReallocBuffer();
 
 	private:
-		win32::com_ptr<ID3D12Resource> UploadResource;
-		void* MappedBase = nullptr;
-		uint64_t SizeBytes = 0;
+		uint32_t InitialPageBytesRequested = 0;
+		uint64_t PageSizeBytes = 0;
+		FD3D12ResourceUniquePtr Buffer;
 		FD3D12AbstractRingBuffer Ring;
 	};
 
@@ -203,17 +211,17 @@ namespace RenderCore
 		ED3D12CommandQueueType GetRetireQueueType() const { return RetireQueueType; }
 		void SetRetireQueueType(ED3D12CommandQueueType InQueueType) { RetireQueueType = InQueueType; }
 
-		void BindPlacedBuddy(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, EFastAllocatorType OwnerAllocatorType);
+		void BindBuddyAllocator(FD3D12BuddyAllocator* Allocator, uint32_t OffsetMinUnits, uint32_t Order, EFastAllocatorType OwnerAllocatorType);
 
 	private:
 		uint64_t FenceValue = 0;
 		ED3D12CommandQueueType RetireQueueType = ED3D12CommandQueueType::Default;
 
-		FD3D12UploadPlacedBuddyPool* PlacedBuddyPool = nullptr;
-		uint32_t PlacedBuddyOffsetMinUnits = 0;
-		uint32_t PlacedBuddyOrder = 0;
-		EFastAllocatorType PlacedBuddyOwnerAllocatorType = InvalidFastAllocator;
-		bool bHasPlacedBuddyBinding = false;
+		FD3D12BuddyAllocator* BuddyAllocator = nullptr;
+		uint32_t BuddyAllocatorOffsetMinUnits = 0;
+		uint32_t BuddyAllocatorOrder = 0;
+		EFastAllocatorType BuddyAllocatorOwnerType = InvalidFastAllocator;
+		bool bHasBuddyAllocatorBinding = false;
 	};
 
 	// UE4-style FD3D12FastAllocator: owns standard linear pages (UPLOAD / DEFAULT) for FD3D12LinearAllocator.
@@ -242,7 +250,7 @@ namespace RenderCore
 			return RetiredPages[QueueTypeIndex].size();
 		}
 
-		void EnqueuePlacedBuddyFree(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, uint64_t FenceValue, ED3D12CommandQueueType QueueType);
+		void EnqueueBuddyAllocatorFree(FD3D12BuddyAllocator* Allocator, uint32_t OffsetMinUnits, uint32_t Order, uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 
 	private:
 		using PagePool = std::queue<FD3D12FastAllocatorPage* >;
@@ -266,20 +274,20 @@ namespace RenderCore
 		static EFastAllocatorType ms_TypeCounter;
 		EFastAllocatorType AllocatorType;
 
-		struct FPlacedBuddyPendingFree
+		struct FBuddyAllocatorPendingFree
 		{
-			FD3D12UploadPlacedBuddyPool* Pool = nullptr;
+			FD3D12BuddyAllocator* Allocator = nullptr;
 			uint32_t OffsetMinUnits = 0;
 			uint32_t Order = 0;
 			uint64_t FenceValue = 0;
 			ED3D12CommandQueueType QueueType = ED3D12CommandQueueType::Default;
 		};
 
-		mutable std::mutex PlacedBuddyDeferredMutex;
-		std::vector<FPlacedBuddyPendingFree> PlacedBuddyDeferred;
+		mutable std::mutex BuddyAllocatorDeferredMutex;
+		std::vector<FBuddyAllocatorPendingFree> BuddyAllocatorDeferred;
 
-		void ProcessPlacedBuddyDeferredFrees();
-		void DrainPlacedBuddyDeferredWithWait();
+		void ProcessBuddyAllocatorDeferredFrees();
+		void DrainBuddyAllocatorDeferredWithWait();
 	};
 
 	class FD3D12LinearAllocator : public FD3D12DeviceChild

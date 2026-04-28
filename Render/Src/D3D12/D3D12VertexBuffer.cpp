@@ -44,7 +44,7 @@ namespace RenderCore
 		D3D12_RESOURCE_DESC ResDesc = DescribeBuffer();
 		// UE-style: vertex buffers live in DEFAULT memory.
 		// Dynamic updates use transient UPLOAD allocations + CopyBufferRegion, not committed UPLOAD buffers.
-		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_GENERIC_READ;
+		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_PROPERTIES HeapProps;
 		HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 		HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;

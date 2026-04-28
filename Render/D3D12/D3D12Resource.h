@@ -9,12 +9,13 @@
 namespace RenderCore
 {
 	class FD3D12Resource;
-	class D3D12PendingResourceBarrier
+	// UE D3D12RHI: FD3D12PendingResourceBarrier - deferred transition when command-list state is still TBD.
+	class FD3D12PendingResourceBarrier
 	{
 	public:
-		FD3D12Resource*			Resource;
-		D3D12_RESOURCE_STATES	State;
-		uint32_t                SubResource;
+		FD3D12Resource*              Resource;
+		D3D12_RESOURCE_STATES       State;
+		uint32_t                     SubResource;
 	};
 
 	class D3D12RefCount
@@ -164,7 +165,14 @@ namespace RenderCore
 			if (HeapType == D3D12_HEAP_TYPE_UPLOAD && RenderCore::D3D12RHI_ShouldEnableMemMon())
 			{
 				const uint64_t Bytes = EstimateBytes(Desc);
-				D3D12UploadWCDiagnostics_OnUploadMap(L"FD3D12Resource.Map(Upload)", ResourceBaseAddress, Bytes);
+				const wchar_t* tagPtr = L"FD3D12Resource.Map(Upload)";
+				wchar_t tagScratch[112];
+				if (!DebugName.empty())
+				{
+					_snwprintf_s(tagScratch, _TRUNCATE, L"FD3D12Resource|%s", DebugName.c_str());
+					tagPtr = tagScratch;
+				}
+				D3D12UploadWCDiagnostics_OnUploadMap(tagPtr, ResourceBaseAddress, Bytes);
 			}
 
 			return ResourceBaseAddress;
@@ -313,6 +321,14 @@ namespace RenderCore
 			void InitalizeResourceState(D3D12_RESOURCE_STATES InitialState)
 			{
 				SubresourceCount = GetMipLevels() * GetArraySize() * GetPlaneCount();
+
+				// Match D3D12 #1328: committed buffers start COMMON (GENERIC_READ / COPY_DEST ignored except READBACK).
+				if (Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+					&& HeapType != D3D12_HEAP_TYPE_READBACK
+					&& (InitialState == D3D12_RESOURCE_STATE_GENERIC_READ || InitialState == D3D12_RESOURCE_STATE_COPY_DEST))
+				{
+					InitialState = D3D12_RESOURCE_STATE_COMMON;
+				}
 
 #if D3D12_RHI_RAYTRACING
 				if (InitialState == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)

@@ -43,7 +43,7 @@ namespace RenderCore
 		std::shared_ptr<FRootSignature> RootSignature;
 
 		std::shared_ptr<FDynamicDescriptorHeap> DynamicViewDescriptorHeap;
-		std::unique_ptr<FD3D12TransientUploadRing> TransientUploadRing;
+		std::unique_ptr<FD3D12FastConstantAllocator> TransientUniformBufferAllocator;
 
 		~FD3D12AdapterPrivate()
 		{
@@ -69,7 +69,7 @@ namespace RenderCore
 			FenceCorePool = {};
 			FrameFence = {};
 			DynamicViewDescriptorHeap = {};
-			TransientUploadRing = {};
+			TransientUniformBufferAllocator = {};
 			Device = {};
 
 			if (DxgiDebug)
@@ -181,19 +181,12 @@ namespace RenderCore
 		d->Device = std::make_shared<FD3D12Device>(this->shared_from_this());
 		d->Device->Initialize();
 
-		// UE-style bounded transient upload ring (used for dynamic constant/uniform data).
-		// Also used as a first-choice staging allocator for transient UPLOAD allocations; keep it bounded
-		// but large enough to absorb texture upload bursts without falling back to creating new WC regions.
-		d->TransientUploadRing = std::make_unique<FD3D12TransientUploadRing>(this->shared_from_this());
-		int32_t RingMB = 128;
-		core::CommandLine::Get().GetInteger("d3d12_upload_ring_mb", RingMB);
-		if (RingMB < 64)
-			RingMB = 64;
-		const uint64_t RingBytes = (uint64_t)RingMB * 1024ull * 1024ull;
-		(void)d->TransientUploadRing->Initialize(RingBytes);
+		// UE 4.26-style transient uniform allocator (FD3D12FastConstantAllocator + FD3D12AbstractRingBuffer).
+		// Initial size matches d3d12studyMaster CVarTransientUniformBufferAllocatorSizeKB default (2 * 1024 KB).
+		d->TransientUniformBufferAllocator = std::make_unique<FD3D12FastConstantAllocator>(this->shared_from_this(), 2u * 1024u * 1024u);
+		d->TransientUniformBufferAllocator->Init();
 
-		// Create device-global null uniform buffer after the upload ring exists.
-		// (D3D12UniformBuffer allocates from the ring.)
+		// Create device-global null uniform buffer after the transient uniform allocator exists.
 		d->Device->InitializeNullUniformBuffer();
 
 		CreateSignatures();
@@ -265,11 +258,11 @@ namespace RenderCore
 		return *d->FrameFence;
 	}
 
-	FD3D12TransientUploadRing& FD3D12Adapter::GetTransientUploadRing()
+	FD3D12FastConstantAllocator& FD3D12Adapter::GetTransientUniformBufferAllocator()
 	{
 		C_P(FD3D12Adapter);
-		Assert(d->TransientUploadRing.get());
-		return *d->TransientUploadRing;
+		Assert(d->TransientUniformBufferAllocator.get());
+		return *d->TransientUniformBufferAllocator;
 	}
 
 	std::shared_ptr<FD3D12Device> FD3D12Adapter::GetDevice() const
@@ -388,16 +381,26 @@ namespace RenderCore
 			}
 		}
 
+		// D3D12 #1328: committed buffers ignore GENERIC_READ / COPY_DEST at creation (runtime starts COMMON).
+		// READBACK buffers keep COPY_DEST. Coerce before the API call so validation matches FD3D12Resource state.
+		D3D12_RESOURCE_STATES EffectiveInitial = InitialUsage;
+		if (InDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+			&& HeapProps.Type != D3D12_HEAP_TYPE_READBACK
+			&& (InitialUsage == D3D12_RESOURCE_STATE_GENERIC_READ || InitialUsage == D3D12_RESOURCE_STATE_COPY_DEST))
+		{
+			EffectiveInitial = D3D12_RESOURCE_STATE_COMMON;
+		}
+
 		win32::com_ptr<ID3D12Resource> pResource;
 		Render::D3D12CallStats::IncCreateCommittedResource();
-		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));
+		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, EffectiveInitial, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));
 
 		if (SUCCEEDED(hr))
 		{
 			// Set a default name (can override later).
 			pResource->SetName(Name);
 			// Set the output pointer
-			*ppOutResource = new FD3D12Resource(GetDevice(), pResource.get(), InitialUsage, InDesc, HeapProps.Type);
+			*ppOutResource = new FD3D12Resource(GetDevice(), pResource.get(), EffectiveInitial, InDesc, HeapProps.Type);
 			(*ppOutResource)->AddRef();
 		}
 

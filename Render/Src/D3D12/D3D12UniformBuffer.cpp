@@ -50,8 +50,8 @@ namespace RenderCore
 
 		// UE-style: allocate dynamic uniform data from a bounded transient upload ring.
 		// This avoids unbounded WC commit growth from "many small" allocations that touch new pages over time.
-		auto& Ring = GetParentAdapter()->GetTransientUploadRing();
-		d->RingAllocation = Ring.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);
+		auto& TransientUB = GetParentAdapter()->GetTransientUniformBufferAllocator();
+		d->RingAllocation = TransientUB.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);
 		d->RingAllocated = (d->RingAllocation.CPU != nullptr && d->RingAllocation.GpuAddress != 0);
 		d->RingWriteIndex = 0;
 
@@ -89,8 +89,8 @@ namespace RenderCore
 			return;
 
 		// Allocate a fresh slice and publish it; reuse is fence-gated by the ring allocator.
-		auto& Ring = GetParentAdapter()->GetTransientUploadRing();
-		FAllocation NewAlloc = Ring.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);
+		auto& TransientUB = GetParentAdapter()->GetTransientUniformBufferAllocator();
+		FAllocation NewAlloc = TransientUB.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);
 		if (!NewAlloc.CPU || NewAlloc.GpuAddress == 0)
 			return;
 

@@ -69,6 +69,20 @@ namespace RenderCore
 
 	D3D12_RESOURCE_STATES CResourceState::GetSubresourceState(uint32_t SubresourceIndex) const
 	{
+		if (SubresourceIndex == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES)
+		{
+			if (m_AllSubresourcesSame)
+			{
+				return m_ResourceState;
+			}
+			Assert(m_SubresourceState.size() > 0);
+			const D3D12_RESOURCE_STATES First = m_SubresourceState[0];
+			for (uint32_t i = 1; i < static_cast<uint32_t>(m_SubresourceState.size()); ++i)
+			{
+				Assert(m_SubresourceState[i] == First);
+			}
+			return First;
+		}
 		if (m_AllSubresourcesSame)
 		{
 			return m_ResourceState;

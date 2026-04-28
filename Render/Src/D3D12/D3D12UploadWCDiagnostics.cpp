@@ -82,6 +82,8 @@ namespace RenderCore
 			return span;
 		}
 
+		static void FormatAddrSymbol(wchar_t* out, size_t outChars, void* addr);
+
 		static std::mutex& RegionsMutex()
 		{
 			static std::mutex sMu;
@@ -131,6 +133,59 @@ namespace RenderCore
 					::SymLoadModuleExW(proc, nullptr, modulePathW, nullptr, (DWORD64)(uintptr_t)hMod, 0, nullptr, 0);
 				}
 			});
+		}
+
+		static std::mutex sProcessWideUnknownStackMu;
+		static std::unordered_set<void*> sProcessWideUnknownStackLoggedBases;
+
+		// When process-wide WC commit grows on an AllocationBase we never registered via OnUploadMap,
+		// capture a one-time backtrace from the memmon sampling thread (may not be the code that touched pages).
+		static void MaybeLogProcessWideUnknownWcStack(void* allocBase, uint64_t deltaBytes, uint64_t spanBytes, const wchar_t* tagW)
+		{
+			if (!allocBase || !tagW || tagW[0] != L'?' || tagW[1] != 0)
+				return;
+			if (!D3D12RHI_ShouldEnableMemMonStacks() && !D3D12RHI_ShouldEnableMemMonDeep())
+				return;
+
+			{
+				std::lock_guard<std::mutex> lk(sProcessWideUnknownStackMu);
+				if (!sProcessWideUnknownStackLoggedBases.insert(allocBase).second)
+					return;
+				if (sProcessWideUnknownStackLoggedBases.size() > 4096)
+					sProcessWideUnknownStackLoggedBases.clear();
+			}
+
+			static thread_local bool sReentry = false;
+			if (sReentry)
+				return;
+			sReentry = true;
+
+			void* frames[16] = {};
+			const USHORT n = ::RtlCaptureStackBackTrace(2, 16, frames, nullptr);
+
+			wchar_t s0[256] = {}, s1[256] = {}, s2[256] = {}, s3[256] = {};
+			wchar_t s4[256] = {}, s5[256] = {}, s6[256] = {}, s7[256] = {};
+			if (n > 0)
+			{
+				FormatAddrSymbol(s0, _countof(s0), frames[0]);
+				FormatAddrSymbol(s1, _countof(s1), (n > 1 ? frames[1] : nullptr));
+				FormatAddrSymbol(s2, _countof(s2), (n > 2 ? frames[2] : nullptr));
+				FormatAddrSymbol(s3, _countof(s3), (n > 3 ? frames[3] : nullptr));
+				FormatAddrSymbol(s4, _countof(s4), (n > 4 ? frames[4] : nullptr));
+				FormatAddrSymbol(s5, _countof(s5), (n > 5 ? frames[5] : nullptr));
+				FormatAddrSymbol(s6, _countof(s6), (n > 6 ? frames[6] : nullptr));
+				FormatAddrSymbol(s7, _countof(s7), (n > 7 ? frames[7] : nullptr));
+			}
+
+			const double MB = 1024.0 * 1024.0;
+			core::LOG(core::log_inf,
+				L"[D3D12] WCCommitUnknown stack allocBase=%p +%.1fMB span=%.1fMB (sampler; commit may be async) : %s | %s | %s | %s | %s | %s | %s | %s",
+				allocBase,
+				(double)deltaBytes / MB,
+				(double)spanBytes / MB,
+				s0, s1, s2, s3, s4, s5, s6, s7);
+
+			sReentry = false;
 		}
 
 		static void FormatAddrSymbol(wchar_t* out, size_t outChars, void* addr)
@@ -200,6 +255,26 @@ namespace RenderCore
 		}
 	}
 
+	static int TagSpecificityRank(const wchar_t* t)
+	{
+		if (!t || !t[0])
+			return 0;
+		if (wcsstr(t, L"LinearPage_BuddyAllocator") != nullptr || wcsstr(t, L"BuddyAllocatorHeap") != nullptr
+			|| wcsstr(t, L"LinearPage_PlacedBuddy") != nullptr || wcsstr(t, L"PlacedBuddy") != nullptr)
+			return 4;
+		if (wcsstr(t, L"FastConstantAllocator") != nullptr)
+			return 4;
+		if (wcsstr(t, L"ImGui.") != nullptr)
+			return 4;
+		if (wcsstr(t, L"FD3D12FastAllocatorPage") != nullptr)
+			return 3;
+		if (wcsstr(t, L"FD3D12Resource|") != nullptr)
+			return 3;
+		if (wcsstr(t, L"FD3D12Resource.Map") != nullptr)
+			return 1;
+		return 2;
+	}
+
 	void D3D12UploadWCDiagnostics_RegisterMappedRegion(const wchar_t* Tag, void* BasePtr, uint64_t SizeBytes)
 	{
 		if (!BasePtr || SizeBytes == 0)
@@ -231,6 +306,10 @@ namespace RenderCore
 				// Best-effort: keep the max size we've seen.
 				if (trackedSize > e.SizeBytes)
 					e.SizeBytes = trackedSize;
+				// Prefer a more specific tag when the same AllocationBase is registered from multiple paths
+				// (e.g. FD3D12Resource::Map first, then LinearPage_BuddyAllocator / FastAllocatorPage).
+				if (Tag && Tag[0] && TagSpecificityRank(Tag) > TagSpecificityRank(e.Tag))
+					wcsncpy_s(e.Tag, Tag, _TRUNCATE);
 				return;
 			}
 		}
@@ -389,6 +468,9 @@ namespace RenderCore
 				d.Base,
 				(double)spanBytes / MB,
 				tagW);
+
+			MaybeLogProcessWideUnknownWcStack(d.Base, d.DeltaBytes, spanBytes, tagW);
+
 			if (++printed >= kMaxLines)
 				break;
 		}
@@ -404,13 +486,15 @@ namespace RenderCore
 		MEMORY_BASIC_INFORMATION mbi = {};
 		if (::VirtualQuery(MappedPtr, &mbi, sizeof(mbi)) != sizeof(mbi))
 			return;
+
+		// Always register the mapped span for process-wide WC commit deltas. Some drivers/runtime paths
+		// only flip sub-ranges to PAGE_WRITECOMBINE after first touch; gating registration on "WC here"
+		// would leave AllocationBase untagged and show up as tag=? in DumpProcessWideWcCommitDeltas.
+		D3D12UploadWCDiagnostics_RegisterMappedRegion(Tag, MappedPtr, SizeBytes);
+
 		const bool bWcHere = ((mbi.Protect & PAGE_WRITECOMBINE) != 0) || ((mbi.AllocationProtect & PAGE_WRITECOMBINE) != 0);
 		if (!bWcHere)
 			return;
-
-		// Track using the mapped pointer (not AllocationBase): the first region at AllocationBase is often
-		// reserved/no-access, so querying WC only at AllocationBase would skip registration entirely.
-		D3D12UploadWCDiagnostics_RegisterMappedRegion(Tag, MappedPtr, SizeBytes);
 
 		static std::mutex sMu;
 		static std::unordered_set<void*> sSeenBases;

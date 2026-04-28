@@ -137,8 +137,8 @@ float3 ACESFilm(float3 color)
 
 float LinearToSrgbChannel(float lin)
 {
-	if (lin < 0.00313067) return lin * 12.92;
-	return pow(lin, (1.0 / 2.4)) * 1.055 - 0.055;
+	// Single expression avoids fxc X4000 "potentially uninitialized" on split if/return paths.
+	return (lin < 0.00313067) ? (lin * 12.92) : (pow(lin, (1.0 / 2.4)) * 1.055 - 0.055);
 }
 
 float3 LinearToSrgb(float3 lin)

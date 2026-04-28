@@ -4,7 +4,7 @@
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12DescriptorCache.h"
-#include "D3D12/D3D12UploadPlacedBuddyPool.h"
+#include "D3D12/D3D12BuddyAllocator.h"
 #include "D3D12/D3D12UniformBuffer.h"
 
 namespace RenderCore
@@ -116,10 +116,10 @@ namespace RenderCore
 		FastAllocator[0] = std::make_shared<FD3D12FastAllocator>(this->shared_from_this());
 		FastAllocator[1] = std::make_shared<FD3D12FastAllocator>(this->shared_from_this());
 
-		UploadPlacedBuddyPool = std::make_unique<FD3D12UploadPlacedBuddyPool>(this->shared_from_this());
+		BuddyAllocator = std::make_unique<FD3D12BuddyAllocator>(this->shared_from_this(), eBuddyAllocationStrategy::kPlacedResourceStrategy);
 		constexpr uint64_t kUploadBuddyHeapBytes = 128ull * 1024ull * 1024ull;
-		if (!UploadPlacedBuddyPool->Initialize(kUploadBuddyHeapBytes))
-			UploadPlacedBuddyPool.reset();
+		if (!BuddyAllocator->Initialize(kUploadBuddyHeapBytes))
+			BuddyAllocator.reset();
 	}
 
 	void FD3D12Device::InitDescriptorAllocator()
@@ -139,7 +139,7 @@ namespace RenderCore
 		DefaultCommandContext = {};
 		AsyncComputeContext = {};
 
-		// FastAllocator Destroy may run ProcessPlacedBuddyDeferredFrees / Drain, which query fences on
+		// FastAllocator Destroy may run ProcessBuddyAllocatorDeferredFrees / Drain, which query fences on
 		// CommandListManagers. Tear those managers down only after allocators no longer need them.
 		if (FastAllocator[0])
 		{
@@ -152,7 +152,7 @@ namespace RenderCore
 			FastAllocator[1] = {};
 		}
 
-		UploadPlacedBuddyPool.reset();
+		BuddyAllocator.reset();
 
 		if (CommandListManager)
 			CommandListManager->Destroy();

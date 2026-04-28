@@ -1,4 +1,4 @@
-﻿#include "D3D12/D3D12UploadPlacedBuddyPool.h"
+#include "D3D12/D3D12BuddyAllocator.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
@@ -7,18 +7,21 @@
 
 namespace RenderCore
 {
-	FD3D12UploadPlacedBuddyPool::FD3D12UploadPlacedBuddyPool(std::weak_ptr<FD3D12Device> InParent)
+	FD3D12BuddyAllocator::FD3D12BuddyAllocator(std::weak_ptr<FD3D12Device> InParent, eBuddyAllocationStrategy InStrategy)
 		: FD3D12DeviceChild(InParent)
+		, AllocationStrategy(InStrategy)
 	{
+		Assert(AllocationStrategy == eBuddyAllocationStrategy::kPlacedResourceStrategy);
 	}
 
-	FD3D12UploadPlacedBuddyPool::~FD3D12UploadPlacedBuddyPool()
+	FD3D12BuddyAllocator::~FD3D12BuddyAllocator()
 	{
 		Destroy();
 	}
 
-	bool FD3D12UploadPlacedBuddyPool::Initialize(uint64_t HeapSizeBytes)
+	bool FD3D12BuddyAllocator::Initialize(uint64_t HeapSizeBytes)
 	{
+		Assert(AllocationStrategy == eBuddyAllocationStrategy::kPlacedResourceStrategy);
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 		if (bInitialized)
 			return true;
@@ -51,9 +54,7 @@ namespace RenderCore
 		if (FAILED(Dev->CreateHeap(&Desc, IID_PPV_ARGS(Heap.get_init_ref()))))
 			return false;
 
-		// Track non-linear upload heap allocations in memmon. These heaps contribute to WC virtual memory
-		// but don't show up in LinearPage_Upload* counters.
-		D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"UploadPlacedBuddyPoolHeap", (std::size_t)HeapSizeBytes);
+		D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"BuddyAllocatorHeap", (std::size_t)HeapSizeBytes);
 
 		BackingHeapSizeBytes = HeapSizeBytes;
 		const uint32_t unitSize = maxBlockBytes / kMinBlockBytes;
@@ -67,7 +68,7 @@ namespace RenderCore
 		return true;
 	}
 
-	void FD3D12UploadPlacedBuddyPool::Destroy()
+	void FD3D12BuddyAllocator::Destroy()
 	{
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 		if (!bInitialized)
@@ -77,12 +78,12 @@ namespace RenderCore
 		bInitialized = false;
 	}
 
-	uint32_t FD3D12UploadPlacedBuddyPool::SizeToUnitSize(uint32_t SizeBytes) const
+	uint32_t FD3D12BuddyAllocator::SizeToUnitSize(uint32_t SizeBytes) const
 	{
 		return (SizeBytes + kMinBlockBytes - 1) / kMinBlockBytes;
 	}
 
-	uint32_t FD3D12UploadPlacedBuddyPool::UnitSizeToOrder(uint32_t UnitSize) const
+	uint32_t FD3D12BuddyAllocator::UnitSizeToOrder(uint32_t UnitSize) const
 	{
 		if (UnitSize <= 1)
 			return 0;
@@ -91,7 +92,7 @@ namespace RenderCore
 		return (uint32_t)Result;
 	}
 
-	uint32_t FD3D12UploadPlacedBuddyPool::AllocateBlock(uint32_t Order)
+	uint32_t FD3D12BuddyAllocator::AllocateBlock(uint32_t Order)
 	{
 		if (Order > MaxOrder)
 			return UINT32_MAX;
@@ -115,7 +116,7 @@ namespace RenderCore
 		return offset;
 	}
 
-	void FD3D12UploadPlacedBuddyPool::DeallocateBlockInternal(uint32_t Offset, uint32_t Order)
+	void FD3D12BuddyAllocator::DeallocateBlockInternal(uint32_t Offset, uint32_t Order)
 	{
 		const uint32_t size = OrderToUnitSize(Order);
 		const uint32_t buddy = GetBuddyOffset(Offset, size);
@@ -132,7 +133,7 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12UploadPlacedBuddyPool::DeallocateBlock(uint32_t OffsetInMinUnits, uint32_t Order)
+	void FD3D12BuddyAllocator::DeallocateBlock(uint32_t OffsetInMinUnits, uint32_t Order)
 	{
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 		if (!bInitialized)
@@ -140,9 +141,10 @@ namespace RenderCore
 		DeallocateBlockInternal(OffsetInMinUnits, Order);
 	}
 
-	bool FD3D12UploadPlacedBuddyPool::TryAllocatePlacedUploadPage(uint64_t PageSizeBytes, win32::com_ptr<ID3D12Resource>& OutResource,
+	bool FD3D12BuddyAllocator::TryAllocatePlacedUploadPage(uint64_t PageSizeBytes, win32::com_ptr<ID3D12Resource>& OutResource,
 		uint64_t& OutGpuVA, void*& OutCpuMapped, uint32_t& OutOffsetMinUnits, uint32_t& OutOrder)
 	{
+		Assert(AllocationStrategy == eBuddyAllocationStrategy::kPlacedResourceStrategy);
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 		OutResource.reset();
 		OutGpuVA = 0;
@@ -185,7 +187,7 @@ namespace RenderCore
 
 		ID3D12Device* Dev = GetParentDevice()->GetDevice();
 		win32::com_ptr<ID3D12Resource> Res;
-		if (FAILED(Dev->CreatePlacedResource(Heap.get(), heapOffsetBytes, &Rd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(Res.get_init_ref()))))
+		if (FAILED(Dev->CreatePlacedResource(Heap.get(), heapOffsetBytes, &Rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(Res.get_init_ref()))))
 		{
 			DeallocateBlockInternal(offsetUnits, order);
 			return false;
@@ -199,11 +201,10 @@ namespace RenderCore
 			return false;
 		}
 
-		// Placed upload pages also consume WC virtual memory. Track both map base regions and per-second bytes.
-		D3D12UploadWCDiagnostics_OnUploadMap(L"LinearPage_PlacedBuddy", Cpu, (uint64_t)PageSizeBytes);
-		D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"LinearPage_PlacedBuddy", (std::size_t)PageSizeBytes);
+		D3D12UploadWCDiagnostics_OnUploadMap(L"LinearPage_BuddyAllocator", Cpu, (uint64_t)PageSizeBytes);
+		D3D12UploadWCDiagnostics_OnCreateUploadCommittedBuffer(L"LinearPage_BuddyAllocator", (std::size_t)PageSizeBytes);
 
-		Res->SetName(L"LinearPage_PlacedBuddy");
+		Res->SetName(L"LinearPage_BuddyAllocator");
 		OutResource = std::move(Res);
 		OutGpuVA = OutResource->GetGPUVirtualAddress();
 		OutCpuMapped = Cpu;

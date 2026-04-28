@@ -75,7 +75,11 @@ namespace RenderCore
 			auto RenderTargetRHI = RHIResourceCast(Target.get());
 			if (RenderTargetRHI && RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			{
-				TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+				// GetRTV() is mip0 only (D3D12Texture2D::CreateDerivedViews). Whole-resource RT transitions
+				// collapse tracking and break mixed mip RT/PSRV (#527) when other mips stay shader-visible.
+				FD3D12Resource* const Res = RenderTargetRHI->GetResource();
+				if (Res && Res->RequiresResourceStateTracking())
+					TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
 				D3D12TargetViews.emplace_back(RenderTargetRHI->GetRTV());
 			}
 		}
@@ -126,7 +130,12 @@ namespace RenderCore
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
 		if (TextureCubeRHI && TextureCubeRHI->GetRTV(IndexView,IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
-			TransitionResource(TextureCubeRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			FD3D12Resource* const Res = TextureCubeRHI->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+			{
+				const uint32_t SubIdx = TextureCubeRHI->GetSubresourceIndex(IndexView, IndexMip);
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, SubIdx, false);
+			}
 			if (TextureCubeRHI->GetDepthResource())
 				TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(IndexView, IndexMip);
@@ -145,6 +154,12 @@ namespace RenderCore
 		Assert(CommandListHandle.GraphicsCommandList());
 		if (TextureCube && TextureCube->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
+			FD3D12Resource* const Res = TextureCube->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+			{
+				const uint32_t SubIdx = TextureCube->GetSubresourceIndex(IndexView, IndexMip);
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, SubIdx, false);
+			}
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCube->GetRTV(IndexView, IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCube->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE,
@@ -162,7 +177,11 @@ namespace RenderCore
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
 		// Ensure resources are in the correct state for clear operations.
 		if (TargetRHI)
-			TransitionResource(TargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+		{
+			FD3D12Resource* const Res = TargetRHI->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
+		}
 		if (DepthRHI)
 			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		CommandListHandle.FlushResourceBarriers();
@@ -181,7 +200,11 @@ namespace RenderCore
 		{
 			auto TargetRHI = RHIResourceCast(Target.get());
 			if (TargetRHI)
-				TransitionResource(TargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+			{
+				FD3D12Resource* const Res = TargetRHI->GetResource();
+				if (Res && Res->RequiresResourceStateTracking())
+					TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
+			}
 		}
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
 		if (DepthRHI)
@@ -229,7 +252,11 @@ namespace RenderCore
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
 		if (!RenderTargetRHI)
 			return;
-		TransitionResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
+		if (FD3D12Resource* const Res = RenderTargetRHI->GetResource())
+		{
+			if (Res->RequiresResourceStateTracking())
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
+		}
 		if (RenderTargetRHI->GetDepthResource())
 			TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		CommandListHandle.FlushResourceBarriers();
@@ -407,10 +434,19 @@ namespace RenderCore
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
 		if (Texture2D)
 		{
-			if(ShaderType == SF_Pixel)
-				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, false);
-			if(ShaderType == SF_Compute)
-				TransitionResource(Texture2D->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, false);
+			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
+			{
+				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
+					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				FD3D12Resource* const Res = Texture2D->GetResource();
+				if (Res && Res->RequiresResourceStateTracking())
+				{
+					const uint32_t n = Res->GetSubresourceCount();
+					for (uint32_t sub = 0; sub < n; ++sub)
+						TransitionSubResource(Res, TargetState, sub, false);
+				}
+			}
 			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
 	}
@@ -422,11 +458,26 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			if (ShaderType == SF_Pixel)
-				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, false);
-			if (ShaderType == SF_Compute)
-				TransitionResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, false);
-			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, -1,std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
+			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
+			{
+				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
+					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				FD3D12Resource* const Res = TextureCube->GetResource();
+				if (Res && Res->RequiresResourceStateTracking())
+				{
+					const uint32_t numMips = TextureCube->GetNumMips();
+					for (uint32_t mip = 0; mip < numMips; ++mip)
+					{
+						for (int face = 0; face < 6; ++face)
+						{
+							const uint32_t subIdx = TextureCube->GetSubresourceIndex(face, (int32_t)mip);
+							TransitionSubResource(Res, TargetState, subIdx, false);
+						}
+					}
+				}
+			}
+			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, -1, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
 
@@ -437,10 +488,23 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			if (ShaderType == SF_Pixel)
-				TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, Mip, false);
-			if (ShaderType == SF_Compute)
-				TransitionSubResource(TextureCube->GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, Mip, false);
+			// Subresources are laid out as Face * NumMips + MipSlice (see D3D12TextureCube::GetSubresourceIndex).
+			// A cube SRV at one mip touches all six faces; transition each slice that mip level uses.
+			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
+			{
+				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
+					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				FD3D12Resource* const Res = TextureCube->GetResource();
+				if (Res && Res->RequiresResourceStateTracking())
+				{
+					for (int Face = 0; Face < 6; ++Face)
+					{
+						const uint32_t SubIdx = TextureCube->GetSubresourceIndex(Face, Mip);
+						TransitionSubResource(Res, TargetState, SubIdx, false);
+					}
+				}
+			}
 			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -603,8 +667,9 @@ namespace RenderCore
 		if (!D3D12Src || !D3D12Dst)
 			return;
 		
-		auto SrcOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
-		auto DstOldState = D3D12Dst->GetResource()->GetResourceState().GetSubresourceState(0);
+		// Use per-command-list state: global is only advanced after submit (see CommitTrackedResourceStateToGlobal).
+		const D3D12_RESOURCE_STATES SrcOldState = CommandListHandle.GetResourceState(D3D12Src->GetResource()).GetSubresourceState(0);
+		const D3D12_RESOURCE_STATES DstOldState = CommandListHandle.GetResourceState(D3D12Dst->GetResource()).GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
 		// Only flush barriers; avoid submitting mid-frame.
@@ -624,8 +689,8 @@ namespace RenderCore
 		auto D3D12Dst = RHIResourceCast(DstTex.get());
 		if (!D3D12Src || !D3D12Dst)
 			return;
-		auto SrcOldState = D3D12Src->GetResource()->GetResourceState().GetSubresourceState(0);
-		auto DstOldState = D3D12Dst->GetResource()->GetResourceState().GetSubresourceState(0);
+		const D3D12_RESOURCE_STATES SrcOldState = CommandListHandle.GetResourceState(D3D12Src->GetResource()).GetSubresourceState(0);
+		const D3D12_RESOURCE_STATES DstOldState = CommandListHandle.GetResourceState(D3D12Dst->GetResource()).GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
 		// Only flush barriers; avoid submitting mid-frame.
@@ -785,66 +850,94 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
-		// MiniEngine-style optimization:
-		// Use a single ALL_SUBRESOURCES barrier whenever all subresources share the same old state.
-		// Fall back to per-subresource barriers only when states are mixed.
+		// UE D3D12RHI::TransitionResourceWithTracking (whole resource): use per-command-list tracked state;
+		// when state is still TBD, queue FD3D12PendingResourceBarrier instead of emitting a bogus Before state.
+		if (!CommandListHandle)
+			return;
+		if (!Resource->RequiresResourceStateTracking())
+			return;
+
 		const uint16_t SubresourceCount = Resource->GetSubresourceCount();
 		if (SubresourceCount == 0)
 			return;
 
-		const D3D12_RESOURCE_STATES Old0 = Resource->GetResourceState().GetSubresourceState(0);
+		CResourceState& Cl = CommandListHandle.GetResourceState(Resource);
 
-		bool bAllSameOld = true;
-		for (uint16_t s = 1; s < SubresourceCount; ++s)
+		bool bDidImmediate = false;
+		bool bDidPending = false;
+
+		if (!Cl.AreAllSubresourcesSame())
 		{
-			if (Resource->GetResourceState().GetSubresourceState(s) != Old0)
+			for (uint16_t SubresourceIndex = 0; SubresourceIndex < SubresourceCount; ++SubresourceIndex)
 			{
-				bAllSameOld = false;
-				break;
+				const D3D12_RESOURCE_STATES Before = Cl.GetSubresourceState(SubresourceIndex);
+				if (Before == D3D12_RESOURCE_STATE_TBD)
+				{
+					CommandListHandle.AddPendingResourceBarrier(Resource, NewState, SubresourceIndex);
+					Cl.SetSubresourceState(SubresourceIndex, NewState);
+					bDidPending = true;
+				}
+				else if (Before != NewState)
+				{
+					CommandListHandle.AddTransitionBarrier(Resource, Before, NewState, SubresourceIndex);
+					Cl.SetSubresourceState(SubresourceIndex, NewState);
+					bDidImmediate = true;
+				}
 			}
-		}
 
-		bool bAnyTransition = false;
-		if (bAllSameOld)
-		{
-			if (Old0 != NewState)
+			// UE: only collapse to uniform per-resource tracking if every subresource really reached NewState.
+			// Unconditional SetResourceState here overwrote per-sub states and produced bogus Before in barriers (#523).
+			if (Cl.CheckResourceState(NewState))
 			{
-				CommandListHandle.AddTransitionBarrier(Resource, Old0, NewState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
-				Resource->GetResourceState().SetResourceState(NewState);
-				bAnyTransition = true;
+				Cl.SetResourceState(NewState);
 			}
 		}
 		else
 		{
-			for (uint16_t Subresource = 0; Subresource < SubresourceCount; ++Subresource)
+			const D3D12_RESOURCE_STATES Before = Cl.GetSubresourceState(D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+			if (Before == D3D12_RESOURCE_STATE_TBD)
 			{
-				const D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(Subresource);
-				if (OldState != NewState)
-				{
-					CommandListHandle.AddTransitionBarrier(Resource, OldState, NewState, Subresource);
-					Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
-					bAnyTransition = true;
-				}
+				CommandListHandle.AddPendingResourceBarrier(Resource, NewState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+				Cl.SetResourceState(NewState);
+				bDidPending = true;
+			}
+			else if (Before != NewState)
+			{
+				CommandListHandle.AddTransitionBarrier(Resource, Before, NewState, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+				Cl.SetResourceState(NewState);
+				bDidImmediate = true;
 			}
 		}
 
-		if (bAnyTransition)
-			++numBarriers;
-		if (bAnyTransition && Flush)
+		// Immediate transitions are counted inside AddTransitionBarrier; do not double-count here.
+		if (Flush && (bDidImmediate || bDidPending))
 			CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush)
 	{
 		Assert(Subresource < Resource->GetSubresourceCount());
-		D3D12_RESOURCE_STATES OldState = Resource->GetResourceState().GetSubresourceState(Subresource);
-		if (OldState != NewState)
+		if (!CommandListHandle || !Resource->RequiresResourceStateTracking())
+			return;
+
+		CResourceState& Cl = CommandListHandle.GetResourceState(Resource);
+		const D3D12_RESOURCE_STATES Before = Cl.GetSubresourceState(Subresource);
+
+		if (Before == D3D12_RESOURCE_STATE_TBD)
 		{
-			CommandListHandle.AddTransitionBarrier(Resource, OldState, NewState, Subresource);
+			CommandListHandle.AddPendingResourceBarrier(Resource, NewState, Subresource);
+			Cl.SetSubresourceState(Subresource, NewState);
 			if (Flush)
 				CommandListHandle.FlushResourceBarriers();
-			Resource->GetResourceState().SetSubresourceState(Subresource, NewState);
-			++numBarriers;
+			return;
+		}
+
+		if (Before != NewState)
+		{
+			CommandListHandle.AddTransitionBarrier(Resource, Before, NewState, Subresource);
+			if (Flush)
+				CommandListHandle.FlushResourceBarriers();
+			Cl.SetSubresourceState(Subresource, NewState);
 		}
 	}
 

@@ -35,7 +35,7 @@ source_group("Source Files\\Imgui" FILES ${Src_Imgui} )
 
 #-----shader
 
-add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_D3D12} Src/D3D12/D3D12CallStats.cpp Src/D3D12/D3D12UploadWCDiagnostics.cpp Src/D3D12/D3D12RuntimeStatsMonitor.cpp Src/D3D12/D3D12UploadPlacedBuddyPool.cpp ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
+add_library(Render ${Src_RHI} ${Src_D3D11} ${Src_D3D12} Src/D3D12/D3D12CallStats.cpp Src/D3D12/D3D12UploadWCDiagnostics.cpp Src/D3D12/D3D12RuntimeStatsMonitor.cpp Src/D3D12/D3D12BuddyAllocator.cpp ${Src_RHIPrivate} ${Header_RHI} ${Header_D3D11} ${Header_D3D12} ${Header_RHIPrivate} ${Header_Imgui} ${Src_Imgui})
 
 #-------------------------------------------------------------------------------------------
 # Defines

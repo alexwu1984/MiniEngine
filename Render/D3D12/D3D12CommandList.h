@@ -207,7 +207,7 @@ namespace RenderCore
 			win32::com_ptr<ID3D12GraphicsCommandList4> RayTracingCommandList;
 #endif // D3D12_RHI_RAYTRACING
 			// Array of resources who's state needs to be synced between submits.
-			std::vector<D3D12PendingResourceBarrier>	PendingResourceBarriers;
+			std::vector<FD3D12PendingResourceBarrier>	PendingResourceBarriers;
 
 			/**
 			*	A map of all D3D resources, and their states, that were state transitioned with tracking.
@@ -220,6 +220,10 @@ namespace RenderCore
 
 			public:
 				CResourceState& GetResourceState(FD3D12Resource* pResource);
+
+				// After ExecuteCommandLists, copy per-list predicted states into FD3D12Resource global tracking
+				// so the next submit sees correct Before values (immediate barriers must not advance global during record).
+				void CommitTrackedStatesToGlobal();
 
 				// Empty the command list's resource state map after the command list is executed
 				void Empty();
@@ -464,11 +468,11 @@ namespace RenderCore
 		{
 			Assert(CommandListData);
 
-			D3D12PendingResourceBarrier PRB = { Resource, State, SubResource };
+			FD3D12PendingResourceBarrier PRB = { Resource, State, SubResource };
 			CommandListData->PendingResourceBarriers.push_back(PRB);
 		}
 
-		std::vector<D3D12PendingResourceBarrier>& PendingResourceBarriers()
+		std::vector<FD3D12PendingResourceBarrier>& PendingResourceBarriers()
 		{
 			Assert(CommandListData);
 			return CommandListData->PendingResourceBarriers;
@@ -479,6 +483,12 @@ namespace RenderCore
 		{
 			Assert(CommandListData);
 			CommandListData->TrackedResourceState.Empty();
+		}
+
+		void CommitTrackedResourceStateToGlobal()
+		{
+			Assert(CommandListData);
+			CommandListData->TrackedResourceState.CommitTrackedStatesToGlobal();
 		}
 
 		void SetCurrentOwningContext(D3D12CommandContext* context)

@@ -107,7 +107,7 @@ namespace RenderCore
 
 		// Remove all pendering barriers from the command list
 		PendingResourceBarriers.clear();
-		PendingResourceBarriers.shrink_to_fit();
+		// Intentionally keep capacity to avoid per-frame realloc/free churn (shows up as heavy "Reset" in PIX).
 
 		// Per-list tracked states are only needed until the list is submitted; after the allocator
 		// is ready again, global resource state has been updated. Leaving this map populated causes
@@ -275,12 +275,18 @@ namespace RenderCore
 
 	void inline D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::ConditionalInitalize(FD3D12Resource* pResource, CResourceState& ResourceState)
 	{
-		// If there is no entry, all subresources should be in the resource's TBD state.
-		// This means we need to have pending resource barrier(s).
 		if (!ResourceState.CheckResourceStateInitalized())
 		{
 			ResourceState.Initialize(pResource->GetSubresourceCount());
-			Assert(ResourceState.CheckResourceState(D3D12_RESOURCE_STATE_TBD));
+			// Seed list tracking from the last committed GPU state so first transitions on this list
+			// match global pending resolution (global is not advanced during immediate barrier recording).
+			CResourceState& Global = pResource->GetResourceState();
+			if (Global.CheckResourceStateInitalized())
+			{
+				const uint32_t NumSub = pResource->GetSubresourceCount();
+				for (uint32_t Sub = 0; Sub < NumSub; ++Sub)
+					ResourceState.SetSubresourceState(Sub, Global.GetSubresourceState(Sub));
+			}
 		}
 
 		Assert(ResourceState.CheckResourceStateInitalized());
@@ -304,6 +310,26 @@ namespace RenderCore
 		// structure allocated across Present/Flush cycles (shows up as many small heap allocs in VS).
 		std::map<FD3D12Resource*, CResourceState> empty;
 		ResourceStates.swap(empty);
+	}
+
+	void D3D12CommandListHandle::D3D12CommandListData::FCommandListResourceState::CommitTrackedStatesToGlobal()
+	{
+		for (auto& Pair : ResourceStates)
+		{
+			FD3D12Resource* Resource = Pair.first;
+			if (!Resource || !Resource->RequiresResourceStateTracking())
+				continue;
+
+			CResourceState& Cl = Pair.second;
+			CResourceState& Global = Resource->GetResourceState();
+			const uint32_t NumSub = Resource->GetSubresourceCount();
+			for (uint32_t Sub = 0; Sub < NumSub; ++Sub)
+			{
+				const D3D12_RESOURCE_STATES S = Cl.GetSubresourceState(Sub);
+				if (S != D3D12_RESOURCE_STATE_TBD && S != D3D12_RESOURCE_STATE_CORRUPT)
+					Global.SetSubresourceState(Sub, S);
+			}
+		}
 	}
 
 }

@@ -632,15 +632,17 @@ namespace RenderCore
 
 	inline D3D12_RESOURCE_STATES DetermineInitialResourceState(D3D12_HEAP_TYPE HeapType, const D3D12_HEAP_PROPERTIES* pCustomHeapProperties = nullptr)
 	{
+		// UPLOAD heap buffers are created in COMMON; passing GENERIC_READ is ignored (#1328) and breaks state tracking.
+		if (HeapType == D3D12_HEAP_TYPE_UPLOAD)
+		{
+			return D3D12_RESOURCE_STATE_COMMON;
+		}
 		if (HeapType == D3D12_HEAP_TYPE_DEFAULT || IsCPUWritable(HeapType, pCustomHeapProperties))
 		{
 			return D3D12_RESOURCE_STATE_GENERIC_READ;
 		}
-		else
-		{
-			assert(HeapType == D3D12_HEAP_TYPE_READBACK);
-			return D3D12_RESOURCE_STATE_COPY_DEST;
-		}
+		assert(HeapType == D3D12_HEAP_TYPE_READBACK);
+		return D3D12_RESOURCE_STATE_COPY_DEST;
 	}
 
 	inline D3D12_RESOURCE_FLAGS CombineResourceFlags(int32_t TexFlags)

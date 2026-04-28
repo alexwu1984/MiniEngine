@@ -2,11 +2,12 @@
 #include "RHI/RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
-#include "D3D12/D3D12UploadPlacedBuddyPool.h"
+#include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12BuddyAllocator.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
-#include "core/commandline.h"
+#include "math/math.h"
 
 namespace RenderCore
 {
@@ -160,27 +161,27 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12FastAllocatorPage::BindPlacedBuddy(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, EFastAllocatorType OwnerAllocatorType)
+	void FD3D12FastAllocatorPage::BindBuddyAllocator(FD3D12BuddyAllocator* Allocator, uint32_t OffsetMinUnits, uint32_t Order, EFastAllocatorType OwnerAllocatorType)
 	{
-		PlacedBuddyPool = Pool;
-		PlacedBuddyOffsetMinUnits = OffsetMinUnits;
-		PlacedBuddyOrder = Order;
-		PlacedBuddyOwnerAllocatorType = OwnerAllocatorType;
-		bHasPlacedBuddyBinding = true;
+		BuddyAllocator = Allocator;
+		BuddyAllocatorOffsetMinUnits = OffsetMinUnits;
+		BuddyAllocatorOrder = Order;
+		BuddyAllocatorOwnerType = OwnerAllocatorType;
+		bHasBuddyAllocatorBinding = true;
 	}
 
 	FD3D12FastAllocatorPage::~FD3D12FastAllocatorPage()
 	{
 		Unmap();
-		if (bHasPlacedBuddyBinding && PlacedBuddyPool)
+		if (bHasBuddyAllocatorBinding && BuddyAllocator)
 		{
 			if (auto Dev = GetParentDevice())
 			{
-				Dev->GetFastAllocator(PlacedBuddyOwnerAllocatorType).EnqueuePlacedBuddyFree(
-					PlacedBuddyPool, PlacedBuddyOffsetMinUnits, PlacedBuddyOrder, GetFenceValue(), GetRetireQueueType());
+				Dev->GetFastAllocator(BuddyAllocatorOwnerType).EnqueueBuddyAllocatorFree(
+					BuddyAllocator, BuddyAllocatorOffsetMinUnits, BuddyAllocatorOrder, GetFenceValue(), GetRetireQueueType());
 			}
-			PlacedBuddyPool = nullptr;
-			bHasPlacedBuddyBinding = false;
+			BuddyAllocator = nullptr;
+			bHasBuddyAllocatorBinding = false;
 		}
 	}
 
@@ -194,30 +195,30 @@ namespace RenderCore
 		Assert(ms_TypeCounter <= FastAllocator_Num);
 	}
 
-	void FD3D12FastAllocator::EnqueuePlacedBuddyFree(FD3D12UploadPlacedBuddyPool* Pool, uint32_t OffsetMinUnits, uint32_t Order, uint64_t FenceValue, ED3D12CommandQueueType QueueType)
+	void FD3D12FastAllocator::EnqueueBuddyAllocatorFree(FD3D12BuddyAllocator* Allocator, uint32_t OffsetMinUnits, uint32_t Order, uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
-		if (!Pool)
+		if (!Allocator)
 			return;
-		std::lock_guard<std::mutex> Lock(PlacedBuddyDeferredMutex);
-		FPlacedBuddyPendingFree E{};
-		E.Pool = Pool;
+		std::lock_guard<std::mutex> Lock(BuddyAllocatorDeferredMutex);
+		FBuddyAllocatorPendingFree E{};
+		E.Allocator = Allocator;
 		E.OffsetMinUnits = OffsetMinUnits;
 		E.Order = Order;
 		E.FenceValue = FenceValue;
 		E.QueueType = QueueType;
-		PlacedBuddyDeferred.push_back(E);
+		BuddyAllocatorDeferred.push_back(E);
 	}
 
-	void FD3D12FastAllocator::ProcessPlacedBuddyDeferredFrees()
+	void FD3D12FastAllocator::ProcessBuddyAllocatorDeferredFrees()
 	{
 		auto Dev = GetParentDevice();
 		if (!Dev)
 			return;
 
-		std::lock_guard<std::mutex> Lock(PlacedBuddyDeferredMutex);
-		for (size_t i = 0; i < PlacedBuddyDeferred.size(); )
+		std::lock_guard<std::mutex> Lock(BuddyAllocatorDeferredMutex);
+		for (size_t i = 0; i < BuddyAllocatorDeferred.size(); )
 		{
-			const FPlacedBuddyPendingFree& E = PlacedBuddyDeferred[i];
+			const FBuddyAllocatorPendingFree& E = BuddyAllocatorDeferred[i];
 			FD3D12CommandListManager* Mgr = Dev->TryGetCommandListManager(E.QueueType);
 			if (!Mgr)
 			{
@@ -226,9 +227,9 @@ namespace RenderCore
 			}
 			if (Mgr->GetFence().IsFenceComplete(E.FenceValue))
 			{
-				if (E.Pool)
-					E.Pool->DeallocateBlock(E.OffsetMinUnits, E.Order);
-				PlacedBuddyDeferred.erase(PlacedBuddyDeferred.begin() + (ptrdiff_t)i);
+				if (E.Allocator)
+					E.Allocator->DeallocateBlock(E.OffsetMinUnits, E.Order);
+				BuddyAllocatorDeferred.erase(BuddyAllocatorDeferred.begin() + (ptrdiff_t)i);
 			}
 			else
 			{
@@ -237,22 +238,22 @@ namespace RenderCore
 		}
 	}
 
-	void FD3D12FastAllocator::DrainPlacedBuddyDeferredWithWait()
+	void FD3D12FastAllocator::DrainBuddyAllocatorDeferredWithWait()
 	{
 		auto Dev = GetParentDevice();
 		if (!Dev)
 			return;
 		for (int iter = 0; iter < 4096; ++iter)
 		{
-			ProcessPlacedBuddyDeferredFrees();
+			ProcessBuddyAllocatorDeferredFrees();
 			uint64_t FenceVal = 0;
 			ED3D12CommandQueueType Q = ED3D12CommandQueueType::Default;
 			{
-				std::lock_guard<std::mutex> Lock(PlacedBuddyDeferredMutex);
-				if (PlacedBuddyDeferred.empty())
+				std::lock_guard<std::mutex> Lock(BuddyAllocatorDeferredMutex);
+				if (BuddyAllocatorDeferred.empty())
 					return;
-				FenceVal = PlacedBuddyDeferred.front().FenceValue;
-				Q = PlacedBuddyDeferred.front().QueueType;
+				FenceVal = BuddyAllocatorDeferred.front().FenceValue;
+				Q = BuddyAllocatorDeferred.front().QueueType;
 			}
 			FD3D12CommandListManager* QMgr = Dev->TryGetCommandListManager(Q);
 			if (!QMgr)
@@ -423,32 +424,78 @@ namespace RenderCore
 		}
 	}
 
-	FD3D12TransientUploadRing::FD3D12TransientUploadRing(std::weak_ptr<FD3D12Adapter> InParentAdapter)
+	static constexpr uint64_t kFastConstantMaxGrowBytes = 64ull * 1024ull * 1024ull;
+
+	FD3D12FastConstantAllocator::FD3D12FastConstantAllocator(std::weak_ptr<FD3D12Adapter> InParentAdapter, uint32_t InitialPageBytes)
 		: FD3D12AdapterChild(InParentAdapter)
+		, InitialPageBytesRequested(InitialPageBytes)
+		, PageSizeBytes(0)
 		, Ring(0)
 	{
 	}
 
-	FD3D12TransientUploadRing::~FD3D12TransientUploadRing()
+	FD3D12FastConstantAllocator::~FD3D12FastConstantAllocator()
 	{
 		Destroy();
 	}
 
-	bool FD3D12TransientUploadRing::Initialize(uint64_t BufferBytes)
+	void FD3D12FastConstantAllocator::Destroy()
 	{
-		if (UploadResource)
-			return true;
+		if (Buffer)
+		{
+			if (auto Adapter = TryGetParentAdapter())
+			{
+				if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
+				{
+					if (auto Ctx = Dev->GetDefaultCommandContext())
+						Ctx->FlushCommands(true);
+					if (auto Ctx = Dev->GetDefaultAsyncComputeContext())
+						Ctx->FlushCommands(true);
+					Dev->BlockUntilIdle();
+				}
+			}
+			Buffer->Unmap();
+			Buffer.reset();
+		}
+		PageSizeBytes = 0;
+		Ring.Reset(0);
+	}
 
-		if (BufferBytes == 0)
+	void FD3D12FastConstantAllocator::Init()
+	{
+		PageSizeBytes = InitialPageBytesRequested;
+		if (PageSizeBytes < 64u * 1024u)
+			PageSizeBytes = 64u * 1024u;
+		PageSizeBytes = (uint64_t)math::AlignUp((uint32_t)PageSizeBytes, 256u);
+		if (!ReallocBuffer())
+			return;
+		Ring.Reset(PageSizeBytes);
+		if (auto Adapter = GetParentAdapter())
+			Ring.SetFence(&Adapter->GetFrameFence());
+	}
+
+	bool FD3D12FastConstantAllocator::ReallocBuffer()
+	{
+		auto Adapter = TryGetParentAdapter();
+		if (!Adapter || PageSizeBytes == 0)
 			return false;
 
-		auto Adapter = GetParentAdapter();
-		if (!Adapter)
-			return false;
+		// The transient ring backs root CBVs / copies. Growing frees the ID3D12Resource while a list may
+		// still reference it (#921). Flush + idle before release (frame-fence alone is insufficient).
+		if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
+		{
+			if (auto Ctx = Dev->GetDefaultCommandContext())
+				Ctx->FlushCommands(true);
+			if (auto Ctx = Dev->GetDefaultAsyncComputeContext())
+				Ctx->FlushCommands(true);
+			Dev->BlockUntilIdle();
+		}
 
-		SizeBytes = BufferBytes;
-		Ring.Reset(SizeBytes);
-		Ring.SetFence(&Adapter->GetFrameFence());
+		if (Buffer)
+		{
+			Buffer->Unmap();
+			Buffer.reset();
+		}
 
 		D3D12_HEAP_PROPERTIES HeapProps = {};
 		HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -460,7 +507,7 @@ namespace RenderCore
 		D3D12_RESOURCE_DESC Desc = {};
 		Desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 		Desc.Alignment = 0;
-		Desc.Width = SizeBytes;
+		Desc.Width = PageSizeBytes;
 		Desc.Height = 1;
 		Desc.DepthOrArraySize = 1;
 		Desc.MipLevels = 1;
@@ -470,85 +517,57 @@ namespace RenderCore
 		Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		Desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-		win32::com_ptr<ID3D12Resource> R;
-		VERIFYD3DRESULT(Adapter->GetD3DDevice()->CreateCommittedResource(
-			&HeapProps, D3D12_HEAP_FLAG_NONE, &Desc, D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr, IID_PPV_ARGS(R.get_init_ref())));
-		R->SetName(L"TransientUploadRing");
+		FD3D12Resource* NewRes = nullptr;
+		if (FAILED(Adapter->CreateCommittedResource(Desc, HeapProps, D3D12_RESOURCE_STATE_COMMON, nullptr, &NewRes, L"FastConstantAllocator")))
+			return false;
 
-		void* Cpu = nullptr;
-		D3D12_RANGE range = { 0, 0 };
-		VERIFYD3DRESULT(R->Map(0, &range, &Cpu));
-
-		UploadResource = std::move(R);
-		MappedBase = Cpu;
-
-		if (D3D12RHI_ShouldEnableMemMon())
-		{
-			D3D12UploadWCDiagnostics_OnUploadMap(L"TransientUploadRing", MappedBase, SizeBytes);
-		}
-
-		// Optional: pre-touch the ring to commit WC pages upfront.
-		// This avoids the appearance of a "leak" where VMemPrivate WC bytes climbs for many seconds
-		// as the CPU touches new upload pages over time.
-		// Enable via command line: d3d12_upload_ring_pretouch=1
-		{
-			int32_t Pretouch = 0;
-			core::CommandLine::Get().GetInteger("d3d12_upload_ring_pretouch", Pretouch);
-			if (Pretouch != 0 && MappedBase && SizeBytes)
-			{
-				// Touch one byte per 4KB page to force commit.
-				// Using 64KB steps would only touch 1 page out of 16 on 4KB-page systems.
-				volatile uint8_t* p = (volatile uint8_t*)MappedBase;
-				const uint64_t Step = 4ull * 1024ull;
-				for (uint64_t off = 0; off < SizeBytes; off += Step)
-				{
-					p[off] = 0;
-				}
-				// Touch the last byte as well.
-				p[SizeBytes - 1] = 0;
-			}
-		}
-
+		Buffer.reset(NewRes);
+		Buffer->SetName(L"FastConstantAllocator");
+		(void)Buffer->Map(nullptr);
 		return true;
 	}
 
-	void FD3D12TransientUploadRing::Destroy()
+	FAllocation FD3D12FastConstantAllocator::Allocate(uint64_t Bytes, uint64_t Alignment)
 	{
-		if (UploadResource)
+		FAllocation Out{};
+		if (Bytes == 0 || !Buffer)
+			return Out;
+
+		const uint64_t align = std::max<uint64_t>(Alignment, 256ull);
+		const uint64_t alignedBytes = math::AlignUp(Bytes, align);
+
+		for (int growAttempt = 0; growAttempt < 16; ++growAttempt)
 		{
-			UploadResource->Unmap(0, nullptr);
-			UploadResource = {};
+			const uint64_t off = Ring.Allocate(alignedBytes);
+			if (off != FD3D12AbstractRingBuffer::FailedReturnValue)
+			{
+				Out.Resource = nullptr;
+				Out.D3D12Resource = Buffer->GetResource();
+				Out.Offset = (size_t)off;
+				Out.CPU = (uint8_t*)Buffer->GetResourceBaseAddress() + off;
+				Out.GpuAddress = Buffer->GetGPUVirtualAddress() + off;
+				return Out;
+			}
+
+			const uint64_t bump = std::max<uint64_t>(PageSizeBytes / 2, alignedBytes);
+			const uint64_t nextSize = math::AlignUp(PageSizeBytes + bump, 256ull);
+			if (nextSize > kFastConstantMaxGrowBytes)
+				break;
+
+			PageSizeBytes = nextSize;
+			if (!ReallocBuffer())
+				break;
+			Ring.Reset(PageSizeBytes);
+			if (auto Adapter = GetParentAdapter())
+				Ring.SetFence(&Adapter->GetFrameFence());
 		}
-		MappedBase = nullptr;
-		SizeBytes = 0;
-		Ring.Reset(0);
-	}
 
-	FAllocation FD3D12TransientUploadRing::Allocate(uint64_t Bytes, uint64_t Alignment)
-	{
-		FAllocation Out = {};
-		if (!UploadResource || !MappedBase || SizeBytes == 0 || Bytes == 0)
-			return Out;
-
-		const uint64_t AlignedBytes = AlignUp(Bytes, Alignment);
-		if (AlignedBytes > SizeBytes)
-			return Out;
-		const uint64_t Off = Ring.AllocateOrWait(AlignedBytes);
-		if (Off == FD3D12AbstractRingBuffer::FailedReturnValue)
-			return Out;
-
-		Out.Resource = nullptr; // this allocation is backed by UploadResource, not a fast allocator page
-		Out.Offset = (size_t)Off;
-		Out.CPU = (uint8_t*)MappedBase + Off;
-		Out.GpuAddress = UploadResource->GetGPUVirtualAddress() + Off;
-		Out.D3D12Resource = UploadResource.get();
 		return Out;
 	}
 
 	FD3D12FastAllocatorPage* FD3D12FastAllocator::RequestPage()
 	{
-		ProcessPlacedBuddyDeferredFrees();
+		ProcessBuddyAllocatorDeferredFrees();
 
 		FD3D12FastAllocatorPage* Page = nullptr;
 
@@ -709,13 +728,13 @@ namespace RenderCore
 			HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
 			ResourceDesc.Width = PageSize == 0 ? CpuAllocatorPageSize : PageSize;
 			ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-			DefaultUsage = D3D12_RESOURCE_STATE_GENERIC_READ;
+			DefaultUsage = D3D12_RESOURCE_STATE_COMMON;
 		}
 
 		win32::com_ptr<ID3D12Resource> pBuffer;
-		FD3D12UploadPlacedBuddyPool* BuddyPool = nullptr;
+		FD3D12BuddyAllocator* BuddyAlloc = nullptr;
 		uint32_t BuddyOff = 0, BuddyOrd = 0;
-		bool bPlacedBuddyPage = false;
+		bool bBuddyAllocatorPage = false;
 
 		// Stats (same counters whether committed or placed-buddy suballoc).
 		{
@@ -739,28 +758,28 @@ namespace RenderCore
 
 		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD && PageSize == 0 && AllocatorType == EFastAllocatorType::UploadFastAllocator)
 		{
-			BuddyPool = GetParentDevice()->GetUploadPlacedBuddyPool();
+			BuddyAlloc = GetParentDevice()->GetBuddyAllocator();
 			uint64_t GpuVA = 0;
 			void* Cpu = nullptr;
-			if (BuddyPool)
+			if (BuddyAlloc)
 			{
 				// If the pool is temporarily out of space (GPU behind, frees not processed yet),
 				// wait for the oldest deferred free and retry. This prevents unbounded WC region growth.
-				if (!BuddyPool->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd))
+				if (!BuddyAlloc->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd))
 				{
-					DrainPlacedBuddyDeferredWithWait();
-					(void)BuddyPool->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd);
+					DrainBuddyAllocatorDeferredWithWait();
+					(void)BuddyAlloc->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd);
 				}
 				if (pBuffer)
 				{
 					(void)GpuVA;
 					(void)Cpu;
-					bPlacedBuddyPage = true;
+					bBuddyAllocatorPage = true;
 				}
 			}
 		}
 
-		if (!bPlacedBuddyPage)
+		if (!bBuddyAllocatorPage)
 		{
 			VERIFYD3DRESULT(GetParentDevice()->GetDevice()->CreateCommittedResource(
 				&HeapProps,
@@ -773,8 +792,8 @@ namespace RenderCore
 		}
 
 		FD3D12FastAllocatorPage* AllocationPage = new FD3D12FastAllocatorPage(GetParentDevice(), pBuffer.get(), DefaultUsage, ResourceDesc, HeapProps.Type);
-		if (bPlacedBuddyPage && BuddyPool)
-			AllocationPage->BindPlacedBuddy(BuddyPool, BuddyOff, BuddyOrd, AllocatorType);
+		if (bBuddyAllocatorPage && BuddyAlloc)
+			AllocationPage->BindBuddyAllocator(BuddyAlloc, BuddyOff, BuddyOrd, AllocatorType);
 		AllocationPage->AddRef();
 		// Own one ref for the lifetime of this manager (availability is tracked via ready/retired queues).
 		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD || HeapProps.Type == D3D12_HEAP_TYPE_DEFAULT)
@@ -807,7 +826,7 @@ namespace RenderCore
 			while (!RetiredPages[q].empty())
 				RetiredPages[q].pop();
 		}
-		DrainPlacedBuddyDeferredWithWait();
+		DrainBuddyAllocatorDeferredWithWait();
 	}
 
 	EFastAllocatorType FD3D12FastAllocator::GetAllocatorType() const
@@ -830,21 +849,6 @@ namespace RenderCore
 		const size_t AlignmentMask = Alignment - 1;
 		Assert((AlignmentMask & Alignment) == 0);
 		const size_t AlignedSize = math::AlignUpWithMask(SizeInBytes, AlignmentMask);
-
-		// UE-style: for transient UPLOAD allocations, prefer a bounded fence-aware ring.
-		// This prevents unbounded WC commit growth caused by linear allocation patterns touching new pages forever.
-		if (m_AllocatorType == EFastAllocatorType::UploadFastAllocator)
-		{
-			auto Dev = GetParentDevice();
-			auto Adapter = Dev ? Dev->GetParentAdapter() : nullptr;
-			if (Adapter)
-			{
-				FD3D12TransientUploadRing& Ring = Adapter->GetTransientUploadRing();
-				FAllocation a = Ring.Allocate((uint64_t)AlignedSize, (uint64_t)Alignment);
-				if (a.CPU && a.GpuAddress != 0 && a.D3D12Resource)
-					return a;
-			}
-		}
 
 		if (AlignedSize > m_PageSize)
 			return AllocateLargePage(AlignedSize);

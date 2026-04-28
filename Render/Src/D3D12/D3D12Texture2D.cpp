@@ -319,12 +319,11 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE CurrentSRVHandle = d->SRVHandle;
 			for (uint32_t i = 0; i < NumMips; ++i)
 			{
-				SRVDesc.Texture2DArray.ArraySize = 1;
-				SRVDesc.Texture2DArray.FirstArraySlice = 0;
-				SRVDesc.Texture2DArray.MipLevels = 1;
-				SRVDesc.Texture2DArray.MostDetailedMip = i;
-				SRVDesc.Texture2DArray.PlaneSlice = 0;
-				SRVDesc.Texture2DArray.ResourceMinLODClamp = 0.f;
+				SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+				SRVDesc.Texture2D.MipLevels = 1;
+				SRVDesc.Texture2D.MostDetailedMip = i;
+				SRVDesc.Texture2D.PlaneSlice = 0;
+				SRVDesc.Texture2D.ResourceMinLODClamp = 0.f;
 				Device->GetDevice()->CreateShaderResourceView(d->Resource->GetResource(), &SRVDesc, CurrentSRVHandle);
 				CurrentSRVHandle.ptr += SRVUAVDescriptorSize;
 			}
@@ -334,10 +333,9 @@ namespace RenderCore
 				D3D12_CPU_DESCRIPTOR_HANDLE CurrentUAVHandle = d->UAVHandle;
 				for (uint32_t i = 0; i < NumMips; ++i)
 				{
-					UAVDesc.Texture2DArray.ArraySize = 1;
-					UAVDesc.Texture2DArray.FirstArraySlice = 0;
-					UAVDesc.Texture2DArray.MipSlice = i;
-					UAVDesc.Texture2DArray.PlaneSlice = 0;
+					UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+					UAVDesc.Texture2D.MipSlice = i;
+					UAVDesc.Texture2D.PlaneSlice = 0;
 					Device->GetDevice()->CreateUnorderedAccessView(d->Resource->GetResource(), nullptr, &UAVDesc, CurrentUAVHandle);
 					CurrentUAVHandle.ptr += SRVUAVDescriptorSize;
 				}
@@ -348,10 +346,9 @@ namespace RenderCore
 				D3D12_CPU_DESCRIPTOR_HANDLE CurrentRTVHandle = d->RTVHandle;
 				for (uint32_t i = 0; i < NumMips; ++i)
 				{
-					RTVDesc.Texture2DArray.ArraySize = 1;
-					RTVDesc.Texture2DArray.FirstArraySlice = 0;
-					RTVDesc.Texture2DArray.MipSlice = i;
-					RTVDesc.Texture2DArray.PlaneSlice = 0;
+					RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+					RTVDesc.Texture2D.MipSlice = i;
+					RTVDesc.Texture2D.PlaneSlice = 0;
 					Device->GetDevice()->CreateRenderTargetView(d->Resource->GetResource(), &RTVDesc, CurrentRTVHandle);
 					CurrentRTVHandle.ptr += RTVDescriptorSize;
 				}

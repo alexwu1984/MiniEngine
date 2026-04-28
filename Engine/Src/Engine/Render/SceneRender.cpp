@@ -255,7 +255,7 @@ namespace Engine
 			{
 				FrameGraph Graph;
 				auto TB = d->TargetBuffer;
-				RenderTexturePool::Get().BeginFrame();
+				RHI->RHIBeginFrame();
 
 				Graph.AddPass(FramePassDesc{
 					"PreProcess",
@@ -345,7 +345,7 @@ namespace Engine
 					}});
 
 				Graph.Execute(d->RDGCompileParams);
-				RenderTexturePool::Get().EndFrame();
+				RHI->RHIEndFrame();
 			},
 			true);
 	}

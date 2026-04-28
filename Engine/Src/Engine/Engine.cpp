@@ -51,6 +51,12 @@ namespace Engine
 		d->AppWin = AppWin;
 		if (d->DynamicRHI)
 		{
+			// Hook engine-level transient pooling to the RHI frame boundaries.
+			// This keeps per-frame resource lifecycle consistent across render paths.
+			d->DynamicRHI->SetFrameCallbacks(
+				[]() { Engine::RenderTexturePool::Get().BeginFrame(); },
+				[]() { Engine::RenderTexturePool::Get().EndFrame(); });
+
 			d->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
 			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
 			d->DynamicRHI->Init();

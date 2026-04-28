@@ -2,6 +2,7 @@
 #include "win/win32.h"
 #include "RHI/RHIDefinitions.h"
 #include "core/color.h"
+#include <functional>
 
 namespace RenderCore
 {
@@ -50,6 +51,27 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() = 0;
 
+		// UE4.26-aligned frame boundary hooks. Engine-level systems (e.g. transient pooling)
+		// should attach their per-frame work here rather than scattering calls in render code.
+		using FrameCallback = std::function<void()>;
+		void SetFrameCallbacks(FrameCallback InBeginFrame, FrameCallback InEndFrame)
+		{
+			BeginFrameCallback = std::move(InBeginFrame);
+			EndFrameCallback = std::move(InEndFrame);
+		}
+
+		virtual void RHIBeginFrame()
+		{
+			if (BeginFrameCallback)
+				BeginFrameCallback();
+		}
+
+		virtual void RHIEndFrame()
+		{
+			if (EndFrameCallback)
+				EndFrameCallback();
+		}
+
 		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() = 0;
 		virtual std::shared_ptr< RHICommandContext> GetDefaultAsyncComputeContext() = 0;
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) { return nullptr; }
@@ -82,6 +104,9 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) = 0;
 		virtual std::shared_ptr< RHITilePool> RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D) = 0;
 	
+	private:
+		FrameCallback BeginFrameCallback;
+		FrameCallback EndFrameCallback;
 	};
 
 	class IDynamicRHIModule /*: public IModuleInterface*/

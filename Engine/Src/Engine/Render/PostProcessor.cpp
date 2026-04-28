@@ -1,4 +1,4 @@
-#include "Render/PostProcessor.h"
+﻿#include "Render/PostProcessor.h"
 #include "core/system.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
@@ -26,6 +26,25 @@ namespace Engine
 {
 	using namespace RenderCore;
 
+	namespace
+	{
+		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FrameGraphCompileParams& Out)
+		{
+			try
+			{
+				if (Root.find("RDG") == Root.end() || !Root["RDG"].is_object())
+					return;
+				const auto& J = Root["RDG"];
+				Out.bPassCullingFromSinks = J.value("PassCullingFromSinks", Out.bPassCullingFromSinks);
+				Out.bDumpDotToLog = J.value("DumpDotToLog", Out.bDumpDotToLog);
+				Out.bLogCompileSummary = J.value("LogCompileSummary", Out.bLogCompileSummary);
+			}
+			catch (const std::exception&)
+			{
+			}
+		}
+	} // namespace
+
 	static void RegisterPostOnlyGBufferImports(FrameGraph& Graph, std::shared_ptr<GBuffer> TB)
 	{
 		if (!TB)
@@ -51,6 +70,7 @@ namespace Engine
 		bool EnableSSR = false;
 		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
 		bool IsResourceInitialized = false;
+		FrameGraphCompileParams RDGCompileParams{};
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -87,6 +107,7 @@ namespace Engine
 		try
 		{
 			C_P(PostProcessor);
+			ApplyRDGCompileParamsFromJson(Root, d->RDGCompileParams);
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
 
@@ -181,10 +202,11 @@ namespace Engine
 	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
 						     std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera)
 	{
+		C_P(PostProcessor);
 		FrameGraph Graph;
 		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, Camera);
-		Graph.Execute();
+		Graph.Execute(d->RDGCompileParams);
 	}
 
 	void PostProcessor::AddFramePasses(FrameGraph& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,

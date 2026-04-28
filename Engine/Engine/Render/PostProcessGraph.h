@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/FrameGraph.h"
 
 namespace Engine
@@ -6,4 +6,5 @@ namespace Engine
 	using RenderPassResource = FrameGraphResource;
 	using RenderPassDesc = FramePassDesc;
 	using PostProcessGraph = FrameGraph;
+	using RDGCompileParams = FrameGraphCompileParams;
 }

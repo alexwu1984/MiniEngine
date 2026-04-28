@@ -26,6 +26,25 @@ using namespace RenderCore;
 
 namespace Engine
 {
+	namespace
+	{
+		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FrameGraphCompileParams& Out)
+		{
+			try
+			{
+				if (Root.find("RDG") == Root.end() || !Root["RDG"].is_object())
+					return;
+				const auto& J = Root["RDG"];
+				Out.bPassCullingFromSinks = J.value("PassCullingFromSinks", Out.bPassCullingFromSinks);
+				Out.bDumpDotToLog = J.value("DumpDotToLog", Out.bDumpDotToLog);
+				Out.bLogCompileSummary = J.value("LogCompileSummary", Out.bLogCompileSummary);
+			}
+			catch (const std::exception&)
+			{
+			}
+		}
+	} // namespace
+
 	struct SceneRenderPrivate
 	{
 		std::weak_ptr<SceneView> Owner;
@@ -39,6 +58,7 @@ namespace Engine
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
+		FrameGraphCompileParams RDGCompileParams{};
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
@@ -106,6 +126,7 @@ namespace Engine
 	void SceneRender::LoadConfig(const nlohmann::json& Root)
 	{
 		C_P(SceneRender);
+		ApplyRDGCompileParamsFromJson(Root, d->RDGCompileParams);
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 				d->PreProcess->LoadConfig(Root);
@@ -323,7 +344,7 @@ namespace Engine
 						d->MainViewPort->Present();
 					}});
 
-				Graph.Execute();
+				Graph.Execute(d->RDGCompileParams);
 				RenderTexturePool::Get().EndFrame();
 			},
 			true);

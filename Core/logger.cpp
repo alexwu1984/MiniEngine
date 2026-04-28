@@ -103,7 +103,7 @@ namespace core
 		long long filesize = _fs.tellg();
 		if (filesize > LOG_FILE_MAX_SIZE)
 		{
-			SaveBKlog(path);//进行备份操作
+			backup_log(path);
 		}
 
         return _fs.good() ? error_ok : error_io;
@@ -132,7 +132,23 @@ namespace core
             _fs.flush();
     }
 
-	void logger::SaveBKlog(std::string path)
+	static std::string parent_dir_from_path(std::string path)
+	{
+		const std::string::size_type pos = path.find_last_of("/\\");
+		if (pos == std::string::npos)
+			return {};
+		return path.substr(0, pos + 1);
+	}
+
+	static std::string filename_from_path(std::string path)
+	{
+		const std::string::size_type pos = path.find_last_of("/\\");
+		if (pos == std::string::npos)
+			return path;
+		return path.substr(pos + 1);
+	}
+
+	void logger::backup_log(const std::string& path)
 	{
 		if (_fs.fail())
 		{
@@ -140,14 +156,15 @@ namespace core
 		}
 		if (_fs.is_open())
 		{
-			_fs.close();//先解除占用
+			_fs.close();
 		}
-		std::string dirPath = path.substr(0,path.find_last_of('/')+1);
-		std::string logBkPath = dirPath + "virtualactor.log.bk";
-		std::string logBkBkPath = dirPath + "virtualactor.log.bk.bk";
+		const std::string dirPath = parent_dir_from_path(path);
+		const std::string baseName = filename_from_path(path);
+		const std::string logBkPath = dirPath + baseName + ".bk";
+		const std::string logBkBkPath = dirPath + baseName + ".bk.bk";
 
 		std::fstream _logBkFs(logBkPath);
-		if (!_logBkFs.is_open())//bk不存在，直接复制
+		if (!_logBkFs.is_open())
 		{
 			::MoveFileW(u8_ucs2(path).c_str(), u8_ucs2(logBkPath).c_str());
 		}
@@ -155,7 +172,7 @@ namespace core
 		{
 			_logBkFs.close();
 			std::fstream _logBkBkFs(logBkBkPath);
-			if (_logBkBkFs.is_open())//存在的话先删除bkbk
+			if (_logBkBkFs.is_open())
 			{
 				_logBkBkFs.close();
 				DeleteFileW(u8_ucs2(logBkBkPath).c_str());
@@ -231,7 +248,7 @@ namespace core
 			long long filesize = _fs.tellg();
 			if (filesize > LOG_FILE_MAX_SIZE && _log_path.size())
 			{
-				SaveBKlog(_log_path);//进行备份操作
+				backup_log(_log_path);
 			}
             _cond.wait(ul, [this]() { return _finish || !_log_list.empty(); });
             std::list<log_item> items = std::move(_log_list);

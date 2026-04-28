@@ -26,7 +26,6 @@ namespace core
     };
 }
 
-// 控制输出频率
 namespace std
 {
     inline std::basic_ostream<char, std::char_traits<char>> & operator<<(std::basic_ostream<char, std::char_traits<char>>&& _Ostr, const core::logger_period & fps)
@@ -166,7 +165,7 @@ namespace core
         void close();
         void flush();
 
-		void SaveBKlog(std::string path);//log文件超出大小后拷贝到log.bk，log.bk超出大小后拷贝到log.bk.bk,log.bk.bk超出大小后删除
+		void backup_log(const std::string& path);
 
 		error_e log_to_buffer(uint32_t pid, uint32_t tid, log_e lg, std::string text);
 
@@ -184,7 +183,6 @@ namespace core
 
     public:
 #ifdef _DEBUG
-        // dbg logger 仅存在于 debug build.
         static logger_stream dbg();
 #else
         static null_logger_stream dbg() { return null_logger_stream{}; }

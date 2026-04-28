@@ -1,4 +1,4 @@
-#include "Render/SSRProcessor.h"
+﻿#include "Render/SSRProcessor.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
@@ -46,6 +46,7 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> SSRHistoryBuffer[2];
 		uint32_t FrameIndexMod2 = 0;
 		bool First = true;
+		uint32_t LastTemporalHistoryGeneration = ~0u;
 		DECLARE_SHADER_STRUCT_MEMBER(SSRContants);
 	};
 
@@ -113,6 +114,13 @@ namespace Engine
 
 		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
+
+		const uint32_t camGen = Camera->GetTemporalHistoryGeneration();
+		if (camGen != d->LastTemporalHistoryGeneration)
+		{
+			d->LastTemporalHistoryGeneration = camGen;
+			d->First = true;
+		}
 
 		const int32_t VpW = ViewPort->GetSize().cx;
 		const int32_t VpH = ViewPort->GetSize().cy;

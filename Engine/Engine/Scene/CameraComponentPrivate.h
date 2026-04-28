@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/math.h"
 
 namespace Engine
@@ -22,5 +22,10 @@ namespace Engine
 		math::Frustum Frustum;
 		uint32_t FrameIndex = 0;
 		uint32_t FrameIndexMod2 = 0;
+
+		// Bumped on NotifyTemporalHistoryInvalidate() or large per-frame camera teleport (TAA / SSR history).
+		uint32_t TemporalHistoryGeneration = 0;
+		math::Vector3 TemporalHistoryLastPos{ 0.f, 0.f, 0.f };
+		bool TemporalHistoryHasLastPos = false;
 	};
 }

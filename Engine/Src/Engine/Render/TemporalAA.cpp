@@ -1,4 +1,4 @@
-#include "Render/TemporalAA.h"
+﻿#include "Render/TemporalAA.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
@@ -37,6 +37,7 @@ namespace Engine
 
 		bool First = true;
 		uint32_t FrameIndexMod2 = 0;
+		uint32_t LastTemporalHistoryGeneration = ~0u;
 		DECLARE_SHADER_STRUCT_MEMBER(TAAContants);
 	};
 
@@ -84,6 +85,13 @@ namespace Engine
 		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
+		const uint32_t camGen = Camera->GetTemporalHistoryGeneration();
+		if (camGen != d->LastTemporalHistoryGeneration)
+		{
+			d->LastTemporalHistoryGeneration = camGen;
+			d->First = true;
+		}
+
 		auto SceneColor = TargetBuffer->GetSceneColorWithBloom();
 		const auto ScSize = SceneColor->GetSize();
 		const float width = static_cast<float>(ScSize.w);
@@ -92,6 +100,7 @@ namespace Engine
 		const int32_t ih = ScSize.y;
 		const auto ScFmt = SceneColor->GetPixelFormat();
 
+		bool temporalTargetsRebuilt = false;
 		auto MatchOrDrop = [&](std::shared_ptr<RenderCore::RHIUnorderedAccessView>& Uav) {
 			if (!Uav)
 				return;
@@ -100,9 +109,12 @@ namespace Engine
 			if (Sz.x == iw && Sz.y == ih && Tex->GetPixelFormat() == ScFmt)
 				return;
 			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(Uav));
+			temporalTargetsRebuilt = true;
 		};
 		MatchOrDrop(d->TemporalColor[0]);
 		MatchOrDrop(d->TemporalColor[1]);
+		if (temporalTargetsRebuilt)
+			d->First = true;
 
 		if (!d->TemporalColor[0])
 			d->TemporalColor[0] = RenderTexturePool::Get().AcquireUAV(d->RHI, ScFmt, iw, ih);

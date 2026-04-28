@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Scene/Component.h"
 #include "math/matrix4x4.h"
 #include "math/frustum.h"
@@ -36,6 +36,10 @@ namespace Engine
 		math::Matrix4x4 HackAddTemporalAAProjectionJitter( bool PrevFrame = false);
 		int32_t GetFrameIndexMod2() const;
 		int32_t GetFrameIndex() const;
+
+		/** Increments a serial consumed by TAA/SSR to discard invalid history (cuts, teleports). */
+		void NotifyTemporalHistoryInvalidate();
+		uint32_t GetTemporalHistoryGeneration() const;
 
 	protected:
 		CameraComponentPrivate* d_ptr;

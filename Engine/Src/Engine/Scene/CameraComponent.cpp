@@ -1,4 +1,4 @@
-#include "Scene/CameraComponent.h"
+﻿#include "Scene/CameraComponent.h"
 #include "Scene/CameraComponentPrivate.h"
 #include "Engine/Engine.h"
 #include "App/AppWindow.h"
@@ -31,6 +31,8 @@ namespace Engine
 
 	void CameraComponent::Tick(float DeltaTime)
 	{
+		C_P(CameraComponent);
+
 		// Compute new camera from this actor
 		math::Vector3 CameraPos = GetCameraPos();
 		math::Vector3 Target =  Vector3::UnitZ;
@@ -45,6 +47,33 @@ namespace Engine
 		auto Height = AppWin->GetHeight();
 		static uint32_t Seed = 0;
 		SetProjectionJitter(Width, Height, Seed);
+
+		// Heuristic camera cut: large world-space jump in one tick (gameplay teleport / scene swap).
+		static constexpr float kTemporalAATeleportMeters = 30.f;
+		const float kSq = kTemporalAATeleportMeters * kTemporalAATeleportMeters;
+		const math::Vector3 CameraPosAfter = d->CameraPos;
+		if (d->TemporalHistoryHasLastPos)
+		{
+			const float dx = CameraPosAfter.x - d->TemporalHistoryLastPos.x;
+			const float dy = CameraPosAfter.y - d->TemporalHistoryLastPos.y;
+			const float dz = CameraPosAfter.z - d->TemporalHistoryLastPos.z;
+			if (dx * dx + dy * dy + dz * dz > kSq)
+				NotifyTemporalHistoryInvalidate();
+		}
+		d->TemporalHistoryLastPos = CameraPosAfter;
+		d->TemporalHistoryHasLastPos = true;
+	}
+
+	void CameraComponent::NotifyTemporalHistoryInvalidate()
+	{
+		C_P(CameraComponent);
+		++d->TemporalHistoryGeneration;
+	}
+
+	uint32_t CameraComponent::GetTemporalHistoryGeneration() const
+	{
+		C_P(const CameraComponent);
+		return d->TemporalHistoryGeneration;
 	}
 
 	void CameraComponent::SetViewMatrix(const math::Matrix4x4& view)

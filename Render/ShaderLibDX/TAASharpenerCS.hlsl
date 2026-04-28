@@ -1,6 +1,5 @@
 Texture2D<float4> TAABuffer : register(t0);
 RWTexture2D<float4> HDR : register(u0);
-//RWTexture2D<float4> History : register(u1);
 
 float3 RGBToYCoCg(in float3 rgb)
 {
@@ -30,11 +29,6 @@ float3 ApplySharpening(in float3 center, in float3 top, in float3 left, in float
     return YCoCgToRGB(result);
 }
 
-float3 ReinhardInverse(in float3 sdr)
-{
-    return sdr / max(1.0f - sdr, 1e-5f);
-}
-
 [numthreads(8, 8, 1)]
 void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThreadID, uint localIndex : SV_GroupIndex, uint3 groupID : SV_GroupID)
 {
@@ -46,7 +40,18 @@ void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThread
         return;
     }
 
-    const int2 pixel = int2(globalID.xy);
-    HDR[globalID.xy] = float4(TAABuffer[pixel].xyz, 1.0f);
-   // History[globalID.xy] = float4(center, 1.0f);
+    const int xi = (int)globalID.x;
+    const int yi = (int)globalID.y;
+    const int w = (int)width;
+    const int h = (int)height;
+    const int2 p = int2(xi, yi);
+
+    float3 center = TAABuffer[p].rgb;
+    float3 top = TAABuffer[int2(xi, max(yi - 1, 0))].rgb;
+    float3 bottom = TAABuffer[int2(xi, min(yi + 1, h - 1))].rgb;
+    float3 left = TAABuffer[int2(max(xi - 1, 0), yi)].rgb;
+    float3 right = TAABuffer[int2(min(xi + 1, w - 1), yi)].rgb;
+
+    float3 sharpened = ApplySharpening(center, top, left, right, bottom);
+    HDR[globalID.xy] = float4(sharpened, 1.0f);
 }

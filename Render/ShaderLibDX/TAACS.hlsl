@@ -25,7 +25,15 @@ static const float Exposure = 10;
 // Filament default feedback: current-frame contribution.
 static const float Feedback = 0.08f;
 static const float VarianceGamma = 1.0f;
-static const float FRAME_VELOCITY_IN_PIXELS_DIFF = 128.0f;  // valid for 1920x1080
+// Reference diagonal ~2203px @ 1920x1080; scale so high-speed rejection matches other resolutions.
+static const float2 kVelocityRefResolution = float2(1920.0f, 1080.0f);
+static const float kVelocityRejectPixelsAtRef = 128.0f;
+
+// Simplified reactive: push blend toward current frame on bright (post-tonemap) centers to cut firefly trails.
+static const float ReactiveLumaThreshold = 0.45f;
+static const float ReactiveLumaScale = 6.0f;
+static const float ReactiveBlendAdd = 0.32f;
+static const float ReactiveBlendMax = 0.82f;
 
 static const int2 SampleOffsets[9] =
 {
@@ -301,9 +309,11 @@ void TAA_Main(
 
     float2 velocity = GetVelocity(screenST);
     float velocityMagnitude = length(velocity);
+    float velocityRejectPx = kVelocityRejectPixelsAtRef * (length(Resolution.xy) / max(length(kVelocityRefResolution), 1.0f));
+    velocityRejectPx = max(velocityRejectPx, 24.0f);
     // calculate confidence factor based on the velocity of current pixel, everything moving faster than FRAME_VELOCITY_IN_PIXELS_DIFF frame-to-frame will be marked as no-history
     // Use quadratic falloff for faster rejection of history during high-speed motion
-    const float velocityNormalized = saturate(velocityMagnitude / FRAME_VELOCITY_IN_PIXELS_DIFF);
+    const float velocityNormalized = saturate(velocityMagnitude / max(velocityRejectPx, 1.0f));
     const float velocityConfidenceFactor = saturate(1.f - velocityNormalized * velocityNormalized);
 
     const float2 historyScreenST = screenST - velocity;
@@ -414,7 +424,10 @@ void TAA_Main(
     float BlendFinal;
     {
         BlendFinal = Feedback;
-        // Ensure blend weight is within valid range
+        float3 centerRgb = YCoCgToRGB(neighborhood[4]);
+        float centerLin = Luminance(UnToneMap(centerRgb));
+        float react = saturate((centerLin - ReactiveLumaThreshold) * ReactiveLumaScale);
+        BlendFinal = lerp(BlendFinal, min(BlendFinal + ReactiveBlendAdd, ReactiveBlendMax), react);
         BlendFinal = saturate(BlendFinal);
     }
 

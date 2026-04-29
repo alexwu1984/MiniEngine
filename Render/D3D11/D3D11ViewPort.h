@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIViewPort.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 
@@ -21,6 +21,8 @@ namespace RenderCore
 		virtual void Prepare() override;
 		virtual void Clear(const core::FLinearColor& Color) override;
 		virtual void Present() override;
+		virtual void RHIImGuiRenderDrawData() override;
+		virtual void RHISubmitAndPresentFrame() override;
 		virtual void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen) override;
 		virtual core::vec2u GetSize()const override;
 		std::shared_ptr<RHITexture2D> GetBackBuffer() const override;

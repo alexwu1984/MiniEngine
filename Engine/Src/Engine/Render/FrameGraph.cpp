@@ -276,7 +276,8 @@ namespace Engine
 
 	void FrameGraph::AddPass(FramePassDesc Pass)
 	{
-		if (Pass.Name == "Present")
+		// Graph sink: swap-chain submission (legacy name "Present" or split pipeline "RHISubmitAndPresent").
+		if (Pass.Name == "Present" || Pass.Name == "RHISubmitAndPresent")
 		{
 			Pass.PassFlags |= ERGPass_GraphSink;
 			if (!Passes.empty())

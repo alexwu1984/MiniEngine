@@ -147,6 +147,8 @@ namespace Engine
 	void MainEngine::Tick(float DeltaTime)
 	{
 		C_P(MainEngine);
+		// Product path (UE-style): game tick gathers scene data on this thread; GPU recording + submit + Present
+		// run on RenderThread inside SceneRender::RenderScene (see ENQUEUE_UNIQUE_RENDER_COMMAND, wait=true).
 		d->Scene->Tick(DeltaTime);
 		d->SeRender->Render(DeltaTime);
 		if (d->NeedResize)

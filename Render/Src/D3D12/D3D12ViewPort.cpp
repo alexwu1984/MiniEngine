@@ -233,19 +233,29 @@ namespace RenderCore
 		PresentEndFenceLastSignaled = PresentEndFence->Signal(ED3D12CommandQueueType::Default);
 	}
 
+	void D3D12ViewPort::RHIImGuiRenderDrawData()
+	{
+		if (!SwapChain4 || !D3D12RHI_ShouldUseImGui())
+			return;
+		ImGui::Render();
+		ImGui_ImplDX12_RenderDrawData(
+			ImGui::GetDrawData(),
+			GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList(),
+			GetDefaultCommandContext().get());
+	}
+
 	void D3D12ViewPort::Present()
 	{
 		if (!SwapChain4)
 			return;
+		RHIImGuiRenderDrawData();
+		RHISubmitAndPresentFrame();
+	}
 
-		if (D3D12RHI_ShouldUseImGui())
-		{
-			ImGui::Render();
-			ImGui_ImplDX12_RenderDrawData(
-				ImGui::GetDrawData(),
-				GetDefaultCommandContext()->GetCurrentCommandListHandle().GraphicsCommandList(),
-				GetDefaultCommandContext().get());
-		}
+	void D3D12ViewPort::RHISubmitAndPresentFrame()
+	{
+		if (!SwapChain4)
+			return;
 
 		auto DefaultCtx = GetDefaultCommandContext();
 		DefaultCtx->RHIEndDrawing();

@@ -204,9 +204,6 @@ namespace Engine
 
 	void SceneRender::RenderScene(float DeltaTime)
 	{
-		std::shared_ptr<RHICommandContext> CommandContext = GEngine->GetRHI()->GetDefaultCommandContext();
-		if (!CommandContext)
-			return;
 		C_P(SceneRender);
 		std::shared_ptr<SceneView> Owner = GetOwner();
 		if (!d->IsInit || !Owner || !Owner->GetMainCamera())
@@ -250,9 +247,13 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = d->MeshesInfo;
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[d, this, CommandContext, Owner, shadowCasters = std::move(shadowCasters), shadowFrustumBounds = std::move(shadowFrustumBounds),
+			[d, this, Owner, shadowCasters = std::move(shadowCasters), shadowFrustumBounds = std::move(shadowFrustumBounds),
 			 MeshesInfo = std::move(MeshesInfoCopy)](RenderCore::DynamicRHI* RHI)
 			{
+				std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
+				if (!CommandContext)
+					return;
+
 				FrameGraph Graph;
 				auto TB = d->TargetBuffer;
 				RHI->RHIBeginFrame();
@@ -335,13 +336,22 @@ namespace Engine
 				d->PostProcess->AddFramePasses(Graph, *RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, Owner->GetMainCamera());
 
 				Graph.AddPass(FramePassDesc{
-					"Present",
+					"ImGuiEncode",
 					{},
 					{},
 					[d, this]()
 					{
 						sigGuiEvent();
-						d->MainViewPort->Present();
+						d->MainViewPort->RHIImGuiRenderDrawData();
+					}});
+
+				Graph.AddPass(FramePassDesc{
+					"RHISubmitAndPresent",
+					{},
+					{},
+					[d]()
+					{
+						d->MainViewPort->RHISubmitAndPresentFrame();
 					}});
 
 				Graph.Execute(d->RDGCompileParams);

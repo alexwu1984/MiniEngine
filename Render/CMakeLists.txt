@@ -21,7 +21,7 @@ source_group("Header Files\\D3D12" FILES ${Header_D3D12} )
 source_group("Header Files\\RHIPrivate" FILES ${Header_RHIPrivate} )
 source_group("Header Files\\Imgui" FILES ${Header_Imgui} )
 
-file(GLOB Src_RHI Src/RHI/*.cpp)
+file(GLOB Src_RHI CONFIGURE_DEPENDS Src/RHI/*.cpp)
 file(GLOB Src_D3D11 Src/D3D11/*.cpp)
 file(GLOB Src_D3D12 CONFIGURE_DEPENDS Src/D3D12/*.cpp)
 file(GLOB Src_RHIPrivate Src/RHIPrivate/*.cpp)

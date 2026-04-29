@@ -1,6 +1,7 @@
-#include "Engine/Thread/RenderThread.h"
+﻿#include "Engine/Thread/RenderThread.h"
 #include "win/sync.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIThreadPolicy.h"
 #include "core/logger.h"
 
 namespace Engine
@@ -96,6 +97,15 @@ namespace Engine
 	void RenderThread::Run()
 	{
 		Impl->RenderThreadId = std::this_thread::get_id();
+		RenderCore::RHI_RegisterRHISubmissionThread(Impl->RenderThreadId);
+		struct UnregisterSubmissionThread
+		{
+			~UnregisterSubmissionThread()
+			{
+				RenderCore::RHI_UnregisterRHISubmissionThread();
+			}
+		} UnregisterOnScopeExit;
+
 		while (!Impl->Stop)
 		{
 			std::queue<std::function<void(RenderCore::DynamicRHI*)>> SwapCmd;

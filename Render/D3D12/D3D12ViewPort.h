@@ -22,6 +22,8 @@ namespace RenderCore
 		void Clear(const core::FLinearColor& Color) override;
 		void SetRenderTarget() override;
 		void Present() override;
+		void RHIImGuiRenderDrawData() override;
+		void RHISubmitAndPresentFrame() override;
 		void Prepare() override;
 		std::shared_ptr<RHITexture2D> GetBackBuffer() const override;
 	private:

@@ -34,7 +34,7 @@ enum ERGPassFlags : uint32_t
 	ERGPass_Copy = 1u << 2,
 	/** Culled when compile enables sink reachability culling and pass is not an ancestor of any GraphSink. */
 	ERGPass_MayCullIfUnreachableFromSink = 1u << 3,
-	/** Reachability root for culling (typically swap chain / Present). */
+	/** Reachability root for culling (typically swap chain; pass name Present or RHISubmitAndPresent). */
 	ERGPass_GraphSink = 1u << 4,
 };
 

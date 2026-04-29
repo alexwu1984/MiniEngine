@@ -1,4 +1,4 @@
-#include "D3D11/D3D11ViewPort.h"
+﻿#include "D3D11/D3D11ViewPort.h"
 #include "win/com_ptr.h"
 #include "D3D11/D3D11RHI.h"
 #include "core/logger.h"
@@ -152,24 +152,30 @@ namespace RenderCore
 		d->D3D11RHI->GetDeviceContext()->ClearDepthStencilView(d->DepthSRV->GetDSV(), D3D11_CLEAR_DEPTH, 1.0f, 0.f);
 	}
 
-	void D3D11ViewPort::Present()
+	void D3D11ViewPort::RHIImGuiRenderDrawData()
 	{
 		ImGui::Render();
 		::ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	}
 
+	void D3D11ViewPort::Present()
+	{
+		RHIImGuiRenderDrawData();
+		RHISubmitAndPresentFrame();
+	}
+
+	void D3D11ViewPort::RHISubmitAndPresentFrame()
+	{
 		C_P(D3D11ViewPort);
 		d->D3D11RHI->GetDefaultCommandContext()->RHIEndDrawing();
 		if (d->SwapChain)
 		{
-			// Present the back buffer to the viewport window.
 			uint32_t Flags = 0;
-			if ((GetSwapChainFlags() & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) != 0 )
+			if ((GetSwapChainFlags() & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) != 0)
 			{
 				Flags |= DXGI_PRESENT_ALLOW_TEARING;
 			}
-			auto Result = d->SwapChain->Present(0, Flags);
-
-			//Impl->SwapChain->Present(0, 0);
+			d->SwapChain->Present(0, Flags);
 		}
 	}
 

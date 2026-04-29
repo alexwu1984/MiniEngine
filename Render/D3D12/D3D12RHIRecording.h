@@ -3,6 +3,8 @@
  * D3D12 RHI recording / submit sequencing: thread-local exclusive depth (RHIBeginFrame, device init,
  * viewport resize, etc.) plus optional upload-bypass for RHICreate* upload paths. Deferred command
  * queue is flushed at RHIBeginFrame (same-thread MVP for future dedicated RHI thread).
+ * When RenderCore::RHI_RegisterRHISubmissionThread is used (Engine RenderThread), recording/submit
+ * must also run on that thread (see RHI/RHIThreadPolicy.h, IsInRHIThread).
  */
 #include <functional>
 

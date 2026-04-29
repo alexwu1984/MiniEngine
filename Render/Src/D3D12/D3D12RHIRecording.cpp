@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12RHIRecording.h"
+#include "RHI/RHIThreadPolicy.h"
 #include "core/inc.h"
 #include <cstdint>
 #include <deque>
@@ -54,25 +55,32 @@ namespace RenderCore
 
 	bool D3D12RHI_IsRecordingAllowed()
 	{
-		return D3D12RHI_IsExclusiveRegionActive() || D3D12RHI_IsUploadBypassActive();
+		const bool bScopeOk = D3D12RHI_IsExclusiveRegionActive() || D3D12RHI_IsUploadBypassActive();
+		if (!bScopeOk)
+			return false;
+		// When Engine registers a submission thread (RenderThread MVP), D3D12 work must run there.
+		return RHI_IsInRHISubmissionThread();
 	}
 
 	void D3D12RHI_CheckRecordingAllowed(const char* OperationLabel)
 	{
 		ensureMsgf(D3D12RHI_IsRecordingAllowed(),
-				   "D3D12 RHI: %s must run inside an exclusive region (RHIBeginFrame/RHIEndFrame pair, device init/cleanup, viewport resize, Wait/Shutdown) or D3D12RHI_ScopedUploadBypassRegion (upload helpers).",
+				   "D3D12 RHI: %s must run inside an exclusive region (RHIBeginFrame/RHIEndFrame pair, device init/cleanup, viewport resize, Wait/Shutdown) or D3D12RHI_ScopedUploadBypassRegion (upload helpers), and on the registered RHI submission thread when one is set.",
 				   OperationLabel ? OperationLabel : "(unknown)");
 	}
 
 	bool D3D12RHI_IsSubmitAllowed()
 	{
-		return D3D12RHI_IsExclusiveRegionActive() || D3D12RHI_IsUploadBypassActive();
+		const bool bScopeOk = D3D12RHI_IsExclusiveRegionActive() || D3D12RHI_IsUploadBypassActive();
+		if (!bScopeOk)
+			return false;
+		return RHI_IsInRHISubmissionThread();
 	}
 
 	void D3D12RHI_CheckSubmitAllowed(const char* OperationLabel)
 	{
 		ensureMsgf(D3D12RHI_IsSubmitAllowed(),
-				   "D3D12 RHI: %s must run inside an exclusive or upload-bypass region.",
+				   "D3D12 RHI: %s must run inside an exclusive or upload-bypass region, and on the registered RHI submission thread when one is set.",
 				   OperationLabel ? OperationLabel : "(unknown)");
 	}
 

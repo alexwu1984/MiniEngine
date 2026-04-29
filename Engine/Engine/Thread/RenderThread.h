@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Engine/Thread/EngineThread.h"
 
 namespace RenderCore
@@ -8,8 +8,13 @@ namespace RenderCore
 
 namespace Engine
 {
-	
 	struct RenderThreadP;
+
+	/**
+	 * Executes queued lambdas that record/submit GPU work. Registers the current std::thread::id with
+	 * RenderCore::RHI_RegisterRHISubmissionThread for D3D12 checks (RenderCore::IsInRHIThread); MVP matches UE4
+	 * "render thread owns RHI submit" until a dedicated RHI thread is introduced.
+	 */
 	class RenderThread
 	{
 	public:

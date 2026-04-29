@@ -1,6 +1,5 @@
-#include "Render/Shadow/ShadowMap.h"
+﻿#include "Render/Shadow/ShadowMap.h"
 #include "Render/MaterialPreFrame.h"
-#include "Scene/SceneView.h"
 #include "Scene/CameraComponent.h"
 #include "Scene/Actor.h"
 #include "Scene/GltfMeshComponent.h"
@@ -19,10 +18,9 @@ namespace Engine
 
 	}
 
-	void ShadowMap::ComputeSceneCascadeParams(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams)
+	void ShadowMap::ComputeSceneCascadeParams(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams)
 	{
-		math::Vector3 lightDir{ 0.0,0.0,1.0f };
-		auto lights = sceneView->GetLights();
+		math::Vector3 lightDir{ 0.0, 0.0, 1.0f };
 		if (!lights.empty())
 		{
 			lightDir = lights[0].Direction.Normalize();
@@ -32,7 +30,7 @@ namespace Engine
 		cascadeParams.vsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
 		cascadeParams.wsShadowCastersVolume = {};
 		cascadeParams.wsShadowReceiversVolume = {};
-		calculateNearFar(sceneView, cascadeParams);
+		calculateNearFar(lights, actors, cascadeParams);
 	}
 
 	void ShadowMap::Update(const CascadeParameters& cascadesParams)
@@ -47,13 +45,12 @@ namespace Engine
 		return dist;
 	}
 
-	void ShadowMap::calculateNearFar(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams)
+	void ShadowMap::calculateNearFar(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams)
 	{
 		std::shared_ptr<Actor> projActor;
-		auto actors = sceneView->GetAllActors();
-		for (auto actor : actors)
+		for (const auto& actor : actors)
 		{
-			if (actor->IsProjectShadow())
+			if (actor && actor->IsProjectShadow())
 			{
 				projActor = actor;
 				break;
@@ -65,13 +62,11 @@ namespace Engine
 		}
 
 		math::Matrix4x4 toWsMat = projActor->GetWorldTransform();
-		math::Matrix4x4 worldToOrign = math::Matrix4x4::CreateFromTranslate(0.0, 0.0, -LIGHT_DISTANCE);
 		auto modelBox = projActor->GetComponent<GltfMeshComponent>()->GetModelBox();
 
 		math::Vector3 wsSceneCorners[8]{};
 		modelBox.GetPoint(wsSceneCorners);
-		math::Vector3 lightDir{ 0.0,0.0,1.0f };
-		auto lights = sceneView->GetLights();
+		math::Vector3 lightDir{ 0.0, 0.0, 1.0f };
 		if (!lights.empty())
 		{
 			lightDir = lights[0].Direction.Normalize();

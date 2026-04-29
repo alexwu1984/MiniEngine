@@ -3,7 +3,6 @@
 #include "Engine/Engine.h"
 #include "App/AppWindow.h"
 #include "Scene/Actor.h"
-#include "Scene/SceneView.h"
 #include "math/vector2.h"
 
 namespace Engine

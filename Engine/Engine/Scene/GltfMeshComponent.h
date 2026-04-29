@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "Scene/Component.h"
+#include "math/frustum.h"
 #include "math/vector3.h"
 #include "Render/MaterialRender.h"
 
@@ -33,7 +34,7 @@ namespace Engine
 		virtual void Tick(float deltaTime) override;
 		virtual void OnUpdateWorldTransform(float deltaTime) override;
 
-		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, std::shared_ptr<CameraComponent> Camera);
+		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum& ViewCullFrustum);
 	private:
 		GltfMeshComponentPrivate* d_ptr = nullptr;
 	};

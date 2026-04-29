@@ -7,7 +7,7 @@
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIViewPort.h"
-#include "Scene/CameraComponent.h"
+#include "Render/SceneRendering/FSceneViewData.h"
 #include "core/system.h"
 #include "math/vector2.h"
 #include "Render/GBuffer.h"
@@ -107,15 +107,17 @@ namespace Engine
 
 	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,std::shared_ptr<RHIViewPort> ViewPort,
 							std::shared_ptr<RHITexture2D> HistorySceneColor,
-		                    std::shared_ptr<CameraComponent> Camera)
+		                    std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(SSRProcessor);
+		if (!ViewData)
+			return;
 		RenderCore::RHICommandMark Mark(RHIContext, "SSR");
 
-		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
+		d->FrameIndexMod2 = static_cast<uint32_t>(ViewData->FrameIndexMod2);
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
-		const uint32_t camGen = Camera->GetTemporalHistoryGeneration();
+		const uint32_t camGen = ViewData->TemporalHistoryGeneration;
 		if (camGen != d->LastTemporalHistoryGeneration)
 		{
 			d->LastTemporalHistoryGeneration = camGen;
@@ -157,11 +159,11 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, PrevSSR);
 		}
 		
-		d->GET_UNIFORMDATA(SSRContants).ViewProj = Camera->GetViewMatrix() * Camera->GetProjMatrix();
-		d->GET_UNIFORMDATA(SSRContants).InvViewProj = d->GET_UNIFORMDATA(SSRContants).ViewProj.Inverse();
-		d->GET_UNIFORMDATA(SSRContants).CameraPos = Camera->GetCameraPos();
+		d->GET_UNIFORMDATA(SSRContants).ViewProj = ViewData->SsrViewProjMatrix;
+		d->GET_UNIFORMDATA(SSRContants).InvViewProj = ViewData->SsrInvViewProjMatrix;
+		d->GET_UNIFORMDATA(SSRContants).CameraPos = ViewData->CameraPos;
 		d->GET_UNIFORMDATA(SSRContants).NumRays = 1;
-		d->GET_UNIFORMDATA(SSRContants).FrameIndex = d->First ? 1 : Camera->GetFrameIndex();
+		d->GET_UNIFORMDATA(SSRContants).FrameIndex = d->First ? 1 : ViewData->FrameIndex;
 		d->GET_UNIFORMDATA(SSRContants).Resolution = math::Vector2(static_cast<float>(ViewPort->GetSize().cx), static_cast<float>(ViewPort->GetSize().cy));
 		d->GET_UNIFORMDATA(SSRContants).TemporalBlendFactor = 0.93f;
 		d->First = false;

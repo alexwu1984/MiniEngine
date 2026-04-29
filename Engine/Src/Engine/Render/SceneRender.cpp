@@ -1,8 +1,9 @@
 ﻿#include "Render/SceneRender.h"
-#include "Scene/SceneView.h"
+#include "Render/SceneRenderPrivate.h"
+#include "Scene/World.h"
 #include "RHI/RHICommandContext.h"
 #include "Scene/Actor.h"
-#include "Scene/Component.h"
+#include "Scene/CameraComponent.h"
 #include "Scene/GltfMeshComponent.h"
 #include "RHI/RHIViewPort.h"
 #include "Thread/RenderThread.h"
@@ -11,7 +12,6 @@
 #include "App/AppWindow.h"
 #include "Render/PreProcessor.h"
 #include "GltfModel/GltfMesh.h"
-#include "Render/SceneRendering/FDeferredShadingBasePassRenderer.h"
 #include "Render/SceneRendering/FMeshMaterialRenderCache.h"
 #include "Render/SceneRendering/FSceneRendererPrimitiveGather.h"
 #include "Render/CubeBackground.h"
@@ -21,6 +21,9 @@
 #include "Render/GBuffer.h"
 #include "Render/RenderTexturePool.h"
 #include "Render/Shadow/ShadowRenderPass.h"
+#include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/SceneRendering/FSceneViewFamily.h"
+#include "Render/SceneRendering/FSceneRenderer.h"
 #include "core/logger.h"
 #include <optional>
 
@@ -46,46 +49,13 @@ namespace Engine
 			{
 			}
 		}
-
-		/** GBuffer slots for RDG pass I/O (ClearGBuffer, RenderBasePass, …). */
-		static std::vector<FrameGraphResource> MakeGBufferResourcesForFrameGraph(const std::shared_ptr<GBuffer>& TB)
-		{
-			if (!TB)
-				return {};
-			return {
-				{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
-				{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
-				{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
-				{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
-				{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
-				{ "Depth", [TB]() { return TB->GetDepth(); } },
-			};
-		}
 	} // namespace
 
-	struct SceneRenderPrivate
-	{
-		std::weak_ptr<SceneView> Owner;
-		std::shared_ptr<RHIViewPort> MainViewPort;
-		std::shared_ptr<PreProcessor> PreProcess;
-		std::shared_ptr<PostProcessor> PostProcess;
-		std::unique_ptr<FMeshMaterialRenderCache> MeshMaterialRenderCache;
-		std::shared_ptr<CubeBackground> BackgroundRender;
-		std::shared_ptr<GBuffer> TargetBuffer;
-		std::vector<GltfSceneMeshInfo> MeshesInfo;
-		std::shared_ptr<ShadowRenderPass> ShadowRender;
-		std::atomic_bool IsInit{ false };
-		core::FLinearColor Color = core::FLinearColor::Blue;
-		FrameGraphCompileParams RDGCompileParams{};
-		float DeferredBasePassEnvironmentRotateX = 0.f;
-		float DeferredBasePassEnvironmentRotateY = 1.f;
-	};
-	
-	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
-		:d_ptr(new SceneRenderPrivate())
+	SceneRender::SceneRender(std::weak_ptr<World> Owner)
+		: d_ptr(new SceneRenderPrivate())
 	{
 		C_P(SceneRender);
-		d->Owner = Owner;
+		d->Owner = std::move(Owner);
 		d->MeshMaterialRenderCache = std::make_unique<FMeshMaterialRenderCache>();
 	}
 
@@ -98,7 +68,7 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	std::shared_ptr<SceneView> SceneRender::GetOwner() const
+	std::shared_ptr<World> SceneRender::GetWorld() const
 	{
 		C_P(SceneRender);
 		return d->Owner.lock();
@@ -140,7 +110,7 @@ namespace Engine
 			}
 			d->ShadowRender->InitResource();
 			d->IsInit = true;
-			});
+		});
 	}
 
 	void SceneRender::LoadConfig(const nlohmann::json& Root)
@@ -164,11 +134,11 @@ namespace Engine
 
 	void SceneRender::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
 	{
-		if (InSizeX ==0 || InSizeY == 0)
+		if (InSizeX == 0 || InSizeY == 0)
 		{
 			return;
 		}
-		C_P(SceneRender); 
+		C_P(SceneRender);
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
 			d->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
 			if (d->TargetBuffer)
@@ -226,147 +196,56 @@ namespace Engine
 
 	void SceneRender::RenderScene(float DeltaTime)
 	{
+		(void)DeltaTime;
 		C_P(SceneRender);
-		std::shared_ptr<SceneView> Owner = GetOwner();
-		if (!d->IsInit || !Owner || !Owner->GetMainCamera())
+		std::shared_ptr<World> World = GetWorld();
+		if (!d->IsInit || !World || !World->GetMainCamera())
 			return;
 
+		FSceneViewFamily ViewFamily;
+		ViewFamily.RenderSizeX = (uint32_t)d->MainViewPort->GetSize().cx;
+		ViewFamily.RenderSizeY = (uint32_t)d->MainViewPort->GetSize().cy;
+		ViewFamily.bUsesTemporalAAProjectionJitter = UsesTemporalAAProjectionJitter();
+		ViewFamily.Views.resize(1);
+		FSceneViewData& Primary = ViewFamily.PrimaryView();
+		std::vector<Light> lightsSnapshot(World->GetLights().begin(), World->GetLights().end());
+		Primary.BuildFromCamera(*World->GetMainCamera(), std::move(lightsSnapshot), d->DeferredBasePassEnvironmentRotateX, d->DeferredBasePassEnvironmentRotateY,
+								ViewFamily.bUsesTemporalAAProjectionJitter, 0, 0, (int32_t)ViewFamily.RenderSizeX, (int32_t)ViewFamily.RenderSizeY);
+
+		auto ViewDataPtr = std::make_shared<FSceneViewData>(Primary);
+		std::shared_ptr<const FSceneViewData> ViewConst = ViewDataPtr;
+
+		std::vector<std::shared_ptr<Actor>> actorsCopy;
+		{
+			const auto& liveActors = World->GetAllActors();
+			actorsCopy.assign(liveActors.begin(), liveActors.end());
+		}
+
 		FPrimitiveGatherResult PrimitiveGather;
-		FSceneRendererPrimitiveGather::GatherVisiblePrimitives(*Owner, PrimitiveGather);
-		d->MeshesInfo = std::move(PrimitiveGather.VisiblePrimitives);
-		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = d->MeshesInfo;
+		FSceneRendererPrimitiveGather::GatherVisiblePrimitives(*ViewConst, actorsCopy, PrimitiveGather);
+
+		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(PrimitiveGather.VisiblePrimitives);
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(PrimitiveGather.ShadowFrustumCullPrimitives);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[d, this, Owner, shadowCasters = std::move(shadowCasters), shadowFrustumBounds = std::move(shadowFrustumBounds),
-			 MeshesInfo = std::move(MeshesInfoCopy)](RenderCore::DynamicRHI* RHI)
+		std::shared_ptr<Actor> shadowProjector;
+		for (const auto& a : actorsCopy)
+		{
+			if (a && a->IsProjectShadow())
 			{
-				std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
-				if (!CommandContext)
-					return;
+				shadowProjector = a;
+				break;
+			}
+		}
 
-				FrameGraph Graph;
-				auto TB = d->TargetBuffer;
-				RHI->RHIBeginFrame();
+		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 
-				Graph.AddPass(FramePassDesc{
-					"PreProcess",
-					{},
-					{},
-					[d, CommandContext]()
-					{
-						if (d->PreProcess)
-							d->PreProcess->Draw(*CommandContext);
-					}});
+		auto RHI = GEngine->GetRHI();
+		if (!RHI)
+			return;
 
-				if (!shadowCasters.empty())
-				{
-					Graph.AddPass(FramePassDesc{
-						"Shadow",
-						{},
-						{},
-						[d, CommandContext, shadowCasters, shadowFrustumBounds, Owner]()
-						{ d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, Owner); }});
-				}
-
-				const std::vector<FrameGraphResource> GBufferIO = MakeGBufferResourcesForFrameGraph(TB);
-
-				Graph.AddPass(FramePassDesc{
-					"ClearGBuffer",
-					{},
-					GBufferIO,
-					[d, RHI]()
-					{
-						d->MainViewPort->SetRenderTarget();
-						d->MainViewPort->Clear(d->Color);
-						d->MainViewPort->Prepare();
-						int32_t width = GEngine->GetAppWindow()->GetWidth();
-						int32_t height = GEngine->GetAppWindow()->GetHeight();
-						RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
-
-						std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
-							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
-							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-						RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-					}});
-
-				Graph.AddPass(FramePassDesc{
-					"RenderSky",
-					GBufferIO,
-					GBufferIO,
-					[d, RHI]()
-					{
-						std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
-							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
-							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-						auto IBL = d->PreProcess->GetIBLRender();
-						auto SkyCube = IBL->GetSkyLightCubemap();
-						d->BackgroundRender->SetTextureCube(SkyCube);
-						d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
-					}});
-
-				Graph.AddPass(FramePassDesc{
-					"RenderBasePass",
-					GBufferIO,
-					GBufferIO,
-					[d, this, RHI, MeshesInfo, Owner]()
-					{
-						if (!MeshesInfo.empty())
-						{
-							FDeferredBasePassDrawContext DrawContext;
-							DrawContext.View = Owner;
-							DrawContext.TargetBuffer = d->TargetBuffer;
-							DrawContext.SceneRenderRaw = this;
-							DrawContext.EnvironmentRotatePitchDegrees = d->DeferredBasePassEnvironmentRotateX;
-							DrawContext.EnvironmentRotateYawDegrees = d->DeferredBasePassEnvironmentRotateY;
-							FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHI, MeshesInfo, DrawContext, *d->MeshMaterialRenderCache);
-						}
-					}});
-
-				Graph.AddPass(FramePassDesc{
-					"RenderTranslucency",
-					GBufferIO,
-					GBufferIO,
-					[d, this, RHI, MeshesInfo, Owner]()
-					{
-						if (!MeshesInfo.empty())
-						{
-							FDeferredBasePassDrawContext DrawContext;
-							DrawContext.View = Owner;
-							DrawContext.TargetBuffer = d->TargetBuffer;
-							DrawContext.SceneRenderRaw = this;
-							DrawContext.EnvironmentRotatePitchDegrees = d->DeferredBasePassEnvironmentRotateX;
-							DrawContext.EnvironmentRotateYawDegrees = d->DeferredBasePassEnvironmentRotateY;
-							FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHI, MeshesInfo, DrawContext, *d->MeshMaterialRenderCache);
-						}
-					}});
-
-				d->PostProcess->AddFramePasses(Graph, *RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, Owner->GetMainCamera());
-
-				Graph.AddPass(FramePassDesc{
-					"ImGuiEncode",
-					{},
-					{},
-					[d, this]()
-					{
-						sigGuiEvent();
-						d->MainViewPort->RHIImGuiRenderDrawData();
-					}});
-
-				Graph.AddPass(FramePassDesc{
-					"RHISubmitAndPresent",
-					{},
-					{},
-					[d]()
-					{
-						d->MainViewPort->RHISubmitAndPresentFrame();
-					}});
-
-				Graph.Execute(d->RDGCompileParams);
-				RHI->RHIEndFrame();
-			},
-			true);
+		FSceneRenderer::ExecuteDeferredFrame(RHI.get(), this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
+											 std::move(shadowLights), std::move(shadowProjector), std::move(actorsCopy));
 	}
 
-}
+} // namespace Engine

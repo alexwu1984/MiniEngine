@@ -4,8 +4,7 @@
 namespace Engine
 {
 	class SceneRender;
-	class SceneView;
-	class CameraComponent;
+	struct FSceneViewData;
 	class GBuffer;
 	class MeshBase;
 
@@ -13,9 +12,8 @@ namespace Engine
 	class FSceneMaterialShaderParameters
 	{
 	public:
-		static MaterialRenderParam BuildForDeferredBasePass(const SceneRender* SceneRender, const SceneView* View, CameraComponent* Camera,
-															const MeshBase* Mesh, const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
-															const std::shared_ptr<GBuffer>& TargetBuffer, float EnvironmentRotatePitchDegrees,
-															float EnvironmentRotateYawDegrees);
+		static MaterialRenderParam BuildForDeferredBasePass(const SceneRender* SceneRender, const FSceneViewData* ViewData, const MeshBase* Mesh,
+															const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
+															const std::shared_ptr<GBuffer>& TargetBuffer);
 	};
 }

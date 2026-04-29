@@ -1,5 +1,8 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "Render/MaterialPreFrame.h"
+#include <memory>
+#include <vector>
 
 namespace RenderCore
 {
@@ -10,7 +13,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class  SceneView;
+	class Actor;
 	struct GltfSceneMeshInfo;
 	struct ShadowRenderPassPrivate;
 
@@ -23,9 +26,9 @@ namespace Engine
 		void InitResource();
 		// ShadowCasterMeshes: drawn into the shadow map (ProjShadow actors only).
 		// FrustumBoundsMeshes: union AABB for light frustum; use all visible receivers (e.g. floor) or casters-only breaks shadows on large surfaces.
-		void Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
-			const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
-			[[maybe_unused]] RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View);
+		void Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
+					[[maybe_unused]] RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, std::shared_ptr<Actor> ShadowProjector,
+					const std::vector<std::shared_ptr<Actor>>& AllActorsForShadow);
 
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetShadowMap() const;
 

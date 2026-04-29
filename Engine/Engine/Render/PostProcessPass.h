@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include <string>
 #include "Render/Bloom.h"
@@ -19,7 +19,7 @@ namespace RenderCore
 namespace Engine
 {
 	class Bloom;
-	class CameraComponent;
+	struct FSceneViewData;
 	class GBuffer;
 	class SSRProcessor;
 	class TemporallAA;
@@ -49,7 +49,7 @@ namespace Engine
 	{
 	public:
 		SSRPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
+				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 				std::shared_ptr<SSRProcessor> SSR,
 				std::function<std::shared_ptr<RenderCore::RHITexture2D>()> ReflectionColor);
 
@@ -61,7 +61,7 @@ namespace Engine
 		RenderCore::RHICommandContext& RHIContext;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
-		std::shared_ptr<CameraComponent> Camera;
+		std::shared_ptr<const FSceneViewData> ViewData;
 		std::shared_ptr<SSRProcessor> SSR;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> ReflectionColor;
 	};
@@ -135,7 +135,7 @@ namespace Engine
 	{
 	public:
 		TAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
+				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 				std::shared_ptr<TemporallAA> TAA,
 				std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
 
@@ -147,7 +147,7 @@ namespace Engine
 		RenderCore::RHICommandContext& RHIContext;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
-		std::shared_ptr<CameraComponent> Camera;
+		std::shared_ptr<const FSceneViewData> ViewData;
 		std::shared_ptr<TemporallAA> TAA;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 	};

@@ -54,7 +54,10 @@ set(Engine_Render_SceneRendering_Source
 	Src/Engine/Render/SceneRendering/FMeshMaterialRenderCache.cpp
 	Src/Engine/Render/SceneRendering/FOpaqueMeshDrawBuilder.cpp
 	Src/Engine/Render/SceneRendering/FSceneMaterialShaderParameters.cpp
+	Src/Engine/Render/SceneRendering/FSceneRenderer.cpp
 	Src/Engine/Render/SceneRendering/FSceneRendererPrimitiveGather.cpp
+	Src/Engine/Render/SceneRendering/FSceneViewData.cpp
+	Src/Engine/Render/SceneRendering/FSceneViewFamily.cpp
 	Src/Engine/Render/SceneRendering/FTranslucentMeshSorter.cpp
 )
 file(GLOB Engine_Material_Source Src/Engine/Material/*.cpp)

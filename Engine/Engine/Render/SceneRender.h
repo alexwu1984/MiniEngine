@@ -18,7 +18,7 @@ namespace Engine
 {
 	class PreProcessor;
 	class PostProcessor;
-	class SceneView;
+	class World;
 	struct SceneRenderPrivate;
 	class ShadowRenderPass;
 	class CubeBackground;
@@ -27,9 +27,9 @@ namespace Engine
 	class SceneRender : public std::enable_shared_from_this<SceneRender>
 	{
 	public:
-		SceneRender(std::weak_ptr<SceneView> Owner);
+		SceneRender(std::weak_ptr<World> Owner);
 		~SceneRender();
-		std::shared_ptr<SceneView> GetOwner() const;
+		std::shared_ptr<World> GetWorld() const;
 
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 		void LoadConfig(const nlohmann::json& Root);
@@ -39,14 +39,16 @@ namespace Engine
 		void SetIBLRotate(float x, float y);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<PostProcessor> GetPostProcessor() const;
-		// True when the main post chain uses TAA (geometry must use jittered projection for motion vectors).
 		bool UsesTemporalAAProjectionJitter() const;
-		std::shared_ptr<ShadowRenderPass>  GetShadowRenderPass() const;
+		std::shared_ptr<ShadowRenderPass> GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
+
 	private:
 		void RenderScene(float DeltaTime);
+
 	public:
 		core::event<void()> sigGuiEvent;
+
 	private:
 		SceneRenderPrivate* d_ptr = nullptr;
 	};

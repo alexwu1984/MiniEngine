@@ -1,8 +1,7 @@
-#include "Scene/OrbitCamera.h"
+﻿#include "Scene/OrbitCamera.h"
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"
 #include "Scene/Actor.h"
-#include "Scene/SceneView.h"
 
 namespace Engine
 {

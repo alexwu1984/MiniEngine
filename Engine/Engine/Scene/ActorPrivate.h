@@ -1,5 +1,5 @@
-#pragma once
-#include "Engine/Scene/SceneView.h"
+﻿#pragma once
+#include "Engine/Scene/World.h"
 #include "Engine/Scene/Component.h"
 
 namespace Engine 
@@ -17,7 +17,7 @@ namespace Engine
 		Quaternion Rotation;
 
 		std::vector<std::shared_ptr<Component>> Components;
-		std::weak_ptr<SceneView> Scene;
+		std::weak_ptr<World> WorldRef;
 
 		bool RecomputeWorldTransform = true;
 		bool projectShadow = false;

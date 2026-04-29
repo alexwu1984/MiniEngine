@@ -1,12 +1,15 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "math/aabb3.h"
 #include "math/vector2.h"
 #include "math/matrix4x4.h"
+#include "Render/MaterialPreFrame.h"
+#include <memory>
+#include <vector>
 
 namespace Engine
 {
-	class SceneView;
+	class Actor;
 
 	struct CascadeParameters 
 	{
@@ -30,10 +33,10 @@ namespace Engine
 		ShadowMap();
 		~ShadowMap();
 
-		static void ComputeSceneCascadeParams(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams);
+		static void ComputeSceneCascadeParams(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams);
 		void Update(const CascadeParameters& cascadesParams);
 	private:
-		static void calculateNearFar(std::shared_ptr<SceneView> sceneView, CascadeParameters& cascadeParams);
+		static void calculateNearFar(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams);
 		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::AABB3& wsShadowCastersVolume) ;
 		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::Vector3* wsVertices, size_t count) ;
 	public:

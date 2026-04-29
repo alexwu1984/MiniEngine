@@ -1,8 +1,8 @@
-#include "Scene/GltfActor.h"
+﻿#include "Scene/GltfActor.h"
 #include "Scene/OrbitCamera.h"
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/GltfInputComponent.h"
-#include "Scene/SceneView.h"
+#include "Scene/World.h"
 #include "GltfModel/GltfModelConfig.h"
 #include "GltfModel/GltfModel.h"
 
@@ -19,8 +19,8 @@ namespace Engine
 		std::shared_ptr<GltfDeviceInputComponent> InputComp;
 	};
 
-	GltfActor::GltfActor(std::weak_ptr<SceneView> Scene, const nlohmann::json& GltfJson)
-		: Actor(Scene)
+	GltfActor::GltfActor(std::weak_ptr<World> InWorld, const nlohmann::json& GltfJson)
+		: Actor(InWorld)
 		, d_ptr(new GltfActorPrivate())
 	{
 		C_P(GltfActor);
@@ -52,7 +52,7 @@ namespace Engine
 		{
 			if (d->GltfJson["MainCamera"])
 			{
-				GetScene()->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
+				GetWorld()->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
 				auto Box = d->MeshComp->GetModelBox();
 				math::Vector3 Length = Box.GetMaxPoint() - Box.GetMinPoint();
 				float Dist = (std::max)(Length.x, (std::max)(Length.y, Length.z));

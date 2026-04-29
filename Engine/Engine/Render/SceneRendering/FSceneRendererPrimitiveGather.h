@@ -1,10 +1,12 @@
 ﻿#pragma once
+#include <memory>
 #include <vector>
 
 namespace Engine
 {
-	class SceneView;
+	struct FSceneViewData;
 	struct GltfSceneMeshInfo;
+	class Actor;
 
 	/** One-frame primitive lists produced for the active scene view (visible draws + shadow pass inputs). */
 	struct FPrimitiveGatherResult
@@ -18,6 +20,6 @@ namespace Engine
 	class FSceneRendererPrimitiveGather
 	{
 	public:
-		static void GatherVisiblePrimitives(const SceneView& View, FPrimitiveGatherResult& OutResult);
+		static void GatherVisiblePrimitives(const FSceneViewData& ViewData, const std::vector<std::shared_ptr<Actor>>& Actors, FPrimitiveGatherResult& OutResult);
 	};
 }

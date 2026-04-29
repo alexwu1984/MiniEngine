@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"
 #include "ActorTraits.h"
@@ -6,7 +6,7 @@
 
 namespace Engine
 {
-	class SceneView;
+	class World;
 	class Component;
 
 
@@ -37,7 +37,7 @@ namespace Engine
 
 	public:
 		DECLARE_ACTOR_CLASS_NAME(Actor)
-		Actor(std::weak_ptr<SceneView> Scene);
+		Actor(std::weak_ptr<World> InWorld);
 		virtual ~Actor();
 
 		virtual void InitResouce();
@@ -59,7 +59,7 @@ namespace Engine
 		AState GetState() const;
 		void SetState(AState state);
 
-		std::shared_ptr<SceneView> GetScene() const;
+		std::shared_ptr<World> GetWorld() const;
 
 		math::Vector3 GetForward() const;
 		math::Vector3 GetRight() const;

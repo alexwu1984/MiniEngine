@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Render/SceneRendering/FDeferredBasePassDrawContext.h"
+#include "math/vector3.h"
 #include <memory>
 #include <vector>
 
@@ -10,7 +11,6 @@ namespace RenderCore
 
 namespace Engine
 {
-	class CameraComponent;
 	class FMeshMaterialRenderCache;
 	struct GltfSceneMeshInfo;
 
@@ -18,7 +18,7 @@ namespace Engine
 	class FOpaqueMeshDrawBuilder
 	{
 	public:
-		static void DrawSortedOpaqueMeshes(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const std::shared_ptr<CameraComponent>& Camera,
+		static void DrawSortedOpaqueMeshes(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const math::Vector3& CameraWorldPos,
 										   bool bIsPrePass, const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache);
 	};
 }

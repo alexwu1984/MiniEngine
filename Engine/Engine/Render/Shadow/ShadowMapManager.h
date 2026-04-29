@@ -1,11 +1,14 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
+#include "Render/MaterialPreFrame.h"
+#include <memory>
+#include <vector>
 
 namespace Engine
 {
-	class SceneView;
+	class Actor;
 	class ShadowMap;
-	//Ŀǰ��û��ʽʵ��������Ӱ
+	//Ä¿Ç°»¹Ã»ÕýÊ½ÊµÏÖÁª¼¶ÒõÓ°
 	constexpr size_t CONFIG_MAX_SHADOW_CASCADES = 1;
 
 	struct ShadowMapManagerPrivate;
@@ -16,14 +19,14 @@ namespace Engine
 		ShadowMapManager();
 		~ShadowMapManager();
 
-		//ֻ��������һ��
+		//Ö»ÔÊÐíµ÷ÓÃÒ»´Î
 		void SetShadowCascades(size_t cascades);
-		void Update(std::shared_ptr<SceneView> sceneView);
+		void Update(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors);
 
 		std::shared_ptr<ShadowMap> GetShadowMap(int32_t index) const;
 
 	private:
-		void UpdateCascadeShadowMaps(std::shared_ptr<SceneView> sceneView);
+		void UpdateCascadeShadowMaps(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors);
 	private:
 		ShadowMapManagerPrivate* d_ptr = nullptr;
 	};

@@ -1,4 +1,4 @@
-#include "Scene/Actor.h"
+﻿#include "Scene/Actor.h"
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"
 
@@ -8,10 +8,10 @@ namespace Engine
 	IMP_ACTOR_CLASS_NAME(Actor)
 	IMP_ACTOR_TRAITS_CLASS_NAME(Actor)
 
-	Actor::Actor(std::weak_ptr<SceneView> Scene)
+	Actor::Actor(std::weak_ptr<World> InWorld)
 		:ImplActorP(std::make_shared<ActorPrivate>())
 	{
-		ImplActorP->Scene = Scene;
+		ImplActorP->WorldRef = std::move(InWorld);
 	}
 	Actor::~Actor()
 	{
@@ -122,9 +122,9 @@ namespace Engine
 		ImplActorP->State = State;
 	}
 
-	std::shared_ptr<SceneView> Actor::GetScene() const
+	std::shared_ptr<World> Actor::GetWorld() const
 	{
-		return ImplActorP->Scene.lock();
+		return ImplActorP->WorldRef.lock();
 	}
 
 	Vector3 Actor::GetForward() const

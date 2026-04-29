@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/DynamicRHI.h"
 #include "tinygltf/json.h"
 
@@ -16,7 +16,8 @@ namespace Engine
 {
 	struct MainEnginePrivate;
 	class AppWindow;
-	class SceneView;
+	class World;
+	class GameViewportClient;
 	class SceneRender;
 
 	class MainEngine
@@ -32,7 +33,8 @@ namespace Engine
 		std::wstring GetModelPath() const;
 		std::shared_ptr<RenderCore::DynamicRHI> GetRHI() const;
 		std::shared_ptr<AppWindow> GetAppWindow()const;
-		std::shared_ptr<SceneView> GetScene() const;
+		std::shared_ptr<World> GetWorld() const;
+		std::shared_ptr<GameViewportClient> GetViewportClient() const;
 		std::shared_ptr<SceneRender> GetSceneRender() const;
 
 	private:

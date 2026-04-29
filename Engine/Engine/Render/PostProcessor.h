@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
 #include "Render/FrameGraph.h"
@@ -14,8 +14,8 @@ namespace RenderCore
 namespace Engine
 {
 	struct PostProcessorPrivate;
+	struct FSceneViewData;
 	class GBuffer;
-	class CameraComponent;
 
 	enum class EPostProcessorAAType : uint8_t
 	{
@@ -33,20 +33,20 @@ namespace Engine
 		void InitResource();
 		// After swapchain/GBuffer resolution change: drop intermediate targets only (no shader recompile).
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, 
-				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+				  std::shared_ptr<const FSceneViewData> ViewData);
 		void AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera);
+							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetSSRBuffer() const;
 		EPostProcessorAAType GetPostProcessorAAType() const;
 	private:
 		void BuildSSRPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
+							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 							std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor);
 		void BuildBloomPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite);
 		void BuildAAPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-						   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<CameraComponent> Camera,
+						   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 						   std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor);
 		void BuildTonemappingPass(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 								  std::shared_ptr<RenderCore::RHIViewPort> ViewPort);

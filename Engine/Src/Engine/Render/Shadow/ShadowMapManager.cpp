@@ -1,4 +1,4 @@
-#include "Render/Shadow/ShadowMapManager.h"
+﻿#include "Render/Shadow/ShadowMapManager.h"
 #include "Render/Shadow/ShadowMap.h"
 
 namespace Engine
@@ -31,9 +31,9 @@ namespace Engine
 		}
 	}
 
-	void ShadowMapManager::Update(std::shared_ptr<SceneView> sceneView)
+	void ShadowMapManager::Update(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors)
 	{
-		UpdateCascadeShadowMaps(sceneView);
+		UpdateCascadeShadowMaps(lights, actors);
 	}
 
 
@@ -48,11 +48,11 @@ namespace Engine
 		return d->cascadeShadowMaps[index];
 	}
 
-	void ShadowMapManager::UpdateCascadeShadowMaps(std::shared_ptr<SceneView> sceneView)
+	void ShadowMapManager::UpdateCascadeShadowMaps(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors)
 	{
 		C_P(ShadowMapManager);
 		CascadeParameters cascadeParams;
-		ShadowMap::ComputeSceneCascadeParams(sceneView, cascadeParams);
+		ShadowMap::ComputeSceneCascadeParams(lights, actors, cascadeParams);
 		assert(d->cascadeShadowMaps.size() > 0);
 		d->cascadeShadowMaps[0]->Update(cascadeParams);
 	}

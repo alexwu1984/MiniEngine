@@ -1,29 +1,33 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "Scene/DeviceInputState.h"
+#include "Render/MaterialPreFrame.h"
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <vector>
 
-namespace Engine 
+namespace Engine
 {
 	class Actor;
 	class CameraComponent;
-	struct SceneViewPrivate;
-	struct Light;
+	struct WorldPrivate;
 
-	class SceneView : public std::enable_shared_from_this<SceneView>
+	/** Game-thread world: actors, lights, main camera (UE world / scene subset; no input, no tick). */
+	class World : public std::enable_shared_from_this<World>
 	{
 	public:
-		SceneView();
-		~SceneView();
-
-		void Init();
+		World();
+		~World();
 
 		void LoadScene(const std::wstring& ModelFile);
 		void AddActor(std::shared_ptr<Actor> actor);
 		void RemoveActor(std::shared_ptr<Actor> actor);
 		void RemoveAllActors();
-		void Tick(float DeltaTime);
+		void TickSimulation(float DeltaTime);
+		void DispatchInput(const InputDeviceState& InputState);
 
-		template<typename ActorType>  std::vector<std::shared_ptr<ActorType>> GetActors()
+		template<typename ActorType> std::vector<std::shared_ptr<ActorType>> GetActors()
 		{
 			std::vector<std::shared_ptr<ActorType>> Actors;
 			for (auto ActorItem : GetAllActors())
@@ -38,19 +42,11 @@ namespace Engine
 		}
 		void SetMainCamera(std::shared_ptr<CameraComponent> Camera);
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
-		std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
+		const std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
 		const std::vector<Light>& GetLights() const;
 		std::vector<Light>& GetLights();
-	
+
 	private:
-		void OnMouseButtonDown(MouseButton Button, core::vec2f Pos);
-		void OnMouseButtonUp(MouseButton Button, core::vec2f Pos);
-		void OnMouseMove(MouseButton Button, core::vec2f Pos);
-		void HandleMouseEvent(MouseEventType EventType, MouseButton Button, core::vec2f Pos);
-		void OnMouseWheel(int32_t WheelValue);
-	private:
-		SceneViewPrivate* d_ptr = nullptr;
+		WorldPrivate* d_ptr = nullptr;
 	};
-
 }
-

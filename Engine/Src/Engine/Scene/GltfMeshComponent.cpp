@@ -1,4 +1,4 @@
-#include "Scene/GltfMeshComponent.h"
+﻿#include "Scene/GltfMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
 #include "ObjModel/ObjMesh.h"
@@ -17,7 +17,6 @@
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
 #include "Engine/Engine.h"
-#include "Scene/SceneView.h"
 #include "Render/SceneRender.h"
 #include <variant>
 
@@ -199,7 +198,7 @@ namespace Engine
 
 	}
 
-	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, std::shared_ptr<CameraComponent> Camera)
+	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum& ViewCullFrustum)
 	{
 		C_P(GltfMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
@@ -207,7 +206,7 @@ namespace Engine
 		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
 		{
 			math::AABB3 Box = PM->Box.Transform(SceneMeshInfo.WorldTransform);
-			bool Render = Camera->GetFrustum().Intersects(Box);
+			bool Render = ViewCullFrustum.Intersects(Box);
 			if (Render)
 			{
 				for (auto& Mesh : PM->Meshes)
@@ -234,7 +233,7 @@ namespace Engine
 			if (!mergedValid)
 				mergedWorldAabb = GM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 
-			bool Render = Camera->GetFrustum().Intersects(mergedWorldAabb);
+			bool Render = ViewCullFrustum.Intersects(mergedWorldAabb);
 			if (Render)
 			{
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
@@ -259,7 +258,7 @@ namespace Engine
 			if (!mergedValid)
 				mergedWorldAabb = OM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 
-			bool Render = Camera->GetFrustum().Intersects(mergedWorldAabb);
+			bool Render = ViewCullFrustum.Intersects(mergedWorldAabb);
 			if (Render)
 			{
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<ObjMesh> Item) {

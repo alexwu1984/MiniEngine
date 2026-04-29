@@ -1,7 +1,7 @@
-#include "GltfViewerApp.h"
+﻿#include "GltfViewerApp.h"
 #include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
-#include "Engine/Scene/SceneView.h"
+#include "Engine/Scene/World.h"
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
@@ -26,7 +26,7 @@ GltfViewApp::~GltfViewApp()
 bool GltfViewApp::Init()
 {
 	core::filesystem::path Path = core::process_directory();
-	auto Scene = Engine::GEngine->GetScene();
+	auto Scene = Engine::GEngine->GetWorld();
 
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/BS_Model5.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
@@ -92,7 +92,7 @@ void GltfViewApp::ShutDown()
 
 void GltfViewApp::HideActor(const std::wstring& Name)
 {
-	auto Scene = Engine::GEngine->GetScene();
+	auto Scene = Engine::GEngine->GetWorld();
 	for (auto ActorItem : Scene->GetAllActors())
 	{
 		if (ActorItem->GetActorName() == Name)
@@ -105,7 +105,7 @@ void GltfViewApp::HideActor(const std::wstring& Name)
 
 void GltfViewApp::ShowActor(const std::wstring& Name)
 {
-	auto Scene = Engine::GEngine->GetScene();
+	auto Scene = Engine::GEngine->GetWorld();
 	for (auto ActorItem : Scene->GetAllActors())
 	{
 		if (ActorItem->GetActorName() == Name)

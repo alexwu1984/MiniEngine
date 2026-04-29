@@ -6,7 +6,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIUnorderedAccessView.h"
-#include "Scene/CameraComponent.h"
+#include "Render/SceneRendering/FSceneViewData.h"
 #include "core/system.h"
 #include "Render/GBuffer.h"
 #include "Render/RenderTexturePool.h"
@@ -77,15 +77,17 @@ namespace Engine
 		d->First = true;
 	}
 
-	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera)
+	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(TemporallAA);
+		if (!ViewData)
+			return;
 		RenderCore::RHICommandMark Mark(RHIContext,"TAA");
 
-		d->FrameIndexMod2 = Camera->GetFrameIndexMod2();
+		d->FrameIndexMod2 = static_cast<uint32_t>(ViewData->FrameIndexMod2);
 		uint32_t Dst = d->FrameIndexMod2 ^ 1;
 
-		const uint32_t camGen = Camera->GetTemporalHistoryGeneration();
+		const uint32_t camGen = ViewData->TemporalHistoryGeneration;
 		if (camGen != d->LastTemporalHistoryGeneration)
 		{
 			d->LastTemporalHistoryGeneration = camGen;
@@ -133,8 +135,8 @@ namespace Engine
 			const float rcpHeight = 1.f / height;
 
 			d->GET_UNIFORMDATA(TAAContants).Resolution = math::Vector4(width, height, rcpWidth, rcpHeight);
-			d->GET_UNIFORMDATA(TAAContants).FrameIndex = d->First ? 1 : Camera->GetFrameIndex();
-			const math::Vector4 TemporalAAJitter = Camera->GetTemporalAAJitter();
+			d->GET_UNIFORMDATA(TAAContants).FrameIndex = d->First ? 1 : ViewData->FrameIndex;
+			const math::Vector4 TemporalAAJitter = ViewData->TemporalAAJitter;
 			d->GET_UNIFORMDATA(TAAContants).CurrentJitterPixels = math::Vector4(
 				TemporalAAJitter.x * width * 0.5f,
 				-TemporalAAJitter.y * height * 0.5f,

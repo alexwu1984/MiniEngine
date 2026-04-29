@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
+#include <memory>
 
 namespace RenderCore
 {
@@ -11,8 +12,8 @@ namespace RenderCore
 namespace Engine
 {
 	struct TemporallAAPrivate;
+	struct FSceneViewData;
 	class GBuffer;
-	class CameraComponent;
 
 	class TemporallAA
 	{
@@ -22,7 +23,7 @@ namespace Engine
 
 		void InitResource();
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<CameraComponent> Camera);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetHistoryBuffer();
 	private:
 		TemporallAAPrivate* d_ptr = nullptr;

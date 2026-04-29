@@ -1,4 +1,4 @@
-#include "Render/PostProcessPass.h"
+﻿#include "Render/PostProcessPass.h"
 #include "core/system.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
@@ -10,7 +10,7 @@
 #include "Render/GBuffer.h"
 #include "Render/SSRProcessor.h"
 #include "Render/TemporalAA.h"
-#include "Scene/CameraComponent.h"
+#include "Render/SceneRendering/FSceneViewData.h"
 
 namespace Engine
 {
@@ -99,13 +99,13 @@ namespace Engine
 	}
 
 	SSRPass::SSRPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<CameraComponent> InCamera,
+					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<const FSceneViewData> InViewData,
 					 std::shared_ptr<SSRProcessor> InSSR,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InReflectionColor)
 		: RHIContext(InRHIContext)
 		, TargetBuffer(std::move(InTargetBuffer))
 		, ViewPort(std::move(InViewPort))
-		, Camera(std::move(InCamera))
+		, ViewData(std::move(InViewData))
 		, SSR(std::move(InSSR))
 		, ReflectionColor(std::move(InReflectionColor))
 	{
@@ -130,7 +130,7 @@ namespace Engine
 
 	void SSRPass::Execute() const
 	{
-		SSR->Draw(RHIContext, TargetBuffer, ViewPort, ReflectionColor(), Camera);
+		SSR->Draw(RHIContext, TargetBuffer, ViewPort, ReflectionColor(), ViewData);
 	}
 
 	BloomPass::BloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
@@ -248,13 +248,13 @@ namespace Engine
 	}
 
 	TAAPass::TAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<CameraComponent> InCamera,
+					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<const FSceneViewData> InViewData,
 					 std::shared_ptr<TemporallAA> InTAA,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
 		: RHIContext(InRHIContext)
 		, TargetBuffer(std::move(InTargetBuffer))
 		, ViewPort(std::move(InViewPort))
-		, Camera(std::move(InCamera))
+		, ViewData(std::move(InViewData))
 		, TAA(std::move(InTAA))
 		, SourceTexture(std::move(InSourceTexture))
 	{
@@ -280,7 +280,7 @@ namespace Engine
 	{
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
-		TAA->Draw(RHIContext, TargetBuffer, Camera);
+		TAA->Draw(RHIContext, TargetBuffer, ViewData);
 	}
 
 	FXAAPass::FXAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<RenderCore::RHIViewPort> InViewPort,

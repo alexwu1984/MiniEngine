@@ -5,7 +5,8 @@
 #include "Thread/RenderThread.h"
 #include "Engine/Thread/RHISubmissionThread.h"
 #include "RHI/RHIThreadPolicy.h"
-#include "Scene/SceneView.h"
+#include "Scene/World.h"
+#include "Scene/GameViewportClient.h"
 #include "Render/SceneRender.h"
 #include "win/high_precision_tick.h"
 #include "Engine/Render/RenderTexturePool.h"
@@ -19,25 +20,26 @@ namespace Engine
 	{
 		MainEnginePrivate()
 		{
-			Scene = std::make_shared<SceneView>();
-			SeRender = std::make_shared<SceneRender>(Scene);
+			GameWorld = std::make_shared<Engine::World>();
+			ViewportClient = std::make_shared<GameViewportClient>(std::weak_ptr<World>(GameWorld));
+			SeRender = std::make_shared<SceneRender>(std::weak_ptr<World>(GameWorld));
 		}
-		std::shared_ptr< AppWindow> AppWin;
+		std::shared_ptr<AppWindow> AppWin;
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
 		std::unique_ptr<RenderThread> RThread;
 		std::unique_ptr<RHISubmissionThread> RHISubmitThread;
 		RenderCore::RHIAPIType InitApiType = RenderCore::RHIAPIType::E_D3D11;
-		std::shared_ptr<SceneView> Scene;
+		std::shared_ptr<World> GameWorld;
+		std::shared_ptr<GameViewportClient> ViewportClient;
 		std::shared_ptr<SceneRender> SeRender;
 		win32::HighPrecisionTick GameTick;
 		std::wstring ModelPath;
 		std::atomic_bool NeedResize = false;
 		core::vec2i NewSize;
-
 	};
 
 	MainEngine::MainEngine()
-		:d_ptr(new MainEnginePrivate())
+		: d_ptr(new MainEnginePrivate())
 	{
 		GEngine = this;
 	}
@@ -45,7 +47,6 @@ namespace Engine
 	MainEngine::~MainEngine()
 	{
 		delete d_ptr;
-		RenderCore::ReleasePlatformModule();
 	}
 
 	void MainEngine::Init(std::shared_ptr<AppWindow> AppWin, RenderCore::RHIAPIType ApiType)
@@ -56,18 +57,16 @@ namespace Engine
 		d->AppWin = AppWin;
 		if (d->DynamicRHI)
 		{
-			// Hook engine-level transient pooling to the RHI frame boundaries.
-			// This keeps per-frame resource lifecycle consistent across render paths.
 			d->DynamicRHI->SetFrameCallbacks(
 				[]() { Engine::RenderTexturePool::Get().BeginFrame(); },
 				[]() { Engine::RenderTexturePool::Get().EndFrame(); });
 
-			d->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this,std::placeholders::_1), this);
-			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this,std::placeholders::_1), this);
+			d->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this, std::placeholders::_1), this);
+			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this, std::placeholders::_1), this);
 			d->DynamicRHI->Init();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = d->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
 			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
-			d->Scene->Init();
+			d->ViewportClient->Init(AppWin);
 			d->SeRender->InitResource(ViewPort);
 		}
 	}
@@ -113,8 +112,8 @@ namespace Engine
 		}
 
 		d->SeRender = {};
-		d->Scene = {};
-		// After scene/GBuffer teardown so pooled textures can be returned first.
+		d->ViewportClient = {};
+		d->GameWorld = {};
 		Engine::RenderTexturePool::Get().Clear();
 		d->RThread = {};
 		if (d->DynamicRHI)
@@ -153,10 +152,16 @@ namespace Engine
 		return d->AppWin;
 	}
 
-	std::shared_ptr<SceneView> MainEngine::GetScene() const
+	std::shared_ptr<World> MainEngine::GetWorld() const
 	{
 		C_P(const MainEngine);
-		return d->Scene;
+		return d->GameWorld;
+	}
+
+	std::shared_ptr<GameViewportClient> MainEngine::GetViewportClient() const
+	{
+		C_P(const MainEngine);
+		return d->ViewportClient;
 	}
 
 	std::shared_ptr<SceneRender> MainEngine::GetSceneRender() const
@@ -168,9 +173,8 @@ namespace Engine
 	void MainEngine::Tick(float DeltaTime)
 	{
 		C_P(MainEngine);
-		// Product path (UE-style): game tick gathers scene data on this thread; GPU recording + submit + Present
-		// run on RenderThread inside SceneRender::RenderScene (see ENQUEUE_UNIQUE_RENDER_COMMAND, wait=true).
-		d->Scene->Tick(DeltaTime);
+		if (d->ViewportClient)
+			d->ViewportClient->Tick(DeltaTime);
 		d->SeRender->Render(DeltaTime);
 		if (d->NeedResize)
 		{
@@ -187,4 +191,4 @@ namespace Engine
 		d->NewSize = NewSize;
 	}
 
-}
+} // namespace Engine

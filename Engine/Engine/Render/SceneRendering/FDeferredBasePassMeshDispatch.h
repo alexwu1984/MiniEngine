@@ -10,7 +10,6 @@ namespace RenderCore
 
 namespace Engine
 {
-	class CameraComponent;
 	class MeshBase;
 
 	/** Submits a single mesh material draw for the deferred base pass (velocity pre-pass or main pass). */
@@ -18,6 +17,6 @@ namespace Engine
 	{
 	public:
 		static void Dispatch(RenderCore::DynamicRHI* RHI, const std::shared_ptr<MeshBase>& Mesh, const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
-							 const std::shared_ptr<MaterialRender>& Material, const std::shared_ptr<CameraComponent>& Camera, bool bIsPrePass, const FDeferredBasePassDrawContext& DrawContext);
+							 const std::shared_ptr<MaterialRender>& Material, bool bIsPrePass, const FDeferredBasePassDrawContext& DrawContext);
 	};
 }

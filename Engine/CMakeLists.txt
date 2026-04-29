@@ -18,6 +18,7 @@ file(GLOB Engine_GltfModel_Header Engine/GltfModel/*.h)
 file(GLOB Engine_ObjModel_Header Engine/ObjModel/*.h)
 file(GLOB Engine_Render_Header Engine/Render/*.h)
 file(GLOB Engine_Render_Header_Shadow Engine/Render/Shadow/*.h)
+file(GLOB Engine_Render_SceneRendering_Header Engine/Render/SceneRendering/*.h)
 file(GLOB Engine_Material_Header Engine/Material/*.h)
 file(GLOB Engine_Procedural_Header Engine/Procedural/*.h)
 
@@ -29,6 +30,7 @@ source_group("Header Files\\Engine\\GltfModel" FILES ${Engine_GltfModel_Header} 
 source_group("Header Files\\Engine\\ObjModel" FILES ${Engine_ObjModel_Header} )
 source_group("Header Files\\Engine\\Render" FILES ${Engine_Render_Header} )
 source_group("Header Files\\Engine\\Render\\Shadow" FILES ${Engine_Render_Header_Shadow} )
+source_group("Header Files\\Engine\\Render\\SceneRendering" FILES ${Engine_Render_SceneRendering_Header} )
 source_group("Header Files\\Engine\\Material" FILES ${Engine_Material_Header} )
 source_group("Header Files\\Engine\\Procedural" FILES ${Engine_Procedural_Header} )
 
@@ -45,6 +47,16 @@ file(GLOB Engine_GltfModel_Source Src/Engine/GltfModel/*.cpp)
 file(GLOB Engine_ObjModel_Source Src/Engine/ObjModel/*.cpp)
 file(GLOB Engine_Render_Source Src/Engine/Render/*.cpp)
 file(GLOB Engine_Render_Shadow_Source Src/Engine/Render/Shadow/*.cpp)
+# Explicit: GLOB can omit new files until reconfigure (LNK2019).
+set(Engine_Render_SceneRendering_Source
+	Src/Engine/Render/SceneRendering/FDeferredBasePassMeshDispatch.cpp
+	Src/Engine/Render/SceneRendering/FDeferredShadingBasePassRenderer.cpp
+	Src/Engine/Render/SceneRendering/FMeshMaterialRenderCache.cpp
+	Src/Engine/Render/SceneRendering/FOpaqueMeshDrawBuilder.cpp
+	Src/Engine/Render/SceneRendering/FSceneMaterialShaderParameters.cpp
+	Src/Engine/Render/SceneRendering/FSceneRendererPrimitiveGather.cpp
+	Src/Engine/Render/SceneRendering/FTranslucentMeshSorter.cpp
+)
 file(GLOB Engine_Material_Source Src/Engine/Material/*.cpp)
 file(GLOB Engine_Procedural_Source Src/Engine/Procedural/*.cpp)
 
@@ -56,12 +68,14 @@ source_group("Source Files\\Src\\Engine\\GltfModel" FILES ${Engine_GltfModel_Sou
 source_group("Source Files\\Src\\Engine\\ObjModel" FILES ${Engine_ObjModel_Source} )
 source_group("Source Files\\Src\\Engine\\Render" FILES ${Engine_Render_Source} )
 source_group("Source Files\\Src\\Engine\\Render\\Shadow" FILES ${Engine_Render_Shadow_Source} )
+source_group("Source Files\\Src\\Engine\\Render\\SceneRendering" FILES ${Engine_Render_SceneRendering_Source} )
 source_group("Source Files\\Src\\Engine\\Material" FILES ${Engine_Material_Source} )
 source_group("Source Files\\Src\\Engine\\Procedural" FILES ${Engine_Procedural_Source} )
 
 add_library(Engine ${App_Source} ${Engine_Source} ${App_Header} ${Engine_Header} ${Engine_Thread_Source} ${Engine_Thread_Header} 
                    ${Engine_Scene_Header} ${Engine_Scene_Source} ${Engine_GltfModel_Header} ${Engine_GltfModel_Source}
-                   ${Engine_Render_Header} ${Engine_Render_Source} ${Engine_Render_Shadow_Source} ${Engine_ObjModel_Header} ${Engine_ObjModel_Source}
+                   ${Engine_Render_Header} ${Engine_Render_Source} ${Engine_Render_Header_Shadow} ${Engine_Render_SceneRendering_Header}
+                   ${Engine_Render_Shadow_Source} ${Engine_Render_SceneRendering_Source} ${Engine_ObjModel_Header} ${Engine_ObjModel_Source}
                    ${Engine_Material_Header} ${Engine_Material_Source} ${Engine_Procedural_Header} ${Engine_Procedural_Source})
 
 #-------------------------------------------------------------------------------------------

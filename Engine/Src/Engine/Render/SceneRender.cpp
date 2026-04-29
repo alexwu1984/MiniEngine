@@ -11,7 +11,9 @@
 #include "App/AppWindow.h"
 #include "Render/PreProcessor.h"
 #include "GltfModel/GltfMesh.h"
-#include "Render/BasePassRender.h"
+#include "Render/SceneRendering/FDeferredShadingBasePassRenderer.h"
+#include "Render/SceneRendering/FMeshMaterialRenderCache.h"
+#include "Render/SceneRendering/FSceneRendererPrimitiveGather.h"
 #include "Render/CubeBackground.h"
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
@@ -44,6 +46,21 @@ namespace Engine
 			{
 			}
 		}
+
+		/** GBuffer slots for RDG pass I/O (ClearGBuffer, RenderBasePass, …). */
+		static std::vector<FrameGraphResource> MakeGBufferResourcesForFrameGraph(const std::shared_ptr<GBuffer>& TB)
+		{
+			if (!TB)
+				return {};
+			return {
+				{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
+				{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
+				{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
+				{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
+				{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
+				{ "Depth", [TB]() { return TB->GetDepth(); } },
+			};
+		}
 	} // namespace
 
 	struct SceneRenderPrivate
@@ -52,7 +69,7 @@ namespace Engine
 		std::shared_ptr<RHIViewPort> MainViewPort;
 		std::shared_ptr<PreProcessor> PreProcess;
 		std::shared_ptr<PostProcessor> PostProcess;
-		std::shared_ptr<BasePassRender> BaseRender;
+		std::unique_ptr<FMeshMaterialRenderCache> MeshMaterialRenderCache;
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::vector<GltfSceneMeshInfo> MeshesInfo;
@@ -60,6 +77,8 @@ namespace Engine
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
 		FrameGraphCompileParams RDGCompileParams{};
+		float DeferredBasePassEnvironmentRotateX = 0.f;
+		float DeferredBasePassEnvironmentRotateY = 1.f;
 	};
 	
 	SceneRender::SceneRender(std::weak_ptr<SceneView> Owner)
@@ -67,7 +86,7 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		d->Owner = Owner;
-		d->BaseRender = std::make_shared<BasePassRender>();
+		d->MeshMaterialRenderCache = std::make_unique<FMeshMaterialRenderCache>();
 	}
 
 	SceneRender::~SceneRender()
@@ -169,7 +188,8 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		d->BackgroundRender->SetRotate(x, y);
-		d->BaseRender->SetIBLRotate(x, y);
+		d->DeferredBasePassEnvironmentRotateX = x;
+		d->DeferredBasePassEnvironmentRotateY = y;
 	}
 
 	std::shared_ptr<PreProcessor> SceneRender::GetPreProcessor() const
@@ -211,42 +231,12 @@ namespace Engine
 		if (!d->IsInit || !Owner || !Owner->GetMainCamera())
 			return;
 
-		d->MeshesInfo.clear();
-		std::vector<GltfSceneMeshInfo> shadowFrustumBounds;
-		std::vector<GltfSceneMeshInfo> shadowCasters;
-
-		const auto& Actors = Owner->GetAllActors();
-		for (const auto& ActorItem : Actors)
-		{
-			if (ActorItem->GetState() != Actor::EActive || !ActorItem->IsVisible())
-				continue;
-			auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-			for (auto& ComponentItem : Components)
-			{
-				GltfSceneMeshInfo SceneMeshInfo;
-				if (!ComponentItem->GatherMesh(SceneMeshInfo, Owner->GetMainCamera()))
-					continue;
-				shadowFrustumBounds.push_back(SceneMeshInfo);
-				if (ActorItem->IsProjectShadow())
-					shadowCasters.push_back(SceneMeshInfo);
-			}
-		}
-
-		for (const auto& ActorItem : Actors)
-		{
-			if (ActorItem->GetState() == Actor::EActive && ActorItem->IsVisible())
-			{
-				auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
-				for (auto& ComponentItem : Components)
-				{
-					GltfSceneMeshInfo SceneMeshInfo;
-					if (ComponentItem->GatherMesh(SceneMeshInfo, Owner->GetMainCamera()))
-						d->MeshesInfo.push_back(SceneMeshInfo);
-				}
-			}
-		}
-
+		FPrimitiveGatherResult PrimitiveGather;
+		FSceneRendererPrimitiveGather::GatherVisiblePrimitives(*Owner, PrimitiveGather);
+		d->MeshesInfo = std::move(PrimitiveGather.VisiblePrimitives);
 		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = d->MeshesInfo;
+		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
+		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(PrimitiveGather.ShadowFrustumCullPrimitives);
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			[d, this, Owner, shadowCasters = std::move(shadowCasters), shadowFrustumBounds = std::move(shadowFrustumBounds),
@@ -280,17 +270,12 @@ namespace Engine
 						{ d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, Owner); }});
 				}
 
+				const std::vector<FrameGraphResource> GBufferIO = MakeGBufferResourcesForFrameGraph(TB);
+
 				Graph.AddPass(FramePassDesc{
-					"ClearGBufferAndBackground",
+					"ClearGBuffer",
 					{},
-					{
-						{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
-						{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
-						{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
-						{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
-						{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
-						{ "Depth", [TB]() { return TB->GetDepth(); } },
-					},
+					GBufferIO,
 					[d, RHI]()
 					{
 						d->MainViewPort->SetRenderTarget();
@@ -304,7 +289,17 @@ namespace Engine
 							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
 							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
 						RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
+					}});
 
+				Graph.AddPass(FramePassDesc{
+					"RenderSky",
+					GBufferIO,
+					GBufferIO,
+					[d, RHI]()
+					{
+						std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
+							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
+							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
 						auto IBL = d->PreProcess->GetIBLRender();
 						auto SkyCube = IBL->GetSkyLightCubemap();
 						d->BackgroundRender->SetTextureCube(SkyCube);
@@ -312,27 +307,39 @@ namespace Engine
 					}});
 
 				Graph.AddPass(FramePassDesc{
-					"Geometry",
+					"RenderBasePass",
+					GBufferIO,
+					GBufferIO,
+					[d, this, RHI, MeshesInfo, Owner]()
 					{
-						{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
-						{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
-						{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
-						{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
-						{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
-						{ "Depth", [TB]() { return TB->GetDepth(); } },
-					},
+						if (!MeshesInfo.empty())
+						{
+							FDeferredBasePassDrawContext DrawContext;
+							DrawContext.View = Owner;
+							DrawContext.TargetBuffer = d->TargetBuffer;
+							DrawContext.SceneRenderRaw = this;
+							DrawContext.EnvironmentRotatePitchDegrees = d->DeferredBasePassEnvironmentRotateX;
+							DrawContext.EnvironmentRotateYawDegrees = d->DeferredBasePassEnvironmentRotateY;
+							FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHI, MeshesInfo, DrawContext, *d->MeshMaterialRenderCache);
+						}
+					}});
+
+				Graph.AddPass(FramePassDesc{
+					"RenderTranslucency",
+					GBufferIO,
+					GBufferIO,
+					[d, this, RHI, MeshesInfo, Owner]()
 					{
-						{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
-						{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
-						{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
-						{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
-						{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
-						{ "Depth", [TB]() { return TB->GetDepth(); } },
-					},
-					[d, RHI, MeshesInfo, Owner]()
-					{
-						if (MeshesInfo.size())
-							d->BaseRender->Render(RHI, MeshesInfo, Owner, d->TargetBuffer);
+						if (!MeshesInfo.empty())
+						{
+							FDeferredBasePassDrawContext DrawContext;
+							DrawContext.View = Owner;
+							DrawContext.TargetBuffer = d->TargetBuffer;
+							DrawContext.SceneRenderRaw = this;
+							DrawContext.EnvironmentRotatePitchDegrees = d->DeferredBasePassEnvironmentRotateX;
+							DrawContext.EnvironmentRotateYawDegrees = d->DeferredBasePassEnvironmentRotateY;
+							FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHI, MeshesInfo, DrawContext, *d->MeshMaterialRenderCache);
+						}
 					}});
 
 				d->PostProcess->AddFramePasses(Graph, *RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, Owner->GetMainCamera());

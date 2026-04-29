@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
@@ -22,6 +22,7 @@ namespace Engine
 	struct SceneRenderPrivate;
 	class ShadowRenderPass;
 	class CubeBackground;
+	class FMeshMaterialRenderCache;
 
 	class SceneRender : public std::enable_shared_from_this<SceneRender>
 	{

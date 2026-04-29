@@ -752,16 +752,16 @@ namespace RenderCore
 		if (Device && bHasPendingWork)
 		{
 			Device->EnqueuePendingCommandList(std::move(CommandListHandle), QueueType);
-			RHI_SubmitOrInline("FlushCommands/ExecutePending", [Device, QueueType, WaitForCompletion]() {
+			ENQUEUE_RHI_SUBMIT_COMMAND(FlushCommands_ExecutePending,
 				Device->ExecutePendingCommandLists(QueueType, WaitForCompletion);
-			});
+			);
 			OpenCommandList();
 			return;
 		}
 
-		RHI_SubmitOrInline("FlushCommands/ExecuteAndClear", [this, WaitForCompletion]() {
+		ENQUEUE_RHI_SUBMIT_COMMAND(FlushCommands_ExecuteAndClear,
 			CommandListHandle.ExecuteAndClear(WaitForCompletion);
-		});
+		);
 		OpenCommandList();
 	}
 

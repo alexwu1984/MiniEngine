@@ -82,8 +82,8 @@ namespace Engine
 			d->RHISubmitThread = std::make_unique<RHISubmissionThread>();
 			d->RHISubmitThread->Start();
 			RHISubmissionThread* SubmitWorker = d->RHISubmitThread.get();
-			RenderCore::RHI_SetSubmissionExecutor([SubmitWorker](std::function<void()> SubmitWork) {
-				SubmitWorker->EnqueueAndWait(std::move(SubmitWork));
+			RenderCore::RHI_SetSubmissionExecutor([SubmitWorker](std::function<void()> RHIWork) {
+				SubmitWorker->EnqueueAndWait(std::move(RHIWork));
 			});
 		}
 		d->RThread->Start();

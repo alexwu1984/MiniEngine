@@ -73,13 +73,13 @@ namespace RenderCore
 		const bool bScopeOk = D3D12RHI_IsExclusiveRegionActive() || D3D12RHI_IsUploadBypassActive();
 		if (!bScopeOk)
 			return false;
-		return RHI_IsInRHISubmissionThread();
+		return RHI_IsInRHIExecutionThread();
 	}
 
 	void D3D12RHI_CheckSubmitAllowed(const char* OperationLabel)
 	{
 		ensureMsgf(D3D12RHI_IsSubmitAllowed(),
-				   "D3D12 RHI: %s must run inside an exclusive or upload-bypass region, and on the registered RHI submission thread when one is set.",
+				   "D3D12 RHI: %s must run inside an exclusive or upload-bypass region, and on the registered RHI execution (submission) thread when one is set.",
 				   OperationLabel ? OperationLabel : "(unknown)");
 	}
 

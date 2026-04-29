@@ -21,11 +21,11 @@ void ViewerApp::BuildCpuRayTraceScene()
 {
 	Scene scene(1280, 960);
 
-	auto sph1 = std::make_unique<Sphere>(math::Vector3(-1, 0, -12), 2);
+	auto sph1 = std::make_unique<Sphere>(math::Vector3(-1.0f, 0.0f, -12.0f), 2.0f);
 	sph1->materialType = DIFFUSE_AND_GLOSSY;
-	sph1->diffuseColor = math::Vector3(0.1, 0.1, 0.8);
+	sph1->diffuseColor = math::Vector3(0.1f, 0.1f, 0.8f);
 
-	auto sph2 = std::make_unique<Sphere>(math::Vector3(0.5, -0.5, -8), 1.5);
+	auto sph2 = std::make_unique<Sphere>(math::Vector3(0.5f, -0.5f, -8.0f), 1.5f);
 	sph2->ior = 1.5;
 	sph2->materialType = REFLECTION_AND_REFRACTION;
 
@@ -39,8 +39,8 @@ void ViewerApp::BuildCpuRayTraceScene()
 	mesh->materialType = DIFFUSE_AND_GLOSSY;
 
 	scene.Add(std::move(mesh));
-	scene.Add(std::make_unique<DirectionalLight>(math::Vector3(30, 50, -12), 0.5));
-	scene.Add(std::make_unique<PointPoint>(math::Vector3(-1, 4, -12), 20.f));
+	scene.Add(std::make_unique<DirectionalLight>(math::Vector3(30.f, 50.f, -12.f), 0.5f));
+	scene.Add(std::make_unique<PointPoint>(math::Vector3(-1.f, 4.f, -12.f), 20.f));
 
 	renderer_.Render(scene);
 	cpuTexSize_ = core::vec2u(scene.width, scene.height);
@@ -50,9 +50,9 @@ void ViewerApp::BuildExerciseScene()
 {
 	Scene scene(1280, 960);
 
-	auto sph1 = std::make_unique<Sphere>(math::Vector3(0, 0, 0), 2);
+	auto sph1 = std::make_unique<Sphere>(math::Vector3(0.f, 0.f, 0.f), 2.f);
 	sph1->materialType = DIFFUSE_AND_GLOSSY;
-	sph1->diffuseColor = math::Vector3(0.1, 0.1, 0.8);
+	sph1->diffuseColor = math::Vector3(0.1f, 0.1f, 0.8f);
 
 	scene.Add(std::move(sph1));
 

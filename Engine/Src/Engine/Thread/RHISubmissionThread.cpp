@@ -52,12 +52,12 @@ namespace Engine
 
 	void RHISubmissionThread::RunLoop()
 	{
-		RenderCore::RHI_RegisterRHISubmissionThread(std::this_thread::get_id());
+		RenderCore::RHI_RegisterRHIExecutionThread(std::this_thread::get_id());
 		struct UnregisterOnExit
 		{
 			~UnregisterOnExit()
 			{
-				RenderCore::RHI_UnregisterRHISubmissionThread();
+				RenderCore::RHI_UnregisterRHIExecutionThread();
 			}
 		} UnregisterScope;
 

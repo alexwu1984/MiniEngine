@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12StateCache.h"
+#include "RHI/RHIThreadPolicy.h"
 #include <mutex>
 #include "D3D12/D3D12Shaders.h"
 #include "common/crc.h"
@@ -496,12 +497,14 @@ namespace RenderCore
 		AppendStaticSamplerDigestToRootCacheKey(KeyName, VertexResCount.NumSamplers, PixelResCount.NumSamplers, ComputeResCount.NumSamplers, SamplerCache);
 		m_LastUnifiedRootCacheKey = KeyName;
 
-		std::lock_guard<std::recursive_mutex> RootPsoLock(m_RootSignatureAndPsoCacheMutex);
-		std::shared_ptr<FRootSignature> RootSignature;
-		auto ItRootSignature = RootSignatures.find(KeyName);
-		if (ItRootSignature != RootSignatures.end())
-			return ItRootSignature->second;
-		RootSignature = std::make_shared<FRootSignature>(GetParentDevice());
+		{
+			std::lock_guard<std::recursive_mutex> RootPsoLock(m_RootSignatureAndPsoCacheMutex);
+			auto ItEarly = RootSignatures.find(KeyName);
+			if (ItEarly != RootSignatures.end())
+				return ItEarly->second;
+		}
+
+		auto RootSignature = std::make_shared<FRootSignature>(GetParentDevice());
 
 		int32_t NumRootParams = 0;
 		NumRootParams += VertexResCount.NumCBs;
@@ -668,13 +671,27 @@ namespace RenderCore
 				RootSignature->InitStaticSampler(index, Samplers[index], D3D12_SHADER_VISIBILITY_ALL);
 		}
 
-		if (RootSignature->Finalize(core::ansi_ucs2(KeyName), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))
 		{
-			RootSignatures.insert({ KeyName,RootSignature });
-			return RootSignature;
+			std::lock_guard<std::recursive_mutex> RootPsoLock(m_RootSignatureAndPsoCacheMutex);
+			auto ItMid = RootSignatures.find(KeyName);
+			if (ItMid != RootSignatures.end())
+				return ItMid->second;
 		}
-		else
+
+		const std::wstring RootNameW = core::ansi_ucs2(KeyName);
+		bool FinalOk = false;
+		ENQUEUE_RHI_COMMAND(RootSignatureFinalize,
+			FinalOk = RootSignature->Finalize(RootNameW, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+		);
+
+		std::lock_guard<std::recursive_mutex> RootPsoLock(m_RootSignatureAndPsoCacheMutex);
+		auto ItRootSignature = RootSignatures.find(KeyName);
+		if (ItRootSignature != RootSignatures.end())
+			return ItRootSignature->second;
+		if (!FinalOk)
 			return {};
+		RootSignatures.insert({ KeyName, RootSignature });
+		return RootSignature;
 	}
 
 	bool FD3D12StateCache::ApplyGraphicState(D3D12CommandListHandle& CommandList)
@@ -759,22 +776,41 @@ namespace RenderCore
 			return true;
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
+		const std::shared_ptr<FD3D12Device> ParentDeviceStrong = GetParentDevice();
+		ID3D12Device* const D3DDevice = ParentDeviceStrong ? ParentDeviceStrong->GetDevice() : nullptr;
+		bool bHaveGraphicsPso = false;
 		{
 			std::lock_guard<std::recursive_mutex> PsoLock(m_RootSignatureAndPsoCacheMutex);
 			auto iter = GraphicsPSHashMap.find(HashCode);
-			if (iter == GraphicsPSHashMap.end())
+			if (iter != GraphicsPSHashMap.end())
 			{
-				HRESULT hr = GetParentDevice()->GetDevice()->CreateGraphicsPipelineState(&PSDesc, IID_PPV_ARGS(PipelineState.get_init_ref()));
-				if (FAILED(hr))
-				{
-					Assert(false);
-					return false;
-				}
-				GraphicsPSHashMap[HashCode] = PipelineState;
+				PipelineState = iter->second;
+				bHaveGraphicsPso = true;
 			}
+		}
+		if (!bHaveGraphicsPso)
+		{
+			if (!D3DDevice)
+				return false;
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC DescCopy = PSDesc;
+			win32::com_ptr<ID3D12PipelineState> Created;
+			HRESULT Hr = S_OK;
+			ENQUEUE_RHI_COMMAND(CreateGraphicsPSO,
+				Hr = D3DDevice->CreateGraphicsPipelineState(&DescCopy, IID_PPV_ARGS(Created.get_init_ref()));
+			);
+			if (FAILED(Hr))
+			{
+				Assert(false);
+				return false;
+			}
+			std::lock_guard<std::recursive_mutex> PsoLock(m_RootSignatureAndPsoCacheMutex);
+			auto iter2 = GraphicsPSHashMap.find(HashCode);
+			if (iter2 != GraphicsPSHashMap.end())
+				PipelineState = iter2->second;
 			else
 			{
-				PipelineState = GraphicsPSHashMap[HashCode];
+				PipelineState = Created;
+				GraphicsPSHashMap[HashCode] = PipelineState;
 			}
 		}
 
@@ -915,22 +951,41 @@ namespace RenderCore
 		size_t HashCode = HashComputePSOStable(CSDesc, CurrentComputeHash, m_LastUnifiedRootCacheKey);
 
 		win32::com_ptr<ID3D12PipelineState> PipelineState;
+		const std::shared_ptr<FD3D12Device> ParentDeviceStrongCs = GetParentDevice();
+		ID3D12Device* const D3DDeviceCs = ParentDeviceStrongCs ? ParentDeviceStrongCs->GetDevice() : nullptr;
+		bool bHaveComputePso = false;
 		{
 			std::lock_guard<std::recursive_mutex> PsoLock(m_RootSignatureAndPsoCacheMutex);
 			auto iter = ComputePSHashMap.find(HashCode);
-			if (iter == ComputePSHashMap.end())
+			if (iter != ComputePSHashMap.end())
 			{
-				HRESULT hr = GetParentDevice()->GetDevice()->CreateComputePipelineState(&CSDesc, IID_PPV_ARGS(PipelineState.get_init_ref()));
-				if (FAILED(hr))
-				{
-					Assert(false);
-					return false;
-				}
-				ComputePSHashMap[HashCode] = PipelineState;
+				PipelineState = iter->second;
+				bHaveComputePso = true;
 			}
+		}
+		if (!bHaveComputePso)
+		{
+			if (!D3DDeviceCs)
+				return false;
+			D3D12_COMPUTE_PIPELINE_STATE_DESC DescCopy = CSDesc;
+			win32::com_ptr<ID3D12PipelineState> Created;
+			HRESULT Hr = S_OK;
+			ENQUEUE_RHI_COMMAND(CreateComputePSO,
+				Hr = D3DDeviceCs->CreateComputePipelineState(&DescCopy, IID_PPV_ARGS(Created.get_init_ref()));
+			);
+			if (FAILED(Hr))
+			{
+				Assert(false);
+				return false;
+			}
+			std::lock_guard<std::recursive_mutex> PsoLock(m_RootSignatureAndPsoCacheMutex);
+			auto iter2 = ComputePSHashMap.find(HashCode);
+			if (iter2 != ComputePSHashMap.end())
+				PipelineState = iter2->second;
 			else
 			{
-				PipelineState = ComputePSHashMap[HashCode];
+				PipelineState = Created;
+				ComputePSHashMap[HashCode] = PipelineState;
 			}
 		}
 		// A newly Reset command list has no bindings; force full rebind on cmdlist change or root/PSO change.

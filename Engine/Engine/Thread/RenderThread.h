@@ -12,7 +12,7 @@ namespace Engine
 
 	/**
 	 * Executes queued lambdas that record/submit GPU work. Registers the current std::thread::id with
-	 * RenderCore::RHI_RegisterRHIRecordingThread for D3D12 recording checks; GPU submit may run on RHISubmissionThread.
+	 * RenderCore::RHI_RegisterRHIRecordingThread for D3D12 recording checks; GPU submit and deferred Create* run on RHISubmissionThread (RHI execution thread).
 	 */
 	class RenderThread
 	{

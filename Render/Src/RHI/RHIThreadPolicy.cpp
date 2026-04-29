@@ -104,4 +104,27 @@ namespace RenderCore
 		D3D12RHI_CheckSubmitAllowed(OperationLabel);
 		Work();
 	}
+
+	void RHI_ExecuteDeferredOrInline(const char* OperationLabel, std::function<void()> Work)
+	{
+		(void)OperationLabel;
+		if (!Work)
+			return;
+		if (RHI_IsInRHISubmissionThread())
+		{
+			Work();
+			return;
+		}
+		std::function<void(std::function<void()>)> Exec;
+		{
+			std::lock_guard<std::mutex> Lock(GExecutorMutex);
+			Exec = GSubmissionExecutor;
+		}
+		if (Exec)
+		{
+			Exec(std::move(Work));
+			return;
+		}
+		Work();
+	}
 }

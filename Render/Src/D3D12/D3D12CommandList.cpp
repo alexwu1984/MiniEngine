@@ -136,7 +136,7 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		uint64_t SignaledFenceValue = 0;
-		RHI_SubmitOrInline("D3D12CommandListHandle::ExecuteAndClear", [this, WaitForCompletion, &SignaledFenceValue]() {
+		ENQUEUE_RHI_SUBMIT_COMMAND(D3D12CommandListHandle_ExecuteAndClear,
 			SignaledFenceValue =
 				CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 				CommandListData->FlushPendingUniformBufferFenceTags(FenceID);
@@ -146,7 +146,7 @@ namespace RenderCore
 				if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
 					Ctx->CleanupUsedHeaps(FenceID, QueueType);
 				}, WaitForCompletion);
-		});
+		);
 		return SignaledFenceValue;
 	}
 

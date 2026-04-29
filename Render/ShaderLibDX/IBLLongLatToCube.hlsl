@@ -1,0 +1,43 @@
+// Longitude–latitude HDR → cubemap face capture only.
+// Kept separate from EnvironmentShaders.hlsl so register(t0) is not shared with TextureCube CubeEnvironment
+// (HDR bind is 2D → D3D12 GBV #940 if both compile in the same TU).
+
+#include "ShaderUtils.hlsl"
+#include "PerFrameStruct.hlsl"
+
+struct VertexIN
+{
+    float3 Position : ATTRIBUTE0;
+};
+
+struct VertexOutput
+{
+    float4 Position : SV_Position;
+    float3 LocalDirection : TEXCOORD;
+};
+
+SamplerState LinearSampler : register(s0);
+Texture2D LongLatEnvironment : register(t0);
+
+VertexOutput VS_SkyCube(VertexIN In)
+{
+    VertexOutput Out;
+    Out.LocalDirection = In.Position;
+    Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    return Out;
+}
+
+static const float2 invAtan = { 0.5 / PI, -1 / PI };
+
+float2 SampleSphericalMap(float3 Direction)
+{
+    float3 v = normalize(Direction);
+    float2 uv = { atan2(v.z, v.x), asin(v.y) };
+    uv = saturate(uv * invAtan + 0.5);
+    return uv;
+}
+
+float4 PS_LongLatToCube(VertexOutput In) : SV_Target
+{
+    return LongLatEnvironment.Sample(LinearSampler, SampleSphericalMap(In.LocalDirection.xyz));
+}

@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngineTutorial)
 
@@ -78,12 +78,27 @@ function(copy_runtime_assets target_name)
 		# robocopy returns codes <= 7 for "success with some skips"; we treat those as success to keep builds stable.
 		COMMAND ${CMAKE_COMMAND} -E echo "Copy runtime assets -> ${runtime_output_dir}"
 		COMMAND cmd /c robocopy "${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel" "${runtime_output_dir}/GLTFModel" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP ^& if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))
-		COMMAND cmd /c robocopy "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX" "${runtime_output_dir}/ShaderLibDX" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP ^& if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))
+		COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+			-File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.ps1"
+			-SourceDir "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+			-DestDir "${runtime_output_dir}/ShaderLibDX"
 		COMMENT "Copying runtime assets for ${target_name}")
 	add_dependencies(${target_name} ${target_name}_RuntimeAssets)
 endfunction()
 
+# Every link: sync HLSL next to the built exe (matches core::process_directory() + /ShaderLibDX/).
+function(sync_shaderlib_dx_postbuild target_name)
+	add_custom_command(TARGET ${target_name} POST_BUILD
+		COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+			-File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.ps1"
+			-SourceDir "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+			-DestDir "$<TARGET_FILE_DIR:${target_name}>/ShaderLibDX"
+		VERBATIM
+		COMMENT "Sync ShaderLibDX for ${target_name}")
+endfunction()
+
 copy_runtime_assets(GLFFViewer)
+sync_shaderlib_dx_postbuild(GLFFViewer)
 
 file(GLOB SoftwareRender_Headers "SoftwareRender/*.h")
 file(GLOB SoftwareRender_Sources "SoftwareRender/*.cpp")
@@ -96,6 +111,7 @@ set_target_properties(SoftwareRender PROPERTIES
 	PROJECT_LABEL "SoftwareRender")
 
 copy_runtime_assets(SoftwareRender)
+sync_shaderlib_dx_postbuild(SoftwareRender)
 
 file(GLOB DemoRunner_Headers "DemoRunner/*.h")
 file(GLOB DemoRunner_Sources "DemoRunner/*.cpp")
@@ -108,6 +124,7 @@ target_include_directories(DemoRunner PRIVATE ${PROJECT_SOURCE_DIR})
 target_include_directories(DemoRunner PRIVATE ${PROJECT_SOURCE_DIR}/GLFFViewer)
 set_target_properties(DemoRunner PROPERTIES PROJECT_LABEL "DemoRunner")
 copy_runtime_assets(DemoRunner)
+sync_shaderlib_dx_postbuild(DemoRunner)
 
 set_target_properties(
 	GLFFViewer

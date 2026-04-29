@@ -1,4 +1,6 @@
-#include "EnvironmentShaders.hlsl"
+// Do NOT include EnvironmentShaders.hlsl: it binds TextureCube CubeEnvironment at register(t0), which
+// collides with PBR material SRVs (t0–t8) and causes D3D12 GBV #940 (SRV dimension mismatch at table slot 0).
+#include "ShaderUtils.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 

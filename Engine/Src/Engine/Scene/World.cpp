@@ -2,19 +2,39 @@
 #include "Scene/Actor.h"
 #include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
+#include "Scene/GltfMeshComponent.h"
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
 
 namespace Engine
 {
+	namespace
+	{
+		static bool ActorHasProjectingMesh(const std::shared_ptr<Actor>& actor)
+		{
+			if (!actor)
+				return false;
+			for (const auto& comp : actor->GetAllComponents())
+			{
+				auto mesh = ComponentCast<GltfMeshComponent>(comp);
+				if (mesh && mesh->IsProjectShadow())
+					return true;
+			}
+			return false;
+		}
+	}
+
 	struct WorldPrivate
 	{
 		std::vector<std::shared_ptr<Actor>> Actors;
 		std::vector<std::shared_ptr<Actor>> PendingActors;
 		std::shared_ptr<CameraComponent> MainCamera;
 		bool UpdatingActors = false;
-		std::recursive_mutex lock;
+		mutable std::recursive_mutex lock;
 		std::vector<Light> lightInfos;
+
+		mutable bool ShadowProjectorCacheDirty = true;
+		mutable std::weak_ptr<Actor> ShadowProjectorCache;
 	};
 
 	World::World()
@@ -78,6 +98,7 @@ namespace Engine
 		{
 			d->Actors.emplace_back(actor);
 		}
+		RefreshShadowProjectorForActor(actor);
 	}
 
 	void World::RemoveActor(std::shared_ptr<Actor> actor)
@@ -97,6 +118,7 @@ namespace Engine
 			std::iter_swap(iter, d->Actors.end() - 1);
 			d->Actors.pop_back();
 		}
+		RefreshShadowProjectorForActor(nullptr);
 	}
 
 	void World::RemoveAllActors()
@@ -107,6 +129,7 @@ namespace Engine
 		{
 			(*ItActor)->SetState(Actor::EDead);
 		}
+		RefreshShadowProjectorForActor(nullptr);
 	}
 
 	void World::DispatchInput(const InputDeviceState& InputState)
@@ -144,6 +167,7 @@ namespace Engine
 		}
 
 		d->PendingActors.clear();
+		RefreshShadowProjectorForActor(nullptr);
 	}
 
 	void World::SetMainCamera(std::shared_ptr<CameraComponent> Camera)
@@ -174,5 +198,47 @@ namespace Engine
 	{
 		C_P(World);
 		return d->lightInfos;
+	}
+
+	void World::RefreshShadowProjectorForActor(std::shared_ptr<Actor> actor)
+	{
+		(void)actor;
+		C_P(World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		d->ShadowProjectorCacheDirty = true;
+	}
+
+	std::shared_ptr<Actor> World::GetShadowProjectorActor() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		if (!d->ShadowProjectorCacheDirty)
+		{
+			if (auto cached = d->ShadowProjectorCache.lock())
+				return cached;
+		}
+		d->ShadowProjectorCacheDirty = false;
+		std::shared_ptr<Actor> found;
+		for (const auto& a : d->Actors)
+		{
+			if (ActorHasProjectingMesh(a))
+			{
+				found = a;
+				break;
+			}
+		}
+		if (!found)
+		{
+			for (const auto& a : d->PendingActors)
+			{
+				if (ActorHasProjectingMesh(a))
+				{
+					found = a;
+					break;
+				}
+			}
+		}
+		d->ShadowProjectorCache = found;
+		return found;
 	}
 }

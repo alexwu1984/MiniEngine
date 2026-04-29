@@ -228,15 +228,7 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(PrimitiveGather.ShadowFrustumCullPrimitives);
 
-		std::shared_ptr<Actor> shadowProjector;
-		for (const auto& a : actorsCopy)
-		{
-			if (a && a->IsProjectShadow())
-			{
-				shadowProjector = a;
-				break;
-			}
-		}
+		std::shared_ptr<Actor> shadowProjector = World->GetShadowProjectorActor();
 
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 
@@ -244,8 +236,15 @@ namespace Engine
 		if (!RHI)
 			return;
 
-		FSceneRenderer::ExecuteDeferredFrame(RHI.get(), this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
-											 std::move(shadowLights), std::move(shadowProjector), std::move(actorsCopy));
+		d->SceneFrameRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
+									 std::move(shadowLights), std::move(shadowProjector), std::move(actorsCopy));
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[d](DynamicRHI* RHIIn)
+			{
+				d->SceneFrameRenderer.Render(RHIIn);
+			},
+			true);
 	}
 
 } // namespace Engine

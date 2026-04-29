@@ -1,6 +1,7 @@
 ﻿#include "Scene/Actor.h"
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"
+#include "Scene/World.h"
 
 namespace Engine
 {
@@ -169,7 +170,8 @@ namespace Engine
 	void Actor::AddComponent(std::shared_ptr<Component> component)
 	{
 		ImplActorP->Components.push_back(component);
-	
+		if (auto W = GetWorld())
+			W->RefreshShadowProjectorForActor(shared_from_this());
 	}
 
 	void Actor::RemoveComponent(std::shared_ptr<Component> component)
@@ -178,22 +180,14 @@ namespace Engine
 		if (iter != ImplActorP->Components.end())
 		{
 			ImplActorP->Components.erase(iter);
+			if (auto W = GetWorld())
+				W->RefreshShadowProjectorForActor(shared_from_this());
 		}
 	}
 
 	std::vector<std::shared_ptr<Engine::Component>>& Actor::GetAllComponents() const
 	{
 		return ImplActorP->Components;
-	}
-
-	void Actor::SetProjectShadow(bool projShadow)
-	{
-		ImplActorP->projectShadow = projShadow;
-	}
-
-	bool Actor::IsProjectShadow() const
-	{
-		return ImplActorP->projectShadow;
 	}
 
 	void Actor::SetVisible(bool visible)

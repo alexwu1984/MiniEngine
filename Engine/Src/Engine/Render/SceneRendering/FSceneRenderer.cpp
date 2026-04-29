@@ -14,7 +14,6 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHICommandContext.h"
-#include "Engine/Thread/RenderThread.h"
 #include "Scene/Actor.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
@@ -40,143 +39,171 @@ namespace Engine
 		}
 	} // namespace
 
-	void FSceneRenderer::ExecuteDeferredFrame(DynamicRHI* RHI, SceneRender* SceneRenderSelf, SceneRenderPrivate* d, const FSceneViewFamily& ViewFamily,
-											std::shared_ptr<const FSceneViewData> ViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy, std::vector<GltfSceneMeshInfo> shadowCasters,
-											std::vector<GltfSceneMeshInfo> shadowFrustumBounds, std::vector<Light> ShadowPassLights, std::shared_ptr<Actor> ShadowProjectorActor,
-											std::vector<std::shared_ptr<Actor>> AllActorsForShadow)
+	void FSceneRenderer::Submit(SceneRender* InSceneRenderSelf, SceneRenderPrivate* InResourceState, const FSceneViewFamily& InViewFamily,
+								std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
+								std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
+								std::vector<Light> ShadowPassLights, std::shared_ptr<Actor> InShadowProjectorActor,
+								std::vector<std::shared_ptr<Actor>> InAllActorsForShadow)
 	{
-		(void)ViewFamily;
-		if (!RHI || !d || !ViewData)
+		SceneRenderSelf = InSceneRenderSelf;
+		ResourceState = InResourceState;
+		ViewFamily = InViewFamily;
+		ViewData = std::move(InViewData);
+		MeshesInfo = std::move(MeshesInfoCopy);
+		ShadowCasters = std::move(shadowCasters);
+		ShadowFrustumBounds = std::move(shadowFrustumBounds);
+		LightsForShadow = std::move(ShadowPassLights);
+		ShadowProjectorActor = std::move(InShadowProjectorActor);
+		AllActorsForShadow = std::move(InAllActorsForShadow);
+		bHasFrame = (SceneRenderSelf != nullptr) && (ResourceState != nullptr) && (ViewData != nullptr);
+	}
+
+	void FSceneRenderer::Render(DynamicRHI* RHI)
+	{
+		if (!bHasFrame || !RHI || !ResourceState || !ViewData)
 			return;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[d, SceneRenderSelf, ViewData, shadowCasters = std::move(shadowCasters), shadowFrustumBounds = std::move(shadowFrustumBounds),
-			 MeshesInfo = std::move(MeshesInfoCopy), LightsForShadow = std::move(ShadowPassLights), ShadowProjectorActor = std::move(ShadowProjectorActor),
-			 AllActorsForShadow = std::move(AllActorsForShadow)](DynamicRHI* RHIIn)
+		bHasFrame = false;
+
+		SceneRender* const Self = SceneRenderSelf;
+		SceneRenderPrivate* const d = ResourceState;
+		std::shared_ptr<const FSceneViewData> ViewConst = ViewData;
+		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(MeshesInfo);
+		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(ShadowCasters);
+		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(ShadowFrustumBounds);
+		std::vector<Light> ShadowPassLights = std::move(LightsForShadow);
+		std::shared_ptr<Actor> ShadowProjectorActorMoved = std::move(ShadowProjectorActor);
+		std::vector<std::shared_ptr<Actor>> AllActorsForShadowMoved = std::move(AllActorsForShadow);
+
+		ViewData.reset();
+		SceneRenderSelf = nullptr;
+		ResourceState = nullptr;
+
+		std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
+		if (!CommandContext)
+			return;
+
+		auto MeshesForDraw = std::make_shared<std::vector<GltfSceneMeshInfo>>(std::move(MeshesInfoCopy));
+
+		FrameGraph Graph;
+		auto TB = d->TargetBuffer;
+		RHI->RHIBeginFrame();
+
+		Graph.AddPass(FramePassDesc{
+			"PreProcess",
+			{},
+			{},
+			[d, CommandContext]()
 			{
-				std::shared_ptr<RHICommandContext> CommandContext = RHIIn->GetDefaultCommandContext();
-				if (!CommandContext)
-					return;
+				if (d->PreProcess)
+					d->PreProcess->Draw(*CommandContext);
+			}});
 
-				FrameGraph Graph;
-				auto TB = d->TargetBuffer;
-				RHIIn->RHIBeginFrame();
-
-				Graph.AddPass(FramePassDesc{
-					"PreProcess",
-					{},
-					{},
-					[d, CommandContext]()
-					{
-						if (d->PreProcess)
-							d->PreProcess->Draw(*CommandContext);
-					}});
-
-				if (!shadowCasters.empty())
+		if (!shadowCasters.empty())
+		{
+			Graph.AddPass(FramePassDesc{
+				"Shadow",
+				{},
+				{},
+				[d, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorActor = std::move(ShadowProjectorActorMoved),
+				 AllActorsForShadow = std::move(AllActorsForShadowMoved)]() mutable
 				{
-					Graph.AddPass(FramePassDesc{
-						"Shadow",
-						{},
-						{},
-						[d, CommandContext, shadowCasters, shadowFrustumBounds, LightsForShadow, ShadowProjectorActor, AllActorsForShadow]()
-						{
-							d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, LightsForShadow, ShadowProjectorActor, AllActorsForShadow);
-						}});
+					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorActor, AllActorsForShadow);
+				}});
+		}
+
+		const std::vector<FrameGraphResource> GBufferIO = MakeGBufferResourcesForFrameGraph(TB);
+
+		Graph.AddPass(FramePassDesc{
+			"ClearGBuffer",
+			{},
+			GBufferIO,
+			[d, RHI]()
+			{
+				d->MainViewPort->SetRenderTarget();
+				d->MainViewPort->Clear(d->Color);
+				d->MainViewPort->Prepare();
+				int32_t width = GEngine->GetAppWindow()->GetWidth();
+				int32_t height = GEngine->GetAppWindow()->GetHeight();
+				RHI->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+
+				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
+					d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
+					d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
+				RHI->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
+			}});
+
+		Graph.AddPass(FramePassDesc{
+			"RenderSky",
+			GBufferIO,
+			GBufferIO,
+			[d, RHI]()
+			{
+				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
+					d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
+					d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
+				auto IBL = d->PreProcess->GetIBLRender();
+				auto SkyCube = IBL->GetSkyLightCubemap();
+				d->BackgroundRender->SetTextureCube(SkyCube);
+				d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
+			}});
+
+		Graph.AddPass(FramePassDesc{
+			"RenderBasePass",
+			GBufferIO,
+			GBufferIO,
+			[d, Self, RHI, MeshesForDraw, ViewConst]()
+			{
+				if (!MeshesForDraw->empty())
+				{
+					FDeferredBasePassDrawContext DrawContext;
+					DrawContext.ViewData = ViewConst;
+					DrawContext.TargetBuffer = d->TargetBuffer;
+					DrawContext.SceneRenderRaw = Self;
+					FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHI, *MeshesForDraw, DrawContext, *d->MeshMaterialRenderCache);
 				}
+			}});
 
-				const std::vector<FrameGraphResource> GBufferIO = MakeGBufferResourcesForFrameGraph(TB);
+		Graph.AddPass(FramePassDesc{
+			"RenderTranslucency",
+			GBufferIO,
+			GBufferIO,
+			[d, Self, RHI, MeshesForDraw, ViewConst]()
+			{
+				if (!MeshesForDraw->empty())
+				{
+					FDeferredBasePassDrawContext DrawContext;
+					DrawContext.ViewData = ViewConst;
+					DrawContext.TargetBuffer = d->TargetBuffer;
+					DrawContext.SceneRenderRaw = Self;
+					FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHI, *MeshesForDraw, DrawContext, *d->MeshMaterialRenderCache);
+				}
+			}});
 
-				Graph.AddPass(FramePassDesc{
-					"ClearGBuffer",
-					{},
-					GBufferIO,
-					[d, RHIIn]()
-					{
-						d->MainViewPort->SetRenderTarget();
-						d->MainViewPort->Clear(d->Color);
-						d->MainViewPort->Prepare();
-						int32_t width = GEngine->GetAppWindow()->GetWidth();
-						int32_t height = GEngine->GetAppWindow()->GetHeight();
-						RHIIn->GetDefaultCommandContext()->SetViewPort(0, 0, width, height);
+		d->PostProcess->AddFramePasses(Graph, *RHI->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, ViewConst);
 
-						std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
-							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
-							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-						RHIIn->GetDefaultCommandContext()->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
-					}});
+		Graph.AddPass(FramePassDesc{
+			"ImGuiEncode",
+			{},
+			{},
+			[d, Self]()
+			{
+				Self->sigGuiEvent();
+				d->MainViewPort->RHIImGuiRenderDrawData();
+			}});
 
-				Graph.AddPass(FramePassDesc{
-					"RenderSky",
-					GBufferIO,
-					GBufferIO,
-					[d, RHIIn]()
-					{
-						std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
-							d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
-							d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-						auto IBL = d->PreProcess->GetIBLRender();
-						auto SkyCube = IBL->GetSkyLightCubemap();
-						d->BackgroundRender->SetTextureCube(SkyCube);
-						d->BackgroundRender->Render(*RHIIn->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
-					}});
+		Graph.AddPass(FramePassDesc{
+			"RHISubmitAndPresent",
+			{},
+			{},
+			[d]()
+			{
+				d->MainViewPort->RHISubmitAndPresentFrame();
+			}});
 
-				Graph.AddPass(FramePassDesc{
-					"RenderBasePass",
-					GBufferIO,
-					GBufferIO,
-					[d, SceneRenderSelf, RHIIn, MeshesInfo, ViewData]()
-					{
-						if (!MeshesInfo.empty())
-						{
-							FDeferredBasePassDrawContext DrawContext;
-							DrawContext.ViewData = ViewData;
-							DrawContext.TargetBuffer = d->TargetBuffer;
-							DrawContext.SceneRenderRaw = SceneRenderSelf;
-							FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHIIn, MeshesInfo, DrawContext, *d->MeshMaterialRenderCache);
-						}
-					}});
-
-				Graph.AddPass(FramePassDesc{
-					"RenderTranslucency",
-					GBufferIO,
-					GBufferIO,
-					[d, SceneRenderSelf, RHIIn, MeshesInfo, ViewData]()
-					{
-						if (!MeshesInfo.empty())
-						{
-							FDeferredBasePassDrawContext DrawContext;
-							DrawContext.ViewData = ViewData;
-							DrawContext.TargetBuffer = d->TargetBuffer;
-							DrawContext.SceneRenderRaw = SceneRenderSelf;
-							FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHIIn, MeshesInfo, DrawContext, *d->MeshMaterialRenderCache);
-						}
-					}});
-
-				d->PostProcess->AddFramePasses(Graph, *RHIIn->GetDefaultCommandContext(), d->TargetBuffer, d->MainViewPort, ViewData);
-
-				Graph.AddPass(FramePassDesc{
-					"ImGuiEncode",
-					{},
-					{},
-					[d, SceneRenderSelf]()
-					{
-						SceneRenderSelf->sigGuiEvent();
-						d->MainViewPort->RHIImGuiRenderDrawData();
-					}});
-
-				Graph.AddPass(FramePassDesc{
-					"RHISubmitAndPresent",
-					{},
-					{},
-					[d]()
-					{
-						d->MainViewPort->RHISubmitAndPresentFrame();
-					}});
-
-				Graph.Execute(d->RDGCompileParams);
-				RHIIn->RHIEndFrame();
-			},
-			true);
+		(void)ViewFamily;
+		Graph.Execute(d->RDGCompileParams);
+		RHI->RHIEndFrame();
 	}
 
 } // namespace Engine

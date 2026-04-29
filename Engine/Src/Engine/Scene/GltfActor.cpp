@@ -69,7 +69,7 @@ namespace Engine
 
 		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
 		{
-			SetProjectShadow(d->GltfJson["ProjShadow"]);
+			d->MeshComp->SetProjectShadow(d->GltfJson["ProjShadow"]);
 		}
 
 		if (d->GltfJson.find("Position") != d->GltfJson.end())

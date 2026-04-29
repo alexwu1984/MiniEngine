@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "core/color.h"
 #include "Render/FrameGraph.h"
+#include "Render/SceneRendering/FSceneRenderer.h"
 #include <atomic>
 #include <memory>
 
@@ -34,5 +35,7 @@ namespace Engine
 		FrameGraphCompileParams RDGCompileParams{};
 		float DeferredBasePassEnvironmentRotateX = 0.f;
 		float DeferredBasePassEnvironmentRotateY = 1.f;
+
+		FSceneRenderer SceneFrameRenderer;
 	};
 }

@@ -2,11 +2,25 @@
 #include "Render/MaterialPreFrame.h"
 #include "Scene/CameraComponent.h"
 #include "Scene/Actor.h"
+#include "Scene/Component.h"
 #include "Scene/GltfMeshComponent.h"
 
 namespace Engine
 {
 	static constexpr float LIGHT_DISTANCE = 4.0f;
+
+	static std::shared_ptr<GltfMeshComponent> FindFirstProjectingMesh(const std::shared_ptr<Actor>& actor)
+	{
+		if (!actor)
+			return {};
+		for (const auto& comp : actor->GetAllComponents())
+		{
+			auto mesh = ComponentCast<GltfMeshComponent>(comp);
+			if (mesh && mesh->IsProjectShadow())
+				return mesh;
+		}
+		return {};
+	}
 
 	ShadowMap::ShadowMap()
 	{
@@ -48,21 +62,26 @@ namespace Engine
 	void ShadowMap::calculateNearFar(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams)
 	{
 		std::shared_ptr<Actor> projActor;
+		std::shared_ptr<GltfMeshComponent> projMesh;
 		for (const auto& actor : actors)
 		{
-			if (actor && actor->IsProjectShadow())
+			if (!actor)
+				continue;
+			auto mesh = FindFirstProjectingMesh(actor);
+			if (mesh)
 			{
 				projActor = actor;
+				projMesh = mesh;
 				break;
 			}
 		}
-		if (!projActor)
+		if (!projActor || !projMesh)
 		{
 			return;
 		}
 
 		math::Matrix4x4 toWsMat = projActor->GetWorldTransform();
-		auto modelBox = projActor->GetComponent<GltfMeshComponent>()->GetModelBox();
+		const math::AABB3 modelBox = projMesh->GetModelBox();
 
 		math::Vector3 wsSceneCorners[8]{};
 		modelBox.GetPoint(wsSceneCorners);

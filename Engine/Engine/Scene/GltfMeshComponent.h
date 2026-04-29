@@ -35,6 +35,10 @@ namespace Engine
 		virtual void OnUpdateWorldTransform(float deltaTime) override;
 
 		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum& ViewCullFrustum);
+
+		void SetProjectShadow(bool projShadow);
+		bool IsProjectShadow() const;
+
 	private:
 		GltfMeshComponentPrivate* d_ptr = nullptr;
 	};

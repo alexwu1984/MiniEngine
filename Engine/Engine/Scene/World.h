@@ -46,6 +46,11 @@ namespace Engine
 		const std::vector<Light>& GetLights() const;
 		std::vector<Light>& GetLights();
 
+		/** Call when an actor's mesh components or shadow flags change; invalidates shadow-projector cache. */
+		void RefreshShadowProjectorForActor(std::shared_ptr<Actor> actor);
+		/** First actor that owns a GltfMeshComponent with project-shadow enabled (same order as scene iteration). */
+		std::shared_ptr<Actor> GetShadowProjectorActor() const;
+
 	private:
 		WorldPrivate* d_ptr = nullptr;
 	};

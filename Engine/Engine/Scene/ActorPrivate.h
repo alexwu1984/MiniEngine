@@ -20,7 +20,6 @@ namespace Engine
 		std::weak_ptr<World> WorldRef;
 
 		bool RecomputeWorldTransform = true;
-		bool projectShadow = false;
 		bool visible = true;
 
 		Matrix4x4 PrevWorldTransform;

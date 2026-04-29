@@ -33,7 +33,7 @@ namespace Engine
 					continue;
 
 				OutResult.ShadowFrustumCullPrimitives.push_back(SceneMeshInfo);
-				if (ActorItem->IsProjectShadow())
+				if (ComponentItem->IsProjectShadow())
 					OutResult.DynamicShadowCastingPrimitives.push_back(SceneMeshInfo);
 
 				OutResult.VisiblePrimitives.push_back(std::move(SceneMeshInfo));

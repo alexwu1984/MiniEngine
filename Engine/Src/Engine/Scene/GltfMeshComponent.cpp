@@ -14,6 +14,7 @@
 #include "Procedural/ProceduralModel.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
+#include "Scene/World.h"
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
 #include "Engine/Engine.h"
@@ -31,6 +32,7 @@ namespace Engine
 		ModelVariant Model;
 		float TotalDeltaTime = 0.f;
 		std::shared_ptr< GltfModelConfig>  ModelConfig;
+		bool bProjectShadow = false;
 	};
 
 	GltfMeshComponent::GltfMeshComponent(std::weak_ptr<Actor> Owner)
@@ -270,6 +272,23 @@ namespace Engine
 		}
 		return false;
 
+	}
+
+	void GltfMeshComponent::SetProjectShadow(bool projShadow)
+	{
+		C_P(GltfMeshComponent);
+		if (d->bProjectShadow == projShadow)
+			return;
+		d->bProjectShadow = projShadow;
+		if (auto Owner = GetOwner())
+			if (auto W = Owner->GetWorld())
+				W->RefreshShadowProjectorForActor(Owner);
+	}
+
+	bool GltfMeshComponent::IsProjectShadow() const
+	{
+		C_P(const GltfMeshComponent);
+		return d->bProjectShadow;
 	}
 
 }

@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12ViewPort.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -44,6 +45,7 @@ namespace RenderCore
 	{
 		// Release backbuffers only after the GPU is idle; otherwise debug layer / driver can stall
 		// or fault when RTVs are destroyed while work is still in flight.
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		if (std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter())
 		{
 			if (Adapter->GetDevice())
@@ -59,6 +61,7 @@ namespace RenderCore
 
 	void D3D12ViewPort::Init()
 	{
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		auto Adapter = GetParentAdapter();
 
 		// No DXGI waitable object; frame pacing via fence after Present.
@@ -151,6 +154,8 @@ namespace RenderCore
 		auto Device = Adapter->GetDevice();
 		if (!Device)
 			return;
+
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 
 		if (SizeX != InSizeX || SizeY != InSizeY)
 		{

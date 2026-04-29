@@ -1,4 +1,6 @@
 ﻿#include "D3D12/D3D12DirectCommandListManager.h"
+#include "D3D12/D3D12RHIRecording.h"
+#include <vector>
 #include "RHI/RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandList.h"
@@ -260,6 +262,7 @@ namespace RenderCore
 
 	D3D12CommandAllocator* FD3D12CommandAllocatorManager::ObtainCommandAllocator()
 	{
+		D3D12RHI_CheckRecordingAllowed("ObtainCommandAllocator");
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 
 		// If the first allocator in the queue is ready, reset it and pop; otherwise allocate a new one.
@@ -295,6 +298,7 @@ namespace RenderCore
 
 	void FD3D12CommandAllocatorManager::ReleaseCommandAllocator(D3D12CommandAllocator* CommandAllocator)
 	{
+		D3D12RHI_CheckRecordingAllowed("ReleaseCommandAllocator");
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 		Assert(CommandAllocator->HasValidSyncPoint());
 		CommandAllocatorQueue.push(CommandAllocator);
@@ -367,6 +371,7 @@ namespace RenderCore
 
 	D3D12CommandListHandle FD3D12CommandListManager::ObtainCommandList(D3D12CommandAllocator& CommandAllocator)
 	{
+		D3D12RHI_CheckRecordingAllowed("ObtainCommandList");
 		D3D12CommandListHandle List;
 		if (!ReadyLists.Dequeue(List))
 		{
@@ -392,6 +397,7 @@ namespace RenderCore
 
 	void FD3D12CommandListManager::ReleaseCommandList(D3D12CommandListHandle& hList)
 	{
+		D3D12RHI_CheckSubmitAllowed("ReleaseCommandList");
 		Assert(hList.IsClosed());
 		Assert(hList.GetCommandListType() == CommandListType);
 
@@ -413,6 +419,7 @@ namespace RenderCore
 	uint64_t FD3D12CommandListManager::ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, 
 		                                                  const std::function<void(uint64_t FenceID)>& OnClearResource, bool WaitForCompletion /*= false*/)
 	{
+		D3D12RHI_CheckSubmitAllowed("ExecuteCommandLists");
 		Assert(CommandListFence.get());
 
 		bool NeedsResourceBarriers = false;
@@ -435,8 +442,9 @@ namespace RenderCore
 		FD3D12Fence& DirectFence = DirectCommandListManager.GetFence();
 		//checkf(DirectFence.GetGPUMask() == GetGPUMask(), TEXT("Fence GPU masks does not fit with the command list mask!"));
 
-		int32_t commandListIndex = 0;
-		int32_t barrierCommandListIndex = 0;
+		// At most one dedicated barrier command list per submitted user list (when PRBs resolve to transitions).
+		std::vector<D3D12CommandListHandle> BarrierCommandLists;
+		BarrierCommandLists.reserve(Lists.size());
 
 		// Close the resource barrier lists, get the raw command list pointers, and enqueue the command list handles
 		// Note: All command lists will share the same fence
@@ -444,7 +452,6 @@ namespace RenderCore
 		FD3D12CommandListPayload ComputeBarrierPayload;
 
 		Assert(Lists.size() <= FD3D12CommandListPayload::MaxCommandListsPerPayload);
-		D3D12CommandListHandle BarrierCommandList[128];
 		if (NeedsResourceBarriers)
 		{
 			std::lock_guard<std::recursive_mutex> Lock(ResourceStateCS);
@@ -458,22 +465,21 @@ namespace RenderCore
 				const uint32_t numBarriers = DirectCommandListManager.GetResourceBarrierCommandList(commandList, barrierCommandList);
 				if (numBarriers)
 				{
-					// TODO: Unnecessary assignment here, but fixing this will require refactoring GetResourceBarrierCommandList
-					BarrierCommandList[barrierCommandListIndex] = barrierCommandList;
-					barrierCommandListIndex++;
+					BarrierCommandLists.push_back(std::move(barrierCommandList));
+					D3D12CommandListHandle& barrierRef = BarrierCommandLists.back();
 
-					barrierCommandList.Close();
+					barrierRef.Close();
 
 					if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 					{
 						ComputeBarrierPayload.Reset();
-						ComputeBarrierPayload.Append(barrierCommandList.CommandList());
+						ComputeBarrierPayload.Append(barrierRef.CommandList());
 						BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(ComputeBarrierPayload, DirectFence, true /*bForceSignal*/);
 						DirectFence.GpuWait(QueueType, BarrierFenceValue);
 					}
 					else
 					{
-						CurrentCommandListPayload.Append(barrierCommandList.CommandList());
+						CurrentCommandListPayload.Append(barrierRef.CommandList());
 					}
 				}
 
@@ -481,7 +487,7 @@ namespace RenderCore
 			}
 			{
 				const uint64_t user = (uint64_t)Lists.size();
-				const uint64_t barrier = (uint64_t)barrierCommandListIndex;
+				const uint64_t barrier = BarrierCommandLists.size();
 				const uint64_t total = (uint64_t)CurrentCommandListPayload.NumCommandLists;
 				if (CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT)
 				{
@@ -562,14 +568,12 @@ namespace RenderCore
 			ReleaseCommandList(commandList);
 		}
 
-		for (int32_t i = 0; i < barrierCommandListIndex; i++)
+		for (D3D12CommandListHandle& barrierList : BarrierCommandLists)
 		{
-			D3D12CommandListHandle& commandList = BarrierCommandList[i];
-
 			// Set a sync point on the command list so we know when it's current generation is complete on the GPU, then release it so it can be reused later.
 			// Note this also updates the command list's command allocator
-			commandList.SetSyncPoint(BarrierSyncPoint);
-			DirectCommandListManager.ReleaseCommandList(commandList);
+			barrierList.SetSyncPoint(BarrierSyncPoint);
+			DirectCommandListManager.ReleaseCommandList(barrierList);
 		}
 
 		if (OnClearResource)
@@ -587,6 +591,7 @@ namespace RenderCore
 
 	uint32_t FD3D12CommandListManager::GetResourceBarrierCommandList(D3D12CommandListHandle& hList, D3D12CommandListHandle& hResourceBarrierList)
 	{
+		D3D12RHI_CheckSubmitAllowed("GetResourceBarrierCommandList");
 		std::vector<FD3D12PendingResourceBarrier>& PendingResourceBarriers = hList.PendingResourceBarriers();
 		const uint32_t NumPendingResourceBarriers = (uint32_t)PendingResourceBarriers.size();
 		if (NumPendingResourceBarriers)

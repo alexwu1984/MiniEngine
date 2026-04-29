@@ -4,6 +4,7 @@
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12CallStats.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "win/com_ptr.h"
 
 namespace RenderCore
@@ -481,6 +482,7 @@ namespace RenderCore
 		void AddPendingResourceBarrier(FD3D12Resource* Resource, D3D12_RESOURCE_STATES State, uint32_t SubResource)
 		{
 			Assert(CommandListData);
+			D3D12RHI_CheckRecordingAllowed("AddPendingResourceBarrier");
 
 			FD3D12PendingResourceBarrier PRB = { Resource, State, SubResource };
 			CommandListData->PendingResourceBarriers.push_back(PRB);
@@ -502,6 +504,7 @@ namespace RenderCore
 		void CommitTrackedResourceStateToGlobal()
 		{
 			Assert(CommandListData);
+			D3D12RHI_CheckSubmitAllowed("CommitTrackedResourceStateToGlobal");
 			CommandListData->TrackedResourceState.CommitTrackedStatesToGlobal();
 		}
 

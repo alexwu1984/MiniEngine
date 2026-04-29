@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
@@ -19,6 +20,7 @@ namespace RenderCore
 	{
 		if (!List)
 			return;
+		D3D12RHI_CheckSubmitAllowed("EnqueuePendingCommandList");
 		std::lock_guard<std::mutex> Lock(PendingCommandListsMutex);
 		switch (QueueType)
 		{
@@ -46,6 +48,8 @@ namespace RenderCore
 		FD3D12CommandListManager* Mgr = TryGetCommandListManager(QueueType);
 		if (!Mgr)
 			return 0;
+
+		D3D12RHI_CheckSubmitAllowed("ExecutePendingCommandLists");
 
 		std::vector<D3D12CommandListHandle> Batch;
 		{
@@ -87,6 +91,7 @@ namespace RenderCore
 
 	void FD3D12Device::Initialize()
 	{
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		CreateCommandContexts();
 		InitPlatformSpecific();
 		InitDescriptorAllocator();
@@ -143,6 +148,7 @@ namespace RenderCore
 
 	void FD3D12Device::Cleanup()
 	{
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		if (DefaultCommandContext)
 			DefaultCommandContext->Destroy();
 		if (AsyncComputeContext)

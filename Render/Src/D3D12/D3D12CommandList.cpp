@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12CommandList.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -133,6 +134,7 @@ namespace RenderCore
 	uint64_t D3D12CommandListHandle::ExecuteAndClear(bool WaitForCompletion /*= false*/)
 	{
 		Assert(CommandListData);
+		D3D12RHI_CheckSubmitAllowed("D3D12CommandListHandle::ExecuteAndClear");
 		const uint64_t SignaledFenceValue =
 			CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
 			CommandListData->FlushPendingUniformBufferFenceTags(FenceID);
@@ -251,6 +253,7 @@ namespace RenderCore
 	void D3D12CommandListHandle::AddTransitionBarrier(FD3D12Resource* pResource, D3D12_RESOURCE_STATES Before, D3D12_RESOURCE_STATES After, uint32_t Subresource)
 	{
 		Assert(CommandListData);
+		D3D12RHI_CheckRecordingAllowed("AddTransitionBarrier");
 		CommandListData->ResourceBarrierBatcher.AddTransition(pResource->GetResource(), Before, After, Subresource);
 		Render::D3D12CallStats::AddResourceBarriers(1);
 		CommandListData->CurrentOwningContext->numBarriers++;

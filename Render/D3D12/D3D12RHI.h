@@ -83,6 +83,9 @@ namespace RenderCore
 		virtual std::shared_ptr<RHIDepthStencilState> RHICreateDepthStencilState(const DepthStencilStateInitializerRHI& Initializer) override;
 		virtual std::shared_ptr<RHITilePool> RHICreateTilePool(std::shared_ptr< RHITexture2D> Tex2D) override;
 
+		virtual void RHIBeginFrame() override;
+		virtual void RHIEndFrame() override;
+
 		FCacheStats GetCacheStats() const;
 
 		/** For D3D12-only paths (e.g. ImGui backend) that need adapter/device helpers without duplicating device pointers. */

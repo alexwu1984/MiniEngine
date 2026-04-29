@@ -107,6 +107,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 		if (!viewPort)
 			return;
 
+		RHI->RHIBeginFrame();
+
 		// Begin ImGui frame (done inside ViewPort->Prepare()).
 		const auto cc = demo->GetClearColor();
 		viewPort->Clear(core::FLinearColor(cc.r, cc.g, cc.b, cc.a));
@@ -155,6 +157,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 
 		// Render ImGui + present (ImGui render happens inside Present()).
 		viewPort->Present();
+
+		RHI->RHIEndFrame();
 	}, window.get());
 
 	const int exitCode = window->RunLoop();

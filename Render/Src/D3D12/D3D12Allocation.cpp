@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12Allocation.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "RHI/RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -447,6 +448,7 @@ namespace RenderCore
 			{
 				if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
 				{
+					D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 					if (auto Ctx = Dev->GetDefaultCommandContext())
 						Ctx->FlushCommands(true);
 					if (auto Ctx = Dev->GetDefaultAsyncComputeContext())
@@ -484,6 +486,7 @@ namespace RenderCore
 		// still reference it (#921). Flush + idle before release (frame-fence alone is insufficient).
 		if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
 		{
+			D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 			if (auto Ctx = Dev->GetDefaultCommandContext())
 				Ctx->FlushCommands(true);
 			if (auto Ctx = Dev->GetDefaultAsyncComputeContext())

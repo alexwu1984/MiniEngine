@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12ReourceTraits.h"
@@ -728,6 +729,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
+		D3D12RHI_CheckSubmitAllowed("FlushCommands");
 		if (!CommandListHandle)
 			return;
 
@@ -760,6 +762,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::Finish(std::vector<D3D12CommandListHandle>& OutCommandLists)
 	{
+		D3D12RHI_CheckSubmitAllowed("Finish");
 		if (!CommandListHandle)
 			return;
 		CloseCommandList();
@@ -818,6 +821,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::ReleaseCommandAllocator()
 	{
+		D3D12RHI_CheckRecordingAllowed("ReleaseCommandAllocator");
 		if (CommandAllocator != nullptr)
 		{
 			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
@@ -832,6 +836,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::OpenCommandList()
 	{
+		D3D12RHI_CheckRecordingAllowed("OpenCommandList");
 		// Conditionally get a new command allocator.
 		// Each command context uses a new allocator for all command lists within a "frame".
 		ConditionalObtainCommandAllocator();
@@ -858,6 +863,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
+		D3D12RHI_CheckRecordingAllowed("TransitionResource");
 		// Per-command-list state: TBD → pending. If !Cl.AreAllSubresourcesSame(), never use ALL_SUBRESOURCES
 		// on pending (per-sub only) so GetResourceBarrierCommandList can resolve PRB.SubResource without expanding ALL.
 		if (!CommandListHandle)
@@ -924,6 +930,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionSubResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, uint32_t Subresource, bool Flush)
 	{
+		D3D12RHI_CheckRecordingAllowed("TransitionSubResource");
 		Assert(Subresource < Resource->GetSubresourceCount());
 		if (!CommandListHandle || !Resource->RequiresResourceStateTracking())
 			return;
@@ -951,6 +958,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[])
 	{
+		D3D12RHI_ScopedUploadBypassRegion UploadBypassScope;
 		Assert(Dest);
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
 		// Get a new command list
@@ -972,6 +980,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/)
 	{
+		D3D12RHI_ScopedUploadBypassRegion UploadBypassScope;
 		Assert(Dest);
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
 		// Get a new command list

@@ -1,4 +1,5 @@
-#include "D3D12/D3D12RHI.h"
+﻿#include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
@@ -347,12 +348,28 @@ namespace RenderCore
 
 	void D3D12DynamicRHI::Wait()
 	{
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		if (D3D12Adapter)
 			D3D12Adapter->BlockUntilIdle();
 	}
 
+	void D3D12DynamicRHI::RHIBeginFrame()
+	{
+		D3D12RHI_EnterExclusiveRegion();
+		D3D12RHI_FlushDeferredCommands();
+		DynamicRHI::RHIBeginFrame();
+	}
+
+	void D3D12DynamicRHI::RHIEndFrame()
+	{
+		DynamicRHI::RHIEndFrame();
+		D3D12RHI_FlushDeferredCommands();
+		D3D12RHI_LeaveExclusiveRegion();
+	}
+
 	void D3D12DynamicRHI::Shutdown()
 	{
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		RHICachedStates::DestroyAll();
 		const bool bUseImGui = !core::CommandLine::Get().GetName("noimgui");
 		if (D3D12Adapter)

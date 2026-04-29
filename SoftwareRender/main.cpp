@@ -77,7 +77,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 
 	ViewerApp app;
 	app.BuildCpuRayTraceScene();
-	app.GpuInit(RHI.get());
+	{
+		RHI->RHIBeginFrame();
+		app.GpuInit(RHI.get());
+		RHI->RHIEndFrame();
+	}
 
 	window->EvtSizeChanged.bind(
 		[viewPort](core::vec2i sz) {
@@ -93,6 +97,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 
 			if (!viewPort)
 				return;
+
+			RHI->RHIBeginFrame();
 
 			const auto cc = app.GetClearColor();
 			viewPort->Clear(core::FLinearColor(cc.R, cc.G, cc.B, cc.A));
@@ -119,6 +125,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 			app.GpuDraw(*ctx, viewPort, window, dt);
 
 			viewPort->Present();
+
+			RHI->RHIEndFrame();
 		},
 		window.get());
 

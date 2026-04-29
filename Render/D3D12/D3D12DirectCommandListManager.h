@@ -193,6 +193,9 @@ namespace RenderCore
 		void ReleaseCommandList(D3D12CommandListHandle& hList);
 		uint32_t GetReadyListCount() const { return ReadyLists.GetSize(); }
 
+		// Submits closed lists to the D3D12 queue. When pending resource barriers exist, holds ResourceStateCS for the
+		// whole PRB resolution and batch submit. Intended to run on a single RHI submission thread: do not record
+		// TransitionResource / PRBs for the same tracked resources concurrently from another thread without external ordering.
 		uint64_t ExecuteCommandList(D3D12CommandListHandle& hList, const std::function<void(uint64_t FenceID)> &OnClearResource, bool WaitForCompletion = false);
 		uint64_t ExecuteCommandLists(std::vector<D3D12CommandListHandle>& Lists, const std::function<void(uint64_t FenceID)>& OnClearResource,bool WaitForCompletion = false);
 

@@ -45,8 +45,7 @@ namespace core
 			return temp_path();
 		std::wstring strPath = std::wstring(szPath);
 
-		int nReturn = SHCreateDirectoryEx(NULL, strPath.c_str(), NULL);
-		(void)nReturn;
+		[[maybe_unused]] const int nReturn = SHCreateDirectoryEx(NULL, strPath.c_str(), NULL);
 
 		return strPath;
 	}
@@ -188,10 +187,10 @@ namespace core
 		// fill in the headers
 		BITMAPFILEHEADER bmfh;
 		bmfh.bfType = 0x4D42; // 'BM'
-		bmfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + dwSizeBytes;//整个文件的大小
+		bmfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + dwSizeBytes; // total file size
 		bmfh.bfReserved1 = 0;
 		bmfh.bfReserved2 = 0;
-		bmfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);//图像数据偏移量，即图像数据在文件中的保存位置
+		bmfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER); // offset to pixel bits
 
 		DWORD dwBytesWritten;
 		::WriteFile(hFile, &bmfh, sizeof(bmfh), &dwBytesWritten, NULL);
@@ -204,10 +203,10 @@ namespace core
 		bmih.biSize = sizeof(BITMAPINFOHEADER);
 		bmih.biWidth = w;
 		bmih.biHeight = -h;
-		bmih.biPlanes = 1; // 图像的目标显示设备的位数，通常为1
-		bmih.biBitCount = bitCount; // 每个像素的位数，可以为1、4、8、24、32
-		bmih.biCompression = BI_RGB;// 是否压缩
-		bmih.biSizeImage = 0;//图像大小的字节数
+		bmih.biPlanes = 1; // must be 1
+		bmih.biBitCount = bitCount; // bits per pixel (1,4,8,24,32,...)
+		bmih.biCompression = BI_RGB; // uncompressed
+		bmih.biSizeImage = 0; // can be 0 for BI_RGB
 		bmih.biXPelsPerMeter = 0;
 		bmih.biYPelsPerMeter = 0;
 		bmih.biClrUsed = 0;

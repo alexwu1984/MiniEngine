@@ -153,7 +153,7 @@ namespace RenderCore
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		FDynamicDescriptorHeapPoolsPerDevice& P = Pools();
-		// Recycle heaps using monotonic per-queue retired lists (DEMO-style).
+		// Recycle heaps using monotonic per-queue retired lists.
 		for (int q = 0; q < 3; ++q)
 		{
 			while (!P.Retired[idx][q].empty())

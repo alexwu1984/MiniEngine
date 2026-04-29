@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "win/win32.h"
 #include "RHI/RHIDefinitions.h"
 #include "core/color.h"
@@ -51,8 +51,7 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() = 0;
 
-		// UE4.26-aligned frame boundary hooks. Engine-level systems (e.g. transient pooling)
-		// should attach their per-frame work here rather than scattering calls in render code.
+		// Frame boundary hooks: engine systems (e.g. transient pooling) can attach per-frame work here.
 		using FrameCallback = std::function<void()>;
 		void SetFrameCallbacks(FrameCallback InBeginFrame, FrameCallback InEndFrame)
 		{

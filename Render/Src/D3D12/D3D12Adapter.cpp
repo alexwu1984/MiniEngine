@@ -181,7 +181,7 @@ namespace RenderCore
 		d->Device = std::make_shared<FD3D12Device>(this->shared_from_this());
 		d->Device->Initialize();
 
-		// UE 4.26-style transient uniform allocator (FD3D12FastConstantAllocator + FD3D12AbstractRingBuffer).
+		// Transient uniform allocator (FD3D12FastConstantAllocator + FD3D12AbstractRingBuffer).
 		// Initial size matches d3d12studyMaster CVarTransientUniformBufferAllocatorSizeKB default (2 * 1024 KB).
 		d->TransientUniformBufferAllocator = std::make_unique<FD3D12FastConstantAllocator>(this->shared_from_this(), 2u * 1024u * 1024u);
 		d->TransientUniformBufferAllocator->Init();

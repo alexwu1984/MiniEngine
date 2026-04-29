@@ -15,7 +15,7 @@ namespace RenderCore
 {
 	namespace
 	{
-		// Fewer StageDescriptorHandles calls → fewer stale table regions / CopyDescriptors work (UE-style batching).
+		// Fewer StageDescriptorHandles calls → fewer stale table regions / CopyDescriptors work (batch staging).
 		// NOTE: With GPU-based validation enabled, leaving a root descriptor table uninitialized is a hard error.
 		// We therefore stage the *full table* when requested, filling null entries with a valid "null SRV" descriptor.
 		static void StageAllGraphicsSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullSrv)
@@ -341,7 +341,7 @@ namespace RenderCore
 
 	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
-		// UE-style: avoid redundant SetDescriptorHeaps when the dynamic ring hands back the same heap pointer.
+		// Avoid redundant SetDescriptorHeaps when the dynamic ring hands back the same heap pointer.
 		// After ID3D12GraphicsCommandList::Reset, heaps are not bound even if our cached pointers match — see InvalidateDescriptorHeapBindingsForFreshCommandList.
 		ID3D12GraphicsCommandList* const GfxCmdList = CommandList.GraphicsCommandList();
 		const bool bCommandListChanged =
@@ -609,7 +609,7 @@ namespace RenderCore
 			}
 		}
 
-		// UE4.26-style: VS SRV table (e.g. bone SRV / structured buffer) — was missing; only PS/CS tables existed.
+		// VS SRV table (e.g. bone SRV / structured buffer); PS/CS tables existed separately.
 		if (VertexResCount.NumSRVs > 0)
 		{
 			(*RootSignature)[RootIndex].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, VertexResCount.NumSRVs, D3D12_SHADER_VISIBILITY_VERTEX);
@@ -854,7 +854,7 @@ namespace RenderCore
 				}
 				else
 				{
-					// UE-style: if the app didn't provide constants, explicitly set zeros.
+					// If the app didn't provide constants, explicitly set zeros.
 					std::vector<uint32_t> Zero;
 					Zero.resize(N, 0u);
 					CommandList.GraphicsCommandList()->SetGraphicsRoot32BitConstants((UINT)rcIdx, N, Zero.data(), 0);
@@ -988,7 +988,7 @@ namespace RenderCore
 				PipelineState = ComputePSHashMap[HashCode];
 			}
 		}
-		// UE-style: a new Reset()'d command list has no bindings; force full rebind on cmdlist change or root/pso change.
+		// A newly Reset command list has no bindings; force full rebind on cmdlist change or root/PSO change.
 		const bool bNeedFullBind = bCmdListChanged
 			|| RootSigPtr != m_LastAppliedComputeRootSig
 			|| PipelineState.get() != m_LastAppliedComputePSO.get();

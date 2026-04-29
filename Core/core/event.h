@@ -46,7 +46,7 @@ namespace std
 		//		return (std::_Weak_Call_binder(std::_Invoker_ret<_Ret>(), _Seq(), _Mypair._Get_first(), _Mypair._Get_second(), std::forward_as_tuple(std::forward<_Unbound>(_Unbargs)...)));
 		//}
 
-		// 不处理任何返回值
+		// void return: invoke callback without propagating a return value
 		template<class... _Unbound>
 		void operator()(_Unbound &&... _Unbargs)
 		{
@@ -135,7 +135,7 @@ namespace core
 			bind(std::move(func), 0);
 		}
 
-		// 这个函数有BUG，勿用
+		// BUGGY: do not use (unsafe erase by std::function target type)
         template<typename T>
         void operator-=(const T & fun)
         {

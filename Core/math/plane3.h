@@ -1,4 +1,4 @@
-#pragma once
+Ôªø#pragma once
 #include "math/vector3.h"
 
 namespace math
@@ -72,7 +72,7 @@ namespace math
 		Intersect RelationWith(const Plane3& Plane)const;
 
 	private:
-		Vector3	_N;       //∆Ω√Ê∑®œÚ¡ø
-		float  _fD;       // µΩ‘≠µ„µƒæ‡¿Î(ax+by+cz+d=0)
+		Vector3	_N;       // plane normal (not necessarily unit)
+		float  _fD;       // signed distance-related term in ax+by+cz+d=0
 	};
 }

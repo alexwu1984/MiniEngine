@@ -4,6 +4,7 @@
 #include "D3D12/D3D12Allocation.h"
 #include <d3d12.h>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace RenderCore
@@ -50,12 +51,15 @@ namespace RenderCore
 		std::size_t GetCpuDescriptorGlobalPoolSize() const { return FD3D12ResourceAllocator::GetGlobalPoolSize(); }
 		void BlockUntilIdle();
 
-		// UE-style: global null resources for safety (GPU-BV / uninitialized root args).
+		/** Max transitions per ID3D12GraphicsCommandList::ResourceBarrier when batching pending PRBs (here: int32 max, matches typical Windows D3D12 RHI path). */
+		uint32_t GetResourceBarrierBatchSizeLimit() const;
+
+		// Global null resources for safety (GPU validation / uninitialized root args).
 		// Not a replacement for correct binding; only prevents undefined reads when shaders declare resources.
 		std::shared_ptr<D3D12UniformBuffer> GetNullUniformBuffer() const { return NullUniformBuffer; }
 		void InitializeNullUniformBuffer();
 
-		// UE-style: accumulate lists (per queue) and submit in a batch.
+		// Accumulate command lists per queue and submit in a batch.
 		void EnqueuePendingCommandList(D3D12CommandListHandle&& List, ED3D12CommandQueueType QueueType);
 		uint64_t ExecutePendingCommandLists(ED3D12CommandQueueType QueueType, bool WaitForCompletion = false);
 		bool HasPendingCommandLists(ED3D12CommandQueueType QueueType) const;
@@ -82,6 +86,8 @@ namespace RenderCore
 		std::vector<D3D12CommandListHandle> PendingCommandListsDefault;
 		std::vector<D3D12CommandListHandle> PendingCommandListsAsync;
 		std::vector<D3D12CommandListHandle> PendingCommandListsCopy;
+		/** Serializes enqueue / peek / drain of pending lists (future RHI thread vs recorder). */
+		mutable std::mutex PendingCommandListsMutex;
 
 		std::shared_ptr<D3D12UniformBuffer> NullUniformBuffer;
 	};

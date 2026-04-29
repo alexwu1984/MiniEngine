@@ -1,4 +1,4 @@
-#include "DemoRunner/Demos/LiquidClassDemoRunner.h"
+﻿#include "DemoRunner/Demos/LiquidClassDemoRunner.h"
 
 #include "core/system.h"
 
@@ -94,7 +94,7 @@ void LiquidClassDemoRunner::Draw(RenderCore::RHICommandContext& Ctx,
 
 	Ctx.RHICopyResource2D(LiquidSrcTex, BackgroundTex, core::vec4u(80, 200, 500, 500));
 
-	const core::vec2f worldPos = GetWorldPos(core::vec2f(80, 200), core::vec2f(BackgroundTex->GetSize().cx, BackgroundTex->GetSize().cy));
+	[[maybe_unused]] const core::vec2f worldPos = GetWorldPos(core::vec2f(80, 200), core::vec2f(BackgroundTex->GetSize().cx, BackgroundTex->GetSize().cy));
 
 	math::Vector3 quad[4] = {
 		math::Vector3(-1, -1, 0.0f),
@@ -103,7 +103,6 @@ void LiquidClassDemoRunner::Draw(RenderCore::RHICommandContext& Ctx,
 		math::Vector3( 1,  1, 0.0f),
 	};
 
-	(void)worldPos; // kept for parity with original demo; projection currently fixed.
 	const math::Vector3 mid = (quad[0] + quad[3]) * 0.5f;
 	const math::Vector3 scale = (quad[3] - quad[0]) * 0.5f;
 	GET_UNIFORMDATA(LuquidClassContant).u_quadNDC2ScreenNDCScale = math::Vector2(scale.x, scale.y);

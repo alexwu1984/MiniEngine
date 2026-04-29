@@ -201,7 +201,7 @@ namespace RenderCore
 		std::size_t GetGraphicsPSOCacheSize() const { return GraphicsPSHashMap.size(); }
 		std::size_t GetComputePSOCacheSize() const { return ComputePSHashMap.size(); }
 
-		/** PSO / root / input-layout may have changed (UE-style: use with ApplyGraphicState incremental path). */
+		/** PSO / root / input-layout may have changed (use with ApplyGraphicState incremental path). */
 		void MarkGraphicsLayoutDirty() { m_GraphicsLayoutDirty = true; }
 
 		FD3D12SamplerStateCache SamplerCache;
@@ -237,7 +237,7 @@ namespace RenderCore
 		ID3D12GraphicsCommandList* m_LastDescriptorHeapBoundCmdList = nullptr;
 		uint64_t m_LastDescriptorHeapBoundRecordingGen = 0;
 
-		// Incremental ApplyGraphicState (UE4.26-style): skip SetPipelineState/Parse/SetRootSignature when only CBV/SRV changed.
+		// Incremental ApplyGraphicState: skip SetPipelineState/Parse/SetRootSignature when only CBV/SRV changed.
 		static constexpr uint32_t kGraphicsDirtyCBV = 1u;
 		static constexpr uint32_t kGraphicsDirtySRV = 2u;
 		size_t m_LastAppliedGraphicsPSOHash = (size_t)-1;
@@ -248,7 +248,7 @@ namespace RenderCore
 		uint32_t m_GraphicsBindDirtyMask = 0;
 		bool m_GraphicsLayoutDirty = true;
 
-		// UE-style: treat a new compute command list as having no bound state.
+		// Treat a new compute command list as having no bound state.
 		void* m_LastAppliedComputeRootSig = nullptr;
 		win32::com_ptr<ID3D12PipelineState> m_LastAppliedComputePSO;
 		ID3D12GraphicsCommandList* m_LastAppliedComputeCmdList = nullptr;

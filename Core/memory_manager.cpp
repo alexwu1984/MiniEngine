@@ -316,7 +316,7 @@ namespace win32
 		//	*p = 0;
 		//_tcscat_s(szDbgName, MAX_PATH, L"\\dbghelp.dll");
 
-		// ²éÕÒµ±Ç°Ä¿Â¼µÄDLL
+		// Load dbghelp.dll (resolved via normal DLL search order)
 		s_DbgHelpLib = LoadLibraryW(L"dbghelp.dll");
 	
 		fnSymGetLineFromAddr64 = (tFSymGetLineFromAddr64)GetProcAddress(s_DbgHelpLib, "SymGetLineFromAddr64");

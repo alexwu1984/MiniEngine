@@ -74,7 +74,7 @@ namespace RenderCore
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
-		// ps_5_1: texture arrays / bindless-style indexing (PBR RHI_BINDLESS path); still loads on D3D11 with ps_5_0.
+		// ps_5_1: texture arrays / bindless array indexing (PBR RHI_BINDLESS path); still loads on D3D11 with ps_5_0.
 		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, "ps_5_1", Code.get_init_ref());
 		if (!Ret)
 		{

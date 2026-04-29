@@ -72,7 +72,7 @@ namespace core
             return *this;
         }
 
-        //------------------------------------------------------- 四则运算
+        //------------------------------------------------------- arithmetic
         template<typename = decltype(std::declval<T>() + std::declval<T>())>
         vec2 operator +(const vec2 & vec) const
         {
@@ -192,7 +192,7 @@ namespace core
             return *this;
         }
 
-        //--------------------------------------------------比较运算
+        //-------------------------------------------------- comparisons
         bool operator ==(const vec2 & vec) const
         {
             if constexpr (std::is_floating_point_v<T>)
@@ -244,49 +244,49 @@ namespace core
             std::array<T, 2> arr;
             struct
             {
-                //! 横坐标。
+                //! x
                 T x;
-                //! 纵坐标。
+                //! y
                 T y;
             };
 
             struct
             {
-                //! 横坐标。
+                //! left / x
                 T left;
-                //! 纵坐标。
+                //! top / y
                 T top;
             };
 
             struct
             {
-                //! 宽。
+                //! width
                 T cx;
-                //! 高。
+                //! height
                 T cy;
             };
 
             struct
             {
-                //! 宽。
+                //! width alias
                 T w;
-                //! 高。
+                //! height alias
                 T h;
             };
 
             struct
             {
-                //! 列。
+                //! column
                 T col;
-                //! 行。
+                //! row
                 T row;
             };
 
             struct
             {
-                //! 分子
+                //! numerator (rational layout)
                 T num;
-                //! 分母
+                //! denominator
                 T den;
             };
         };

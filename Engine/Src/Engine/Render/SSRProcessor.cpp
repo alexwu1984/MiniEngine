@@ -23,7 +23,7 @@ namespace Engine
 		DECLARE_PARAM(math::Vector3, CameraPos)
 		DECLARE_PARAM_VALUE(float, WorldThickness, 0.06f)
 		DECLARE_PARAM_VALUE(int32_t, NumRays, 16)
-		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0) // 用于时间维度随机种子
+		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0) // temporal noise / random seed
 		DECLARE_PARAM(math::Vector2, Resolution)
 		DECLARE_PARAM_VALUE(float, TemporalBlendFactor, 0.93f)
 		DECLARE_PARAM(math::Vector3, Pad0)

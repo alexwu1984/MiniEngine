@@ -396,11 +396,11 @@ Bitmap Bitmap::scale(unsigned int width, unsigned int height)
 	Bitmap routput(width, height, _format);
 
 
-	float width_scale = (float)_width / width;     // 列缩放比例，相对于算法前面讲的k1
-	float height_scale = (float)_height / height;   // 行缩放比例，即k2
+	float width_scale = (float)_width / width;     // horizontal scale (source texels per output pixel)
+	float height_scale = (float)_height / height;   // vertical scale
 
-	// 2, 采样
-	for (uint32_t i = 0; i < height; i++)  // 注意i,j的范围, i < height * img.rows / height;
+	// nearest-neighbour resample
+	for (uint32_t i = 0; i < height; i++)  // map output (j,i) -> source sample coordinates
 	{
 		for (uint32_t j = 0; j < width; j++)
 		{
@@ -418,7 +418,7 @@ uint8_t get_scale_value(Bitmap& input_img, float raw_i, float raw_j)
 	float u = raw_i - i;
 	float v = raw_j - j;
 
-	//注意处理边界问题，容易越界
+	// clamp / avoid out-of-range when bilinear taps (i+1,j+1)
 	if (i + 1 >= input_img.height() || j + 1 >= input_img.width())
 	{
 		uint8_t* p = input_img.getLinePixel(i);
@@ -533,10 +533,10 @@ void Bitmap::SaveBitmap(const wchar_t* fileName)
 	// fill in the headers
 	BITMAPFILEHEADER bmfh;
 	bmfh.bfType = 0x4D42; // 'BM'
-	bmfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + dwSizeBytes;//整个文件的大小
+	bmfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + dwSizeBytes; // total file size
 	bmfh.bfReserved1 = 0;
 	bmfh.bfReserved2 = 0;
-	bmfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);//图像数据偏移量，即图像数据在文件中的保存位置
+	bmfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER); // offset to pixel bits
 
 	DWORD dwBytesWritten;
 	::WriteFile(hFile, &bmfh, sizeof(bmfh), &dwBytesWritten, NULL);
@@ -549,10 +549,10 @@ void Bitmap::SaveBitmap(const wchar_t* fileName)
 	bmih.biSize = sizeof(BITMAPINFOHEADER);
 	bmih.biWidth = _width;
 	bmih.biHeight = _height;
-	bmih.biPlanes = 1; // 图像的目标显示设备的位数，通常为1
+	bmih.biPlanes = 1; // must be 1
 	bmih.biBitCount = _format * 8; 
-	bmih.biCompression = BI_RGB;// 是否压缩
-	bmih.biSizeImage = 0;//图像大小的字节数
+	bmih.biCompression = BI_RGB; // uncompressed
+	bmih.biSizeImage = 0; // can be 0 for BI_RGB
 	bmih.biXPelsPerMeter = 0;
 	bmih.biYPelsPerMeter = 0;
 	bmih.biClrUsed = 0;

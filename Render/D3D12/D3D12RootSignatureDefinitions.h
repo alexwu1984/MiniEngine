@@ -1,4 +1,4 @@
-// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12RootSignatureDefinitions.h: D3D12 utilities for Root signatures.
@@ -6,6 +6,7 @@ D3D12RootSignatureDefinitions.h: D3D12 utilities for Root signatures.
 
 #pragma once
 
+#include "D3D12/D3D12Limits.h"
 #include "D3D12RHI.h"
 
 namespace RenderCore

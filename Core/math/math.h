@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #define EPSILON_E4 (float)(1E-4)
 
 namespace math
@@ -15,7 +15,7 @@ namespace math
 		E_In,
 		E_Front,
 		E_Back,
-		E_On,//µãÔÚÃæÀïÃæ
+		E_On, // point lies on the primitive (e.g. on the plane)
 	};
 
 	template<typename T>
@@ -688,7 +688,7 @@ namespace math
 
 	inline float GetRandomFloat()
 	{
-		// Ê¹ÓÃÏß³Ì¾Ö²¿´æ´¢È·±£Ã¿¸öÏß³ÌÓĞ×Ô¼ºµÄËæ»úÊıÉú³ÉÆ÷
+		// thread_local RNG so each thread has independent draws
 		thread_local static std::random_device dev;
 		thread_local static std::mt19937 rng(dev());
 		thread_local static std::uniform_real_distribution<float> dist(0.f, 1.f);

@@ -24,7 +24,7 @@ namespace win32
 
     core::error_e tpp_thread_pool::init()
     {
-        // 在 windows7 以下，在 dll 中自定义线程池，如果 dll 没有手动卸载，这些销毁 API 都会抛异常，干脆就用默认的线程池了
+        // Win7 and below: custom threadpool in a DLL that is never unloaded can fault in pool teardown; use the default pool.
         //auto pfnClean = [](PVOID ObjectContext, PVOID CleanupContext)
         //{
         //    ObjectContext = nullptr;

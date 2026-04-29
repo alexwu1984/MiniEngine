@@ -11,8 +11,8 @@
 
 namespace RenderCore
 {
-	static_assert(CpuAllocatorPageSize == 4u * 1024u * 1024u, "UE 4.26 DefaultFastAllocator upload page size");
-	static_assert(UE426_MIN_PLACED_BUFFER_SIZE == UE426_D3D_BUFFER_ALIGNMENT, "UE 4.26 D3D12Allocation.h placed-buffer min");
+	static_assert(CpuAllocatorPageSize == 4u * 1024u * 1024u, "Upload fast-allocator page size must be 4 MiB");
+	static_assert(UE426_MIN_PLACED_BUFFER_SIZE == UE426_D3D_BUFFER_ALIGNMENT, "Placed-buffer min size must match D3D buffer alignment");
 
 	std::vector<win32::com_ptr<ID3D12DescriptorHeap> > FD3D12ResourceAllocator::sm_DescriptorPool;
 
@@ -282,7 +282,7 @@ namespace RenderCore
 			switch (Type)
 			{
 			case EFastAllocatorType::DefaultFastAllocator: return 256;
-			// Upload pool: UE 4.26 fast allocator uses 4MB pages; cap total cached standard pages (~80MB) when GPU lags.
+			// Upload pool uses 4 MiB pages; cap cached standard pages when the GPU lags behind the CPU.
 			case EFastAllocatorType::UploadFastAllocator:  return 20;
 			default: return 64;
 			}
@@ -334,7 +334,7 @@ namespace RenderCore
 		if (Count > Size)
 			return FailedReturnValue;
 
-		// If we need to wrap to the beginning, allocate padding to end (UE-style) so the next alloc starts at 0.
+		// If we need to wrap to the beginning, allocate padding to the end so the next alloc starts at 0.
 		if (Tail + Count > Size)
 		{
 			// If head is at 0, we can't wrap yet.
@@ -416,7 +416,7 @@ namespace RenderCore
 			if (Oldest == 0)
 				return FailedReturnValue;
 
-			// Ring is full: wait for the oldest outstanding allocation to complete (UE-style).
+			// Ring is full: wait for the oldest outstanding allocation to complete.
 			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_WaitCount());
 			D3D12MemMonAtomicAdd(D3D12CreateStats::TransientRing_WaitBytes(), Count);
 			Fence->WaitForFence(Oldest);
@@ -523,7 +523,7 @@ namespace RenderCore
 
 		Buffer.reset(NewRes);
 		Buffer->SetName(L"FastConstantAllocator");
-		(void)Buffer->Map(nullptr);
+		Buffer->Map(nullptr);
 		return true;
 	}
 
@@ -759,8 +759,8 @@ namespace RenderCore
 		if (HeapProps.Type == D3D12_HEAP_TYPE_UPLOAD && PageSize == 0 && AllocatorType == EFastAllocatorType::UploadFastAllocator)
 		{
 			BuddyAlloc = GetParentDevice()->GetBuddyAllocator();
-			uint64_t GpuVA = 0;
-			void* Cpu = nullptr;
+			[[maybe_unused]] uint64_t GpuVA = 0;
+			[[maybe_unused]] void* Cpu = nullptr;
 			if (BuddyAlloc)
 			{
 				// If the pool is temporarily out of space (GPU behind, frees not processed yet),
@@ -768,12 +768,10 @@ namespace RenderCore
 				if (!BuddyAlloc->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd))
 				{
 					DrainBuddyAllocatorDeferredWithWait();
-					(void)BuddyAlloc->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd);
+					BuddyAlloc->TryAllocatePlacedUploadPage(ResourceDesc.Width, pBuffer, GpuVA, Cpu, BuddyOff, BuddyOrd);
 				}
 				if (pBuffer)
 				{
-					(void)GpuVA;
-					(void)Cpu;
 					bBuddyAllocatorPage = true;
 				}
 			}

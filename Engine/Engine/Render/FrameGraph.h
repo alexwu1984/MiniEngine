@@ -45,7 +45,7 @@ enum class ERGQueueType : uint8_t
 	Copy = 2,
 };
 
-/** Placeholder for transient texture allocation (UE FRDGTexture::Desc parity, future pool). */
+/** Placeholder for transient texture allocation (future pool). */
 struct RDGTextureDesc
 {
 	uint32_t Width = 0;
@@ -71,7 +71,7 @@ struct FramePassDesc
 	std::vector<FrameGraphResource> Outputs;
 	std::function<void()> Execute;
 	bool ValidateOutputs = false;
-	/** Appended after legacy {Name, IO, Execute} initializer lists (UE-style flags / queue). */
+	/** Appended after legacy {Name, IO, Execute} initializer lists (flags / queue). */
 	uint32_t PassFlags = ERGPass_Raster;
 	ERGQueueType Queue = ERGQueueType::Graphics;
 };
@@ -93,10 +93,9 @@ struct FrameGraphCompileParams
 };
 
 /**
- * RDG-oriented frame graph (UE 4.26-style direction):
- * Setup: ImportTexture / AddPass / AddPassDependency
- * Compile: ordering, optional sink reachability culling, debug dump
- * Execute: runs last Compile() order only
+ * Render graph: Setup (ImportTexture / AddPass / AddPassDependency),
+ * Compile (ordering, optional sink reachability culling, debug dump),
+ * Execute (last Compile() order only).
  */
 class FrameGraph
 {

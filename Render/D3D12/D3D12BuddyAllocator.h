@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "D3D12/D3D12RHICommon.h"
 #include "win/com_ptr.h"
@@ -12,7 +12,7 @@ namespace RenderCore
 {
 	class FD3D12Device;
 
-	// UE4 D3D12RHI::eBuddyAllocationStrategy (subset; MiniEngine only implements placed resources on UPLOAD heap).
+	// Buddy allocation strategy (MiniEngine: placed resources on UPLOAD heap).
 	enum class eBuddyAllocationStrategy : uint8_t
 	{
 		kManualSubAllocationStrategy = 0,
@@ -20,8 +20,7 @@ namespace RenderCore
 		kPlacedResourceStrategy = 2,
 	};
 
-	// UE4-style FD3D12BuddyAllocator with kPlacedResourceStrategy: buddy sub-allocation over one ID3D12Heap
-	// (UPLOAD, buffers-only, CreatePlacedResource). Used by UploadFastAllocator standard pages.
+	// Buddy sub-allocation over one ID3D12Heap (UPLOAD, buffers-only, CreatePlacedResource). Used by UploadFastAllocator standard pages.
 	class FD3D12BuddyAllocator : public FD3D12DeviceChild
 	{
 	public:

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #define NOMINMAX
 
@@ -108,6 +108,10 @@ namespace std
 
 namespace win32 {
     extern void DoAssert(bool success, const wchar_t* file_name, int line);
+#if defined(_DEBUG)
+    /** Debug: log formatted message, break, then return false from ensureMsgf (caller handles failure). */
+    void ReportEnsureMsgFailed(const char* file, int line, const char* expr, const char* fmt, ...);
+#endif
 }
 
 #define WIDE2(x) L##x
@@ -119,8 +123,17 @@ namespace win32 {
 
 #ifdef _DEBUG
 #define Assert(s) win32::DoAssert(s, WFILE, __LINE__)
+/** Soft check with message in Debug; true if (condition), false if failed. */
+#if defined(_MSC_VER)
+#define ensureMsgf(condition, fmt, ...) \
+	((!!(condition)) ? true : (win32::ReportEnsureMsgFailed(__FILE__, __LINE__, #condition, fmt, __VA_ARGS__), false))
+#else
+#define ensureMsgf(condition, fmt, ...) \
+	((!!(condition)) ? true : (win32::ReportEnsureMsgFailed(__FILE__, __LINE__, #condition, fmt, ##__VA_ARGS__), false))
+#endif
 #else
 #define Assert(s)
+#define ensureMsgf(condition, fmt, ...) (!!(condition))
 #endif
 
 template <typename T, uint32_t N>

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "win/sync.h"
 #include "core/inc.h"
@@ -38,7 +38,7 @@ namespace win32
         core::error_e send(const byte_t * buffer, size_t nbytes);
 
     public:
-        // 管道另一端连接了
+        // peer connected on the far end of the pipe
         core::event<void(core::error_e err)> arrived;
         core::event<void(core::error_e err, size_t nbytes)> recved;
         core::event<void(core::error_e err, size_t nbytes)> sended;

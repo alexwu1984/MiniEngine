@@ -65,7 +65,7 @@ namespace win32
 		{
 			BEGIN_MASK = 0xDEADC0DE,
 			END_MASK = 0xDEADC0DE,
-			RECORD_NUM = 32, //±ØÐë´óÓÚ2
+			RECORD_NUM = 32, // must be > 2
 			CALLSTACK_NUM = 32
 		};
 
@@ -86,13 +86,13 @@ namespace win32
 				m_uiSize = 0;
 				m_uiStackInfoNum = 0;
 			}
-			void* pAddr[CALLSTACK_NUM];	//ÉêÇëÄÚ´æÊ±ºòµÄµ÷ÓÃ¶ÑÕ»ÐÅÏ¢
-			unsigned int m_uiStackInfoNum;	//¶ÑÕ»²ãÊý
-			size_t	 m_uiSize;			//ÉêÇë¿Õ¼äµÄ´óÐ¡
-			bool m_bIsArray;				//ÊÇ·ñÊÇÊý×é
-			bool m_bAlignment;				//ÊÇ·ñ×Ö½Ú¶ÔÆë
-			Block* m_pPrev;				//Ç°Ò»¸ö½Úµã
-			Block* m_pNext;				//ºóÒ»¸ö½Úµã
+			void* pAddr[CALLSTACK_NUM];	// call stack frames captured at allocation
+			unsigned int m_uiStackInfoNum;	// number of valid stack frames
+			size_t	 m_uiSize;			// requested allocation size
+			bool m_bIsArray;				// array new[] vs single new
+			bool m_bAlignment;				// aligned allocation flag
+			Block* m_pPrev;				// previous block in list
+			Block* m_pNext;				// next block in list
 		};
 		unsigned int m_uiNumNewCalls;
 		unsigned int m_uiNumDeleteCalls;
@@ -121,7 +121,7 @@ namespace win32
 		virtual void* Allocate(size_t uiSize, size_t uiAlignment, bool bIsArray);
 		virtual void Deallocate(char* pcAddr, size_t uiAlignment, bool bIsArray) {}
 
-		//Ã¿Ö¡½áÊø»òÕß¿ªÊ¼µÄÊ±ºòµ÷ÓÃ
+		// call at frame begin/end
 		void Clear();
 		void PopMemory();
 
@@ -155,7 +155,7 @@ namespace win32
 		uint8_t* AllocateNewChunk(int32_t MinSize);
 
 		/** Frees the chunks above the specified chunk on the stack. */
-		/*ÒÆ³ýÕâ¸öchunkºÍÕâ¸öchunkÖ®Ç°µÄËùÓÐchunk*/
+		/* free this chunk and every chunk before it on the stack */
 		void FreeChunks(FTaggedMemory* NewTopChunk);
 
 		

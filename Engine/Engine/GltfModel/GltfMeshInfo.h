@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "math/vector4.h"
 #include "math/vector2.h"
 #include "tinygltf/tiny_gltf.h"
@@ -6,12 +6,12 @@
 namespace Engine
 {
 	static const int MAX_MATRICES = 200;
-	//Ò»¸ö3DModelÓµÓĞµÄ×î´ó¹Ç÷ÀÊı
+	// max bones referenced by a single skinned model
 #define max_NUM_MODEL_BONE 100
 
-//Ã¿Ò»¸ö¶¥µã×î¶àÊÜµ½*¸ö¹Ç÷ÀÓ°Ïì
+// max bone influences per vertex
 #define max_BONES_PER_VEREX 4
-	//Ã¿¸ö¶¥µã±»¹Ç÷ÀIDsËùÓ°Ïì
+	// bone indices affecting this vertex
 	struct VertexBoneID
 	{
 		VertexBoneID()
@@ -20,7 +20,7 @@ namespace Engine
 		}
 		uint16_t BoneIDs[max_BONES_PER_VEREX];
 	};
-	//Ã¿¸ö¶¥µã¹Ç÷ÀÓ°ÏìµÄÈ¨ÖØ
+	// bone blend weights for this vertex
 	struct VertexBoneWeight
 	{
 		VertexBoneWeight()
@@ -31,41 +31,28 @@ namespace Engine
 	};
 
 	/****************************************************
-*	Mesh½á¹¹Ìå
-*	Ã¿¸öMesh°üº¬£º
-*		1¡¢¶¥µãÊıÄ¿
-*		2¡¢¶¥µãÎ»ÖÃ
-*		3¡¢¶¥µãÑÕÉ«
-*		4¡¢¶¥µã·¨ÏòÁ¿
-*		5¡¢¶¥µãÎÆÀí²ÉÑù×ø±ê
-*		6¡¢FacesÊıÁ¿
-*		7¡¢FacesË÷Òı
-*		8¡¢BoneIDs Ó°Ïì¸Ã¶¥µãµÄ¹Ç÷ÀID
-*		9¡¢BoneWeights Ó°Ïì¸Ã¶¥µãµÄ¹Ç÷ÀÈ¨ÖØ
-*		10¡¢meshÊ¹ÓÃµÄ²ÄÖÊË÷Òı
-*		11¡¢meshÏà¶ÔmodelµÄ±ä»¯¾ØÕó
-****************************************************/
+	* CPU mesh payload: positions, normals, UVs, indices, optional skin weights.
+	****************************************************/
 	struct GltfMeshInfo
 	{
-		//¶¥µãÊıÄ¿
+		// vertex count
 		uint32_t nNumVertices = 0;
-		//ÃæÊıÄ¿£¨Èı½ÇĞÎÊıÄ¿£©
+		// triangle count (number of faces)
 		uint32_t nNumFaces = 0;
-		//¶¥µãÎ»ÖÃ
+		// vertex positions
 		math::Vector3* Vertices = nullptr;
-		//¶¥µã·¨ÏòÁ¿
+		// vertex normals
 		math::Vector3* Normals = nullptr;
-		//¶¥µãÎÆÀí²ÉÑù×ø±ê
+		// texture coordinates
 		math::Vector2* TextureCoords = nullptr;
-		//ÇĞÏß
+		// tangent frame (xyz tangent, w handedness)
 		math::Vector4* Tangents = nullptr;
-		//faces£¨Èı½ÇĞÎ£©Ë÷Òı
+		// triangle index buffer (16- or 32-bit)
 		uint16_t* FacesIndex = nullptr;
 		uint32_t* FacesIndex32 = nullptr;
 		int type = 0;
-		////¹Ç÷ÀID
+		// optional skinning data
 		VertexBoneID* BoneIDs = nullptr;
-		////¹Ç÷ÀÈ¨ÖØ
 		VertexBoneWeight* BoneWeights = nullptr;
 	};
 }

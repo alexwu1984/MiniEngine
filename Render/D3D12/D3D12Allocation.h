@@ -24,11 +24,10 @@ namespace RenderCore
 	const static uint32_t DEFAULT_ALIGN = 256;
 	const static uint32_t GpuAllocatorPageSize = 0x10000;	// 64k
 
-	// UE 4.26 FD3D12Device: DefaultFastAllocator(..., D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4)
-	// Align UploadFastAllocator linear page size with Epic's default fast-allocator page (4 MiB).
+	// Upload fast-allocator linear page size (4 MiB), aligned with common D3D upload pooling defaults.
 	const static uint32_t CpuAllocatorPageSize = 4u * 1024u * 1024u;
 
-	// UE 4.26 D3D12Allocation.h — buddy / placed-buffer path constants (for parity when suballocating placed buffers).
+	// Buddy / placed-buffer path constants for suballocating placed buffers.
 	static constexpr uint32_t UE426_MIN_PLACED_BUFFER_SIZE = 64u * 1024u;
 	static constexpr uint32_t UE426_D3D_BUFFER_ALIGNMENT = 64u * 1024u;
 
@@ -46,7 +45,7 @@ namespace RenderCore
 		D3D12_GPU_VIRTUAL_ADDRESS GpuAddress = 0;
 	};
 
-	// UE-style fence-aware ring buffer (fixed-size; waits on wrap instead of growing).
+	// Fence-aware ring buffer (fixed size; waits on wrap instead of growing).
 	class FD3D12AbstractRingBuffer
 	{
 	public:
@@ -100,8 +99,7 @@ namespace RenderCore
 		std::map<uint64_t, uint64_t> OutstandingAllocs; // fenceValue -> blocks
 	};
 
-	// UE 4.26-style: transient constant/uniform uploads from a single UPLOAD buffer + FD3D12AbstractRingBuffer
-	// (see d3d12studyMaster/D3D12RHI FD3D12FastConstantAllocator). Grows the backing buffer when the ring fills.
+	// Transient constant/uniform uploads from a single UPLOAD buffer + FD3D12AbstractRingBuffer; grows when the ring fills.
 	class FD3D12FastConstantAllocator : public FD3D12AdapterChild
 	{
 	public:
@@ -192,7 +190,7 @@ namespace RenderCore
 		std::vector<FHeapState> Heaps;
 	};
 
-	// UE4-style backing page for FD3D12FastAllocator / FD3D12LinearAllocator suballocations.
+	// Backing page for FD3D12FastAllocator / FD3D12LinearAllocator suballocations.
 	class FD3D12FastAllocatorPage : public FD3D12Resource
 	{
 		friend class FD3D12LinearAllocator;
@@ -224,7 +222,7 @@ namespace RenderCore
 		bool bHasBuddyAllocatorBinding = false;
 	};
 
-	// UE4-style FD3D12FastAllocator: owns standard linear pages (UPLOAD / DEFAULT) for FD3D12LinearAllocator.
+	// Owns standard linear pages (UPLOAD / DEFAULT) for FD3D12LinearAllocator.
 	class FD3D12FastAllocator : public FD3D12DeviceChild
 	{
 	public:

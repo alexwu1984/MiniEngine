@@ -1,4 +1,4 @@
-#include "D3D12/D3D12IndexBuffer.h"
+﻿#include "D3D12/D3D12IndexBuffer.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Resource.h"
@@ -92,7 +92,7 @@ namespace RenderCore
 
 		d->bDynamic = (InUsage & BUF_AnyDynamic) != 0;
 
-		// UE-style: index buffers live in DEFAULT memory.
+		// Index buffers live in DEFAULT memory.
 		// Dynamic updates use transient UPLOAD allocations + CopyBufferRegion, not committed UPLOAD buffers.
 		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_PROPERTIES HeapProps;

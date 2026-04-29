@@ -1,4 +1,4 @@
-#include "math/matrix4x4.h"
+ï»¿#include "math/matrix4x4.h"
 #include "math/quaternion.h"
 
 namespace math
@@ -338,41 +338,39 @@ namespace math
 
 	Matrix4x4 Matrix4x4::MatrixLookAtLH(const Vector3& EyePosition, const Vector3& FocusPosition, const Vector3& UpDirection)
 	{
-		// ¶¨Òå×îĞ¡¾àÀëãĞÖµ£¬±ÜÃâ¾àÀë¹ı½üµ¼ÖÂµÄÊıÖµÎÊÌâ
+		// Minimum eye-to-focus distance to avoid unstable normalization
 		const float MIN_DISTANCE = 0.001f;
 
-		// ¼ÆËãÇ°ÏòÏòÁ¿²¢¹éÒ»»¯
+		// Forward (camera Z in LH) and length
 		Vector3 Forward = FocusPosition - EyePosition;
 		float distance = Forward.GetLength();
 
-		// ´¦Àí¾àÀë¹ı½üµÄÇé¿ö
+		// Degenerate direction: use default forward
 		if (distance < MIN_DISTANCE) {
-			// Èç¹û¾àÀë¹ı½ü£¬Ê¹ÓÃÒ»¸öÄ¬ÈÏµÄÇ°ÏòÏòÁ¿
 			Forward = Vector3::UnitZ;
 		}
 		else {
-			Forward /= distance; // ¹éÒ»»¯
+			Forward /= distance; // normalize
 		}
 
-		// ´¦ÀíÏòÉÏÏòÁ¿
+		// Up vector from caller
 		Vector3 Up = UpDirection;
 		float upLength = Up.GetLength();
 
-		// ¼ì²éÏòÉÏÏòÁ¿ÊÇ·ñÓĞĞ§
+		// Degenerate up: fall back to world +Y
 		if (upLength < MIN_DISTANCE) {
-			Up = Vector3::UnitY; // Ä¬ÈÏÏòÉÏÏòÁ¿
+			Up = Vector3::UnitY;
 		}
 		else {
-			Up /= upLength; // ¹éÒ»»¯
+			Up /= upLength; // normalize
 		}
 
-		// ¹¹½¨Õı½»»ù
+		// Right = Up x Forward (LH camera basis)
 		Vector3 Right = Vector3::Cross(Up, Forward);
 		float rightLength = Right.GetLength();
 
-		// ¼ì²éÊÇ·ñ´æÔÚ¹²ÏßÇé¿ö£¨Ç°ÏòÏòÁ¿ÓëÏòÉÏÏòÁ¿Æ½ĞĞ£©
+		// Up parallel to forward: pick an arbitrary perpendicular right
 		if (rightLength < MIN_DISTANCE) {
-			// ´¦Àí¹²ÏßÇé¿ö£ºÕÒµ½Ò»¸öÓëÇ°ÏòÏòÁ¿Õı½»µÄÏòÁ¿
 			if (std::abs(Forward.x) < 0.9f) {
 				Right = Vector3::Cross(Vector3(1.0f, 0.0f, 0.0f), Forward);
 			}
@@ -384,15 +382,15 @@ namespace math
 		}
 		else {
 			Right /= rightLength;
-			Up = Vector3::Cross(Forward, Right); // ÖØĞÂ¼ÆËãÕı½»µÄÏòÉÏÏòÁ¿
+			Up = Vector3::Cross(Forward, Right); // orthogonalize Up against Right
 		}
 
-		// ¼ÆËãÆ½ÒÆ·ÖÁ¿
+		// Translation: negate eye projected onto basis axes
 		float D0 = -EyePosition.Dot(Right);
 		float D1 = -EyePosition.Dot(Up);
 		float D2 = -EyePosition.Dot(Forward);
 
-		// ¹¹½¨¾ØÕó£¨ÁĞÖ÷Ğò£©
+		// Column-major view matrix
 		Matrix4x4 Result(
 			Vector4(Right.x, Up.x, Forward.x, 0.0f),
 			Vector4(Right.y, Up.y, Forward.y, 0.0f),

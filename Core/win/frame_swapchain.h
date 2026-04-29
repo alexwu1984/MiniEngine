@@ -48,7 +48,7 @@ namespace win
     private:
         std::mutex _mtx;
         std::string _name;
-        // 0 是无效的 ssession，从 1 开始有效
+        // session id 0 is invalid; valid ids start at 1
         std::atomic_uint32_t _session = 0;
         std::atomic<core::error_e> _state = core::error_broken;
         win32::shared_memory<swapchain_header> _header;

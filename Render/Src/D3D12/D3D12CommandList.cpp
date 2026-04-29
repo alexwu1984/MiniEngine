@@ -92,8 +92,7 @@ namespace RenderCore
 	void D3D12CommandListHandle::D3D12CommandListData::Reset(D3D12CommandAllocator& CommandAllocator)
 	{
 		CancelPendingUniformBufferFenceTags();
-		// UE FD3D12CommandListData::Reset: ID3D12CommandAllocator::Reset is done in
-		// FD3D12CommandAllocatorManager::ObtainCommandAllocator when dequeuing a ready allocator.
+		// ID3D12CommandAllocator::Reset runs in ObtainCommandAllocator when dequeuing a ready allocator.
 		VERIFYD3DRESULT(CommandList->Reset(CommandAllocator, nullptr));
 
 		CurrentCommandAllocator = &CommandAllocator;
@@ -159,7 +158,7 @@ namespace RenderCore
 	{
 		// Keep a single submit path so we always run per-list cleanup (allocators, dynamic heaps, etc.).
 		// This mirrors the intent of MiniEngine's CommandContext::Finish().
-		(void)ExecuteAndClear(WaitForCompletion);
+		ExecuteAndClear(WaitForCompletion);
 	}
 
 	void D3D12CommandListHandle::RegisterUniformBufferForSubmitFence(D3D12UniformBuffer* ub) const

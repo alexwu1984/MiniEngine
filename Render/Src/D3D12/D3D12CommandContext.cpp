@@ -728,7 +728,6 @@ namespace RenderCore
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
-		// UE-style: only submit when we actually recorded work, have pending lists, or we need to wait.
 		if (!CommandListHandle)
 			return;
 
@@ -750,12 +749,12 @@ namespace RenderCore
 		if (Device && bHasPendingWork)
 		{
 			Device->EnqueuePendingCommandList(std::move(CommandListHandle), QueueType);
-			(void)Device->ExecutePendingCommandLists(QueueType, WaitForCompletion);
+			Device->ExecutePendingCommandLists(QueueType, WaitForCompletion);
 			OpenCommandList();
 			return;
 		}
 
-		(void)CommandListHandle.ExecuteAndClear(WaitForCompletion);
+		CommandListHandle.ExecuteAndClear(WaitForCompletion);
 		OpenCommandList();
 	}
 
@@ -841,7 +840,7 @@ namespace RenderCore
 		CommandListHandle = GetCommandListManager().ObtainCommandList(*CommandAllocator);
 		CommandListHandle.SetCurrentOwningContext(this);
 
-		// UE-style: D3D12 Reset clears bindings; caches detect Reset via command list reset-serial.
+		// Command list Reset clears bindings; caches detect Reset via command-list reset serial.
 		numDraws = 0;
 		numDispatches = 0;
 		numClears = 0;
@@ -859,9 +858,8 @@ namespace RenderCore
 
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
-		// UE FD3D12CommandContext::TransitionResource / TransitionResourceWithTracking: per-command-list state;
-		// TBD → pending. If !Cl.AreAllSubresourcesSame(), never use ALL_SUBRESOURCES on pending (per-sub only),
-		// so GetResourceBarrierCommandList can resolve PRB.SubResource like UE without expanding ALL.
+		// Per-command-list state: TBD → pending. If !Cl.AreAllSubresourcesSame(), never use ALL_SUBRESOURCES
+		// on pending (per-sub only) so GetResourceBarrierCommandList can resolve PRB.SubResource without expanding ALL.
 		if (!CommandListHandle)
 			return;
 		if (!Resource->RequiresResourceStateTracking())
@@ -895,7 +893,7 @@ namespace RenderCore
 				}
 			}
 
-			// UE: only collapse to uniform per-resource tracking if every subresource really reached NewState.
+			// Only collapse to uniform per-resource tracking if every subresource really reached NewState.
 			// Unconditional SetResourceState here overwrote per-sub states and produced bogus Before in barriers (#523).
 			if (Cl.CheckResourceState(NewState))
 			{
@@ -968,7 +966,7 @@ namespace RenderCore
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
-		(void)CommandList.ExecuteAndClear(true);
+		CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 
@@ -996,7 +994,7 @@ namespace RenderCore
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
-		(void)CommandList.ExecuteAndClear(true);
+		CommandList.ExecuteAndClear(true);
 		CommandAllocatorManager.ReleaseCommandAllocator(TempCommandAllocator);
 	}
 

@@ -1,4 +1,4 @@
-#include "D3D11/D3D11RHI.h"
+﻿#include "D3D11/D3D11RHI.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "RHI/RHI.h"
 #include "D3D11/D3D11ViewPort.h"
@@ -112,7 +112,7 @@ namespace RenderCore
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
-		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 

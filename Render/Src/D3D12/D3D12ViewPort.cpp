@@ -19,7 +19,7 @@
 
 namespace RenderCore
 {
-	// Match Microsoft MiniEngine / UE flip-discard swapchain depth.
+	// Default flip-discard swap chain depth (triple-buffered).
 	static const uint32_t WindowsDefaultNumBackBuffers = 3;
 	static bool D3D12RHI_ShouldUseImGui()
 	{
@@ -61,7 +61,7 @@ namespace RenderCore
 	{
 		auto Adapter = GetParentAdapter();
 
-		// Align with UE 4.26 WindowsD3D12Viewport: no DXGI waitable object; frame pacing via fence after Present.
+		// No DXGI waitable object; frame pacing via fence after Present.
 		bAllowTearing = false;
 
 		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
@@ -103,7 +103,7 @@ namespace RenderCore
 				NewSwapChain1->QueryInterface(IID_PPV_ARGS(SwapChain4.get_init_ref()));
 
 				core::LOG(core::log_inf,
-						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x vsync=1 tearing=%d (UE-style, no waitable)",
+						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x vsync=1 tearing=%d (no waitable)",
 						  (unsigned)Desc1.Width,
 						  (unsigned)Desc1.Height,
 						  (unsigned)Desc1.Format,
@@ -245,15 +245,15 @@ namespace RenderCore
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		DefaultCtx->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 
-		// UE FD3D12CommandContextBase::RHIEndFrame: flush barriers, release allocator to pool, clear state, then flush.
+		// Flush barriers, release allocator to pool, clear state, then flush pending work.
 		// Returning the allocator lets ObtainCommandAllocator reset it when GPU-ready before the next OpenCommandList.
 		if (DefaultCtx->GetCurrentCommandListHandle() != nullptr)
 			DefaultCtx->GetCurrentCommandListHandle().FlushResourceBarriers();
 		DefaultCtx->ReleaseCommandAllocator();
 		DefaultCtx->ClearState();
 
-		// UE-style: Present path flushes the default context; actual submission still depends on
-		// whether the context/pending lists did meaningful work (FlushCommands internal logic).
+		// Present path flushes the default context; submission still depends on whether
+		// the context/pending lists did meaningful work (FlushCommands internal logic).
 		DefaultCtx->FlushCommands(false);
 
 		if (auto AsyncCtx = GetDefaultAsyncComputeContext())
@@ -297,14 +297,13 @@ namespace RenderCore
 
 				if (bOverBudget)
 				{
-					// UE-style behavior: when over budget, do a flush that waits so fences can catch up.
+					// When over budget, flush and wait so fences can catch up.
 					DefaultCtx->FlushCommands(true);
 				}
 			}
 		}
 
-		// UE-style: advance the adapter frame fence once per frame.
-		// This is intentionally decoupled from whether we executed a non-empty CL.
+		// Advance the adapter frame fence once per frame (decoupled from non-empty command lists).
 		{
 			auto& FrameFence = GetParentAdapter()->GetFrameFence();
 			FrameFence.FD3D12Fence::Signal(ED3D12CommandQueueType::Default);
@@ -335,7 +334,7 @@ namespace RenderCore
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-		// Match UE default (r.FinishCurrentFrame == false): wait previous frame completion, then signal.
+		// Wait for previous frame completion, then signal (equivalent to not finishing the frame before Present).
 		if (PresentEndFence && (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
 		{
 			WaitForFrameEventCompletion();

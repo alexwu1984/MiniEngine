@@ -17,8 +17,17 @@ namespace RenderCore
 		// The command allocator is ready to be reset when all command lists have been executed (or discarded) AND the GPU not using it.
 		inline bool IsReady() const { return (PendingCommandListCount.load() == 0) && SyncPoint.IsComplete(); }
 		inline bool HasValidSyncPoint() const { return SyncPoint.IsValid(); }
-		inline void SetSyncPoint(const D3D12SyncPoint& InSyncPoint) { Assert(InSyncPoint.IsValid()); SyncPoint = InSyncPoint; }
-		inline void Reset() { Assert(IsReady()); CommandAllocator->Reset(); }
+		inline void SetSyncPoint(const FD3D12SyncPoint& InSyncPoint)
+		{
+			if (!ensureMsgf(InSyncPoint.IsValid(), "SetSyncPoint requires a valid FD3D12SyncPoint."))
+				return;
+			SyncPoint = InSyncPoint;
+		}
+		inline void Reset()
+		{
+			Assert(IsReady());
+			VERIFYD3DRESULT(CommandAllocator->Reset());
+		}
 
 		operator ID3D12CommandAllocator* () { return CommandAllocator.get(); }
 
@@ -46,7 +55,7 @@ namespace RenderCore
 
 	private:
 		win32::com_ptr<ID3D12CommandAllocator> CommandAllocator;
-		D3D12SyncPoint SyncPoint;	// Indicates when the GPU is finished using the command allocator.
+		FD3D12SyncPoint SyncPoint;	// Indicates when the GPU is finished using the command allocator.
 		// The number of command lists using this allocator but haven't been executed yet.
 		// Must start at 0; leaving atomics default-initialized is undefined and can corrupt allocator readiness logic.
 		std::atomic_int32_t PendingCommandListCount{ 0 };
@@ -60,7 +69,7 @@ namespace RenderCore
 	class D3D12CommandListHandle
 	{
 	private:
-		typedef std::pair<uint64_t, D3D12SyncPoint>	GenerationSyncPointPair;	// Pair of command list generation to a sync point
+		typedef std::pair<uint64_t, FD3D12SyncPoint>	GenerationSyncPointPair;	// Pair of command list generation to a sync point
 
 		class D3D12CommandListData : public FD3D12DeviceChild, public D3D12RefCount
 		{
@@ -122,7 +131,8 @@ namespace RenderCore
 					if (Generation > LastCompleteGeneration)
 					{
 						std::unique_lock<std::recursive_mutex> Lock(ActiveGenerationsCS);
-						//ensureMsgf(Generation < CurrentGeneration, TEXT("You can't wait for an unsubmitted command list to complete.  Kick first!"));
+						if (!ensureMsgf(Generation < CurrentGeneration, "WaitForCompletion: cannot wait for generation %llu before submit (CurrentGeneration %llu). Submit work first.", (unsigned long long)Generation, (unsigned long long)CurrentGeneration))
+							return;
 						GenerationSyncPointPair GenerationSyncPoint;
 						while (!ActiveGenerations.empty() && (Generation > LastCompleteGeneration))
 						{
@@ -165,13 +175,14 @@ namespace RenderCore
 				}
 			}
 
-			void SetSyncPoint(const D3D12SyncPoint& SyncPoint)
+			void SetSyncPoint(const FD3D12SyncPoint& SyncPoint)
 			{
 				{
 					std::unique_lock<std::recursive_mutex> Lock(ActiveGenerationsCS);
 
 					// Only valid sync points should be set otherwise we might not wait on the GPU correctly.
-					Assert(SyncPoint.IsValid());
+					if (!ensureMsgf(SyncPoint.IsValid(), "D3D12CommandListData::SetSyncPoint requires a valid FD3D12SyncPoint."))
+						return;
 
 					// Track when this command list generation is completed on the GPU.
 					GenerationSyncPointPair CurrentGenerationSyncPoint;
@@ -429,7 +440,7 @@ namespace RenderCore
 			return CommandListData->CurrentCommandAllocator;
 		}
 
-		void SetSyncPoint(const D3D12SyncPoint& SyncPoint)
+		void SetSyncPoint(const FD3D12SyncPoint& SyncPoint)
 		{
 			Assert(CommandListData);
 			CommandListData->SetSyncPoint(SyncPoint);

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "core/inc.h"
 #include "core/event.h"
@@ -111,7 +111,7 @@ namespace win32
         virtual std::chrono::milliseconds period() const = 0;
     };
 
-    // 所有等待对象的析构都会等待回调执行完毕，如果这导致了死锁发生，说明是程序设计的失误，不应该在回调里占用主逻辑的临界区
+    // waiters block until pool callbacks finish; avoid taking app locks inside callbacks that those waiters hold
     class tpp_thread_pool
     {
     public:

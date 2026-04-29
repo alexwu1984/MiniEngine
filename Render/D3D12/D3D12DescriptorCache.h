@@ -133,7 +133,7 @@ namespace RenderCore
 
 	private:
 		// Shader-visible ring: size is chosen per device (ResourceBindingTier) so we suballocate longer
-		// in one heap before retiring — closer to UE's large heap + ring than tiny per-chunk heaps.
+		// in one heap before retiring instead of churning many small heaps.
 		uint32_t m_NumDescriptorsPerHeap = 16384;
 
 		std::shared_ptr<D3D12CommandContext> m_OwningContext;

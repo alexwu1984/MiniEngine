@@ -14,13 +14,13 @@ namespace RenderCore
 		Async
 	};
 
-	// UE4 FD3D12Device: parallel fast-allocator channels (DEFAULT heap vs UPLOAD heap linear pages).
+	// Parallel fast-allocator channels (DEFAULT heap vs UPLOAD heap linear pages).
 	enum EFastAllocatorType
 	{
 		InvalidFastAllocator = -1,
 		/** DEFAULT heap linear-buffer pool (GPU-resident ring / scratch). */
 		DefaultFastAllocator = 0,
-		/** UPLOAD heap pool (UE DefaultFastAllocator upload path). */
+		/** UPLOAD heap pool (CPU→GPU upload linear pages). */
 		UploadFastAllocator = 1,
 		FastAllocator_Num,
 	};

@@ -20,7 +20,7 @@ namespace RenderCore
 		D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const;
 		void UpdateUniformBuffer(const void* Contents);
 
-		/** Active ring slot index for the data currently exposed via VA / CPU pointer (UE-style fence tagging). */
+		/** Active ring slot index for the data currently exposed via VA / CPU pointer (fence-tagged). */
 		uint32_t GetActiveRingSlotIndex() const;
 		/** Call when this buffer's active ring slot is referenced by the recording command list (before Execute). */
 		void RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList);

@@ -8,19 +8,9 @@
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "core/logger.h"
-#include <limits>
 
 namespace RenderCore
 {
-	namespace
-	{
-		// UE 4.26 FD3D12DynamicRHI::GetResourceBarrierBatchSizeLimit() (WindowsD3D12Device.cpp) returns INT32_MAX.
-		constexpr uint32_t ResourceBarrierBatchSizeLimitUE426()
-		{
-			return uint32_t((std::numeric_limits<int32_t>::max)());
-		}
-	}
-
 	void FD3D12CommandListPayload::Reset()
 	{
 		NumCommandLists = 0;
@@ -272,8 +262,7 @@ namespace RenderCore
 	{
 		std::lock_guard<std::recursive_mutex> Lock(CS);
 
-		// UE 4.26 FD3D12CommandAllocatorManager::ObtainCommandAllocator (D3D12DirectCommandListManager.cpp):
-		// if the first allocator in the queue is ready, reset it and remove it from the queue; else create new.
+		// If the first allocator in the queue is ready, reset it and pop; otherwise allocate a new one.
 		D3D12CommandAllocator* pCommandAllocator = nullptr;
 		if (!CommandAllocatorQueue.empty())
 		{
@@ -296,7 +285,7 @@ namespace RenderCore
 			CommandAllocators.push_back(pCommandAllocator);	// The command allocator's lifetime is managed by this manager
 
 			FD3D12Fence& FrameFence = GetParentDevice()->GetParentAdapter()->GetFrameFence();
-			const D3D12SyncPoint SyncPoint(&FrameFence, FrameFence.UpdateLastCompletedFence());
+			const FD3D12SyncPoint SyncPoint(&FrameFence, FrameFence.UpdateLastCompletedFence());
 			pCommandAllocator->SetSyncPoint(SyncPoint);
 		}
 
@@ -439,8 +428,8 @@ namespace RenderCore
 
 		uint64_t SignaledFenceValue = -1;
 		uint64_t BarrierFenceValue = -1;
-		D3D12SyncPoint SyncPoint;
-		D3D12SyncPoint BarrierSyncPoint;
+		FD3D12SyncPoint SyncPoint;
+		FD3D12SyncPoint BarrierSyncPoint;
 
 		FD3D12CommandListManager& DirectCommandListManager = GetParentDevice()->GetCommandListManager();
 		FD3D12Fence& DirectFence = DirectCommandListManager.GetFence();
@@ -516,10 +505,10 @@ namespace RenderCore
 			SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence, WaitForCompletion);
 			for (int32_t i = 0; i < Lists.size(); i++)
 				Lists[i].CommitTrackedResourceStateToGlobal();
-			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
+			SyncPoint = FD3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 			{
-				BarrierSyncPoint = D3D12SyncPoint(&DirectFence, BarrierFenceValue);
+				BarrierSyncPoint = FD3D12SyncPoint(&DirectFence, BarrierFenceValue);
 			}
 			else
 			{
@@ -559,7 +548,7 @@ namespace RenderCore
 			for (int32_t i = 0; i < Lists.size(); i++)
 				Lists[i].CommitTrackedResourceStateToGlobal();
 			//check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
-			SyncPoint = D3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
+			SyncPoint = FD3D12SyncPoint(CommandListFence.get(), SignaledFenceValue);
 			BarrierSyncPoint = SyncPoint;
 		}
 
@@ -591,7 +580,7 @@ namespace RenderCore
 		if (WaitForCompletion)
 		{
 			CommandListFence->WaitForFence(SignaledFenceValue);
-			Assert(SyncPoint.IsComplete());
+			ensureMsgf(SyncPoint.IsComplete(), "ExecuteCommandLists(WaitForCompletion): SyncPoint not complete after WaitForFence.");
 		}
 		return SignaledFenceValue;
 	}
@@ -623,9 +612,8 @@ namespace RenderCore
 				Desc.Transition.pResource = PRB.Resource->GetResource();
 				const D3D12_RESOURCE_STATES After = PRB.State;
 
-				// UE 4.26 / D3D12RHI: use PRB.SubResource as-is (including ALL_SUBRESOURCES). Pending entries with
-				// ALL must only be queued from TransitionResource when command-list tracking is uniform (see
-				// D3D12CommandContext::TransitionResource); heterogeneous TBD uses per-sub pending instead.
+				// Use PRB.SubResource as-is (including ALL_SUBRESOURCES). Pending ALL is only valid when
+				// command-list tracking is uniform (D3D12CommandContext::TransitionResource); otherwise use per-sub pending.
 				Desc.Transition.Subresource = PRB.SubResource;
 				const D3D12_RESOURCE_STATES Before = ResourceState.GetSubresourceState(Desc.Transition.Subresource);
 				Assert(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
@@ -645,7 +633,7 @@ namespace RenderCore
 				}
 			}
 
-			// UE 4.26: PendingResourceBarriers are not cleared here; FD3D12CommandListData::Reset clears them on reuse.
+			// PendingResourceBarriers are cleared in D3D12CommandListData::Reset when the list is reused.
 
 			const uint32_t BarrierCount = (uint32_t)BarrierDescs.size();
 			if (BarrierCount > 0)
@@ -658,7 +646,7 @@ namespace RenderCore
 				hResourceBarrierList = ObtainCommandList(*ResourceBarrierCommandAllocator);
 				hResourceBarrierList.SetCurrentOwningContext(hList.GetCurrentOwningContext());
 
-				const uint32_t BarrierBatchMax = ResourceBarrierBatchSizeLimitUE426();
+				const uint32_t BarrierBatchMax = GetParentDevice()->GetResourceBarrierBatchSizeLimit();
 				uint32_t remaining = BarrierCount;
 				const D3D12_RESOURCE_BARRIER* ptr = BarrierDescs.data();
 				while (remaining > 0)
@@ -724,7 +712,7 @@ namespace RenderCore
 		}
 	}
 
-	uint64_t FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, bool bForceSignal)
+	uint64_t FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, [[maybe_unused]] bool bForceSignal)
 	{
 		std::lock_guard<std::recursive_mutex> Lock(FenceCS);
 		// Shutdown / teardown safety: never call into D3D12Core with invalid command list pointers.
@@ -766,7 +754,6 @@ namespace RenderCore
 		D3D12SubmitStats::OnSubmit(QueueType);
 
 		// Always signal after Execute so fence-tied retire/recycle paths progress deterministically.
-		(void)bForceSignal;
 		if (QueueType == ED3D12CommandQueueType::Default)
 			Render::D3D12CallStats::IncDirectFenceImmediateSignal();
 		return Fence.Signal(QueueType);

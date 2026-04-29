@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "math/matrix4x4.h"
 #include "tinygltf/tiny_gltf.h"
 #include "math/quaternion.h"
@@ -6,10 +6,9 @@
 namespace Engine
 {
 	/****************************************************
-*	Node½á¹¹Ìå
-*	Ã¿¸öNodeÐèÒª°üº¬£º
-*		Mesh ±ä»»¾ØÕó
-****************************************************/
+	* GLTF node: holds local TRS plus mesh/skin indices and hierarchy.
+	* Each node may reference a mesh transform relative to its parent.
+	****************************************************/
 	struct GltfNodeInfo
 	{
 		GltfNodeInfo()

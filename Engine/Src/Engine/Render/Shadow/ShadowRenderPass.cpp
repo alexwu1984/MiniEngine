@@ -49,17 +49,16 @@ namespace Engine
 	void ShadowRenderPass::InitResource()
 	{
 		C_P(ShadowRenderPass);
-		// 提高分辨率到 2048×2048 以获得更好的阴影质量
+		// 2048^2 shadow map for higher quality
 		const int32_t SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_FloatRGBA, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 	}
 
 	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
 		const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
-		RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
+		[[maybe_unused]] RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneView> View)
 	{
 		C_P(ShadowRenderPass);
-		(void)RHIContext;
 		d->ShadowMgr->Update(View);
 
 		std::shared_ptr<Actor> projActor;

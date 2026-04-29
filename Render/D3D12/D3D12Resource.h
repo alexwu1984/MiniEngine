@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12CallStats.h"
@@ -9,7 +9,7 @@
 namespace RenderCore
 {
 	class FD3D12Resource;
-	// UE D3D12RHI: FD3D12PendingResourceBarrier - deferred transition when command-list state is still TBD.
+	// Deferred transition when command-list state is still TBD.
 	class FD3D12PendingResourceBarrier
 	{
 	public:

@@ -48,7 +48,7 @@ namespace RenderCore
 		d->ConstantBufferSize = ConstantBufferSize;
 		d->RingStride = (uint32_t)math::AlignUp(ConstantBufferSize, DEFAULT_ALIGN);
 
-		// UE-style: allocate dynamic uniform data from a bounded transient upload ring.
+		// Dynamic uniform data from a bounded transient upload ring.
 		// This avoids unbounded WC commit growth from "many small" allocations that touch new pages over time.
 		auto& TransientUB = GetParentAdapter()->GetTransientUniformBufferAllocator();
 		d->RingAllocation = TransientUB.Allocate((uint64_t)d->RingStride, DEFAULT_ALIGN);

@@ -458,12 +458,8 @@ namespace RenderCore
 		}
 	}
 
-	void D3D11CommandContext::RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues)
+	void D3D11CommandContext::RHISetGraphicsRoot32BitConstants(uint32_t /*RootParameterIndex*/, uint32_t /*Num32BitValues*/, const void* /*SrcData*/, uint32_t /*DestOffsetIn32BitValues*/)
 	{
-		(void)RootParameterIndex;
-		(void)Num32BitValues;
-		(void)SrcData;
-		(void)DestOffsetIn32BitValues;
 	}
 
 	void D3D11CommandContext::RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV)

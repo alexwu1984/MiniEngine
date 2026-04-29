@@ -31,7 +31,7 @@ namespace RenderCore
 		std::shared_ptr<D3D12CommandContext> GetDefaultCommandContext();
 		std::shared_ptr<D3D12CommandContext> GetDefaultAsyncComputeContext();
 
-		// UE FD3D12Viewport::WaitForFrameEventCompletion / IssueFrameEvent (RHIEndDrawingViewport after Present).
+		// Present fence: wait/issue after RHIEndDrawingViewport / Present.
 		void WaitForFrameEventCompletion();
 		void IssueFrameEvent();
 
@@ -52,7 +52,7 @@ namespace RenderCore
 		uint32_t FrameIndex;
 		std::vector<std::shared_ptr<D3D12Texture2D>> BackBuffers;
 
-		// UE-style frame fence after Present (see FD3D12Viewport in UE D3D12Viewport.cpp).
+		// Frame fence after Present for CPU/GPU pacing.
 		std::shared_ptr<FD3D12Fence> PresentEndFence;
 		uint64_t PresentEndFenceLastSignaled = 0;
 	};

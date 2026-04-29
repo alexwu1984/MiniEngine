@@ -5,7 +5,7 @@
 namespace core
 {
     /************************************************************************/
-    /* @brief drawRectangle 通常表示的有效矩形区域是不包含其右边和下边最后一排像素的。
+    /* @brief For drawRectangle-style APIs, the valid pixel rect often excludes the last right/bottom pixel row.
     /************************************************************************/
 
     template<typename T>
@@ -171,7 +171,7 @@ namespace core
             return vec4(x - expandX, y - expandY, cx + expandX * 2, cy + expandY * 2);
         }
 
-        // 交集
+        // intersection (non-empty overlap)
 		bool intersect_with(const vec4 & another) const
 		{
 			if(another.empty() || empty())
@@ -220,7 +220,7 @@ namespace core
             }
         }
 
-        // 并集
+        // union (bounding rect of overlap region in this implementation)
         vec4 & unite(const vec4<T> another)
         {
             if (another.empty())
@@ -258,7 +258,7 @@ namespace core
             }
         }
 
-        // 偏移
+        // translate by offset
         vec4 & offset(const vec2<T> & off)
         {
             x += off.x;
@@ -284,7 +284,7 @@ namespace core
         }
 
 
-        //------------------------------------------------------- 四则运算
+        //------------------------------------------------------- arithmetic
         template<typename = decltype(std::declval<T>() - std::declval<T>())>
         vec4 operator +(const vec4 & vec) const
         {
@@ -395,7 +395,7 @@ namespace core
             return *this;
         }
 
-        //--------------------------------------------------比较运算
+        //-------------------------------------------------- comparisons / compound ops
         vec4 operator +(const vec2<T> & offset) const
         {
             return offseted(offset.x, offset.y);
@@ -489,17 +489,17 @@ namespace core
         {
             struct
             {
-                //! 矩形的位置。
+                //! top-left / origin (position)
                 vec2<T> pos;
-                //! 矩形的大小。
+                //! width and height (size)
                 vec2<T> size;
             };
 
             //struct
             //{
-            //    //! 矩形的位置。
+            //    //! position (xy)
             //    vec2<T> xy;
-            //    //! 矩形的大小。
+            //    //! size (zw)
             //    vec2<T> zw;
             //};
 
@@ -509,17 +509,17 @@ namespace core
                 {
                     struct
                     {
-                        //! 矩形的横坐标。
+                        //! x (left)
                         T x;
-                        //! 矩形的纵坐标。
+                        //! y (top)
                         T y;
                     };
 
                     struct
                     {
-                        //! 左边界。
+                        //! left edge
                         T bleft;
-                        //! 上边界。
+                        //! top edge
                         T btop;
                     };
                 };
@@ -534,25 +534,25 @@ namespace core
 
                     struct
                     {
-                        // 右边界
+                        // right edge
                         T bright;
-                        // 下边界
+                        // bottom edge
                         T bbottom;
                     };
 
                     struct
                     {
-                        //! 矩形的宽度。
+                        //! width
                         T cx;
-                        //! 矩形的高度。
+                        //! height
                         T cy;
                     };
 
                     struct
                     {
-                        //! 矩形的宽度。
+                        //! width alias
                         T width;
-                        //! 矩形的高度。
+                        //! height alias
                         T height;
                     };
                 };

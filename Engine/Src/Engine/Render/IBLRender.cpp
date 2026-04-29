@@ -1,4 +1,4 @@
-#include "Render/IBLRender.h"
+﻿#include "Render/IBLRender.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 #include "RHI/RHITextureCube.h"
@@ -134,7 +134,7 @@ namespace Engine
 		if (!d->HDRTex || d->bInitRender)
 			return;
 
-		// Add explicit passes (RDG-style) instead of doing all work inside one callback.
+		// Add explicit passes instead of doing all work inside one callback.
 		// Note: resources are owned by IBLRender; the graph edges are for ordering/culling only.
 		Graph.AddPass(FramePassDesc{
 			"SkyLight_CaptureCubemap",

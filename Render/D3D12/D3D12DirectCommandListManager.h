@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "d3dx12.h"
 #include "D3D12/MultiGPU.h"
@@ -217,7 +217,7 @@ namespace RenderCore
 
 	private:
 		// Returns signaled Fence
-		uint64_t ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, bool bForceSignal);
+		uint64_t ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence& Fence, [[maybe_unused]] bool bForceSignal);
 		D3D12CommandListHandle CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator);
 	private:
 		win32::com_ptr<ID3D12CommandQueue>		D3DCommandQueue;

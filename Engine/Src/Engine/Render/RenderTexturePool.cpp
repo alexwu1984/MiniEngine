@@ -1,4 +1,4 @@
-#include "Render/RenderTexturePool.h"
+﻿#include "Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIUnorderedAccessView.h"
@@ -266,11 +266,11 @@ namespace Engine
 		EvictOld(UavFree, FrameCounter);
 		EvictOld(RtFree, FrameCounter);
 
-		// UE-like behavior: trim to a budget (LRU) instead of nuking the entire pool.
+		// Trim to a budget (approximate LRU) instead of clearing the entire pool.
 		if (BudgetBytes > 0 && EstimatedBytesFree > BudgetBytes)
 		{
 			// Keep it simple and safe: repeatedly remove the globally-oldest entry (across pools),
-			// based on each bucket's oldest element. This is close to UE's "drop least recently used".
+			// based on each bucket's oldest element (drop globally oldest while over budget).
 			while (EstimatedBytesFree > BudgetBytes)
 			{
 				// Find the currently oldest available entry among buckets.

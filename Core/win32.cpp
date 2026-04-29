@@ -1,5 +1,9 @@
-#include "win/win32.h"
+﻿#include "win/win32.h"
 #include "core/strings.h"
+#if defined(_DEBUG)
+#include <cstdarg>
+#include <cstdio>
+#endif
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
@@ -110,7 +114,8 @@ namespace win32
 
     std::tuple<std::shared_ptr<byte_t>, int32_t> load_res(uint32_t id, res_e type)
     {
-        return load_res((const char *)id, type);
+        // Integer resource id for FindResourceA (WORD range); not a real pointer.
+        return load_res(MAKEINTRESOURCEA(static_cast<WORD>(id)), type);
     }
 
     std::tuple<std::shared_ptr<byte_t>, int32_t> load_res(const char * res, res_e type)
@@ -216,6 +221,25 @@ namespace win32
     }
 
 #define MAX_STRING_LEN 512
+
+#if defined(_DEBUG)
+    void ReportEnsureMsgFailed(const char* file, int line, const char* expr, const char* fmt, ...)
+    {
+        char user[512];
+        char buf[1024];
+        va_list ap;
+        va_start(ap, fmt);
+        vsnprintf(user, sizeof(user), fmt, ap);
+        va_end(ap);
+        user[sizeof(user) - 1] = '\0';
+        snprintf(buf, sizeof(buf), "[ensureMsgf] %s\n  Expression: (%s)\n  %s:%d\n", user, expr, file, line);
+        buf[sizeof(buf) - 1] = '\0';
+        ::OutputDebugStringA(buf);
+#if defined(_MSC_VER)
+        __debugbreak();
+#endif
+    }
+#endif
 
     void DoAssert(bool success, const wchar_t* file_name, int line)
     {

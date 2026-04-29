@@ -369,4 +369,27 @@ namespace Engine
 		RtFree.clear();
 		EstimatedBytesFree = 0;
 	}
+
+	void RenderTexturePool::ApplyConfigFromJson(const nlohmann::json& Root)
+	{
+		try
+		{
+			if (Root.find("RenderTexturePool") == Root.end() || !Root["RenderTexturePool"].is_object())
+				return;
+			const auto& J = Root["RenderTexturePool"];
+			if (J.find("BudgetBytes") != J.end() && J["BudgetBytes"].is_number_unsigned())
+				SetBudgetBytes(J["BudgetBytes"].get<uint64_t>());
+			else if (J.find("BudgetBytes") != J.end() && J["BudgetBytes"].is_number_integer())
+				SetBudgetBytes(static_cast<uint64_t>(J["BudgetBytes"].get<int64_t>()));
+			else if (J.find("BudgetMB") != J.end() && J["BudgetMB"].is_number())
+			{
+				const double Mb = J["BudgetMB"].get<double>();
+				if (Mb >= 0.0)
+					SetBudgetBytes(static_cast<uint64_t>(Mb * 1024.0 * 1024.0));
+			}
+		}
+		catch (const std::exception&)
+		{
+		}
+	}
 }

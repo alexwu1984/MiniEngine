@@ -1,4 +1,5 @@
 ﻿#include "Render/FrameGraph.h"
+#include "Render/RenderTexturePool.h"
 #include "core/logger.h"
 #include "core/strings.h"
 #include <sstream>
@@ -343,6 +344,19 @@ namespace Engine
 				continue;
 			if (Pass.Execute)
 				Pass.Execute();
+		}
+
+		if (Params.bLogRenderTexturePoolStats)
+		{
+			const RenderTexturePool::Stats S = RenderTexturePool::Get().GetStats();
+			core::LOG(core::log_inf,
+					  L"RenderTexturePool (post-RDG Execute): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
+					  (unsigned long long)S.FrameCounter,
+					  S.FreeTex2D,
+					  S.FreeUav,
+					  S.FreeRt,
+					  S.EstimatedBytesFree / (1024.0 * 1024.0),
+					  S.BudgetBytes / (1024.0 * 1024.0));
 		}
 	}
 

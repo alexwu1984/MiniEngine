@@ -15,6 +15,7 @@
 #include "Render/RenderUtil.h"
 #include "Render/SSRProcessor.h"
 #include "Render/FrameGraph.h"
+#include "Render/RenderTexturePool.h"
 #include "Render/PostProcessPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "Scene/CameraComponent.h"
@@ -38,6 +39,7 @@ namespace Engine
 				Out.bPassCullingFromSinks = J.value("PassCullingFromSinks", Out.bPassCullingFromSinks);
 				Out.bDumpDotToLog = J.value("DumpDotToLog", Out.bDumpDotToLog);
 				Out.bLogCompileSummary = J.value("LogCompileSummary", Out.bLogCompileSummary);
+				Out.bLogRenderTexturePoolStats = J.value("LogRenderTexturePoolStats", Out.bLogRenderTexturePoolStats);
 			}
 			catch (const std::exception&)
 			{
@@ -108,6 +110,7 @@ namespace Engine
 		{
 			C_P(PostProcessor);
 			ApplyRDGCompileParamsFromJson(Root, d->RDGCompileParams);
+			RenderTexturePool::Get().ApplyConfigFromJson(Root);
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
 

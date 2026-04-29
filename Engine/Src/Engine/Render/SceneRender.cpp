@@ -17,8 +17,8 @@
 #include "Render/PostProcessor.h"
 #include "Render/FrameGraph.h"
 #include "Render/GBuffer.h"
-#include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/RenderTexturePool.h"
+#include "Render/Shadow/ShadowRenderPass.h"
 #include "core/logger.h"
 #include <optional>
 
@@ -38,6 +38,7 @@ namespace Engine
 				Out.bPassCullingFromSinks = J.value("PassCullingFromSinks", Out.bPassCullingFromSinks);
 				Out.bDumpDotToLog = J.value("DumpDotToLog", Out.bDumpDotToLog);
 				Out.bLogCompileSummary = J.value("LogCompileSummary", Out.bLogCompileSummary);
+				Out.bLogRenderTexturePoolStats = J.value("LogRenderTexturePoolStats", Out.bLogRenderTexturePoolStats);
 			}
 			catch (const std::exception&)
 			{
@@ -127,6 +128,7 @@ namespace Engine
 	{
 		C_P(SceneRender);
 		ApplyRDGCompileParamsFromJson(Root, d->RDGCompileParams);
+		RenderTexturePool::Get().ApplyConfigFromJson(Root);
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 				d->PreProcess->LoadConfig(Root);

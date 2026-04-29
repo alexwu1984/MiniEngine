@@ -90,6 +90,8 @@ struct FrameGraphCompileParams
 	bool bPassCullingFromSinks = false;
 	bool bDumpDotToLog = false;
 	bool bLogCompileSummary = false;
+	/** After Execute(): log RenderTexturePool::GetStats() (compile/execute RDG boundary hook). */
+	bool bLogRenderTexturePoolStats = false;
 };
 
 /**

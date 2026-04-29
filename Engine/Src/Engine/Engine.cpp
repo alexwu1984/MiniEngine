@@ -112,11 +112,10 @@ namespace Engine
 			d->DynamicRHI->Wait();
 		}
 
-		// Release pooled transient GPU resources before tearing down the RHI.
-		Engine::RenderTexturePool::Get().Clear();
-
 		d->SeRender = {};
 		d->Scene = {};
+		// After scene/GBuffer teardown so pooled textures can be returned first.
+		Engine::RenderTexturePool::Get().Clear();
 		d->RThread = {};
 		if (d->DynamicRHI)
 		{

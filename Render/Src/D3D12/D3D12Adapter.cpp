@@ -664,7 +664,16 @@ namespace RenderCore
 	void FD3D12Adapter::Cleanup()
 	{
 		C_P(FD3D12Adapter);
-	
+
+		// Tear down adapter-owned D3D users before FD3D12Device::Cleanup destroys contexts/queues.
+		// Otherwise FD3D12FastConstantAllocator::~Destroy sees GetDevice() == null and skips flush/idle.
+		if (d->TransientUniformBufferAllocator)
+		{
+			d->TransientUniformBufferAllocator->Destroy();
+			d->TransientUniformBufferAllocator.reset();
+		}
+		d->DynamicViewDescriptorHeap.reset();
+
 		if (d->Device)
 		{
 			d->Device->Cleanup();

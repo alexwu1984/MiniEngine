@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
+#include "tinygltf/json.h"
 #include "RHI/RHIDefinitions.h"
 #include <map>
 #include <memory>
@@ -53,7 +54,7 @@ namespace Engine
 			uint32_t NumMips, bool IsMultiSampled, bool CreateDepth,
 			std::shared_ptr<RenderCore::RHIRenderTarget>&& Rt);
 
-		// Optional hooks: FrameGraph compile/execute boundary for future accounting or per-frame trim.
+		// FrameGraph: use FrameGraphCompileParams::bLogRenderTexturePoolStats after Execute for stats; RHI SetFrameCallbacks drive Begin/EndFrame.
 		void BeginFrame();
 		void EndFrame();
 		void Clear();
@@ -71,6 +72,9 @@ namespace Engine
 		Stats GetStats() const;
 		void SetBudgetBytes(uint64_t InBudgetBytes);
 		uint64_t GetBudgetBytes() const;
+
+		/** Optional JSON root: { "RenderTexturePool": { "BudgetMB": 512, "BudgetBytes": ... } } */
+		void ApplyConfigFromJson(const nlohmann::json& Root);
 
 	private:
 		RenderTexturePool() = default;

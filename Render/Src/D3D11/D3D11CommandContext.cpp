@@ -1,4 +1,5 @@
 ﻿#include "D3D11/D3D11CommandContext.h"
+#include <d3d11_1.h>
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "RHIPrivate/D3D11StateCachePrivate.h"
 #include "D3D11/D3D11RHI.h"
@@ -8,6 +9,66 @@
 
 namespace RenderCore
 {
+	namespace
+	{
+		// D3D11 forbids the same subresource from being bound as a UAV and an SRV at the same time (any stage).
+		// After raster passes, SceneColor often remains on PS SRV slots while compute binds it as a UAV (e.g. TAA sharpener).
+		static void D3D11UnbindShaderResourceViewsUsingResource(ID3D11DeviceContext* ctx, ID3D11Resource* targetResource)
+		{
+			if (!ctx || !targetResource)
+				return;
+
+			win32::com_ptr<ID3D11DeviceContext1> ctx1;
+			if (FAILED(ctx->QueryInterface(IID_PPV_ARGS(ctx1.get_init_ref()))))
+			{
+				ID3D11ShaderResourceView* nullSrvs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{};
+				ctx->PSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSrvs);
+				return;
+			}
+
+			const UINT maxSlots = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT;
+			ID3D11ShaderResourceView* nullSrv = nullptr;
+
+			using GetSrvFn = void (STDMETHODCALLTYPE ID3D11DeviceContext1::*)(UINT, UINT, ID3D11ShaderResourceView**);
+			using SetSrvFn = void (STDMETHODCALLTYPE ID3D11DeviceContext::*)(UINT, UINT, ID3D11ShaderResourceView* const*);
+
+			static const GetSrvFn kGetSrv[] = {
+				&ID3D11DeviceContext1::VSGetShaderResources,
+				&ID3D11DeviceContext1::HSGetShaderResources,
+				&ID3D11DeviceContext1::DSGetShaderResources,
+				&ID3D11DeviceContext1::GSGetShaderResources,
+				&ID3D11DeviceContext1::PSGetShaderResources,
+				&ID3D11DeviceContext1::CSGetShaderResources,
+			};
+			static const SetSrvFn kSetSrv[] = {
+				&ID3D11DeviceContext::VSSetShaderResources,
+				&ID3D11DeviceContext::HSSetShaderResources,
+				&ID3D11DeviceContext::DSSetShaderResources,
+				&ID3D11DeviceContext::GSSetShaderResources,
+				&ID3D11DeviceContext::PSSetShaderResources,
+				&ID3D11DeviceContext::CSSetShaderResources,
+			};
+
+			for (int stage = 0; stage < 6; ++stage)
+			{
+				for (UINT slot = 0; slot < maxSlots; ++slot)
+				{
+					ID3D11ShaderResourceView* srv = nullptr;
+					(ctx1.get()->*kGetSrv[stage])(slot, 1, &srv);
+					if (!srv)
+						continue;
+					ID3D11Resource* resFromSrv = nullptr;
+					srv->GetResource(&resFromSrv);
+					srv->Release();
+					if (resFromSrv == targetResource)
+						(ctx->*kSetSrv[stage])(slot, 1, &nullSrv);
+					if (resFromSrv)
+						resFromSrv->Release();
+				}
+			}
+		}
+	}
+
 	// Primitive drawing.
 
 	static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(EPrimitiveType PrimitiveType, bool bUsingTessellation)
@@ -468,8 +529,21 @@ namespace RenderCore
 		if (UAVRHI)
 		{
 			win32::com_ptr<ID3D11UnorderedAccessView> D3D11UAV = UAVRHI->GetNativeUAV();
+			win32::com_ptr<ID3D11Resource> uavResource;
+			if (D3D11UAV)
+				D3D11UAV->GetResource(uavResource.get_init_ref());
+			ID3D11DeviceContext* const ctx = Impl->D3D11RHI->GetDeviceContext();
+			if (uavResource)
+			{
+#if D3D11_ALLOW_STATE_CACHE
+				Impl->D3D11RHI->GetStateCache().UnbindShaderResourceViewsBoundToResource(uavResource.get());
+#else
+				D3D11UnbindShaderResourceViewsUsingResource(ctx, uavResource.get());
+#endif
+			}
 			uint32_t InitialCount = -1;
-			Impl->D3D11RHI->GetDeviceContext()->CSSetUnorderedAccessViews(UAVIndex, 1, &D3D11UAV, &InitialCount);
+			ID3D11UnorderedAccessView* pUav = D3D11UAV.get();
+			ctx->CSSetUnorderedAccessViews(UAVIndex, 1, &pUav, &InitialCount);
 		}
 	}
 

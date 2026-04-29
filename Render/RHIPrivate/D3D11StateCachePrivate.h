@@ -1,8 +1,8 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIDefinitions.h"
 namespace RenderCore
 {
-#define D3D11_ALLOW_STATE_CACHE 0
+#define D3D11_ALLOW_STATE_CACHE 1
 	//-----------------------------------------------------------------------------
 //	FD3D11StateCache Class Definition
 //-----------------------------------------------------------------------------
@@ -85,7 +85,7 @@ namespace RenderCore
 			uint32_t NumConstants;
 		} CurrentConstantBuffers[SF_NumStandardFrequencies][D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT];
 
-		bool bAlwaysSetIndexBuffers;
+		bool bAlwaysSetIndexBuffers = false;
 #endif
 	public:
 		D3D11StateCacheBase()
@@ -103,7 +103,46 @@ namespace RenderCore
 		void Init(ID3D11DeviceContext* InDeviceContext, bool bInAlwaysSetIndexBuffers = false)
 		{
 			SetContext(InDeviceContext);
+#if D3D11_ALLOW_STATE_CACHE
+			bAlwaysSetIndexBuffers = bInAlwaysSetIndexBuffers;
+#endif
 		}
+
+#if D3D11_ALLOW_STATE_CACHE
+	private:
+		template <EShaderFrequency ShaderFrequency>
+		void UnbindMatchingSRVsForFrequency(ID3D11Resource* targetResource)
+		{
+			const UINT maxSlots = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT;
+			for (UINT slot = 0; slot < maxSlots; ++slot)
+			{
+				ID3D11ShaderResourceView* srv = CurrentShaderResourceViews[ShaderFrequency][slot];
+				if (!srv)
+					continue;
+				ID3D11Resource* r = nullptr;
+				srv->GetResource(&r);
+				const bool match = (r == targetResource);
+				if (r)
+					r->Release();
+				if (match)
+					SetShaderResourceView<ShaderFrequency>(nullptr, slot);
+			}
+		}
+
+	public:
+		/** Clears SRV slots in the shadow cache + device when the bound resource matches (keeps cache coherent if context was touched directly). */
+		void UnbindShaderResourceViewsBoundToResource(ID3D11Resource* targetResource)
+		{
+			if (!targetResource || !Direct3DDeviceIMContext)
+				return;
+			UnbindMatchingSRVsForFrequency<SF_Vertex>(targetResource);
+			UnbindMatchingSRVsForFrequency<SF_Hull>(targetResource);
+			UnbindMatchingSRVsForFrequency<SF_Domain>(targetResource);
+			UnbindMatchingSRVsForFrequency<SF_Pixel>(targetResource);
+			UnbindMatchingSRVsForFrequency<SF_Geometry>(targetResource);
+			UnbindMatchingSRVsForFrequency<SF_Compute>(targetResource);
+		}
+#endif
 
 		void SetContext(ID3D11DeviceContext* InDeviceContext)
 		{

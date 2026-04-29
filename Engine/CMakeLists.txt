@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -34,7 +34,12 @@ source_group("Header Files\\Engine\\Procedural" FILES ${Engine_Procedural_Header
 
 file(GLOB App_Source Src/App/*.cpp)
 file(GLOB Engine_Source Src/Engine/*.cpp)
-file(GLOB Engine_Thread_Source Src/Engine/Thread/*.cpp)
+# Explicit sources: GLOB can miss new files until CMake reconfigure (LNK2019 on RHISubmissionThread).
+set(Engine_Thread_Source
+	Src/Engine/Thread/EngineThread.cpp
+	Src/Engine/Thread/RenderThread.cpp
+	Src/Engine/Thread/RHISubmissionThread.cpp
+)
 file(GLOB Engine_Scene_Source Src/Engine/Scene/*.cpp)
 file(GLOB Engine_GltfModel_Source Src/Engine/GltfModel/*.cpp)
 file(GLOB Engine_ObjModel_Source Src/Engine/ObjModel/*.cpp)

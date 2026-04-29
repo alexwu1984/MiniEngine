@@ -1,5 +1,6 @@
 ﻿#include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12RHIRecording.h"
+#include "RHI/RHIThreadPolicy.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -134,16 +135,18 @@ namespace RenderCore
 	uint64_t D3D12CommandListHandle::ExecuteAndClear(bool WaitForCompletion /*= false*/)
 	{
 		Assert(CommandListData);
-		D3D12RHI_CheckSubmitAllowed("D3D12CommandListHandle::ExecuteAndClear");
-		const uint64_t SignaledFenceValue =
-			CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
-			CommandListData->FlushPendingUniformBufferFenceTags(FenceID);
-			const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
-			CommandListData->UploadLinearAllocator.CleanupUsedPages(FenceID, QueueType);
-			CommandListData->DefaultLinearAllocator.CleanupUsedPages(FenceID, QueueType);
-			if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
-				Ctx->CleanupUsedHeaps(FenceID, QueueType);
-			}, WaitForCompletion);
+		uint64_t SignaledFenceValue = 0;
+		RHI_SubmitOrInline("D3D12CommandListHandle::ExecuteAndClear", [this, WaitForCompletion, &SignaledFenceValue]() {
+			SignaledFenceValue =
+				CommandListData->CommandListManager->ExecuteCommandList(*this, [this](uint64_t FenceID) {
+				CommandListData->FlushPendingUniformBufferFenceTags(FenceID);
+				const ED3D12CommandQueueType QueueType = CommandListData->CommandListManager->GetQueueType();
+				CommandListData->UploadLinearAllocator.CleanupUsedPages(FenceID, QueueType);
+				CommandListData->DefaultLinearAllocator.CleanupUsedPages(FenceID, QueueType);
+				if (D3D12CommandContext* Ctx = GetCurrentOwningContext())
+					Ctx->CleanupUsedHeaps(FenceID, QueueType);
+				}, WaitForCompletion);
+		});
 		return SignaledFenceValue;
 	}
 

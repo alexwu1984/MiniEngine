@@ -97,14 +97,14 @@ namespace Engine
 	void RenderThread::Run()
 	{
 		Impl->RenderThreadId = std::this_thread::get_id();
-		RenderCore::RHI_RegisterRHISubmissionThread(Impl->RenderThreadId);
-		struct UnregisterSubmissionThread
+		RenderCore::RHI_RegisterRHIRecordingThread(Impl->RenderThreadId);
+		struct UnregisterRecordingThread
 		{
-			~UnregisterSubmissionThread()
+			~UnregisterRecordingThread()
 			{
-				RenderCore::RHI_UnregisterRHISubmissionThread();
+				RenderCore::RHI_UnregisterRHIRecordingThread();
 			}
-		} UnregisterOnScopeExit;
+		} UnregisterRecordingOnScopeExit;
 
 		while (!Impl->Stop)
 		{

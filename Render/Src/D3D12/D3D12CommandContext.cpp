@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12CommandContext.h"
+#include "RHI/RHIThreadPolicy.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -22,7 +23,7 @@
 #include <windows.h>
 #include <heapapi.h>
 
-#include "../../../ThirdParty/DirectXTex/DXTexStats.h"
+#include "DirectXTex/DXTexStats.h"
 
 namespace RenderCore
 {
@@ -729,7 +730,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
 	{
-		D3D12RHI_CheckSubmitAllowed("FlushCommands");
+		D3D12RHI_CheckRecordingAllowed("FlushCommands");
 		if (!CommandListHandle)
 			return;
 
@@ -751,18 +752,22 @@ namespace RenderCore
 		if (Device && bHasPendingWork)
 		{
 			Device->EnqueuePendingCommandList(std::move(CommandListHandle), QueueType);
-			Device->ExecutePendingCommandLists(QueueType, WaitForCompletion);
+			RHI_SubmitOrInline("FlushCommands/ExecutePending", [Device, QueueType, WaitForCompletion]() {
+				Device->ExecutePendingCommandLists(QueueType, WaitForCompletion);
+			});
 			OpenCommandList();
 			return;
 		}
 
-		CommandListHandle.ExecuteAndClear(WaitForCompletion);
+		RHI_SubmitOrInline("FlushCommands/ExecuteAndClear", [this, WaitForCompletion]() {
+			CommandListHandle.ExecuteAndClear(WaitForCompletion);
+		});
 		OpenCommandList();
 	}
 
 	void D3D12CommandContext::Finish(std::vector<D3D12CommandListHandle>& OutCommandLists)
 	{
-		D3D12RHI_CheckSubmitAllowed("Finish");
+		D3D12RHI_CheckRecordingAllowed("Finish");
 		if (!CommandListHandle)
 			return;
 		CloseCommandList();

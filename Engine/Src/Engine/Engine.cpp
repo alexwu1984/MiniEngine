@@ -3,6 +3,8 @@
 #include "App/AppWindow.h"
 #include "RHI/RHIViewPort.h"
 #include "Thread/RenderThread.h"
+#include "Engine/Thread/RHISubmissionThread.h"
+#include "RHI/RHIThreadPolicy.h"
 #include "Scene/SceneView.h"
 #include "Render/SceneRender.h"
 #include "win/high_precision_tick.h"
@@ -23,6 +25,8 @@ namespace Engine
 		std::shared_ptr< AppWindow> AppWin;
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
 		std::unique_ptr<RenderThread> RThread;
+		std::unique_ptr<RHISubmissionThread> RHISubmitThread;
+		RenderCore::RHIAPIType InitApiType = RenderCore::RHIAPIType::E_D3D11;
 		std::shared_ptr<SceneView> Scene;
 		std::shared_ptr<SceneRender> SeRender;
 		win32::HighPrecisionTick GameTick;
@@ -47,6 +51,7 @@ namespace Engine
 	void MainEngine::Init(std::shared_ptr<AppWindow> AppWin, RenderCore::RHIAPIType ApiType)
 	{
 		C_P(MainEngine);
+		d->InitApiType = ApiType;
 		d->DynamicRHI = RenderCore::PlatformCreateDynamicRHI(ApiType);
 		d->AppWin = AppWin;
 		if (d->DynamicRHI)
@@ -70,6 +75,17 @@ namespace Engine
 	void MainEngine::StartThread()
 	{
 		C_P(MainEngine);
+		const bool bWantRHIWorker =
+			(d->InitApiType == RenderCore::RHIAPIType::E_D3D12) && !core::CommandLine::Get().GetName("norhithread");
+		if (bWantRHIWorker)
+		{
+			d->RHISubmitThread = std::make_unique<RHISubmissionThread>();
+			d->RHISubmitThread->Start();
+			RHISubmissionThread* SubmitWorker = d->RHISubmitThread.get();
+			RenderCore::RHI_SetSubmissionExecutor([SubmitWorker](std::function<void()> SubmitWork) {
+				SubmitWorker->EnqueueAndWait(std::move(SubmitWork));
+			});
+		}
 		d->RThread->Start();
 		d->GameTick.Start("GameThread", 120, win32::HighPrecisionTick::ThreadPriority::Highest);
 	}
@@ -84,6 +100,12 @@ namespace Engine
 		if (d->RThread)
 		{
 			d->RThread->Stop();
+		}
+		RenderCore::RHI_ClearSubmissionExecutor();
+		if (d->RHISubmitThread)
+		{
+			d->RHISubmitThread->Stop();
+			d->RHISubmitThread.reset();
 		}
 		if (d->DynamicRHI)
 		{

@@ -31,7 +31,7 @@ namespace RenderCore
 	{
 		if (!List)
 			return;
-		D3D12RHI_CheckSubmitAllowed("EnqueuePendingCommandList");
+		D3D12RHI_CheckRecordingAllowed("EnqueuePendingCommandList");
 		std::lock_guard<std::mutex> Lock(PendingCommandListsMutex);
 		switch (QueueType)
 		{

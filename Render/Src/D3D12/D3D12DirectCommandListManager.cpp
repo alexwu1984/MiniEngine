@@ -406,7 +406,8 @@ namespace RenderCore
 
 	void FD3D12CommandListManager::ReleaseCommandList(D3D12CommandListHandle& hList)
 	{
-		D3D12RHI_CheckSubmitAllowed("ReleaseCommandList");
+		ensureMsgf(D3D12RHI_IsRecordingAllowed() || D3D12RHI_IsSubmitAllowed(),
+				   "D3D12 RHI: ReleaseCommandList must run on the recording thread (discard) or submission thread (post-execute).");
 		Assert(hList.IsClosed());
 		Assert(hList.GetCommandListType() == CommandListType);
 

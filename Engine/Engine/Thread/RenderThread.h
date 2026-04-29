@@ -12,8 +12,7 @@ namespace Engine
 
 	/**
 	 * Executes queued lambdas that record/submit GPU work. Registers the current std::thread::id with
-	 * RenderCore::RHI_RegisterRHISubmissionThread for D3D12 checks (RenderCore::IsInRHIThread); MVP matches UE4
-	 * "render thread owns RHI submit" until a dedicated RHI thread is introduced.
+	 * RenderCore::RHI_RegisterRHIRecordingThread for D3D12 recording checks; GPU submit may run on RHISubmissionThread.
 	 */
 	class RenderThread
 	{

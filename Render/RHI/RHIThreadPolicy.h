@@ -1,22 +1,32 @@
 ﻿#pragma once
+#include <functional>
 #include <thread>
 
 namespace RenderCore
 {
 	/**
-	 * UE-style RHI submission thread identity (MVP: same as Engine RenderThread).
-	 * When no thread is registered (e.g. DemoRunner / tools), submission-thread checks are skipped.
+	 * Thread identity for D3D12: recording (RenderThread) vs submission (dedicated RHI thread when enabled).
+	 * When a registration is absent, the corresponding check is permissive (tools / DemoRunner).
 	 */
+	void RHI_RegisterRHIRecordingThread(std::thread::id ThreadId);
+	void RHI_UnregisterRHIRecordingThread();
+	bool RHI_IsRHIRecordingThreadRegistered();
+	bool RHI_IsInRHIRecordingThread();
+
 	void RHI_RegisterRHISubmissionThread(std::thread::id ThreadId);
 	void RHI_UnregisterRHISubmissionThread();
 	bool RHI_IsRHISubmissionThreadRegistered();
-
-	/** True if no submission thread is registered, or current thread matches the registered id. */
 	bool RHI_IsInRHISubmissionThread();
 
-	/** Alias for UE naming; same as RHI_IsInRHISubmissionThread(). */
 	inline bool IsInRHIThread()
 	{
 		return RHI_IsInRHISubmissionThread();
 	}
+
+	/** When set, GPU submit work from non-submission threads is forwarded here (must block until done). */
+	void RHI_SetSubmissionExecutor(std::function<void(std::function<void()>)> Executor);
+	void RHI_ClearSubmissionExecutor();
+
+	/** Runs submit work on the submission thread when an executor is set and caller is not the submission thread; otherwise inline. */
+	void RHI_SubmitOrInline(const char* OperationLabel, std::function<void()> Work);
 }

@@ -16,6 +16,17 @@ namespace RenderCore
 		return uint32_t((std::numeric_limits<int32_t>::max)());
 	}
 
+	void FD3D12Device::NotifyRHIRecordingFrameBegin()
+	{
+		GetParentAdapter()->NotifyRHIRecordingFrameBegin();
+		if (CommandListManager)
+			CommandListManager->OnBeginRHIFrameCommandListPool();
+		if (CopyCommandListManager)
+			CopyCommandListManager->OnBeginRHIFrameCommandListPool();
+		if (AsyncCommandListManager)
+			AsyncCommandListManager->OnBeginRHIFrameCommandListPool();
+	}
+
 	void FD3D12Device::EnqueuePendingCommandList(D3D12CommandListHandle&& List, ED3D12CommandQueueType QueueType)
 	{
 		if (!List)
@@ -95,6 +106,7 @@ namespace RenderCore
 		CreateCommandContexts();
 		InitPlatformSpecific();
 		InitDescriptorAllocator();
+		InitializeNullSrvUavDescriptors();
 
 		if(DefaultCommandContext)
 			DefaultCommandContext->OpenCommandList();
@@ -109,6 +121,31 @@ namespace RenderCore
 		std::vector<uint8_t> Zero(256u, 0u);
 		NullUniformBuffer = std::make_shared<D3D12UniformBuffer>(GetParentAdapter());
 		NullUniformBuffer->CreateUniformBuffer(Zero.data(), (uint32_t)Zero.size());
+	}
+
+	void FD3D12Device::InitializeNullSrvUavDescriptors()
+	{
+		if (NullSrvCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			return;
+		ID3D12Device* D = GetDevice();
+		if (!D)
+			return;
+
+		NullSrvAlloc = AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		NullSrvCpu = NullSrvAlloc.Cpu;
+		D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
+		SrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		SrvDesc.Texture2D.MipLevels = 1;
+		D->CreateShaderResourceView(nullptr, &SrvDesc, NullSrvCpu);
+
+		NullUavAlloc = AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		NullUavCpu = NullUavAlloc.Cpu;
+		D3D12_UNORDERED_ACCESS_VIEW_DESC UavDesc = {};
+		UavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		UavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		D->CreateUnorderedAccessView(nullptr, nullptr, &UavDesc, NullUavCpu);
 	}
 
 	void FD3D12Device::CreateCommandContexts()
@@ -170,6 +207,19 @@ namespace RenderCore
 		}
 
 		BuddyAllocator.reset();
+
+		if (NullSrvCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NullSrvAlloc);
+			NullSrvCpu.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+			NullSrvAlloc = {};
+		}
+		if (NullUavCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NullUavAlloc);
+			NullUavCpu.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+			NullUavAlloc = {};
+		}
 
 		if (CommandListManager)
 			CommandListManager->Destroy();

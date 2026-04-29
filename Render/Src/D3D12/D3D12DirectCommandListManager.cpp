@@ -327,7 +327,7 @@ namespace RenderCore
 		CommandListFence->CreateFence();
 
 		Assert(D3DCommandQueue.get() == nullptr);
-		Assert(ReadyLists.IsEmpty());
+		Assert(ReadyLists[0].IsEmpty() && ReadyLists[1].IsEmpty());
 		//checkf(NumCommandLists <= 0xffff, TEXT("Exceeded maximum supported command lists"));
 
 		D3D12_COMMAND_QUEUE_DESC CommandQueueDesc = {};
@@ -344,9 +344,14 @@ namespace RenderCore
 			for (uint32_t i = 0; i < NumCommandLists; ++i)
 			{
 				D3D12CommandListHandle hList = CreateCommandListHandle(TempCommandAllocator);
-				ReadyLists.Enqueue(hList);
+				ReadyLists[i % 2].Enqueue(hList);
 			}
 		}
+	}
+
+	void FD3D12CommandListManager::OnBeginRHIFrameCommandListPool()
+	{
+		RecordingReadyPoolIndex = (RecordingReadyPoolIndex + 1u) % 2u;
 	}
 
 	void FD3D12CommandListManager::Destroy()
@@ -356,10 +361,12 @@ namespace RenderCore
 
 		D3DCommandQueue.reset();
 
-		while (!ReadyLists.IsEmpty())
+		for (int p = 0; p < 2; ++p)
 		{
 			D3D12CommandListHandle hList;
-			ReadyLists.Dequeue(hList);
+			while (ReadyLists[p].Dequeue(hList))
+			{
+			}
 		}
 
 		if (CommandListFence)
@@ -373,7 +380,9 @@ namespace RenderCore
 	{
 		D3D12RHI_CheckRecordingAllowed("ObtainCommandList");
 		D3D12CommandListHandle List;
-		if (!ReadyLists.Dequeue(List))
+		const uint32_t primary = RecordingReadyPoolIndex % 2u;
+		const bool bGot = ReadyLists[primary].Dequeue(List) || ReadyLists[1u - primary].Dequeue(List);
+		if (!bGot)
 		{
 			// Create a command list if there are none available.
 			List = CreateCommandListHandle(CommandAllocator);
@@ -404,7 +413,8 @@ namespace RenderCore
 		// Indicate that a command list using this allocator has either been executed or discarded.
 		hList.CurrentCommandAllocator()->DecrementPendingCommandLists();
 
-		ReadyLists.Enqueue(hList);
+		const uint32_t releasePool = (RecordingReadyPoolIndex + 1u) % 2u;
+		ReadyLists[releasePool].Enqueue(hList);
 	}
 
 	uint64_t FD3D12CommandListManager::ExecuteCommandList(D3D12CommandListHandle& hList, 

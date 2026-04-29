@@ -3,6 +3,7 @@
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12CommandList.h"
@@ -16,6 +17,7 @@
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12RHICommon.h"
 #include <dxgi1_4.h>
+#include <mutex>
 #include <windows.h>
 
 namespace RenderCore
@@ -277,9 +279,14 @@ namespace RenderCore
 			const std::shared_ptr<FD3D12Device> Device = GetParentAdapter()->GetDevice();
 			if (Device)
 			{
-				const auto Pools = Device->GetDynamicDescriptorHeapPools();
-				const std::size_t DynViewHeaps = Pools.CreatedTracking[0].size();
-				const std::size_t DynSamplerHeaps = Pools.CreatedTracking[1].size();
+				auto& Pools = Device->GetDynamicDescriptorHeapPools();
+				std::size_t DynViewHeaps = 0;
+				std::size_t DynSamplerHeaps = 0;
+				{
+					std::lock_guard<std::mutex> Lock(Pools.Mutex);
+					DynViewHeaps = Pools.CreatedTracking[0].size();
+					DynSamplerHeaps = Pools.CreatedTracking[1].size();
+				}
 
 				auto& UploadPool = Device->GetFastAllocator(UploadFastAllocator);
 				auto& DefaultPool = Device->GetFastAllocator(DefaultFastAllocator);
@@ -308,10 +315,13 @@ namespace RenderCore
 			}
 		}
 
-		// Advance the adapter frame fence once per frame (decoupled from non-empty command lists).
+		// Ordering: back-buffer barriers flushed + default/async queues flushed above → signal frame fence → Present.
+		// NotifyEndOfFrameFenceValue lets RHIBeginFrame optionally WaitForFence to cap in-flight GPU frames (RHI thread prep).
 		{
-			auto& FrameFence = GetParentAdapter()->GetFrameFence();
-			FrameFence.FD3D12Fence::Signal(ED3D12CommandQueueType::Default);
+			std::shared_ptr<FD3D12Adapter> Adapter = GetParentAdapter();
+			auto& FrameFence = Adapter->GetFrameFence();
+			const uint64_t endFrameFenceValue = FrameFence.FD3D12Fence::Signal(ED3D12CommandQueueType::Default);
+			Adapter->NotifyEndOfFrameFenceValue(endFrameFenceValue);
 		}
 
 		const UINT syncInterval = 1u;

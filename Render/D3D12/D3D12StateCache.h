@@ -2,6 +2,7 @@
 #include "D3D12/D3D12DescriptorCache.h"
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace RenderCore
@@ -197,9 +198,15 @@ namespace RenderCore
 		void ClearComputeState();
 		void CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType);
 
-		std::size_t GetRootSignatureCacheSize() const { return RootSignatures.size(); }
-		std::size_t GetGraphicsPSOCacheSize() const { return GraphicsPSHashMap.size(); }
-		std::size_t GetComputePSOCacheSize() const { return ComputePSHashMap.size(); }
+		/**
+		 * ImGui / other passes that call ID3D12GraphicsCommandList directly must call this on the owning context's
+		 * state cache after recording so the next Apply*State sees a clean mirror (UE-style external pass boundary).
+		 */
+		void NotifyExternalGraphicsPassRecorded(D3D12CommandListHandle& CommandList);
+
+		std::size_t GetRootSignatureCacheSize() const;
+		std::size_t GetGraphicsPSOCacheSize() const;
+		std::size_t GetComputePSOCacheSize() const;
 
 		/** PSO / root / input-layout may have changed (use with ApplyGraphicState incremental path). */
 		void MarkGraphicsLayoutDirty() { m_GraphicsLayoutDirty = true; }
@@ -262,12 +269,7 @@ namespace RenderCore
 
 		void ResetGraphicsApplyTracking();
 
-		D3D12_CPU_DESCRIPTOR_HANDLE GetOrCreateNullSrvCpu();
-		D3D12_CPU_DESCRIPTOR_HANDLE GetOrCreateNullUavCpu();
-
-		FD3D12ResourceAllocator::FDescriptorAllocation m_NullSrvAlloc{};
-		D3D12_CPU_DESCRIPTOR_HANDLE m_NullSrvCpu{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-		FD3D12ResourceAllocator::FDescriptorAllocation m_NullUavAlloc{};
-		D3D12_CPU_DESCRIPTOR_HANDLE m_NullUavCpu{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		/** Serialize root signature cache + graphics/compute PSO map insert (RHI thread / async context prep). */
+		mutable std::recursive_mutex m_RootSignatureAndPsoCacheMutex;
 	};
 }

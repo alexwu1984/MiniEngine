@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12DescriptorCache.h"
+#include <mutex>
 #include "RHI/RHI.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
@@ -19,6 +20,7 @@ namespace RenderCore
 
 	void FDynamicDescriptorHeapPoolsPerDevice::Clear()
 	{
+		std::lock_guard<std::mutex> Lock(Mutex);
 		for (int i = 0; i < 2; ++i)
 		{
 			while (!Ready[i].empty())
@@ -120,13 +122,17 @@ namespace RenderCore
 	{
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
 		const int qidx = QueueTypeIndex(QueueType);
-		for (auto iter = m_RetiredHeaps.begin(); iter != m_RetiredHeaps.end(); ++iter)
+		FDynamicDescriptorHeapPoolsPerDevice& P = Pools();
 		{
-			FRetiredDynamicDescriptorHeapEntry Entry;
-			Entry.FenceValue = FenceValue;
-			Entry.QueueType = QueueType;
-			Entry.Heap = *iter;
-			Pools().Retired[idx][qidx].push(Entry);
+			std::lock_guard<std::mutex> Lock(P.Mutex);
+			for (auto iter = m_RetiredHeaps.begin(); iter != m_RetiredHeaps.end(); ++iter)
+			{
+				FRetiredDynamicDescriptorHeapEntry Entry;
+				Entry.FenceValue = FenceValue;
+				Entry.QueueType = QueueType;
+				Entry.Heap = *iter;
+				P.Retired[idx][qidx].push(Entry);
+			}
 		}
 		m_RetiredHeaps.clear();
 	}
@@ -153,6 +159,7 @@ namespace RenderCore
 		uint32_t idx = m_HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? 1 : 0;
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		FDynamicDescriptorHeapPoolsPerDevice& P = Pools();
+		std::lock_guard<std::mutex> PoolLock(P.Mutex);
 		// Recycle heaps using monotonic per-queue retired lists.
 		for (int q = 0; q < 3; ++q)
 		{

@@ -3,6 +3,7 @@
 #include "Templates/UnrealTypeTraits.h"
 #include "D3D12/MultiGPU.h"
 #include "D3D12/D3D12CommandList.h"
+#include <mutex>
 #include <queue>
 #include <vector>
 
@@ -20,6 +21,8 @@ namespace RenderCore
 	// Shader-visible CBV/SRV/UAV vs sampler pools, owned by FD3D12Device (not process-global statics).
 	struct FDynamicDescriptorHeapPoolsPerDevice
 	{
+		/** All Ready/Retired/CreatedTracking mutations go through this (Default + Async contexts share one pool). */
+		mutable std::mutex Mutex;
 		std::queue<win32::com_ptr<ID3D12DescriptorHeap>> Ready[2];
 		// Keep separate retired queues per D3D12 queue type to preserve monotonic fence ordering
 		// within each queue, enabling O(1) "while front complete" recycling like the DEMO.

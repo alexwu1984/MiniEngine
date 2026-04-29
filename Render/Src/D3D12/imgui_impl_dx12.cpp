@@ -38,6 +38,7 @@
 #include "D3D12/D3D12RHICommon.h"
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Adapter.h"
@@ -350,6 +351,14 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;
         global_vtx_offset += cmd_list->VtxBuffer.Size;
+    }
+
+    // UE-style external pass: ImGui bound its own root signature / PSO / heaps on the same command list as the engine.
+    // Invalidate FD3D12StateCache mirrors so the next ApplyGraphicState / descriptor heap path rebinds engine state.
+    if (bUseEngineUpload && upload_ctx)
+    {
+        if (const std::shared_ptr<RenderCore::FD3D12StateCache> sc = upload_ctx->GetD3D12StateCache())
+            sc->NotifyExternalGraphicsPassRecorded(upload_ctx->GetCurrentCommandListHandle());
     }
 }
 

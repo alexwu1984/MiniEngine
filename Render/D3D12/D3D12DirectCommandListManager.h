@@ -191,7 +191,10 @@ namespace RenderCore
 		// state changes. We leave PSOs to always be resolved in ApplyState().
 		D3D12CommandListHandle ObtainCommandList(D3D12CommandAllocator& CommandAllocator);
 		void ReleaseCommandList(D3D12CommandListHandle& hList);
-		uint32_t GetReadyListCount() const { return ReadyLists.GetSize(); }
+		uint32_t GetReadyListCount() const { return ReadyLists[0].GetSize() + ReadyLists[1].GetSize(); }
+
+		/** Ping-pong ready-list bank each RHI frame (call from FD3D12Device::NotifyRHIRecordingFrameBegin). */
+		void OnBeginRHIFrameCommandListPool();
 
 		// Submits closed lists to the D3D12 queue. When pending resource barriers exist, holds ResourceStateCS for the
 		// whole PRB resolution and batch submit. Intended to run on a single RHI submission thread: do not record
@@ -224,7 +227,9 @@ namespace RenderCore
 		D3D12CommandListHandle CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator);
 	private:
 		win32::com_ptr<ID3D12CommandQueue>		D3DCommandQueue;
-		ThreadsafeQueue<D3D12CommandListHandle> ReadyLists;
+		/** Two banks: Obtain primarily from RecordingReadyPoolIndex; Release pushes to the opposite bank so reuse stays ~one RHI frame behind GPU (RHI thread / multi-submit safe). */
+		ThreadsafeQueue<D3D12CommandListHandle> ReadyLists[2];
+		uint32_t RecordingReadyPoolIndex = 0;
 
 		// Command allocators used exclusively for resource barrier command lists.
 		FD3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;

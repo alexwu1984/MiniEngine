@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHIPrivate/D3D12RHIPrivate.h"
 
 namespace RenderCore
@@ -58,6 +58,14 @@ namespace RenderCore
 		ID3D12Device2* GetD3DDevice2() const;
 		FD3D12FenceCorePool& GetFenceCorePool();
 		FD3D12ManualFence& GetFrameFence();
+		/**
+		 * Per-RHI-frame hook (from D3D12DynamicRHI::RHIBeginFrame): may wait on the adapter frame fence to cap GPU lag,
+		 * then bumps a monotonic recording-frame counter. Call before advancing per-queue command-list pools.
+		 */
+		void NotifyRHIRecordingFrameBegin();
+		/** After all submits for the frame and FrameFence::Signal (e.g. ViewPort::Present); drives optional catch-up wait next frame. */
+		void NotifyEndOfFrameFenceValue(uint64_t FenceValue);
+		uint64_t GetRHIRecordingFrameCounter() const;
 		FD3D12FastConstantAllocator& GetTransientUniformBufferAllocator();
 		std::shared_ptr<FD3D12Device> GetDevice() const;
 		std::shared_ptr<D3D12DynamicRHI> GetOwningRHI() const;

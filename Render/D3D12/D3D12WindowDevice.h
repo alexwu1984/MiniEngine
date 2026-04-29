@@ -51,6 +51,9 @@ namespace RenderCore
 		std::size_t GetCpuDescriptorGlobalPoolSize() const { return FD3D12ResourceAllocator::GetGlobalPoolSize(); }
 		void BlockUntilIdle();
 
+		/** D3D12DynamicRHI::RHIBeginFrame: frame fence catch-up + ping-pong command-list ready pools. */
+		void NotifyRHIRecordingFrameBegin();
+
 		/** Max transitions per ID3D12GraphicsCommandList::ResourceBarrier when batching pending PRBs (here: int32 max, matches typical Windows D3D12 RHI path). */
 		uint32_t GetResourceBarrierBatchSizeLimit() const;
 
@@ -58,6 +61,10 @@ namespace RenderCore
 		// Not a replacement for correct binding; only prevents undefined reads when shaders declare resources.
 		std::shared_ptr<D3D12UniformBuffer> GetNullUniformBuffer() const { return NullUniformBuffer; }
 		void InitializeNullUniformBuffer();
+		/** UE-style: one null SRV/UAV in the device CPU descriptor pool, created during Initialize (RHI-thread safe reads). */
+		void InitializeNullSrvUavDescriptors();
+		D3D12_CPU_DESCRIPTOR_HANDLE GetNullSrvCpu() const noexcept { return NullSrvCpu; }
+		D3D12_CPU_DESCRIPTOR_HANDLE GetNullUavCpu() const noexcept { return NullUavCpu; }
 
 		// Accumulate command lists per queue and submit in a batch.
 		void EnqueuePendingCommandList(D3D12CommandListHandle&& List, ED3D12CommandQueueType QueueType);
@@ -90,5 +97,10 @@ namespace RenderCore
 		mutable std::mutex PendingCommandListsMutex;
 
 		std::shared_ptr<D3D12UniformBuffer> NullUniformBuffer;
+
+		FD3D12ResourceAllocator::FDescriptorAllocation NullSrvAlloc{};
+		D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCpu{};
+		FD3D12ResourceAllocator::FDescriptorAllocation NullUavAlloc{};
+		D3D12_CPU_DESCRIPTOR_HANDLE NullUavCpu{};
 	};
 }

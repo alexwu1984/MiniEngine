@@ -357,6 +357,11 @@ namespace RenderCore
 	{
 		D3D12RHI_EnterExclusiveRegion();
 		D3D12RHI_FlushDeferredCommands();
+		if (D3D12Adapter)
+		{
+			if (std::shared_ptr<FD3D12Device> Dev = D3D12Adapter->GetDevice())
+				Dev->NotifyRHIRecordingFrameBegin();
+		}
 		DynamicRHI::RHIBeginFrame();
 	}
 

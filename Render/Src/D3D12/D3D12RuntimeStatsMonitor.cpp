@@ -1,8 +1,9 @@
-#include "D3D12/D3D12RuntimeStatsMonitor.h"
+﻿#include "D3D12/D3D12RuntimeStatsMonitor.h"
 
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12DescriptorCache.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12MemoryMonitor.h"
 #include "D3D12/D3D12PresentStats.h"
@@ -51,9 +52,14 @@ namespace RenderCore
 		if (!Device)
 			return;
 
-		const auto Pools = Device->GetDynamicDescriptorHeapPools();
-		const std::size_t DynViewHeaps = Pools.CreatedTracking[0].size();
-		const std::size_t DynSamplerHeaps = Pools.CreatedTracking[1].size();
+		auto& Pools = Device->GetDynamicDescriptorHeapPools();
+		std::size_t DynViewHeaps = 0;
+		std::size_t DynSamplerHeaps = 0;
+		{
+			std::lock_guard<std::mutex> Lock(Pools.Mutex);
+			DynViewHeaps = Pools.CreatedTracking[0].size();
+			DynSamplerHeaps = Pools.CreatedTracking[1].size();
+		}
 
 		auto& UploadPool = Device->GetFastAllocator(UploadFastAllocator);
 		auto& DefaultPool = Device->GetFastAllocator(DefaultFastAllocator);

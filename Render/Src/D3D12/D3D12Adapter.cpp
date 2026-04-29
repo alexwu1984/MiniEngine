@@ -13,6 +13,7 @@
 #include "Imgui/imgui_impl_dx12.h"
 #include <d3d12sdklayers.h>
 #include <dxgidebug.h>
+#include <atomic>
 
 namespace RenderCore
 {
@@ -41,6 +42,11 @@ namespace RenderCore
 
 		std::shared_ptr<FD3D12Device> Device;
 		std::shared_ptr<FRootSignature> RootSignature;
+
+		/** Monotonic counter incremented each NotifyRHIRecordingFrameBegin (D3D12 RHIBeginFrame). */
+		std::atomic<uint64_t> RHIRecordingFrameCounter{0};
+		/** Latest value passed to ID3D12CommandQueue::Signal on the adapter frame fence after end-of-frame flush (typically Present). */
+		std::atomic<uint64_t> LastEndFrameFenceSignaledValue{0};
 
 		std::shared_ptr<FDynamicDescriptorHeap> DynamicViewDescriptorHeap;
 		std::unique_ptr<FD3D12FastConstantAllocator> TransientUniformBufferAllocator;
@@ -256,6 +262,32 @@ namespace RenderCore
 		C_P(FD3D12Adapter);
 		Assert(d->FrameFence.get());
 		return *d->FrameFence;
+	}
+
+	void FD3D12Adapter::NotifyEndOfFrameFenceValue(uint64_t FenceValue)
+	{
+		C_P(FD3D12Adapter);
+		d->LastEndFrameFenceSignaledValue.store(FenceValue, std::memory_order_release);
+	}
+
+	void FD3D12Adapter::NotifyRHIRecordingFrameBegin()
+	{
+		C_P(FD3D12Adapter);
+		// Allow a small GPU queue depth before blocking the recorder (tune for triple-buffer style swap chains).
+		constexpr uint32_t kMaxGpuLagFrames = 2u;
+		const uint64_t last = d->LastEndFrameFenceSignaledValue.load(std::memory_order_acquire);
+		if (last > kMaxGpuLagFrames && d->FrameFence)
+		{
+			const uint64_t waitValue = last - kMaxGpuLagFrames;
+			d->FrameFence->WaitForFence(waitValue);
+		}
+		d->RHIRecordingFrameCounter.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	uint64_t FD3D12Adapter::GetRHIRecordingFrameCounter() const
+	{
+		C_P(const FD3D12Adapter);
+		return d->RHIRecordingFrameCounter.load(std::memory_order_relaxed);
 	}
 
 	FD3D12FastConstantAllocator& FD3D12Adapter::GetTransientUniformBufferAllocator()

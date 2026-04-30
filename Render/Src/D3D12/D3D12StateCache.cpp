@@ -1,4 +1,4 @@
-#include "D3D12/D3D12StateCache.h"
+﻿#include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12Limits.h"
 #include "RHI/RHIThreadPolicy.h"
 #include <mutex>

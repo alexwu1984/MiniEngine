@@ -1,10 +1,16 @@
-#include "Scene/World.h"
+﻿#include "Scene/World.h"
 #include "Scene/Actor.h"
 #include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
 #include "Scene/GltfMeshComponent.h"
+#include "Scene/SkyLightComponent.h"
+#include "Scene/DirectionalLightComponent.h"
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
+#include "core/system.h"
+#include <algorithm>
+#include <limits>
+#include <string>
 
 namespace Engine
 {
@@ -22,6 +28,124 @@ namespace Engine
 			}
 			return false;
 		}
+
+		static void SpawnConfigSkyLightActor(const std::shared_ptr<World>& WorldSelf, const nlohmann::json& Evn)
+		{
+			if (!WorldSelf || Evn.find("Hdr") == Evn.end() || Evn["Hdr"].is_null())
+				return;
+			const std::string hdrUtf8 = Evn["Hdr"].get<std::string>();
+			if (hdrUtf8.empty())
+				return;
+			std::wstring rel = core::u8_ucs2(hdrUtf8);
+			if (rel.empty())
+				return;
+			auto actor = std::make_shared<Actor>(WorldSelf);
+			actor->SetActorName(L"ConfigSkyLight");
+			auto comp = std::make_shared<SkyLightComponent>(actor);
+			comp->SetHDRRelativePath(std::move(rel));
+			comp->SetSortPriority(0);
+			try
+			{
+				if (Evn.find("IBLIntensity") != Evn.end() && Evn["IBLIntensity"].is_number())
+					comp->SetIBLIntensity(static_cast<float>(Evn["IBLIntensity"].get<double>()));
+			}
+			catch (const std::exception&)
+			{
+			}
+			actor->AddComponent(comp);
+			WorldSelf->AddActor(actor);
+		}
+
+		static void SpawnConfigDirectionalLightActor(const std::shared_ptr<World>& WorldSelf, const Light& Parsed, int32_t JsonOrderIndex)
+		{
+			if (!WorldSelf)
+				return;
+			auto actor = std::make_shared<Actor>(WorldSelf);
+			actor->SetActorName(std::wstring(L"ConfigDirectionalLight_") + std::to_wstring(JsonOrderIndex));
+			auto dir = std::make_shared<DirectionalLightComponent>(actor);
+			dir->SetUseActorForward(false);
+			dir->SetWorldDirection(Parsed.Direction);
+			dir->SetColor(Parsed.Color);
+			dir->SetIntensity(Parsed.Intensity);
+			dir->SetDepthBias(Parsed.DepthBias);
+			dir->SetSortPriority(1000 - JsonOrderIndex);
+			actor->AddComponent(dir);
+			WorldSelf->AddActor(actor);
+		}
+
+		static std::vector<std::shared_ptr<DirectionalLightComponent>> CollectDirectionalLightComponentsSorted(
+			const std::vector<std::shared_ptr<Actor>>& Actors, const std::vector<std::shared_ptr<Actor>>& PendingActors)
+		{
+			std::vector<std::pair<int32_t, std::shared_ptr<DirectionalLightComponent>>> pairs;
+			auto append = [&pairs](const std::vector<std::shared_ptr<Actor>>& List) {
+				for (const auto& a : List)
+				{
+					if (!a || !a->IsActorPrivateAllocated())
+						continue;
+					if (a->GetState() != Actor::EActive)
+						continue;
+					auto dir = a->GetComponent<DirectionalLightComponent>();
+					if (!dir || !dir->IsEnabled())
+						continue;
+					pairs.emplace_back(dir->GetSortPriority(), dir);
+				}
+			};
+			append(Actors);
+			append(PendingActors);
+			std::sort(pairs.begin(), pairs.end(),
+					  [](const std::pair<int32_t, std::shared_ptr<DirectionalLightComponent>>& A,
+						 const std::pair<int32_t, std::shared_ptr<DirectionalLightComponent>>& B) { return A.first > B.first; });
+			std::vector<std::shared_ptr<DirectionalLightComponent>> out;
+			out.reserve(pairs.size());
+			for (auto& p : pairs)
+				out.push_back(std::move(p.second));
+			return out;
+		}
+
+		/** Evn.Light[] KHR-style strings; used only at scene load to spawn light actors. */
+		static bool ParseEvnLightJsonEntry(const nlohmann::json& lightInfoJson, Light& lightInfo)
+		{
+			try
+			{
+				lightInfo = Light{};
+				const std::string colorStr = lightInfoJson.at("LightColor").get<std::string>();
+				std::sscanf(colorStr.c_str(), "%f,%f,%f", &lightInfo.Color.x, &lightInfo.Color.y, &lightInfo.Color.z);
+				const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
+				std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z);
+				lightInfo.Type = lightInfoJson.at("LightType").get<int>();
+				lightInfo.Intensity = lightInfoJson.at("LightStrength").get<float>();
+				return true;
+			}
+			catch (const std::exception&)
+			{
+				return false;
+			}
+		}
+
+		static std::shared_ptr<SkyLightComponent> FindBestSkyLightInList(const std::vector<std::shared_ptr<Actor>>& Actors)
+		{
+			std::shared_ptr<SkyLightComponent> best;
+			int32_t bestPri = (std::numeric_limits<int32_t>::min)();
+			for (const auto& a : Actors)
+			{
+				if (!a || !a->IsActorPrivateAllocated())
+					continue;
+				if (a->GetState() != Actor::EActive)
+					continue;
+				auto sl = a->GetComponent<SkyLightComponent>();
+				if (!sl || !sl->IsEnabled())
+					continue;
+				if (sl->GetHDRRelativePath().empty())
+					continue;
+				const int32_t p = sl->GetSortPriority();
+				if (!best || p > bestPri)
+				{
+					best = sl;
+					bestPri = p;
+				}
+			}
+			return best;
+		}
 	}
 
 	struct WorldPrivate
@@ -31,7 +155,6 @@ namespace Engine
 		std::shared_ptr<CameraComponent> MainCamera;
 		bool UpdatingActors = false;
 		mutable std::recursive_mutex lock;
-		std::vector<Light> lightInfos;
 
 		mutable bool ShadowProjectorCacheDirty = true;
 		mutable std::weak_ptr<Actor> ShadowProjectorCache;
@@ -57,26 +180,33 @@ namespace Engine
 
 		try
 		{
+			const auto self = this->shared_from_this();
+
 			nlohmann::json Models = Root["Modles"];
 			for (const auto& Model : Models)
 			{
-				auto AGltfModel = std::make_shared<Engine::GltfActor>(this->shared_from_this(), Model);
+				auto AGltfModel = std::make_shared<Engine::GltfActor>(self, Model);
 				AGltfModel->InitResouce();
 				AddActor(AGltfModel);
 			}
 
 			nlohmann::json evnJson = Root["Evn"];
+			SpawnConfigSkyLightActor(self, evnJson);
+
 			const nlohmann::json lightJsons = evnJson["Light"];
+			int32_t directionalJsonOrder = 0;
 			for (const auto& lightInfoJson : lightJsons)
 			{
-				Light lightInfo;
-				std::string colorStr = lightInfoJson["LightColor"];
-				std::sscanf(colorStr.c_str(), "%f,%f,%f", &lightInfo.Color.x, &lightInfo.Color.y, &lightInfo.Color.z);
-				std::string dirStr = lightInfoJson["LightDir"];
-				std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z);
-				lightInfo.Type = lightInfoJson["LightType"];
-				lightInfo.Intensity = lightInfoJson["LightStrength"];
-				d->lightInfos.emplace_back(lightInfo);
+				Light lightInfo{};
+				if (!ParseEvnLightJsonEntry(lightInfoJson, lightInfo))
+					continue;
+				if (lightInfo.Type == LightType_Directional)
+				{
+					SpawnConfigDirectionalLightActor(self, lightInfo, directionalJsonOrder);
+					++directionalJsonOrder;
+					continue;
+				}
+				// Point / spot from Evn are not in shipped assets; add PointLightComponent / SpotLightComponent + spawn here when needed.
 			}
 		}
 		catch (const std::exception& e)
@@ -195,16 +325,24 @@ namespace Engine
 		return d->Actors;
 	}
 
-	const std::vector<Light>& World::GetLights() const
+	std::shared_ptr<DirectionalLightComponent> World::GetPrimaryDirectionalLightForEditing() const
 	{
 		C_P(const World);
-		return d->lightInfos;
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		const auto sorted = CollectDirectionalLightComponentsSorted(d->Actors, d->PendingActors);
+		return sorted.empty() ? nullptr : sorted.front();
 	}
 
-	std::vector<Light>& World::GetLights()
+	std::vector<Light> World::GatherLightsForView() const
 	{
-		C_P(World);
-		return d->lightInfos;
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		const auto dirComps = CollectDirectionalLightComponentsSorted(d->Actors, d->PendingActors);
+		std::vector<Light> out;
+		out.reserve(dirComps.size());
+		for (const auto& comp : dirComps)
+			out.push_back(comp->BuildLight());
+		return out;
 	}
 
 	void World::RefreshShadowProjectorForActor(std::shared_ptr<Actor> actor)
@@ -247,5 +385,37 @@ namespace Engine
 		}
 		d->ShadowProjectorCache = found;
 		return found;
+	}
+
+	std::shared_ptr<SkyLightComponent> World::FindPrimarySkyLightComponent() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		auto fromActors = FindBestSkyLightInList(d->Actors);
+		auto fromPending = FindBestSkyLightInList(d->PendingActors);
+		if (!fromActors)
+			return fromPending;
+		if (!fromPending)
+			return fromActors;
+		if (fromActors->GetSortPriority() >= fromPending->GetSortPriority())
+			return fromActors;
+		return fromPending;
+	}
+
+	std::optional<std::wstring> World::ResolvePrimarySkyLightHDRFullPath() const
+	{
+		const auto sl = FindPrimarySkyLightComponent();
+		if (!sl)
+			return std::nullopt;
+		return sl->ResolveHDRFullPath();
+	}
+
+	float World::GetSkyLightIBLScale() const
+	{
+		const auto sl = FindPrimarySkyLightComponent();
+		if (!sl || !sl->IsEnabled() || sl->GetHDRRelativePath().empty())
+			return 0.f;
+		const float i = sl->GetIBLIntensity();
+		return i > 0.f ? i : 0.f;
 	}
 }

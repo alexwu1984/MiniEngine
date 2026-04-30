@@ -1,4 +1,4 @@
-#include "Render/PostProcessor.h"
+﻿#include "Render/PostProcessor.h"
 #include "core/system.h"
 #include <cmath>
 #include "RHI/RHIShdader.h"
@@ -360,6 +360,12 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 		return d->AAType;
+	}
+
+	bool PostProcessor::WantsHaltonProjectionJitterForMainPass() const
+	{
+		C_P(PostProcessor);
+		return d->AAType == EPostProcessorAAType::TAA;
 	}
 
 }

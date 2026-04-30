@@ -42,7 +42,20 @@ set(Engine_Thread_Source
 	Src/Engine/Thread/RenderThread.cpp
 	Src/Engine/Thread/RHISubmissionThread.cpp
 )
-file(GLOB Engine_Scene_Source Src/Engine/Scene/*.cpp)
+# Explicit: GLOB can omit new files until CMake reconfigure (LNK2019).
+set(Engine_Scene_Source
+	Src/Engine/Scene/Actor.cpp
+	Src/Engine/Scene/CameraComponent.cpp
+	Src/Engine/Scene/Component.cpp
+	Src/Engine/Scene/DirectionalLightComponent.cpp
+	Src/Engine/Scene/GameViewportClient.cpp
+	Src/Engine/Scene/GltfActor.cpp
+	Src/Engine/Scene/GltfInputComponent.cpp
+	Src/Engine/Scene/GltfMeshComponent.cpp
+	Src/Engine/Scene/OrbitCamera.cpp
+	Src/Engine/Scene/SkyLightComponent.cpp
+	Src/Engine/Scene/World.cpp
+)
 file(GLOB Engine_GltfModel_Source Src/Engine/GltfModel/*.cpp)
 file(GLOB Engine_ObjModel_Source Src/Engine/ObjModel/*.cpp)
 file(GLOB Engine_Render_Source Src/Engine/Render/*.cpp)

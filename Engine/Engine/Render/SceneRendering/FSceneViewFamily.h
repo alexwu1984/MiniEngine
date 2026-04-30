@@ -10,7 +10,8 @@ namespace Engine
 	{
 		uint32_t RenderSizeX = 0;
 		uint32_t RenderSizeY = 0;
-		bool bUsesTemporalAAProjectionJitter = false;
+		/** Mirrors main view: Halton sub-pixel jitter in VP when post AA requests it (see PostProcessor::WantsHaltonProjectionJitterForMainPass). */
+		bool bHaltonProjectionJitterForMainPass = false;
 		std::vector<FSceneViewData> Views;
 
 		FSceneViewData& PrimaryView();

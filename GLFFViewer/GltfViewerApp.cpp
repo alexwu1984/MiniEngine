@@ -2,6 +2,7 @@
 #include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/World.h"
+#include "Engine/Scene/DirectionalLightComponent.h"
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
@@ -33,8 +34,8 @@ bool GltfViewApp::Init()
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model5.json";
-	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
-	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
+	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 	SelIndex = 0;
 	Scene->LoadScene(ModelFile);
 
@@ -45,7 +46,11 @@ bool GltfViewApp::Init()
 		Camera->SetCameraPos(CameraPos);
 	}
 
-	mDirectLight = Scene->GetLights()[0].Direction;
+	{
+		const auto mergedLights = Scene->GatherLightsForView();
+		if (!mergedLights.empty())
+			mDirectLight = mergedLights[0].Direction;
+	}
 
 	if (Engine::GEngine)
 	{
@@ -58,15 +63,16 @@ bool GltfViewApp::Init()
 		ImGui::SetNextWindowPos(ImVec2(1, 1));
 		if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			auto& Lights = Scene->GetLights();
-			auto& DirectLight = Lights[0];
+			if (const auto dir = Scene->GetPrimaryDirectionalLightForEditing())
+			{
+				ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
+				ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
+				ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
 
-			ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
-			ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
-			ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
-
-			DirectLight.Direction = mDirectLight;
-			DirectLight.Direction.Normalize();
+				mDirectLight.Normalize();
+				dir->SetUseActorForward(false);
+				dir->SetWorldDirection(mDirectLight);
+			}
 
 			ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
 			ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);

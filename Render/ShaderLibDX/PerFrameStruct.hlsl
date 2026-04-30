@@ -53,6 +53,9 @@ struct PerFrame
     int           LightCount;
     int           bUnlit;
     float4        TemporalAAJitter;
+    float         CameraNearZ;
+    float         CameraFarZ;
+    uint2         _PerFramePadBeforeLights;
     Light         Lights[MAX_LIGHT_INSTANCES];
     MaterialPerFrame Material;
 };

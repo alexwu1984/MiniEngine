@@ -49,7 +49,7 @@ namespace Engine
 		math::Matrix4x4     CameraCurrViewProjInverse;
 		math::Matrix4x4     RotateIBL;
 		math::Vector4       CameraPos;
-		float				IBLFactor{ 1.f };
+		float				IBLFactor{ 0.f };
 		float				EmissiveFactor{ 100.f };
 		math::Vector2       InvScreenResolution;
 		math::Vector4       WireframeOptions;
@@ -58,7 +58,11 @@ namespace Engine
 		int32_t				LightCount{ 0 };
 		/** Packed 0/1; mirrors FSceneViewData::bUnlit (UE-style view unlit). */
 		int32_t				bUnlit{ 0 };
-		math::Vector4		TemporalAAJitter{1.f, 1.f, 1.f, 1.f};
+		math::Vector4		TemporalAAJitter{ 1.f, 1.f, 1.f, 1.f };
+		/** Matches deferred fullscreen reconstruct; must stay in sync with PerFrameStruct.hlsl. */
+		float				CameraNearZ{ 0.1f };
+		float				CameraFarZ{ 1000.f };
+		uint32_t			PerFramePadBeforeLights[2]{};
 		Light				Lights[MAX_LIGHT_INSTANCES];
 		MaterialPerFrame	Material;
 	};

@@ -29,6 +29,7 @@
 #include "core/logger.h"
 #include <exception>
 #include <optional>
+#include <string>
 
 using namespace RenderCore;
 
@@ -208,14 +209,6 @@ namespace Engine
 		return d->PostProcess;
 	}
 
-	bool SceneRender::UsesTemporalAAProjectionJitter() const
-	{
-		C_P(const SceneRender);
-		if (!d->PostProcess)
-			return false;
-		return d->PostProcess->GetPostProcessorAAType() == EPostProcessorAAType::TAA;
-	}
-
 	std::shared_ptr<ShadowRenderPass> SceneRender::GetShadowRenderPass() const
 	{
 		C_P(const SceneRender);
@@ -239,13 +232,15 @@ namespace Engine
 		FSceneViewFamily ViewFamily;
 		ViewFamily.RenderSizeX = (uint32_t)d->MainViewPort->GetSize().cx;
 		ViewFamily.RenderSizeY = (uint32_t)d->MainViewPort->GetSize().cy;
-		ViewFamily.bUsesTemporalAAProjectionJitter = UsesTemporalAAProjectionJitter();
+		const bool bHaltonProjJitter = d->PostProcess && d->PostProcess->WantsHaltonProjectionJitterForMainPass();
+		ViewFamily.bHaltonProjectionJitterForMainPass = bHaltonProjJitter;
 		ViewFamily.Views.resize(1);
 		FSceneViewData& Primary = ViewFamily.PrimaryView();
-		std::vector<Light> lightsSnapshot(World->GetLights().begin(), World->GetLights().end());
+		std::vector<Light> lightsSnapshot = World->GatherLightsForView();
 		Primary.BuildFromCamera(*World->GetMainCamera(), std::move(lightsSnapshot), d->DeferredBasePassEnvironmentRotateX, d->DeferredBasePassEnvironmentRotateY,
-								ViewFamily.bUsesTemporalAAProjectionJitter, 0, 0, (int32_t)ViewFamily.RenderSizeX, (int32_t)ViewFamily.RenderSizeY);
+								bHaltonProjJitter, 0, 0, (int32_t)ViewFamily.RenderSizeX, (int32_t)ViewFamily.RenderSizeY);
 		Primary.bUnlit = d->bUnlit;
+		Primary.SkyLightIBLScale = World->GetSkyLightIBLScale();
 
 		auto ViewDataPtr = std::make_shared<FSceneViewData>(Primary);
 		std::shared_ptr<const FSceneViewData> ViewConst = ViewDataPtr;
@@ -268,8 +263,10 @@ namespace Engine
 		if (!RHI)
 			return;
 
+		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
+
 		d->SceneFrameRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
-									 std::move(shadowLights), shadowProjectorScene);
+									 std::move(shadowLights), shadowProjectorScene, std::move(skyLightHdrOverride));
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			[d](DynamicRHI* RHIIn)

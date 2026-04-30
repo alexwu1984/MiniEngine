@@ -8,46 +8,50 @@ namespace Engine
 {
 	RenderThread* GRenderThread = nullptr;
 
-	struct RenderThreadP
+	struct RenderThreadPrivate
 	{
-		std::queue<std::function<void(RenderCore::DynamicRHI*)>> CmdQueue;
-		std::mutex CondLock;
-		std::thread Thread;
-		std::condition_variable Notify;
-		win32::signal WaitForFinish;
-		bool Stop = false;
-		std::thread::id RenderThreadId = {};
-		RenderCore::DynamicRHI* DyRHI = nullptr;
+		std::queue<std::function<void(RenderCore::DynamicRHI*)>> CommandQueue;
+		std::mutex QueueMutex;
+		std::condition_variable QueueWakeup;
+		std::thread WorkerThread;
+		win32::signal DrainWait;
+		bool bStopRequested = false;
+		std::thread::id RecordingThreadId = {};
+		RenderCore::DynamicRHI* OwnerRHI = nullptr;
 	};
 
 	RenderThread::RenderThread(RenderCore::DynamicRHI* DyRHI)
-		:Impl(std::make_unique<RenderThreadP>())
+		: d_ptr(new RenderThreadPrivate())
 	{
 		GRenderThread = this;
-		Impl->DyRHI = DyRHI;
+		C_P(RenderThread);
+		d->OwnerRHI = DyRHI;
 	}
 
 	RenderThread::~RenderThread()
 	{
 		GRenderThread = nullptr;
+		delete d_ptr;
+		d_ptr = nullptr;
 	}
-
 
 	void RenderThread::Start()
 	{
 		LOG(core::log_inf, __FUNCTIONW__);
-		if (!Impl->Thread.joinable())
+		C_P(RenderThread);
+		if (!d->WorkerThread.joinable())
 		{
-			Impl->WaitForFinish.create(true, true);
-			Impl->Thread = std::thread(&RenderThread::Run, this);
-			Impl->Stop = false;
+			d->DrainWait.create(true, true);
+			d->WorkerThread = std::thread(&RenderThread::Run, this);
+			d->bStopRequested = false;
 		}
 	}
 
 	void RenderThread::Stop()
 	{
 		LOG(core::log_inf, __FUNCTIONW__);
-		if (Impl->Thread.joinable())
+		C_P(RenderThread);
+		if (d->WorkerThread.joinable())
 		{
 			// Ensure all queued render commands are executed before stopping.
 			// Otherwise, commands captured by value (e.g. shared_ptr textures/gbuffer)
@@ -57,14 +61,14 @@ namespace Engine
 
 			// Drop any remaining queued commands to release captured resources.
 			{
-				std::unique_lock<std::mutex> lock(Impl->CondLock);
-				while (!Impl->CmdQueue.empty())
-					Impl->CmdQueue.pop();
+				std::unique_lock<std::mutex> lock(d->QueueMutex);
+				while (!d->CommandQueue.empty())
+					d->CommandQueue.pop();
 			}
 
-			Impl->Stop = true;
-			Impl->Notify.notify_one();
-			Impl->Thread.join();
+			d->bStopRequested = true;
+			d->QueueWakeup.notify_one();
+			d->WorkerThread.join();
 		}
 	}
 
@@ -75,29 +79,32 @@ namespace Engine
 			return;
 		}
 
-		if (std::this_thread::get_id() == Impl->RenderThreadId)
+		C_P(RenderThread);
+		if (std::this_thread::get_id() == d->RecordingThreadId)
 		{
-			Fun(Impl->DyRHI);
+			Fun(d->OwnerRHI);
 		}
 		else
 		{
 			{
-				std::unique_lock<std::mutex> lock(Impl->CondLock);
-				Impl->CmdQueue.push(Fun);
+				std::unique_lock<std::mutex> lock(d->QueueMutex);
+				d->CommandQueue.push(std::move(Fun));
 			}
-			Impl->Notify.notify_one();
+			d->QueueWakeup.notify_one();
 		}
 	}
 
 	void RenderThread::WaitForFinish()
 	{
-		Impl->WaitForFinish.wait();
+		C_P(RenderThread);
+		d->DrainWait.wait();
 	}
 
 	void RenderThread::Run()
 	{
-		Impl->RenderThreadId = std::this_thread::get_id();
-		RenderCore::RHI_RegisterRHIRecordingThread(Impl->RenderThreadId);
+		C_P(RenderThread);
+		d->RecordingThreadId = std::this_thread::get_id();
+		RenderCore::RHI_RegisterRHIRecordingThread(d->RecordingThreadId);
 		struct UnregisterRecordingThread
 		{
 			~UnregisterRecordingThread()
@@ -106,44 +113,44 @@ namespace Engine
 			}
 		} UnregisterRecordingOnScopeExit;
 
-		while (!Impl->Stop)
+		while (!d->bStopRequested)
 		{
-			std::queue<std::function<void(RenderCore::DynamicRHI*)>> SwapCmd;
+			std::queue<std::function<void(RenderCore::DynamicRHI*)>> swapQueue;
 			{
-				std::unique_lock<std::mutex> ConLock(Impl->CondLock);
-				Impl->Notify.wait(ConLock, [this]() {
-					return Impl->Stop || !Impl->CmdQueue.empty();
-					});
-				Impl->CmdQueue.swap(SwapCmd);
+				std::unique_lock<std::mutex> lock(d->QueueMutex);
+				d->QueueWakeup.wait(lock, [this]() {
+					return d_ptr->bStopRequested || !d_ptr->CommandQueue.empty();
+				});
+				d->CommandQueue.swap(swapQueue);
 			}
 
-			if (Impl->Stop)
-			{	
-				Impl->WaitForFinish.set();
+			if (d->bStopRequested)
+			{
+				d->DrainWait.set();
 				break;
 			}
 
-			Impl->WaitForFinish.reset();
-			
-			while (!SwapCmd.empty())
+			d->DrainWait.reset();
+
+			while (!swapQueue.empty())
 			{
-				auto& Cmd = SwapCmd.front();
-				if (Cmd)
+				auto& cmd = swapQueue.front();
+				if (cmd)
 				{
-					Cmd(Impl->DyRHI);
+					cmd(d->OwnerRHI);
 				}
-				SwapCmd.pop();
+				swapQueue.pop();
 			}
 
-			Impl->WaitForFinish.set();
+			d->DrainWait.set();
 		}
 	}
 
-	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun,bool wait)
+	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun, bool wait)
 	{
 		if (GRenderThread)
 		{
-			GRenderThread->AppendCommand(fun);
+			GRenderThread->AppendCommand(std::move(fun));
 			if (wait)
 			{
 				GRenderThread->WaitForFinish();

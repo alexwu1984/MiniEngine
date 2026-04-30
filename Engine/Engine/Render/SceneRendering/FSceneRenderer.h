@@ -5,6 +5,8 @@
 #include "Render/Shadow/ShadowMap.h"
 #include "Scene/GltfMeshComponent.h"
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace RenderCore
@@ -31,7 +33,8 @@ namespace Engine
 		void Submit(SceneRender* SceneRenderSelf, SceneRenderPrivate* ResourceState, const FSceneViewFamily& ViewFamily,
 					std::shared_ptr<const FSceneViewData> ViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 					std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
-					std::vector<Light> ShadowPassLights, FShadowProjectorSceneData ShadowProjectorScene);
+					std::vector<Light> ShadowPassLights, FShadowProjectorSceneData ShadowProjectorScene,
+					std::optional<std::wstring> SkyLightHdrFullPathOverride);
 
 		/** Execute the submitted frame on the render thread. No-op if Submit was not called or RHI is null. */
 		void Render(RenderCore::DynamicRHI* RHI);
@@ -47,5 +50,6 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> ShadowFrustumBounds;
 		std::vector<Light> LightsForShadow;
 		FShadowProjectorSceneData ShadowProjectorScene{};
+		std::optional<std::wstring> SkyLightHdrOverrideForFrame{};
 	};
 }

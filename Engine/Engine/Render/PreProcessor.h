@@ -1,6 +1,8 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
+#include <optional>
+#include <string>
 
 namespace RenderCore
 {
@@ -24,6 +26,9 @@ namespace Engine
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
 		std::shared_ptr<FSkyLightIBLPrecompute> GetIBLRender();
+
+		/** Call on render thread before PreProcess::Draw; applies SkyLightComponent HDR or JSON fallback. */
+		void ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath);
 
 	private:
 		PreProcessorPrivate* d_ptr = nullptr;

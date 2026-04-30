@@ -45,6 +45,7 @@ namespace Engine
 		Out.RotateIBL = Rotate;
 		Out.TargetBuffer = TargetBuffer;
 		Out.bUnlit = ViewData->bUnlit;
+		Out.SkyLightIBLScale = ViewData->SkyLightIBLScale;
 		return Out;
 	}
 }

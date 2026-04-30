@@ -41,7 +41,8 @@ namespace Engine
 	void FSceneRenderer::Submit(SceneRender* InSceneRenderSelf, SceneRenderPrivate* InResourceState, const FSceneViewFamily& InViewFamily,
 								std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 								std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
-								std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene)
+								std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene,
+								std::optional<std::wstring> SkyLightHdrFullPathOverride)
 	{
 		SceneRenderSelf = InSceneRenderSelf;
 		ResourceState = InResourceState;
@@ -52,6 +53,7 @@ namespace Engine
 		ShadowFrustumBounds = std::move(shadowFrustumBounds);
 		LightsForShadow = std::move(ShadowPassLights);
 		ShadowProjectorScene = InShadowProjectorScene;
+		SkyLightHdrOverrideForFrame = std::move(SkyLightHdrFullPathOverride);
 		bHasFrame = (SceneRenderSelf != nullptr) && (ResourceState != nullptr) && (ViewData != nullptr);
 	}
 
@@ -78,6 +80,10 @@ namespace Engine
 		std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
 		if (!CommandContext)
 			return;
+
+		if (d->PreProcess)
+			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrOverrideForFrame));
+		SkyLightHdrOverrideForFrame.reset();
 
 		auto MeshesForDraw = std::make_shared<std::vector<GltfSceneMeshInfo>>(std::move(MeshesInfoCopy));
 
@@ -138,15 +144,22 @@ namespace Engine
 			"RenderSky",
 			GBufferIO,
 			GBufferIO,
-			[d, RHI]()
+			[d, RHI, ViewConst]()
 			{
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
 					d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
 					d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-				auto IBL = d->PreProcess->GetIBLRender();
-				auto SkyCube = IBL->GetSkyLightCubemap();
-				d->BackgroundRender->SetTextureCube(SkyCube);
-				d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
+				if (ViewConst && ViewConst->SkyLightIBLScale > 0.f && d->PreProcess)
+				{
+					auto IBL = d->PreProcess->GetIBLRender();
+					auto SkyCube = IBL ? IBL->GetSkyLightCubemap() : nullptr;
+					d->BackgroundRender->SetTextureCube(SkyCube);
+					d->BackgroundRender->Render(*RHI->GetDefaultCommandContext(), Targets, d->TargetBuffer->GetDepth());
+				}
+				else
+				{
+					d->BackgroundRender->SetTextureCube(nullptr);
+				}
 			}});
 
 		Graph.AddPass(FramePassDesc{

@@ -375,7 +375,7 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
     GetIBLContributionSplit(materialInfo, normal, view, iblDiffuse, iblSpecular);
     float NdotVao = saturate(dot(normal, view));
     float specOcc = saturate(pow(NdotVao + ao - 0.0001, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + ao);
-    color += iblDiffuse * ao + iblSpecular * specOcc;
+    color += (iblDiffuse * ao + iblSpecular * specOcc) * perFrame.IBLFactor;
 
 
 #ifndef DEBUG_OUTPUT // no debug

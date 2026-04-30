@@ -39,6 +39,13 @@ namespace Engine
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetSSRBuffer() const;
 		EPostProcessorAAType GetPostProcessorAAType() const;
+
+		/**
+		 * When true, main-pass view-projection matrices should include sub-pixel Halton jitter (TAA path).
+		 * Scene/view setup asks this once per frame; the actual jitter values still come from CameraComponent.
+		 */
+		bool WantsHaltonProjectionJitterForMainPass() const;
+
 	private:
 		void BuildSSRPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,

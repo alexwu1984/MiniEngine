@@ -28,6 +28,8 @@ namespace Engine
 		std::vector< Light> lightInfos;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		bool bUnlit = false;
+		/** Per-view skylight IBL scale (0 = off). */
+		float SkyLightIBLScale = 0.f;
 	};
 
 	class GltfModelConfig;

@@ -39,7 +39,6 @@ namespace Engine
 		void SetIBLRotate(float x, float y);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<PostProcessor> GetPostProcessor() const;
-		bool UsesTemporalAAProjectionJitter() const;
 		std::shared_ptr<ShadowRenderPass> GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 

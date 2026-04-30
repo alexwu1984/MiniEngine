@@ -26,6 +26,8 @@ namespace Engine
 	 
 		math::Matrix4x4 GetPrevProjMatrix() const;
 		math::Matrix4x4 GetProjMatrix() const;
+		float GetNearPlane() const;
+		float GetFarPlane() const;
 		math::Vector4 GetTemporalAAJitter() const;
 
 		void UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up);

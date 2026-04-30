@@ -8,7 +8,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct RenderThreadP;
+	struct RenderThreadPrivate;
 
 	/**
 	 * Executes queued lambdas that record/submit GPU work. Registers the current std::thread::id with
@@ -30,11 +30,11 @@ namespace Engine
 		void Run();
 
 	private:
-		std::unique_ptr<RenderThreadP> Impl;
+		RenderThreadPrivate* d_ptr = nullptr;
 	};
 
 	extern RenderThread* GRenderThread;
 
 
-	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun,bool wait = false);
+	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun, bool wait = false);
 }

@@ -26,6 +26,8 @@ namespace Engine
 		math::Matrix4x4 SsrViewProjMatrix{};
 		math::Matrix4x4 SsrInvViewProjMatrix{};
 		math::Vector3 CameraPos{};
+		float CameraNearZ = 0.1f;
+		float CameraFarZ = 1000.f;
 		math::Vector4 TemporalAAJitter{ 1.f, 1.f, 1.f, 1.f };
 		int32_t FrameIndexMod2 = 0;
 		int32_t FrameIndex = 0;
@@ -33,7 +35,8 @@ namespace Engine
 		std::vector<Light> Lights;
 		float EnvironmentRotatePitchDegrees = 0.f;
 		float EnvironmentRotateYawDegrees = 1.f;
-		bool bUseTemporalAAProjectionJitter = false;
+		/** True when main pass used jittered projection matrices for temporal resolve (driven by post AA policy). */
+		bool bHaltonProjectionJitterForMainPass = false;
 		int32_t ViewRectMinX = 0;
 		int32_t ViewRectMinY = 0;
 		int32_t ViewRectSizeX = 0;
@@ -42,7 +45,10 @@ namespace Engine
 		/** View-wide unlit (UE EngineShowFlags::Unlit style): base color + emissive only, no lit BRDF / IBL. */
 		bool bUnlit = false;
 
-		void BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, float EnvPitchDeg, float EnvYawDeg, bool bTemporalAA,
+		/** 0 = no skylight IBL (UE Skylight off); primary SkyLightComponent drives HDR path and intensity. */
+		float SkyLightIBLScale = 0.f;
+
+		void BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, float EnvPitchDeg, float EnvYawDeg, bool bUseHaltonProjectionJitterInViewMatrices,
 							 int32_t ViewRectX, int32_t ViewRectY, int32_t ViewRectW, int32_t ViewRectH);
 	};
 }

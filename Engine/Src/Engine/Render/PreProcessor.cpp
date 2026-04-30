@@ -1,4 +1,4 @@
-#include "Render/PreProcessor.h"
+﻿#include "Render/PreProcessor.h"
 #include "Render/IBLRender.h"
 #include "RHI/DynamicRHI.h"
 
@@ -49,6 +49,12 @@ namespace Engine
 	{
 		C_P(PreProcessor);
 		return d->GenIBL;
+	}
+
+	void PreProcessor::ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath)
+	{
+		C_P(PreProcessor);
+		d->GenIBL->ResolveAndApplyHDRSource(std::move(componentOverrideFullPath));
 	}
 
 }

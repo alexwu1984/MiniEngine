@@ -122,6 +122,18 @@ namespace Engine
 		return d->ProjMatrix;
 	}
 
+	float CameraComponent::GetNearPlane() const
+	{
+		C_P(const CameraComponent);
+		return d->Near;
+	}
+
+	float CameraComponent::GetFarPlane() const
+	{
+		C_P(const CameraComponent);
+		return d->Far;
+	}
+
 	Vector4 CameraComponent::GetTemporalAAJitter() const
 	{
 		C_P(const CameraComponent);

@@ -10,7 +10,8 @@ cbuffer BloomContants : register(b0)
 {
     float BloomIntensity;
     float BloomThreshold;
-    float2 BloomPad;
+    float PostExposureLinear;
+    float BloomPad;
 };
 
 Texture2D SceneColorTexture : register(t0);
@@ -19,7 +20,7 @@ SamplerState LinearSampler : register(s0);
 
 float ComputeFXAALuma(float3 Color)
 {
-    float3 TonemappedColor = AMDTonemapping(Color);
+    float3 TonemappedColor = ToneMapping(Color * PostExposureLinear);
     return sqrt(saturate(dot(TonemappedColor, float3(0.299, 0.587, 0.114))));
 }
 
@@ -40,14 +41,16 @@ VertexOutput VS_ScreenQuad(in uint VertID : SV_VertexID)
 float4 PS_Tonemapping(in VertexOutput Input) : SV_Target0
 {
     float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
-    return float4(AMDTonemapping(Color), 1.0);
+    Color *= PostExposureLinear;
+    return float4(ToneMapping(Color), 1.0);
 }
 
 float4 PS_ToneMapAndBloom(in VertexOutput Input) : SV_Target0
 {
     float3 Color = SceneColorTexture.Sample(LinearSampler, Input.Tex).xyz;
     float3 Bloom = BloomTexture.Sample(LinearSampler, Input.Tex).xyz;
-    return float4(AMDTonemapping(Color + Bloom * BloomIntensity), 1.0);
+    Color = (Color + Bloom * BloomIntensity) * PostExposureLinear;
+    return float4(ToneMapping(Color), 1.0);
 }
 
 float4 PS_ApplyBloom(in VertexOutput Input) : SV_Target0
@@ -204,7 +207,8 @@ void CS_ExtractBloom(uint3 DispatchThreadID : SV_DispatchThreadID)
     Color.rgb = min(float3(256 * 256, 256 * 256, 256 * 256), Color.rgb);
 	
     half TotalLuminance = Luminance(Color);
-    half BloomLuminance = TotalLuminance - BloomThreshold;
+    half effThreshold = BloomThreshold * PostExposureLinear;
+    half BloomLuminance = TotalLuminance - effThreshold;
     half BloomAmount = saturate(BloomLuminance * 0.5f);
     BloomResult[DispatchThreadID.xy] = BloomAmount * Color;
 }

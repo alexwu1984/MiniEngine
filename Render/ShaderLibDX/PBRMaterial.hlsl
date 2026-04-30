@@ -50,7 +50,8 @@ struct MaterialInfo
 
 // Calculation of the lighting contribution from an optional Image Based Light source.
 
-float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
+// BRDF LUT layout matches IBLRender::GenerateBRDFIntegrationLUT: U = NdotV, V = perceptual roughness.
+void GetIBLContributionSplit(MaterialInfo MaterialInfo, float3 n, float3 v, out float3 outDiffuseIBL, out float3 outSpecularIBL)
 {
     float NdotV = clamp(dot(n, v), 0.0, 1.0);
 
@@ -59,20 +60,23 @@ float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
     float lod = clamp(MaterialInfo.perceptualRoughness * maxMipIndex, 0.0, maxMipIndex);
     float3 reflection = normalize(reflect(-v, n));
     reflection = mul(float4(reflection, 1.0), myPerFrame.RotateIBL).xyz;
-    float Mip = ComputeReflectionCaptureMipFromRoughness(MaterialInfo.perceptualRoughness, maxMipIndex);
-    
-    float2 brdfSamplePoint = clamp(float2(NdotV, Mip), float2(0.0, 0.0), float2(1.0, 1.0));
 
-    float2 BRDF = BrdfLut.Sample(SampleLinear, brdfSamplePoint).rg;
+    float2 brdfUV = clamp(float2(NdotV, MaterialInfo.perceptualRoughness), float2(0.0, 0.0), float2(1.0, 1.0));
+    float2 BRDF = BrdfLut.Sample(SampleLinear, brdfUV).rg;
 
     float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, n).rgb;
-
     float3 SpecularLight = PrefliterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
 
-    float3 Diffuse = DiffuseLight * MaterialInfo.diffuseColor * (1.0 - MaterialInfo.Metallic);
-    float3 Specular = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y) * MaterialInfo.Metallic;
+    // Split-sum IBL: diffuse uses kD * irradiance; spec uses prefilter * (F0 * A + B). F0 already encodes metallic in specularColor.
+    outDiffuseIBL = DiffuseLight * MaterialInfo.diffuseColor;
+    outSpecularIBL = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
+}
 
-    return Diffuse + Specular;
+float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
+{
+    float3 d, s;
+    GetIBLContributionSplit(MaterialInfo, n, v, d, s);
+    return d + s;
 }
 
 // Lambert lighting
@@ -359,13 +363,14 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
         }
     }
 
-    // Calculate lighting contribution from image based lighting source (IBL)
-    color += GetIBLContribution(materialInfo, normal, view);
+    float ao = AoMap.Sample(SampleLinear, Input.UV0).r;
 
-    float ao = 1.0;
-    // Apply optional PBR terms for additional (optional) shading
-    ao = AoMap.Sample(SampleLinear, Input.UV0).r;
-    color = color * ao;
+    // IBL: AO mainly occludes indirect; specular occlusion from NdotV (Lagarde / UE-style approximation).
+    float3 iblDiffuse, iblSpecular;
+    GetIBLContributionSplit(materialInfo, normal, view, iblDiffuse, iblSpecular);
+    float NdotVao = saturate(dot(normal, view));
+    float specOcc = saturate(pow(NdotVao + ao - 0.0001, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + ao);
+    color += iblDiffuse * ao + iblSpecular * specOcc;
 
 
 #ifndef DEBUG_OUTPUT // no debug

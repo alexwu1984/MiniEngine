@@ -1,3 +1,4 @@
+#include "ShaderUtils.hlsl"
 
 RWTexture2D<float4> OutTemporal             : register(u0);
 Texture2D<float4> InColor                   : register(t0);
@@ -50,11 +51,6 @@ static const int2 SampleOffsets[9] =
 
 //------------------------------------------------------- HELP FUNCTIONS
 
-float Luminance(in float3 color)
-{
-    return dot(color, float3(0.25f, 0.50f, 0.25f));
-}
-
 // Faster but less accurate luma computation. 
 // Luma includes a scaling by 4.
 float Luma4(float3 Color)
@@ -70,21 +66,15 @@ float HdrWeight4(float3 Color, float Exposure)
     return rcp(luma * Exposure + 4.0);
 }
 
-float3 ToneMap(float3 color)
+// Same ACES filmic curve as final display (ShaderUtils ACESFilm), linear 0..1; inverse restores linear HDR for accumulation.
+float3 TaaToneCurveFwd(float3 color)
 {
-    // luma weight' tonemap
-    return color / (1 + Luminance(color));
+    return ACESFilm(max(color, 0));
 }
 
-float3 UnToneMap(float3 color)
+float3 TaaToneCurveInv(float3 color)
 {
-    // luma weight' untonemap
-    // Prevent division by zero or near-zero (which causes black pixels/flickering)
-    float luma = Luminance(color);
-    float denom = 1 - luma;
-    // Clamp denominator to prevent division by zero or very small values
-    denom = max(denom, 0.001f);
-    return color / denom;
+    return InverseACESFilmLinear(saturate(color));
 }
 
 float3 RGBToYCoCg(float3 RGB)
@@ -142,7 +132,7 @@ float3 GetCurrentColour(float2 screenST)
     float2 uv = GetUV(screenST);
     float3 colour = InColor.SampleLevel(MinMagLinearMipPointClamp, uv, 0).rgb;
     //float3 colour = InColor[screenST];
-    colour = ToneMap(colour);
+    colour = TaaToneCurveFwd(colour);
     colour = RGBToYCoCg(colour);
     return colour;
 }
@@ -188,7 +178,7 @@ float3 SampleHistory(float2 inHistoryST)
     float3 boxMax = max(max(max(s0, s1), max(s2, s3)), s4);
     history = clamp(history, boxMin, boxMax);
 
-    history = ToneMap(history);
+    history = TaaToneCurveFwd(history);
     history = RGBToYCoCg(history);
     return history;
 }
@@ -425,7 +415,7 @@ void TAA_Main(
     {
         BlendFinal = Feedback;
         float3 centerRgb = YCoCgToRGB(neighborhood[4]);
-        float centerLin = Luminance(UnToneMap(centerRgb));
+        float centerLin = Luminance(TaaToneCurveInv(centerRgb));
         float react = saturate((centerLin - ReactiveLumaThreshold) * ReactiveLumaScale);
         BlendFinal = lerp(BlendFinal, min(BlendFinal + ReactiveBlendAdd, ReactiveBlendMax), react);
         BlendFinal = saturate(BlendFinal);
@@ -438,7 +428,7 @@ void TAA_Main(
     float3 color = Weights.x * prevColor + Weights.y * FilteredColor;
 
     color = YCoCgToRGB(color);
-    color = UnToneMap(color);
+    color = TaaToneCurveInv(color);
     
     OutTemporal[DTid.xy] = float4(color, 1);
 }

@@ -1,5 +1,6 @@
-﻿#include "Render/PostProcessor.h"
+#include "Render/PostProcessor.h"
 #include "core/system.h"
+#include <cmath>
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
@@ -73,6 +74,8 @@ namespace Engine
 		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
 		bool IsResourceInitialized = false;
 		FrameGraphCompileParams RDGCompileParams{};
+		/** EV-style exposure before tonemap / bloom threshold scaling (see Evn.ExposureStops in scene JSON). */
+		float ExposureStops = 0.f;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -113,6 +116,7 @@ namespace Engine
 			RenderTexturePool::Get().ApplyConfigFromJson(Root);
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
+			d->ExposureStops = EvnJson.value("ExposureStops", 0.f);
 
 			EPostProcessorAAType ConfigAAType = d->AAType;
 			if (EvnJson.find("AAType") != EvnJson.end())
@@ -155,7 +159,7 @@ namespace Engine
 		d->FullscreenShaders->InitResource();
 		std::shared_ptr<RHIVertexShader> FullscreenVertexShader = d->FullscreenShaders->GetVertexShader();
 
-		d->Tonemapping = std::make_shared<TonemappingPass>(d->RHI, FullscreenVertexShader);
+		d->Tonemapping = std::make_shared<TonemappingPass>(d->RHI, FullscreenVertexShader, &d->GET_SHADER_STRUCT_MEMBER(BloomContants));
 		d->Tonemapping->InitResource();
 
 		d->ApplyBloom = std::make_shared<ApplyBloomPass>(
@@ -218,6 +222,12 @@ namespace Engine
 		C_P(PostProcessor);
 		if (!ViewData)
 			return;
+
+		{
+			auto& BloomData = d->GET_UNIFORMDATA(BloomContants);
+			BloomData.PostExposureLinear = powf(2.f, d->ExposureStops);
+			d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer();
+		}
 
 		PostProcessPassInputs PassInputs;
 		PassInputs.AntiAliasingColor = TargetBuffer->GetSceneColorWithBloom();

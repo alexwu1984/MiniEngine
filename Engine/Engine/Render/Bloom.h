@@ -18,7 +18,9 @@ namespace Engine
 	BEGIN_SHADER_STRUCT(BloomContants, 0)
 		DECLARE_PARAM_VALUE(float, BloomIntensity, 0.5f)
 		DECLARE_PARAM_VALUE(float, BloomThreshold, 1.0f)
-		DECLARE_PARAM(math::Vector2, pad0)
+		/** exp2(exposure stops): applied to linear scene before tonemap; scales bloom extract threshold (see PostProcess.hlsl). */
+		DECLARE_PARAM_VALUE(float, PostExposureLinear, 1.0f)
+		DECLARE_PARAM_VALUE(float, Pad0, 0.0f)
 		BEGIN_STRUCT_CONSTRUCT(BloomContants)
 		END_STRUCT_CONSTRUCT
 	END_SHADER_STRUCT

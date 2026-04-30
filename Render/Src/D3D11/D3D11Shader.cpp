@@ -1,4 +1,4 @@
-#include "D3D11/D3D11Shader.h"
+﻿#include "D3D11/D3D11Shader.h"
 #include "RHI/RHIDefinitions.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "D3D11/D3D11RHI.h"
@@ -41,11 +41,16 @@ namespace RenderCore
 		d->SharderCode = SharderCode;
 
 		auto Device = d->D3D11RHI->GetDevice();
-		VERIFYD3DRESULT(Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->VertexShader.get_init_ref()));
+		HRESULT hrVS = Device->CreateVertexShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->VertexShader.get_init_ref());
+		VERIFYD3DRESULT(hrVS);
+		if (FAILED(hrVS) || !d->VertexShader.is_valid())
+		{
+			return false;
+		}
 
 		if (VertexDeclare.GetDeclareDesc().empty())
 		{
-			return d->VertexShader.is_valid();
+			return true;
 		}
 
 		return CreateLayout(VertexDeclare.GetDeclareDesc());

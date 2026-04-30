@@ -1,4 +1,4 @@
-﻿#include "Render/PostProcessPass.h"
+#include "Render/PostProcessPass.h"
 #include "core/system.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
@@ -35,9 +35,11 @@ namespace Engine
 		}
 	}
 
-	TonemappingPass::TonemappingPass(RenderCore::DynamicRHI* InRHI, std::shared_ptr<RenderCore::RHIVertexShader> InVertexShader)
+	TonemappingPass::TonemappingPass(RenderCore::DynamicRHI* InRHI, std::shared_ptr<RenderCore::RHIVertexShader> InVertexShader,
+									 BloomContantsWrap* InBloomConstants)
 		: RHI(InRHI)
 		, VertexShader(std::move(InVertexShader))
+		, BloomConstants(InBloomConstants)
 	{
 	}
 
@@ -93,6 +95,11 @@ namespace Engine
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		if (BloomConstants)
+		{
+			BloomConstants->UpdateUniformBuffer();
+			BloomConstants->SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		}
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture());
 		RHIContext.Draw(3);

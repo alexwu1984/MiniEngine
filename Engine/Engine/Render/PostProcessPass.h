@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "core/inc.h"
 #include <string>
 #include "Render/Bloom.h"
@@ -27,7 +27,8 @@ namespace Engine
 	class TonemappingPass
 	{
 	public:
-		TonemappingPass(RenderCore::DynamicRHI* RHI, std::shared_ptr<RenderCore::RHIVertexShader> VertexShader);
+		TonemappingPass(RenderCore::DynamicRHI* RHI, std::shared_ptr<RenderCore::RHIVertexShader> VertexShader,
+						BloomContantsWrap* InBloomConstants);
 
 		void InitResource();
 		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
@@ -43,6 +44,7 @@ namespace Engine
 		RenderCore::DynamicRHI* RHI = nullptr;
 		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
 		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
+		BloomContantsWrap* BloomConstants = nullptr;
 	};
 
 	class SSRPass

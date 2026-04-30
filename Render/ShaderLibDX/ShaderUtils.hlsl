@@ -135,6 +135,31 @@ float3 ACESFilm(float3 color)
 	return saturate((x*(a*x + b)) / (x*(c*x + d) + e));
 }
 
+/** Scalar inverse of ACESFilm (same Knarkowicz curve), for TAA / history in linear HDR. Binary search on [0, hi]. */
+float InverseACESFilmChannel(float y)
+{
+	y = saturate(y);
+	float lo = 0.0;
+	float hi = 64.0;
+	[unroll]
+	for (int i = 0; i < 24; ++i)
+	{
+		float mid = (lo + hi) * 0.5;
+		float xv = 0.8 * mid;
+		float fm = saturate((xv * (2.51 * xv + 0.03)) / (xv * (2.43 * xv + 0.59) + 0.14));
+		if (fm > y)
+			hi = mid;
+		else
+			lo = mid;
+	}
+	return (lo + hi) * 0.5;
+}
+
+float3 InverseACESFilmLinear(float3 y)
+{
+	return float3(InverseACESFilmChannel(y.r), InverseACESFilmChannel(y.g), InverseACESFilmChannel(y.b));
+}
+
 float LinearToSrgbChannel(float lin)
 {
 	// Single expression avoids fxc X4000 "potentially uninitialized" on split if/return paths.

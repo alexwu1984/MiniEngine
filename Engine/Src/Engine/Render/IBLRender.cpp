@@ -1,4 +1,4 @@
-#include "Render/IBLRender.h"
+﻿#include "Render/IBLRender.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 #include "RHI/RHITextureCube.h"
@@ -11,6 +11,7 @@
 #include "Render/MaterialPreFrame.h"
 #include "Render/CubeRender.h"
 #include "Render/FrameGraph.h"
+#include "core/logger.h"
 
 using namespace math;
 using namespace RenderCore;
@@ -210,6 +211,11 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShaderLongLatToCube ? d->VertexShaderLongLatToCube : d->VertexShader;
 		Init.PixelShader = d->PSLongLatToCube;
+		if (!Init.VertexShader || !Init.PixelShader)
+		{
+			core::LOG(core::log_err, L"CaptureSkyLightCubemap skipped: vertex or pixel shader not created.");
+			return;
+		}
 
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
@@ -247,6 +253,11 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->IrrPixelShader;
+		if (!Init.VertexShader || !Init.PixelShader)
+		{
+			core::LOG(core::log_err, L"GenerateDiffuseIrradiance skipped: vertex or pixel shader not created.");
+			return;
+		}
 
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
@@ -287,6 +298,11 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PSGenPrefiltered;
+		if (!Init.VertexShader || !Init.PixelShader)
+		{
+			core::LOG(core::log_err, L"GenerateSpecularPrefilter skipped: vertex or pixel shader not created.");
+			return;
+		}
 
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
@@ -422,6 +438,11 @@ namespace Engine
 		d->IrrPixelShader = d->RHI->RHICreatePixelShader(SkyIblShaderPath, "PS_GenIrradiance", {});
 		d->PSLongLatToCube = d->RHI->RHICreatePixelShader(LongLatShaderPath, "PS_LongLatToCube", {});
 		d->PSGenPrefiltered = d->RHI->RHICreatePixelShader(SkyIblShaderPath, "PS_GenPrefiltered", {});
+		if (!d->VertexShader || !d->VertexShaderLongLatToCube || !d->PSLongLatToCube || !d->IrrPixelShader || !d->PSGenPrefiltered)
+		{
+			core::LOG(core::log_err,
+				L"FSkyLightIBLPrecompute::InitShader failed (missing shader). Check ShaderLibDX next to process_directory() and compile log.");
+		}
 	}
 
 	void FSkyLightIBLPrecompute::RenderCube(RenderCore::RHICommandContext& RHIContext)

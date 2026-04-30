@@ -1,10 +1,9 @@
-﻿#include "Render/SceneRender.h"
+#include "Render/SceneRender.h"
 #include "Render/SceneRenderPrivate.h"
 #include "Scene/World.h"
 #include "RHI/RHICommandContext.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
-#include "Scene/GltfMeshComponent.h"
 #include "RHI/RHIViewPort.h"
 #include "Thread/RenderThread.h"
 #include "Engine.h"
@@ -37,25 +36,6 @@ namespace Engine
 {
 	namespace
 	{
-		static FShadowProjectorSceneData BuildShadowProjectorSceneData(const std::shared_ptr<Actor>& shadowProjector)
-		{
-			FShadowProjectorSceneData out{};
-			if (!shadowProjector)
-				return out;
-			for (const auto& comp : shadowProjector->GetAllComponents())
-			{
-				auto mesh = ComponentCast<GltfMeshComponent>(comp);
-				if (mesh && mesh->IsProjectShadow())
-				{
-					out.bValid = true;
-					out.WorldTransform = shadowProjector->GetWorldTransform();
-					out.ModelLocalAABB = mesh->GetModelBox();
-					return out;
-				}
-			}
-			return out;
-		}
-
 		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FrameGraphCompileParams& Out)
 		{
 			try
@@ -254,8 +234,7 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(PrimitiveGather.ShadowFrustumCullPrimitives);
 
-		std::shared_ptr<Actor> shadowProjector = World->GetShadowProjectorActor();
-		const FShadowProjectorSceneData shadowProjectorScene = BuildShadowProjectorSceneData(shadowProjector);
+		const FShadowProjectorSceneData shadowProjectorScene = World->BuildShadowProjectorAggregateData();
 
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 

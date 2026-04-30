@@ -14,6 +14,10 @@ namespace Engine
 
 		virtual void ProcessInput(const InputDeviceState& State);
 
+		/** When false, LMB drag no longer rotates the owner (e.g. scene uses RoamCamera). JSON can override per actor. */
+		void SetMouseRotateModelEnabled(bool bEnabled);
+		bool GetMouseRotateModelEnabled() const;
+
 	private:
 		GltfDeviceInputComponentPrivate* d_ptr = nullptr;
 	};

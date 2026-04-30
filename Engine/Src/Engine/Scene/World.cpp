@@ -1,10 +1,11 @@
-﻿#include "Scene/World.h"
+#include "Scene/World.h"
 #include "Scene/Actor.h"
 #include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/SkyLightComponent.h"
 #include "Scene/DirectionalLightComponent.h"
+#include "Scene/RoamCameraActor.h"
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
 #include "core/system.h"
@@ -158,6 +159,7 @@ namespace Engine
 
 		mutable bool ShadowProjectorCacheDirty = true;
 		mutable std::weak_ptr<Actor> ShadowProjectorCache;
+		bool bLoadedSceneUsesRoamCamera = false;
 	};
 
 	World::World()
@@ -183,8 +185,23 @@ namespace Engine
 			const auto self = this->shared_from_this();
 
 			nlohmann::json Models = Root["Modles"];
+			bool sceneHasRoam = false;
 			for (const auto& Model : Models)
 			{
+				if (Model.find("RoamCamera") != Model.end() && Model["RoamCamera"].is_object())
+					sceneHasRoam = true;
+			}
+			d->bLoadedSceneUsesRoamCamera = sceneHasRoam;
+
+			for (const auto& Model : Models)
+			{
+				if (Model.find("RoamCamera") != Model.end() && Model["RoamCamera"].is_object())
+				{
+					auto roam = std::make_shared<RoamCameraActor>(self, Model["RoamCamera"]);
+					roam->InitResouce();
+					AddActor(roam);
+					continue;
+				}
 				auto AGltfModel = std::make_shared<Engine::GltfActor>(self, Model);
 				AGltfModel->InitResouce();
 				AddActor(AGltfModel);
@@ -387,6 +404,39 @@ namespace Engine
 		return found;
 	}
 
+	FShadowProjectorSceneData World::BuildShadowProjectorAggregateData() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		FShadowProjectorSceneData out{};
+		math::AABB3 merged{};
+		bool any = false;
+		auto scan = [&](const std::vector<std::shared_ptr<Actor>>& list) {
+			for (const auto& a : list)
+			{
+				if (!a || !a->IsActorPrivateAllocated() || a->GetState() != Actor::EActive)
+					continue;
+				for (const auto& c : a->GetAllComponents())
+				{
+					auto mesh = ComponentCast<GltfMeshComponent>(c);
+					if (!mesh || !mesh->IsProjectShadow())
+						continue;
+					const math::AABB3 wbox = mesh->GetModelBox().Transform(a->GetWorldTransform());
+					merged = any ? merged.MergeAABB(wbox) : wbox;
+					any = true;
+				}
+			}
+		};
+		scan(d->Actors);
+		scan(d->PendingActors);
+		if (!any)
+			return out;
+		out.bValid = true;
+		out.WorldTransform = math::Matrix4x4::ms_Materix3X3WIdentity;
+		out.ModelLocalAABB = merged;
+		return out;
+	}
+
 	std::shared_ptr<SkyLightComponent> World::FindPrimarySkyLightComponent() const
 	{
 		C_P(const World);
@@ -417,5 +467,11 @@ namespace Engine
 			return 0.f;
 		const float i = sl->GetIBLIntensity();
 		return i > 0.f ? i : 0.f;
+	}
+
+	bool World::UsesRoamCameraScene() const
+	{
+		C_P(const World);
+		return d->bLoadedSceneUsesRoamCamera;
 	}
 }

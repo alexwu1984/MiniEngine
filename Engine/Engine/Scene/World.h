@@ -1,7 +1,8 @@
-﻿#pragma once
+#pragma once
 #include "core/inc.h"
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
+#include "Render/Shadow/ShadowMap.h"
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -60,6 +61,9 @@ namespace Engine
 		/** First actor that owns a GltfMeshComponent with project-shadow enabled (same order as scene iteration). */
 		std::shared_ptr<Actor> GetShadowProjectorActor() const;
 
+		/** Union world AABB of every ProjShadow mesh (multi-caster); drives shadow cascade + fallback frustum. */
+		FShadowProjectorSceneData BuildShadowProjectorAggregateData() const;
+
 		/**
 		 * Active skylight for IBL: enabled SkyLightComponent with highest SortPriority (tie: first in iteration).
 		 * Searches Actors and PendingActors. Null if none.
@@ -69,6 +73,9 @@ namespace Engine
 		std::optional<std::wstring> ResolvePrimarySkyLightHDRFullPath() const;
 		/** 0 when no enabled primary skylight or empty HDR; else primary component IBL intensity (clamped >= 0). */
 		float GetSkyLightIBLScale() const;
+
+		/** True if current scene JSON listed a RoamCamera entry (after last LoadScene). */
+		bool UsesRoamCameraScene() const;
 
 	private:
 		WorldPrivate* d_ptr = nullptr;

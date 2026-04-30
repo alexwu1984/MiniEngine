@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -52,7 +52,8 @@ set(Engine_Scene_Source
 	Src/Engine/Scene/GltfActor.cpp
 	Src/Engine/Scene/GltfInputComponent.cpp
 	Src/Engine/Scene/GltfMeshComponent.cpp
-	Src/Engine/Scene/OrbitCamera.cpp
+	Src/Engine/Scene/FreeRoamCameraComponent.cpp
+	Src/Engine/Scene/RoamCameraActor.cpp
 	Src/Engine/Scene/SkyLightComponent.cpp
 	Src/Engine/Scene/World.cpp
 )

@@ -25,15 +25,13 @@ namespace Engine
 
 			auto& child = _Model->nodes[nodeIndex].children;
 			if (child.size() > 0)
-			{
 				CreateModelNodeTree(GroupNode);
 
-				Matrix4x4 Identity;
-
-				DFSNodeTree(GroupNode, Identity);
-
-				_GroupNode.push_back(GroupNode);
-			}
+			// Always DFS each scene root (including leaf roots with a mesh). Skipping leaf roots left their
+			// subtrees outside _GroupNode so world transforms never matched other exporters' layouts.
+			Matrix4x4 Identity;
+			DFSNodeTree(GroupNode, Identity);
+			_GroupNode.push_back(GroupNode);
 		}
 	}
 

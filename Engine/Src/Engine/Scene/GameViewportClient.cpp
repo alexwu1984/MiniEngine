@@ -1,7 +1,9 @@
-﻿#include "Scene/GameViewportClient.h"
+#include "Scene/GameViewportClient.h"
 #include "Scene/World.h"
+#include "Scene/DeviceInputState.h"
 #include "App/AppWindow.h"
 #include "Engine.h"
+#include "win/win32.h"
 
 namespace Engine
 {
@@ -59,6 +61,19 @@ namespace Engine
 			InputState.DeltaTime = DeltaTime;
 			World->DispatchInput(InputState);
 			TmpInputState.pop();
+		}
+
+		{
+			InputDeviceState KeyFrame{};
+			KeyFrame.Device = DeviceType::KeyboardFrame;
+			KeyFrame.DeltaTime = DeltaTime;
+			KeyFrame.Keyboard.bW = (::GetAsyncKeyState('W') & 0x8000) != 0;
+			KeyFrame.Keyboard.bA = (::GetAsyncKeyState('A') & 0x8000) != 0;
+			KeyFrame.Keyboard.bS = (::GetAsyncKeyState('S') & 0x8000) != 0;
+			KeyFrame.Keyboard.bD = (::GetAsyncKeyState('D') & 0x8000) != 0;
+			KeyFrame.Keyboard.bSpace = (::GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
+			KeyFrame.Keyboard.bCtrl = (::GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+			World->DispatchInput(KeyFrame);
 		}
 
 		World->TickSimulation(DeltaTime);

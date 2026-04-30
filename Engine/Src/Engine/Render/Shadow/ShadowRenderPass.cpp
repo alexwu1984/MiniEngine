@@ -70,7 +70,7 @@ namespace Engine
 		d->bCachedMainLightValid = false;
 		d->ShadowMgr->Update(Lights, ShadowProjectorScene);
 
-		if (!ShadowProjectorScene.bValid)
+		if (ShadowCasterMeshes.empty() && !ShadowProjectorScene.bValid)
 			return;
 
 		const std::vector<GltfSceneMeshInfo>& boundsMeshes = FrustumBoundsMeshes.empty() ? ShadowCasterMeshes : FrustumBoundsMeshes;

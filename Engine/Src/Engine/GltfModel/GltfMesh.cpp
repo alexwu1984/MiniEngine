@@ -5,10 +5,40 @@
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfSkeleton.h"
 #include "math/matrix4x4.h"
+#include "tinygltf/tiny_gltf.h"
+#include <algorithm>
 
 namespace Engine
 {
 	using namespace math;
+
+	namespace
+	{
+		void DfsCollectNodesWithMesh(const tinygltf::Model& model, int nodeIdx, int meshIndex, std::vector<int>& outOrdered)
+		{
+			if (nodeIdx < 0 || nodeIdx >= static_cast<int>(model.nodes.size()))
+				return;
+			const tinygltf::Node& n = model.nodes[nodeIdx];
+			if (n.mesh == meshIndex)
+				outOrdered.push_back(nodeIdx);
+			for (int c : n.children)
+				DfsCollectNodesWithMesh(model, c, meshIndex, outOrdered);
+		}
+
+		/** Node indices that reference meshIndex, in depth-first scene order (matches typical primitive order better than node-array index). */
+		void CollectMeshNodesSceneOrder(const tinygltf::Model& model, int meshIndex, std::vector<int>& outOrdered)
+		{
+			outOrdered.clear();
+			int sceneIdx = model.defaultScene;
+			if (sceneIdx < 0 || sceneIdx >= static_cast<int>(model.scenes.size()))
+				sceneIdx = 0;
+			if (sceneIdx < 0 || sceneIdx >= static_cast<int>(model.scenes.size()))
+				return;
+			const tinygltf::Scene& sc = model.scenes[sceneIdx];
+			for (int root : sc.nodes)
+				DfsCollectNodesWithMesh(model, root, meshIndex, outOrdered);
+		}
+	}
 	
 	struct GltfMeshPrivate
 	{
@@ -32,6 +62,8 @@ namespace Engine
 		std::shared_ptr<Vector3> BlendVerts;
 		std::shared_ptr<Vector3> BlendNormals;
 		std::shared_ptr<Vector4> BlendTangents;
+		/** When JOINTS_0 is u8/u32, we store a converted copy (GPU path expects u16 indices). */
+		std::shared_ptr<VertexBoneID> OwnedConvertedJointIds;
 	};
 
 	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
@@ -107,7 +139,36 @@ namespace Engine
 			}
 			else if (attribute.first == "JOINTS_0")
 			{
-				d->Mesh->BoneIDs = (VertexBoneID*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+				int jointCompType = 0;
+				void* rawJoints = Getdata(attribute.second, d->Mesh->nNumVertices, jointCompType);
+				const uint32_t nv = d->Mesh->nNumVertices;
+				if (jointCompType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE || jointCompType == TINYGLTF_COMPONENT_TYPE_BYTE)
+				{
+					const auto* src = static_cast<const uint8_t*>(rawJoints);
+					d->OwnedConvertedJointIds.reset(new VertexBoneID[nv], [](VertexBoneID* p) { delete[] p; });
+					for (uint32_t vi = 0; vi < nv; ++vi)
+					{
+						for (int k = 0; k < 4; ++k)
+							d->OwnedConvertedJointIds.get()[vi].BoneIDs[k] = static_cast<uint16_t>(src[vi * 4u + static_cast<uint32_t>(k)]);
+					}
+					d->Mesh->BoneIDs = d->OwnedConvertedJointIds.get();
+				}
+				else if (jointCompType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT || jointCompType == TINYGLTF_COMPONENT_TYPE_INT)
+				{
+					const auto* src = static_cast<const uint32_t*>(rawJoints);
+					d->OwnedConvertedJointIds.reset(new VertexBoneID[nv], [](VertexBoneID* p) { delete[] p; });
+					for (uint32_t vi = 0; vi < nv; ++vi)
+					{
+						for (int k = 0; k < 4; ++k)
+							d->OwnedConvertedJointIds.get()[vi].BoneIDs[k] = static_cast<uint16_t>(src[vi * 4u + static_cast<uint32_t>(k)]);
+					}
+					d->Mesh->BoneIDs = d->OwnedConvertedJointIds.get();
+				}
+				else
+				{
+					// UNSIGNED_SHORT / SHORT: 4 joints x 16-bit matches VertexBoneID layout
+					d->Mesh->BoneIDs = static_cast<VertexBoneID*>(rawJoints);
+				}
 			}
 			else if (attribute.first == "WEIGHTS_0")
 			{
@@ -164,22 +225,57 @@ namespace Engine
 		d->Material = ModelMatrial[nMaterial];
 
 		auto& Nodes = d->Model->nodes;
-		for (int i = 0; i < Nodes.size(); i++)
+		d->NodeID = -1;
+		d->SkinID = -1;
+		const bool primitiveSkinned = (d->Mesh->BoneWeights != nullptr);
+		const size_t primCount = d->Model->meshes[MeshIndex].primitives.size();
+
+		std::vector<int> allMeshNodes;
+		CollectMeshNodesSceneOrder(*d->Model, static_cast<int>(MeshIndex), allMeshNodes);
+		if (allMeshNodes.empty())
 		{
-			if (Nodes[i].mesh == MeshIndex)
+			allMeshNodes.reserve(Nodes.size());
+			for (int i = 0; i < (int)Nodes.size(); ++i)
 			{
-				d->NodeID = i;
-				d->SkinID = Nodes[i].skin;
-
-				auto& AllNodeInfos = ModelNode->GetAllNodes();
-				if (d->NodeID < AllNodeInfos.size())
-				{
-					d->MeshMat = AllNodeInfos[d->NodeID]->FinalMeshMat;
-				}
-
-				break;
+				if (Nodes[i].mesh == (int)MeshIndex)
+					allMeshNodes.push_back(i);
 			}
+		}
 
+		std::vector<int> pickFrom = allMeshNodes;
+		if (primitiveSkinned)
+		{
+			std::vector<int> skinnedNodes;
+			for (int id : allMeshNodes)
+			{
+				if (Nodes[id].skin >= 0)
+					skinnedNodes.push_back(id);
+			}
+			if (!skinnedNodes.empty())
+				pickFrom = std::move(skinnedNodes);
+		}
+
+		if (!pickFrom.empty())
+		{
+			size_t pickIx = 0;
+			if (pickFrom.size() == primCount)
+				pickIx = PrimitiveIndex;
+			else if (pickFrom.size() == 1)
+				pickIx = 0;
+			else
+				pickIx = (std::min)(static_cast<size_t>(PrimitiveIndex), pickFrom.size() - 1);
+
+			d->NodeID = pickFrom[pickIx];
+			d->SkinID = Nodes[d->NodeID].skin;
+			if (primitiveSkinned && d->SkinID < 0 && d->Model->skins.size() == 1)
+				d->SkinID = 0;
+		}
+
+		if (d->NodeID >= 0)
+		{
+			auto& AllNodeInfos = ModelNode->GetAllNodes();
+			if (d->NodeID < (int)AllNodeInfos.size())
+				d->MeshMat = AllNodeInfos[d->NodeID]->FinalMeshMat;
 		}
 
 		d->MeshBuffer->InitMesh(d->Mesh);

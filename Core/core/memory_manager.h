@@ -1,6 +1,16 @@
 ﻿#pragma once
 #pragma warning(disable:4595)
 
+#include <cstddef>
+#include <new>
+#include "FMallocAnsi.h"
+
+#ifndef __STDCPP_DEFAULT_NEW_ALIGNMENT__
+#define MINENG_STD_NEW_ALIGNMENT 16
+#else
+#define MINENG_STD_NEW_ALIGNMENT __STDCPP_DEFAULT_NEW_ALIGNMENT__
+#endif
+
 namespace win32
 {
 	template< class T > inline T Align(const T Ptr, size_t Alignment)
@@ -170,7 +180,7 @@ inline void* operator new(size_t uiSize)
 #ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(uiSize, 0, false);
 #else
-	return malloc(uiSize);
+	return FMemory::Malloc(uiSize, 0);
 #endif
 }
 inline void* operator new[](size_t uiSize)
@@ -178,7 +188,7 @@ inline void* operator new[](size_t uiSize)
 #ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(uiSize, 0, true);
 #else
-	return malloc(uiSize);
+	return FMemory::Malloc(uiSize, 0);
 #endif
 }
 
@@ -187,7 +197,7 @@ inline void* __cdecl operator new(size_t _Size, const std::nothrow_t&) noexcept
 #ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(_Size, 0, false);
 #else
-	return malloc(_Size);
+	return FMemory::Malloc(_Size, 0);
 #endif
 }
 
@@ -196,23 +206,121 @@ inline void* __cdecl operator new[](size_t _Size, const std::nothrow_t&) noexcep
 #ifdef _DEBUG
 	return win32::memory_object::GetMemManager().Allocate(_Size, 0, true);
 #else
-	return malloc(_Size);
+	return FMemory::Malloc(_Size, 0);
 #endif
 }
 
-inline void operator delete(void* pvAddr)
+inline void operator delete(void* pvAddr) noexcept
 {
 #ifdef _DEBUG
-	return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, false);
+	win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, false);
 #else
-	free(pvAddr);
+	FMemory::Free(pvAddr, 0);
 #endif
 }
-inline void operator delete[](void* pvAddr)
+inline void operator delete[](void* pvAddr) noexcept
 {
 #ifdef _DEBUG
-	return win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, true);
+	win32::memory_object::GetMemManager().Deallocate((char*)pvAddr, 0, true);
 #else
-	free(pvAddr);
+	FMemory::Free(pvAddr, 0);
 #endif
+}
+
+inline void* operator new(size_t size, std::align_val_t alignment)
+{
+	const size_t align = (size_t)alignment;
+#ifdef _DEBUG
+	return win32::memory_object::GetMemManager().Allocate(size, align, false);
+#else
+	if (align <= (size_t)MINENG_STD_NEW_ALIGNMENT)
+		return FMemory::Malloc(size, 0);
+	return FMemory::Malloc(size, (uint32_t)align);
+#endif
+}
+
+inline void* operator new[](size_t size, std::align_val_t alignment)
+{
+	const size_t align = (size_t)alignment;
+#ifdef _DEBUG
+	return win32::memory_object::GetMemManager().Allocate(size, align, true);
+#else
+	if (align <= (size_t)MINENG_STD_NEW_ALIGNMENT)
+		return FMemory::Malloc(size, 0);
+	return FMemory::Malloc(size, (uint32_t)align);
+#endif
+}
+
+inline void* operator new(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+	try
+	{
+		return operator new(size, alignment);
+	}
+	catch (...)
+	{
+		return nullptr;
+	}
+}
+
+inline void* operator new[](size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+	try
+	{
+		return operator new[](size, alignment);
+	}
+	catch (...)
+	{
+		return nullptr;
+	}
+}
+
+inline void operator delete(void* block, std::align_val_t alignment) noexcept
+{
+	if (!block)
+		return;
+	const size_t align = (size_t)alignment;
+#ifdef _DEBUG
+	win32::memory_object::GetMemManager().Deallocate((char*)block, align, false);
+#else
+	if (align <= (size_t)MINENG_STD_NEW_ALIGNMENT)
+		FMemory::Free(block, 0);
+	else
+		FMemory::Free(block, (uint32_t)align);
+#endif
+}
+
+inline void operator delete[](void* block, std::align_val_t alignment) noexcept
+{
+	if (!block)
+		return;
+	const size_t align = (size_t)alignment;
+#ifdef _DEBUG
+	win32::memory_object::GetMemManager().Deallocate((char*)block, align, true);
+#else
+	if (align <= (size_t)MINENG_STD_NEW_ALIGNMENT)
+		FMemory::Free(block, 0);
+	else
+		FMemory::Free(block, (uint32_t)align);
+#endif
+}
+
+inline void operator delete(void* block, size_t, std::align_val_t alignment) noexcept
+{
+	operator delete(block, alignment);
+}
+
+inline void operator delete[](void* block, size_t, std::align_val_t alignment) noexcept
+{
+	operator delete[](block, alignment);
+}
+
+inline void operator delete(void* block, size_t) noexcept
+{
+	operator delete(block);
+}
+
+inline void operator delete[](void* block, size_t) noexcept
+{
+	operator delete[](block);
 }

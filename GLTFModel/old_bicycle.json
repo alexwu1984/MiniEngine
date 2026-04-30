@@ -45,7 +45,7 @@
         "Metallic": 1.0
       },
       "MainCamera": true,
-      "ProjShadow": false
+      "ProjShadow": true
     }
   ],
   "Tonemapping": {

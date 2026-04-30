@@ -32,12 +32,26 @@ namespace Engine
 	{
 		NoDevice = 0,
 		Mouse,
+		/** Once per frame after mouse queue; used for WASD / modifier keys (see GameViewportClient). */
+		KeyboardFrame,
+	};
+
+	/** Snapshot for one tick; filled by GameViewportClient using GetAsyncKeyState. */
+	struct KeyboardFrameInput
+	{
+		bool bW = false;
+		bool bA = false;
+		bool bS = false;
+		bool bD = false;
+		bool bSpace = false;
+		bool bCtrl = false;
 	};
 
 	struct InputDeviceState
 	{
 		DeviceType Device = NoDevice;
 		MouseInput MouseInputState;
+		KeyboardFrameInput Keyboard;
 		float DeltaTime{ 0 };
 	};
 }

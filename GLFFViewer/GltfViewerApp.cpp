@@ -32,9 +32,9 @@ bool GltfViewApp::Init()
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/BS_Model5.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model1.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model2.json";
-	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
+	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model3.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model5.json";
-	std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
+	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/old_bicycle.json";
 	//std::wstring ModelFile = Path.wstring() + L"/GLTFModel/Model4.json";
 	SelIndex = 0;
 	Scene->LoadScene(ModelFile);

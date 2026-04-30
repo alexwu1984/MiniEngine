@@ -1,4 +1,4 @@
-{
+﻿{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
@@ -34,16 +34,35 @@
           "Roughness": 0.62,
           "BaseColor": "0.65,0.68,0.72,1.0"
         }
-      }
+      },
+      "ProjShadow": true
     },
     {
       "Model": "Model3.glb",
       "Scale": 1.0,
+      "Position": "-0.72,0.0,-2.2",
       "Material": {
         "Metallic": 1.0
       },
-      "MainCamera": true,
       "ProjShadow": true
+    },
+    {
+      "Model": "Model2.glb",
+      "Scale": 0.5,
+      "Position": "0.72,0.22,-2.2",
+      "Material": {
+        "Metallic": 1.0
+      },
+      "ProjShadow": true
+    },
+    {
+      "RoamCamera": {
+        "Position": "0,1.65,2.55",
+        "LookAt": "0,0.55,-2.2",
+        "MainCamera": true,
+        "MoveSpeed": 6.0,
+        "LookSensitivity": 0.12
+      }
     }
   ],
   "Tonemapping": {

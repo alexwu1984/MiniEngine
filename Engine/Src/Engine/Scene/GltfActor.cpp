@@ -1,5 +1,5 @@
-﻿#include "Scene/GltfActor.h"
-#include "Scene/OrbitCamera.h"
+#include "Scene/GltfActor.h"
+#include "Scene/CameraComponent.h"
 #include "Scene/GltfMeshComponent.h"
 #include "Scene/GltfInputComponent.h"
 #include "Scene/World.h"
@@ -84,6 +84,12 @@ namespace Engine
 
 		d->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
 		d->InputComp->InitResource();
+		{
+			bool bMouseRotateModel = !GetWorld()->UsesRoamCameraScene();
+			if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
+				bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
+			d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+		}
 		AddComponent(d->InputComp);
 	}
 

@@ -1,7 +1,33 @@
 ﻿#include "win/win32.h"
 #include "memory_manager.h"
+#include "core/FMallocAnsi.h"
 #include "core/system.h"
 #include <DbgHelp.h>
+
+FMallocAnsi& FMallocAnsi::Get()
+{
+	static FMallocAnsi Instance;
+	return Instance;
+}
+
+void* FMallocAnsi::Malloc(size_t Size, uint32_t Alignment)
+{
+	if (Size == 0)
+		return nullptr;
+	if (Alignment == 0)
+		return malloc(Size);
+	return _aligned_malloc(Size, Alignment);
+}
+
+void FMallocAnsi::Free(void* Ptr, uint32_t Alignment)
+{
+	if (!Ptr)
+		return;
+	if (Alignment == 0)
+		free(Ptr);
+	else
+		_aligned_free(Ptr);
+}
 
 namespace win32
 {
@@ -61,29 +87,13 @@ namespace win32
 	void* win32::ascii_memory::Allocate(size_t uiSize, size_t uiAlignment, bool bIsArray)
 	{
 		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
-		if (uiAlignment == 0)
-		{
-			return malloc(uiSize);
-
-		}
-		else
-		{
-			return _aligned_malloc(uiSize, uiAlignment);
-		}
-		return NULL;
+		return FMallocAnsi::Get().Malloc(uiSize, (uint32_t)uiAlignment);
 	}
 
 	void win32::ascii_memory::Deallocate(char* pcAddr, size_t uiAlignment, bool bIsArray)
 	{
 		std::lock_guard<std::recursive_mutex> Temp(s_MemLock);
-		if (uiAlignment == 0)
-		{
-			free(pcAddr);
-		}
-		else
-		{
-			_aligned_free(pcAddr);
-		}
+		FMallocAnsi::Get().Free(pcAddr, (uint32_t)uiAlignment);
 	}
 
 	memory_object::memory_object()
@@ -148,11 +158,14 @@ namespace win32
 
 		size_t uiExtendedSize = sizeof(Block) + sizeof(unsigned int) + uiSize + sizeof(unsigned int);
 
-		char* pcAddr = (char*)memory_object::GetAsciiManager().Allocate(uiExtendedSize, uiAlignment, bIsArray);
+		// UE-style FMallocAnsi backing; avoids nesting another allocator under the same lock.
+		void* raw = FMallocAnsi::Get().Malloc(uiExtendedSize, (uint32_t)uiAlignment);
 
+		char* pcAddr = (char*)raw;
 		assert(pcAddr);
 
 		Block* pBlock = (Block*)pcAddr;
+		::new (static_cast<void*>(pBlock)) Block();
 		pBlock->m_uiSize = uiSize;
 		pBlock->m_bIsArray = bIsArray;
 
@@ -243,7 +256,7 @@ namespace win32
 		m_uiNumBlocks--;
 		m_uiNumBytes -= pBlock->m_uiSize;
 
-		memory_object::GetAsciiManager().Deallocate(pcAddr, uiAlignment, bIsArray);
+		FMallocAnsi::Get().Free(pBlock, pBlock->m_bAlignment ? (uint32_t)uiAlignment : 0u);
 	}
 
 	void debug_memory::InsertBlock(Block* pBlock)
@@ -352,8 +365,11 @@ namespace win32
 		{
 			Block* Temp = pBlock;
 			pBlock = pBlock->m_pNext;
-			free((void*)Temp);
+			// Alignment flag only distinguishes malloc vs _aligned_malloc; value is unused by Free.
+			FMallocAnsi::Get().Free(Temp, Temp->m_bAlignment ? 1u : 0u);
 		}
+		m_pHead = nullptr;
+		m_pTail = nullptr;
 	}
 
 	void debug_memory::PrintInfo()

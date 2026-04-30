@@ -190,11 +190,21 @@ namespace Engine
 		C_P(GltfMeshComponent);
 		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
-			auto& RootNodes = GM->GetSkeleton()->GetRootNode();
+			auto Skel = GM->GetSkeleton();
+			if (!Skel)
+				return;
+			// Every skin joint tree root must receive the actor world matrix.
+			// Models with multiple roots (e.g. body + fur/secondary skin) previously only updated [0],
+			// leaving other roots at identity → meshes skinned to those bones appear detached or culled.
+			auto& RootNodes = Skel->GetRootNode();
 			if (!RootNodes.empty())
 			{
-				math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
-				RootNodes[0]->ParentMat = WorldTransform;
+				const math::Matrix4x4 WorldTransform = GetOwner()->GetWorldTransform();
+				for (const auto& Root : RootNodes)
+				{
+					if (Root)
+						Root->ParentMat = WorldTransform;
+				}
 			}
 		}
 

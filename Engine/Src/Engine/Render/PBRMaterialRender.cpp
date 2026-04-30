@@ -1,4 +1,4 @@
-#include "Engine/Render/PBRMaterialRender.h"
+﻿#include "Engine/Render/PBRMaterialRender.h"
 #include "Engine.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -168,6 +168,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.TemporalAAJitter = d->RenderParam.TemporalAAJitter;
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)d->RenderParam.lightInfos.size();
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.bUnlit = d->RenderParam.bUnlit ? 1 : 0;
 		for (int32_t index = 0; index < (int32_t)d->RenderParam.lightInfos.size(); ++index)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = d->RenderParam.lightInfos[index];

@@ -27,6 +27,7 @@
 #include "Render/SceneRendering/FSceneViewFamily.h"
 #include "Render/SceneRendering/FSceneRenderer.h"
 #include "core/logger.h"
+#include <exception>
 #include <optional>
 
 using namespace RenderCore;
@@ -139,6 +140,18 @@ namespace Engine
 		C_P(SceneRender);
 		ApplyRDGCompileParamsFromJson(Root, d->RDGCompileParams);
 		RenderTexturePool::Get().ApplyConfigFromJson(Root);
+		try
+		{
+			const auto EvnIt = Root.find("Evn");
+			if (EvnIt != Root.end() && EvnIt->is_object())
+			{
+				const auto& Evn = *EvnIt;
+				d->bUnlit = Evn.value("Unlit", Evn.value("ForceUnlit", Evn.value("UnlitView", false)));
+			}
+		}
+		catch (const std::exception&)
+		{
+		}
 		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root](RenderCore::DynamicRHI* RHI) {
 			if (d->PreProcess)
 				d->PreProcess->LoadConfig(Root);
@@ -232,6 +245,7 @@ namespace Engine
 		std::vector<Light> lightsSnapshot(World->GetLights().begin(), World->GetLights().end());
 		Primary.BuildFromCamera(*World->GetMainCamera(), std::move(lightsSnapshot), d->DeferredBasePassEnvironmentRotateX, d->DeferredBasePassEnvironmentRotateY,
 								ViewFamily.bUsesTemporalAAProjectionJitter, 0, 0, (int32_t)ViewFamily.RenderSizeX, (int32_t)ViewFamily.RenderSizeY);
+		Primary.bUnlit = d->bUnlit;
 
 		auto ViewDataPtr = std::make_shared<FSceneViewData>(Primary);
 		std::shared_ptr<const FSceneViewData> ViewConst = ViewDataPtr;

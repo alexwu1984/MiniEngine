@@ -310,6 +310,11 @@ float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diff
 #ifdef MATERIAL_UNLIT
         return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb;
 #endif
+    if (perFrame.bUnlit != 0)
+    {
+        float3 em = EmissMap.Sample(SampleLinear, Input.UV0).rgb;
+        return AlbedoMap.Sample(SampleLinear, Input.UV0).rgb + em;
+    }
 
     // Roughness is authored as perceptual roughness; as is convention,
     // convert to material roughness by squaring the perceptual roughness [2].

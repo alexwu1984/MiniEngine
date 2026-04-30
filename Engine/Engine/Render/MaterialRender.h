@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/MaterialPreFrame.h"
 #include "tinygltf/json.h"
 
@@ -27,6 +27,7 @@ namespace Engine
 		std::weak_ptr<PreProcessor> preProcessor;
 		std::vector< Light> lightInfos;
 		std::shared_ptr<GBuffer> TargetBuffer;
+		bool bUnlit = false;
 	};
 
 	class GltfModelConfig;

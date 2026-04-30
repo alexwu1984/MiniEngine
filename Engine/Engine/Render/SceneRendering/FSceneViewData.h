@@ -39,6 +39,9 @@ namespace Engine
 		int32_t ViewRectSizeX = 0;
 		int32_t ViewRectSizeY = 0;
 
+		/** View-wide unlit (UE EngineShowFlags::Unlit style): base color + emissive only, no lit BRDF / IBL. */
+		bool bUnlit = false;
+
 		void BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, float EnvPitchDeg, float EnvYawDeg, bool bTemporalAA,
 							 int32_t ViewRectX, int32_t ViewRectY, int32_t ViewRectW, int32_t ViewRectH);
 	};

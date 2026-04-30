@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/FSceneMaterialShaderParameters.h"
+﻿#include "Render/SceneRendering/FSceneMaterialShaderParameters.h"
 #include "Render/SceneRender.h"
 #include "Render/SceneRendering/FSceneViewData.h"
 #include "Render/Shadow/ShadowRenderPass.h"
@@ -44,6 +44,7 @@ namespace Engine
 		Rotate *= math::Matrix4x4::RotateY(math::Radians(ViewData->EnvironmentRotateYawDegrees));
 		Out.RotateIBL = Rotate;
 		Out.TargetBuffer = TargetBuffer;
+		Out.bUnlit = ViewData->bUnlit;
 		return Out;
 	}
 }

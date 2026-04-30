@@ -442,7 +442,7 @@ namespace RenderCore
 
 	void FD3D12FastConstantAllocator::Destroy()
 	{
-		if (Buffer)
+		if (Buffer || !RetiredConstantBuffers.empty())
 		{
 			if (auto Adapter = TryGetParentAdapter())
 			{
@@ -456,8 +456,17 @@ namespace RenderCore
 					Dev->BlockUntilIdle();
 				}
 			}
-			Buffer->Unmap();
-			Buffer.reset();
+			for (FD3D12ResourceUniquePtr& Ret : RetiredConstantBuffers)
+			{
+				if (Ret)
+					Ret->Unmap();
+			}
+			RetiredConstantBuffers.clear();
+			if (Buffer)
+			{
+				Buffer->Unmap();
+				Buffer.reset();
+			}
 		}
 		PageSizeBytes = 0;
 		Ring.Reset(0);
@@ -482,8 +491,9 @@ namespace RenderCore
 		if (!Adapter || PageSizeBytes == 0)
 			return false;
 
-		// The transient ring backs root CBVs / copies. Growing frees the ID3D12Resource while a list may
-		// still reference it (#921). Flush + idle before release (frame-fence alone is insufficient).
+		// The transient ring backs root CBVs / copies. Growing must not invalidate existing GPU VAs
+		// held by D3D12UniformBuffer until those buffers reallocate (#921). Flush + idle so the GPU
+		// finishes with the old resource, then retire the backing instead of releasing it.
 		if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
 		{
 			D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
@@ -495,10 +505,7 @@ namespace RenderCore
 		}
 
 		if (Buffer)
-		{
-			Buffer->Unmap();
-			Buffer.reset();
-		}
+			RetiredConstantBuffers.push_back(std::move(Buffer));
 
 		D3D12_HEAP_PROPERTIES HeapProps = {};
 		HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;

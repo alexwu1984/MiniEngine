@@ -124,6 +124,9 @@ namespace RenderCore
 		uint32_t InitialPageBytesRequested = 0;
 		uint64_t PageSizeBytes = 0;
 		FD3D12ResourceUniquePtr Buffer;
+		// Previous ring backing resources kept alive after grow. Uniform buffers may still hold
+		// GPU VAs into these allocations until the app calls UpdateUniformBuffer again (#921).
+		std::vector<FD3D12ResourceUniquePtr> RetiredConstantBuffers;
 		FD3D12AbstractRingBuffer Ring;
 	};
 

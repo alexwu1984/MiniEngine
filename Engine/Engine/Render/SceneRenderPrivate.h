@@ -36,6 +36,8 @@ namespace Engine
 		float DeferredBasePassEnvironmentRotateX = 0.f;
 		float DeferredBasePassEnvironmentRotateY = 1.f;
 
+		bool bUnlit = false;
+
 		FSceneRenderer SceneFrameRenderer;
 	};
 }

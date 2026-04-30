@@ -51,7 +51,7 @@ struct PerFrame
     float         LodBias;
     float         IBLMIpCount;
     int           LightCount;
-    int           Padding;
+    int           bUnlit;
     float4        TemporalAAJitter;
     Light         Lights[MAX_LIGHT_INSTANCES];
     MaterialPerFrame Material;

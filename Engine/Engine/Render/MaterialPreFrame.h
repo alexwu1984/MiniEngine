@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "math/matrix4x4.h"
 #include "math/vector2.h"
@@ -56,7 +56,8 @@ namespace Engine
 		float				LodBias{ 0.f };
 		float				IBLMIpCount{ 1.f };
 		int32_t				LightCount{ 0 };
-		int32_t				Padding{ 0 };
+		/** Packed 0/1; mirrors FSceneViewData::bUnlit (UE-style view unlit). */
+		int32_t				bUnlit{ 0 };
 		math::Vector4		TemporalAAJitter{1.f, 1.f, 1.f, 1.f};
 		Light				Lights[MAX_LIGHT_INSTANCES];
 		MaterialPerFrame	Material;

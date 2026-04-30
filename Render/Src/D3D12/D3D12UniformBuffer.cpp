@@ -57,7 +57,7 @@ namespace RenderCore
 
 		if (Contents && d->RingAllocated)
 			memcpy(d->RingAllocation.CPU, Contents, ConstantBufferSize);
-		return true;
+		return d->RingAllocated;
 	}
 
 	uint32_t D3D12UniformBuffer::GetConstantBufferSize() const

@@ -1,4 +1,4 @@
-﻿#include "DemoRunner/Demos/LiquidClassDemoRunner.h"
+#include "DemoRunner/Demos/LiquidClassDemoRunner.h"
 
 #include "core/system.h"
 
@@ -145,7 +145,7 @@ void LiquidClassDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, co
 	ViewPort->SetRenderTarget();
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
-	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Tex2D);
+	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Tex2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);

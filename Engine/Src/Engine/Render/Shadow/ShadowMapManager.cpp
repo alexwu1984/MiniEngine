@@ -31,9 +31,9 @@ namespace Engine
 		}
 	}
 
-	void ShadowMapManager::Update(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors)
+	void ShadowMapManager::Update(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene)
 	{
-		UpdateCascadeShadowMaps(lights, actors);
+		UpdateCascadeShadowMaps(lights, ProjectorScene);
 	}
 
 
@@ -48,11 +48,11 @@ namespace Engine
 		return d->cascadeShadowMaps[index];
 	}
 
-	void ShadowMapManager::UpdateCascadeShadowMaps(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors)
+	void ShadowMapManager::UpdateCascadeShadowMaps(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene)
 	{
 		C_P(ShadowMapManager);
 		CascadeParameters cascadeParams;
-		ShadowMap::ComputeSceneCascadeParams(lights, actors, cascadeParams);
+		ShadowMap::ComputeSceneCascadeParams(lights, ProjectorScene, cascadeParams);
 		assert(d->cascadeShadowMaps.size() > 0);
 		d->cascadeShadowMaps[0]->Update(cascadeParams);
 	}

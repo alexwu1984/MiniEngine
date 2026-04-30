@@ -1,4 +1,4 @@
-﻿#include "Scene/World.h"
+#include "Scene/World.h"
 #include "Scene/Actor.h"
 #include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
@@ -12,7 +12,7 @@ namespace Engine
 	{
 		static bool ActorHasProjectingMesh(const std::shared_ptr<Actor>& actor)
 		{
-			if (!actor)
+			if (!actor || !actor->IsActorPrivateAllocated())
 				return false;
 			for (const auto& comp : actor->GetAllComponents())
 			{
@@ -185,6 +185,13 @@ namespace Engine
 	const std::vector<std::shared_ptr<Actor>>& World::GetAllActors() const
 	{
 		C_P(const World);
+		return d->Actors;
+	}
+
+	std::vector<std::shared_ptr<Actor>> World::GetAllActorsCopy() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
 		return d->Actors;
 	}
 

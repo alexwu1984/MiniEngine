@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 #include "core/inc.h"
 #include "Render/MaterialPreFrame.h"
+#include "Render/Shadow/ShadowMap.h"
 #include <memory>
 #include <vector>
 
@@ -13,7 +14,6 @@ namespace RenderCore
 
 namespace Engine
 {
-	class Actor;
 	struct GltfSceneMeshInfo;
 	struct ShadowRenderPassPrivate;
 
@@ -27,10 +27,14 @@ namespace Engine
 		// ShadowCasterMeshes: drawn into the shadow map (ProjShadow actors only).
 		// FrustumBoundsMeshes: union AABB for light frustum; use all visible receivers (e.g. floor) or casters-only breaks shadows on large surfaces.
 		void Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
-					[[maybe_unused]] RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, std::shared_ptr<Actor> ShadowProjector,
-					const std::vector<std::shared_ptr<Actor>>& AllActorsForShadow);
+					RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, const FShadowProjectorSceneData& ShadowProjectorScene);
 
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetShadowMap() const;
+
+		/** Clears the last shadow pass light copy (e.g. when the shadow pass is skipped this frame). */
+		void InvalidateCachedMainLightForShading();
+		/** Last frame's main directional light after shadow pass (LightViewProj + ShadowMapIndex); for base pass CB. */
+		bool TryGetCachedMainLightForShading(Light& OutLight);
 
 	private:
 		ShadowRenderPassPrivate* d_ptr = nullptr;

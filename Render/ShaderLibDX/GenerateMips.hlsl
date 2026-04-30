@@ -13,14 +13,10 @@ cbuffer PSContant : register(b0)
 	int CubeFace;
 };
 
-Texture2D SrcMipTexture	: register(t0);
 SamplerState LinearSampler	: register(s0);
 
-float4 PS_Main_2D(in VertexOutput Input) : SV_Target0
-{
-	return SrcMipTexture.SampleLevel(LinearSampler, Input.Tex, MipIndex-1);
-}
-
+// Do not declare a second resource at t0 (e.g. Texture2D + TextureCube): PS_Main_Cube only uses CubeMap at t0.
+// Duplicate t0 in one TU can confuse reflection / D3D12 GBV #940 when binding a cube SRV for mipgen.
 
 float3 GetCubemapVector(float2 ScaledUVs, int InCubeFace)
 {

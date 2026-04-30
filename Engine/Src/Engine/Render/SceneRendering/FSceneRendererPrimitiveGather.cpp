@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/FSceneRendererPrimitiveGather.h"
+#include "Render/SceneRendering/FSceneRendererPrimitiveGather.h"
 #include "Render/SceneRendering/FSceneViewData.h"
 #include "Scene/Actor.h"
 #include "Scene/GltfMeshComponent.h"
@@ -28,14 +28,18 @@ namespace Engine
 			auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
 			for (auto& ComponentItem : Components)
 			{
+				if (ComponentItem->IsProjectShadow())
+				{
+					GltfSceneMeshInfo UnculledCaster;
+					if (ComponentItem->GatherMesh(UnculledCaster, nullptr))
+						OutResult.DynamicShadowCastingPrimitives.push_back(std::move(UnculledCaster));
+				}
+
 				GltfSceneMeshInfo SceneMeshInfo;
-				if (!ComponentItem->GatherMesh(SceneMeshInfo, CullFrustum))
+				if (!ComponentItem->GatherMesh(SceneMeshInfo, &CullFrustum))
 					continue;
 
 				OutResult.ShadowFrustumCullPrimitives.push_back(SceneMeshInfo);
-				if (ComponentItem->IsProjectShadow())
-					OutResult.DynamicShadowCastingPrimitives.push_back(SceneMeshInfo);
-
 				OutResult.VisiblePrimitives.push_back(std::move(SceneMeshInfo));
 			}
 		}

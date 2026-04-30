@@ -1,4 +1,4 @@
-﻿#include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Adapter.h"
@@ -140,6 +140,17 @@ namespace RenderCore
 		SrvDesc.Texture2D.MipLevels = 1;
 		D->CreateShaderResourceView(nullptr, &SrvDesc, NullSrvCpu);
 
+		NullSrvCubeAlloc = AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		NullSrvCubeCpu = NullSrvCubeAlloc.Cpu;
+		D3D12_SHADER_RESOURCE_VIEW_DESC SrvCube = {};
+		SrvCube.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		SrvCube.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		SrvCube.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		SrvCube.TextureCube.MostDetailedMip = 0;
+		SrvCube.TextureCube.MipLevels = 1;
+		SrvCube.TextureCube.ResourceMinLODClamp = 0.f;
+		D->CreateShaderResourceView(nullptr, &SrvCube, NullSrvCubeCpu);
+
 		NullUavAlloc = AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
 		NullUavCpu = NullUavAlloc.Cpu;
 		D3D12_UNORDERED_ACCESS_VIEW_DESC UavDesc = {};
@@ -213,6 +224,12 @@ namespace RenderCore
 			FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NullSrvAlloc);
 			NullSrvCpu.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
 			NullSrvAlloc = {};
+		}
+		if (NullSrvCubeCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		{
+			FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, NullSrvCubeAlloc);
+			NullSrvCubeCpu.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+			NullSrvCubeAlloc = {};
 		}
 		if (NullUavCpu.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{

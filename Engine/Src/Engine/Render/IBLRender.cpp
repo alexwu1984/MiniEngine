@@ -303,8 +303,6 @@ namespace Engine
 		uint32_t NumMips = d->PreFilterCube->GetNumMips();
 		d->GET_UNIFORMDATA(ENVContant).MaxMipLevel = d->PreFilterCube->GetNumMips();
 
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
-
 		for (uint32_t MipLevel = 0; MipLevel < NumMips; ++MipLevel)
 		{
 			uint32_t Size = d->PreFilterCube->GetSize().cx >> MipLevel;
@@ -324,6 +322,8 @@ namespace Engine
 				RHIContext.SetViewPort(0, 0, Size, Size);
 				RHIContext.Clear(d->PreFilterCube, IndexView,MipLevel, core::FLinearColor::Black);
 
+				// Re-bind each draw (same as GenerateDiffuseIrradiance): keeps t0 cube SRV correct after RT/layout commits.
+				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->EvnCube);
 				RenderCube(RHIContext);
 			}
 		}
@@ -411,18 +411,17 @@ namespace Engine
 	{
 		C_P(FSkyLightIBLPrecompute);
 		std::wstring ShaderDir = core::process_directory().wstring() + L"/ShaderLibDX/";
-		const std::wstring EnvShaderPath = ShaderDir + L"EnvironmentShaders.hlsl";
+		const std::wstring SkyIblShaderPath = ShaderDir + L"EnvironmentSkyIBL.hlsl";
 		const std::wstring LongLatShaderPath = ShaderDir + L"IBLLongLatToCube.hlsl";
 
 		RHIVertexDeclare VertexDeclareRHI;
 		VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
 
-		d->VertexShader = d->RHI->RHICreateVertexShader(EnvShaderPath, "VS_SkyCube", VertexDeclareRHI, {});
-		// Long–lat capture binds a 2D HDR at t0; must not compile with EnvironmentShaders' TextureCube at t0 (GBV #940).
+		d->VertexShader = d->RHI->RHICreateVertexShader(SkyIblShaderPath, "VS_SkyCube", VertexDeclareRHI, {});
 		d->VertexShaderLongLatToCube = d->RHI->RHICreateVertexShader(LongLatShaderPath, "VS_SkyCube", VertexDeclareRHI, {});
-		d->IrrPixelShader = d->RHI->RHICreatePixelShader(EnvShaderPath, "PS_GenIrradiance", {});
+		d->IrrPixelShader = d->RHI->RHICreatePixelShader(SkyIblShaderPath, "PS_GenIrradiance", {});
 		d->PSLongLatToCube = d->RHI->RHICreatePixelShader(LongLatShaderPath, "PS_LongLatToCube", {});
-		d->PSGenPrefiltered = d->RHI->RHICreatePixelShader(EnvShaderPath, "PS_GenPrefiltered", {});
+		d->PSGenPrefiltered = d->RHI->RHICreatePixelShader(SkyIblShaderPath, "PS_GenPrefiltered", {});
 	}
 
 	void FSkyLightIBLPrecompute::RenderCube(RenderCore::RHICommandContext& RHIContext)

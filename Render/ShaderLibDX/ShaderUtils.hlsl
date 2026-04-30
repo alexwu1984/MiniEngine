@@ -348,7 +348,7 @@ float D_GGX(float a2, float NoH)
 	return a2 / (PI*d*d);					// 4 mul, 1 rcp
 }
 
-// 大多数非金属的F0范围是0.02~0.04
+// 麓贸露脿脢媒路脟陆冒脢么碌脛F0路露脦搂脢脟0.02~0.04
 float DielectricSpecularToF0(float Specular)
 {
 	// 0.08f map Specular = 0.5 to 0.04
@@ -363,7 +363,8 @@ float3 ComputeF0(float Specular, float3 BaseColor, float Metallic)
 half ComputeReflectionCaptureMipFromRoughness(float Roughness, half CubemapMaxMip)
 {
 	half LevelFrom1x1 = 1.0 - 1.2 * log2(max(Roughness, 0.001));
-	return CubemapMaxMip - 1 - LevelFrom1x1;
+	// CubemapMaxMip is the highest mip index (numMips-1). When numMips==1 this is 0; without clamp the result goes negative and breaks BRDF / specular IBL.
+	return max(CubemapMaxMip - 1.0 - LevelFrom1x1, 0.0);
 }
 
 float ComputeReflectionCaptureRoughnessFromMip(float Mip, half CubemapMaxMip)
@@ -481,7 +482,7 @@ float3 AMDTonemapping(float3 color)
 {
     static float hdrMax = 16.0; // How much HDR range before clipping. HDR modes likely need this pushed up to say 25.0.
     static float contrast = 2.0f; // Use as a baseline to tune the amount of contrast the tonemapper has.
-    static float shoulder = 1.0; // Likely don’t need to mess with this factor, unless matching existing tonemapper is not working well..
+    static float shoulder = 1.0; // Likely don隆炉t need to mess with this factor, unless matching existing tonemapper is not working well..
     static float midIn = 0.18; // most games will have a {0.0 to 1.0} range for LDR so midIn should be 0.18.
     static float midOut = 0.18; // Use for LDR. For HDR10 10:10:10:2 use maybe 0.18/25.0 to start. For scRGB, I forget what a good starting point is, need to re-calculate.
 

@@ -1,4 +1,5 @@
-﻿#include "Scene/GltfInputComponent.h"
+#include "core/inc.h"
+#include "Scene/GltfInputComponent.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
 #include "win/cpu_clock.h"
@@ -8,7 +9,7 @@ namespace Engine
 	IMP_COMPONENT_CLASS_NAME(GltfDeviceInputComponent)
 	IMP_COMPONENT_TRAITS_CLASS_NAME(GltfDeviceInputComponent)
 
-	struct GltfDeviceInputComponentP
+	struct GltfDeviceInputComponentPrivate
 	{
 		core::vec2f LBDownPoint;
 		core::vec2f RBDownPoint;
@@ -23,19 +24,21 @@ namespace Engine
 
 
 	GltfDeviceInputComponent::GltfDeviceInputComponent(class std::weak_ptr<Actor> Owner)
-		:Component(Owner)
-		, Impl(std::make_shared<GltfDeviceInputComponentP>())
+		: Component(Owner)
+		, d_ptr(new GltfDeviceInputComponentPrivate())
 	{
 
 	}
 
 	GltfDeviceInputComponent::~GltfDeviceInputComponent()
 	{
-
+		delete d_ptr;
+		d_ptr = nullptr;
 	}
 
 	void GltfDeviceInputComponent::ProcessInput(const InputDeviceState& State)
 	{
+		C_P(GltfDeviceInputComponent);
 		if (State.Device == DeviceType::NoDevice)
 		{
 			return;
@@ -52,16 +55,16 @@ namespace Engine
 			{
 				if (Button == MouseButton::LeftButton)
 				{
-					Impl->LBDownPoint = Pos;
-					Impl->LBtnRotate = Impl->Rotate;
-					Impl->LeftButtonPressed = true;
+					d->LBDownPoint = Pos;
+					d->LBtnRotate = d->Rotate;
+					d->LeftButtonPressed = true;
 
 				}
 				else if (Button == MouseButton::RightButton)
 				{
-					Impl->RBDownPoint = Pos;
-					Impl->RBtnDownTranslate = Impl->Translate;
-					Impl->RightButtonPressed = true;
+					d->RBDownPoint = Pos;
+					d->RBtnDownTranslate = d->Translate;
+					d->RightButtonPressed = true;
 				}
 			}
 			break;
@@ -69,11 +72,11 @@ namespace Engine
 			{
 				if (Button == MouseButton::LeftButton)
 				{
-					Impl->LeftButtonPressed = false;
+					d->LeftButtonPressed = false;
 				}
 				else if (Button == MouseButton::RightButton)
 				{
-					Impl->RightButtonPressed = false;
+					d->RightButtonPressed = false;
 				}
 			}
 			break;
@@ -84,22 +87,22 @@ namespace Engine
 
 				if (Button == MouseButton::NoButton)
 				{
-					Impl->LeftButtonPressed = false;
-					Impl->RightButtonPressed = false;
+					d->LeftButtonPressed = false;
+					d->RightButtonPressed = false;
 					break;
 				}
 
-				if (Impl->LeftButtonPressed && Button == MouseButton::LeftButton)
+				if (d->LeftButtonPressed && Button == MouseButton::LeftButton)
 				{
-					Impl->Rotate = Impl->LBtnRotate + (Pos - Impl->LBDownPoint) * RotationSensitivity;
+					d->Rotate = d->LBtnRotate + (Pos - d->LBDownPoint) * RotationSensitivity;
 				}
-				else if (Impl->RightButtonPressed && Button == MouseButton::RightButton)
+				else if (d->RightButtonPressed && Button == MouseButton::RightButton)
 				{
-					Impl->Translate = Impl->RBtnDownTranslate + (Pos - Impl->RBDownPoint) * TranslationSensitivity;
+					d->Translate = d->RBtnDownTranslate + (Pos - d->RBDownPoint) * TranslationSensitivity;
 				}
 
-				float xAngle = -1 * math::Fmod(Impl->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
-				float yAngle = math::Fmod(Impl->Rotate.y, 360.0f) * math::MATH_PI / 180.f;
+				float xAngle = -1 * math::Fmod(d->Rotate.x, 360.0f) * math::MATH_PI / 180.f;
+				float yAngle = math::Fmod(d->Rotate.y, 360.0f) * math::MATH_PI / 180.f;
 				math::Quaternion Quat = math::Quaternion::MakeFromEuler(yAngle, xAngle, 0.f);
 
 				GetOwner()->SetRotation(Quat);

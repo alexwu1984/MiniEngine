@@ -1,4 +1,4 @@
-﻿#include "Engine/Render/PBRMaterialRender.h"
+#include "Engine/Render/PBRMaterialRender.h"
 #include "Engine.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -14,6 +14,8 @@
 #include "Engine/Render/Shadow/ShadowRenderPass.h"
 #include "Engine/Render/SceneRender.h"
 #include "Render/GBuffer.h"
+#include "RHI/RHITextureCube.h"
+#include <algorithm>
 
 namespace Engine
 {
@@ -164,6 +166,14 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.RotateIBL = d->RenderParam.RotateIBL;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.TemporalAAJitter = d->RenderParam.TemporalAAJitter;
+
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)d->RenderParam.lightInfos.size();
+		for (int32_t index = 0; index < (int32_t)d->RenderParam.lightInfos.size(); ++index)
+		{
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = d->RenderParam.lightInfos[index];
+		}
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
+
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
@@ -183,13 +193,25 @@ namespace Engine
 		d->RenderParam = RenderParam;
 		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
 
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)RenderParam.lightInfos.size();
-		for (int32_t index = 0; index < RenderParam.lightInfos.size(); ++index)
+		// Match specular prefilter cubemap mips; default IBLMIpCount==1 made lod/BRDF mip math invalid (black metals, dull scene).
+		if (!RenderParam.preProcessor.expired())
 		{
-			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = RenderParam.lightInfos[index];
+			if (auto Pre = RenderParam.preProcessor.lock())
+			{
+				if (auto IBL = Pre->GetIBLRender())
+				{
+					if (auto SpecCube = IBL->GetSpecularReflectionCubemap())
+						d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
+				}
+			}
 		}
-
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
+		else
+		{
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount = 1.f;
+		}
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());
@@ -211,7 +233,7 @@ namespace Engine
 			if (shadowMap)
 				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 8, shadowMap->GetTex());
 		}
-		
+
 		DrawMesh(RHIContext);
 	}
 

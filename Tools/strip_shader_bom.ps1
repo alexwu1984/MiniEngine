@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$root = "D:\code\MiniEngine\Render\ShaderLibDX"
+# Repo-relative: Tools\..\Render\ShaderLibDX (works on any drive/path)
+$root = Join-Path $PSScriptRoot "..\Render\ShaderLibDX" | Resolve-Path -ErrorAction Stop
 if (-not (Test-Path $root)) {
   Write-Host "ShaderLibDX not found: $root"
   exit 1

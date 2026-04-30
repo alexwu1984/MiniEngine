@@ -2,6 +2,7 @@
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/FSceneViewFamily.h"
 #include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/Shadow/ShadowMap.h"
 #include "Scene/GltfMeshComponent.h"
 #include <memory>
 #include <vector>
@@ -13,7 +14,6 @@ namespace RenderCore
 
 namespace Engine
 {
-	class Actor;
 	class SceneRender;
 	struct SceneRenderPrivate;
 
@@ -31,8 +31,7 @@ namespace Engine
 		void Submit(SceneRender* SceneRenderSelf, SceneRenderPrivate* ResourceState, const FSceneViewFamily& ViewFamily,
 					std::shared_ptr<const FSceneViewData> ViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 					std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
-					std::vector<Light> ShadowPassLights, std::shared_ptr<Actor> ShadowProjectorActor,
-					std::vector<std::shared_ptr<Actor>> AllActorsForShadow);
+					std::vector<Light> ShadowPassLights, FShadowProjectorSceneData ShadowProjectorScene);
 
 		/** Execute the submitted frame on the render thread. No-op if Submit was not called or RHI is null. */
 		void Render(RenderCore::DynamicRHI* RHI);
@@ -47,7 +46,6 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> ShadowCasters;
 		std::vector<GltfSceneMeshInfo> ShadowFrustumBounds;
 		std::vector<Light> LightsForShadow;
-		std::shared_ptr<Actor> ShadowProjectorActor;
-		std::vector<std::shared_ptr<Actor>> AllActorsForShadow;
+		FShadowProjectorSceneData ShadowProjectorScene{};
 	};
 }

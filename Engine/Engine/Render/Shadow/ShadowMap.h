@@ -4,12 +4,20 @@
 #include "math/vector2.h"
 #include "math/matrix4x4.h"
 #include "Render/MaterialPreFrame.h"
-#include <memory>
 #include <vector>
 
 namespace Engine
 {
-	class Actor;
+	/**
+	 * Game-thread-only snapshot for shadow cascade / light frustum (UE-style: render thread reads POD, not UActorComponent).
+	 * Built from the shadow projector actor before enqueueing render work.
+	 */
+	struct FShadowProjectorSceneData
+	{
+		bool bValid = false;
+		math::Matrix4x4 WorldTransform{};
+		math::AABB3 ModelLocalAABB{};
+	};
 
 	struct CascadeParameters 
 	{
@@ -33,10 +41,10 @@ namespace Engine
 		ShadowMap();
 		~ShadowMap();
 
-		static void ComputeSceneCascadeParams(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams);
+		static void ComputeSceneCascadeParams(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene, CascadeParameters& cascadeParams);
 		void Update(const CascadeParameters& cascadesParams);
 	private:
-		static void calculateNearFar(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams);
+		static void calculateNearFar(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene, CascadeParameters& cascadeParams);
 		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::AABB3& wsShadowCastersVolume) ;
 		static math::Vector2 computeNearFar(const math::Matrix4x4 view, const math::Vector3* wsVertices, size_t count) ;
 	public:

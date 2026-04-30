@@ -1,7 +1,9 @@
-﻿#include "RHIPrivate/D3DShaderUtil.h"
+#include "RHIPrivate/D3DShaderUtil.h"
 #include "RHI/RHIShdader.h"
 #include "RHIPrivate/ShaderCore.h"
+#include "D3D12/D3D12Limits.h"
 #include "core/logger.h"
+#include <algorithm>
 #include <cstring>
 #include <Shaders/dxc/dxcapi.h>
 #include <Shaders/dxc/Support/dxcapi.use.h>
@@ -149,6 +151,9 @@ namespace RenderCore
 
 		if (SUCCEEDED(hr))
 		{
+			// SRV register layout and per-slot null-view dimensions come from bytecode reflection (BindDesc.Dimension).
+			std::memset(Output.ResourceCounts.SrvSlotNullViewDimension, (int)D3D_SRV_DIMENSION_TEXTURE2D, sizeof(Output.ResourceCounts.SrvSlotNullViewDimension));
+
 			D3D12_SHADER_DESC ShaderDesc = {};
 			Reflector->GetDesc(&ShaderDesc);
 
@@ -219,6 +224,14 @@ namespace RenderCore
 					{
 						ParameterType = EShaderParameterType::SRV;
 						NumSRVs = math::Max(NumSRVs, BindDesc.BindPoint + BindCount);
+
+						const uint8_t dimByte = static_cast<uint8_t>(BindDesc.Dimension);
+						for (uint32_t s = 0; s < BindCount; ++s)
+						{
+							const uint32_t slot = BindDesc.BindPoint + s;
+							if (slot < kEngineSrvSlotNullDimensionCount)
+								Output.ResourceCounts.SrvSlotNullViewDimension[slot] = dimByte;
+						}
 					}
 
 					// Add a parameter for the texture only, the sampler index will be invalid
@@ -261,6 +274,8 @@ namespace RenderCore
 					);
 
 					NumSRVs = math::Max(NumSRVs, BindDesc.BindPoint + BindCount);
+					if (BindDesc.BindPoint < kEngineSrvSlotNullDimensionCount)
+						Output.ResourceCounts.SrvSlotNullViewDimension[BindDesc.BindPoint] = static_cast<uint8_t>(BindDesc.Dimension);
 				}
 				// #dxr_todo: D3D_SIT_RTACCELERATIONSTRUCTURE is declared in latest version of dxcapi.h. Update this code after upgrading DXC.
 				else if (BindDesc.Type == 12 /*D3D_SIT_RTACCELERATIONSTRUCTURE*/)
@@ -278,8 +293,15 @@ namespace RenderCore
 					);
 
 					NumSRVs = math::Max(NumSRVs, BindDesc.BindPoint + BindCount);
+					if (BindDesc.BindPoint < kEngineSrvSlotNullDimensionCount)
+						Output.ResourceCounts.SrvSlotNullViewDimension[BindDesc.BindPoint] = static_cast<uint8_t>(BindDesc.Dimension);
 				}
 			}
+
+			Output.ResourceCounts.NumSamplers = static_cast<uint8_t>(std::min(NumSamplers, static_cast<uint32_t>(MAX_SAMPLERS)));
+			Output.ResourceCounts.NumSRVs = static_cast<uint8_t>(std::min(NumSRVs, static_cast<uint32_t>(MAX_SRVS)));
+			Output.ResourceCounts.NumCBs = static_cast<uint8_t>(std::min(NumCBs, static_cast<uint32_t>(MAX_CBS)));
+			Output.ResourceCounts.NumUAVs = static_cast<uint8_t>(std::min(NumUAVs, static_cast<uint32_t>(MAX_UAVS)));
 		}
 	}
 

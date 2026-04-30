@@ -1,6 +1,7 @@
-﻿#include "Render/SceneRendering/FSceneMaterialShaderParameters.h"
+#include "Render/SceneRendering/FSceneMaterialShaderParameters.h"
 #include "Render/SceneRender.h"
 #include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/GBuffer.h"
 #include "GltfModel/GltfMesh.h"
 
@@ -15,6 +16,20 @@ namespace Engine
 			return Out;
 
 		Out.lightInfos = ViewData->Lights;
+		if (!Out.lightInfos.empty())
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = SceneRender->GetShadowRenderPass())
+			{
+				Light L{};
+				if (ShadowPass->TryGetCachedMainLightForShading(L))
+				{
+					Out.lightInfos[0].LightView = L.LightView;
+					Out.lightInfos[0].LightViewProj = L.LightViewProj;
+					Out.lightInfos[0].ShadowMapIndex = L.ShadowMapIndex;
+					Out.lightInfos[0].Position = L.Position;
+				}
+			}
+		}
 		Out.CameraPos = ViewData->CameraPos;
 		Out.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		Out.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;

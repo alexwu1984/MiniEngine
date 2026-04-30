@@ -164,7 +164,7 @@ void IBLRenderDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, cons
 	ViewPort->SetRenderTarget();
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
-	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Texture2D);
+	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
 	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = 0;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();

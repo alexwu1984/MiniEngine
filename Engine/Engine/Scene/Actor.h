@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"
 #include "ActorTraits.h"
@@ -70,6 +70,9 @@ namespace Engine
 		void AddComponent(std::shared_ptr<Component> component);
 		void RemoveComponent(std::shared_ptr<Component> component);
 
+		/** False if internal actor state is missing (should not happen for constructed actors). */
+		bool IsActorPrivateAllocated() const noexcept;
+
 		std::vector<std::shared_ptr<Component>>& GetAllComponents() const;
 		template<typename TComponent> std::vector<std::shared_ptr<TComponent>> GetComponents() const;
 		template<typename TComponent> std::shared_ptr<TComponent> GetComponent() const;
@@ -84,9 +87,10 @@ namespace Engine
 		virtual void ProcessInput(const InputDeviceState& State);
 
 	protected:
-		std::shared_ptr<ActorPrivate> GetActorP() const {return ImplActorP;}
+		ActorPrivate* GetActorP() const { return d_ptr; }
+
 	private:
-		std::shared_ptr<ActorPrivate> ImplActorP;
+		ActorPrivate* d_ptr = nullptr;
 	};
 
 

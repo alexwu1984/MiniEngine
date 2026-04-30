@@ -1,4 +1,5 @@
-﻿#include "D3D12/D3D12StateCache.h"
+#include "D3D12/D3D12StateCache.h"
+#include "D3D12/D3D12Limits.h"
 #include "RHI/RHIThreadPolicy.h"
 #include <mutex>
 #include "D3D12/D3D12Shaders.h"
@@ -17,10 +18,26 @@ namespace RenderCore
 {
 	namespace
 	{
+		static D3D12_CPU_DESCRIPTOR_HANDLE PickNullSrvForDeclaredDimension(
+			uint8_t dimByte,
+			D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D,
+			D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube)
+		{
+			switch (static_cast<D3D_SRV_DIMENSION>(dimByte))
+			{
+			case D3D_SRV_DIMENSION_TEXTURECUBE:
+			case D3D_SRV_DIMENSION_TEXTURECUBEARRAY:
+				return (NullSrvCube.ptr != 0u) ? NullSrvCube : NullSrv2D;
+			default:
+				return NullSrv2D;
+			}
+		}
+
 		// Fewer StageDescriptorHandles calls → fewer stale table regions / CopyDescriptors work (batch staging).
 		// NOTE: With GPU-based validation enabled, leaving a root descriptor table uninitialized is a hard error.
 		// We therefore stage the *full table* when requested, filling null entries with a valid "null SRV" descriptor.
-		static void StageAllGraphicsSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullSrv)
+		static void StageAllGraphicsSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views,
+			D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D, D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube, const uint8_t* slotNullDims)
 		{
 			if (rootParamIndex < 0)
 				return;
@@ -29,11 +46,20 @@ namespace RenderCore
 			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> tmp;
 			tmp.resize(numSrvs);
 			for (uint32_t i = 0; i < numSrvs; ++i)
-				tmp[i] = (views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL) ? NullSrv : views[i];
+			{
+				if (views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					tmp[i] = views[i];
+				else
+				{
+					const uint8_t dim = (slotNullDims && i < kEngineSrvSlotNullDimensionCount) ? slotNullDims[i] : (uint8_t)D3D_SRV_DIMENSION_TEXTURE2D;
+					tmp[i] = PickNullSrvForDeclaredDimension(dim, NullSrv2D, NullSrvCube);
+				}
+			}
 			heap.SetGraphicsDescriptorHandles((UINT)rootParamIndex, 0, numSrvs, tmp.data());
 		}
 
-		static void StageAllComputeSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullSrv)
+		static void StageAllComputeSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views,
+			D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D, D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube, const uint8_t* slotNullDims)
 		{
 			if (rootParamIndex < 0)
 				return;
@@ -42,7 +68,15 @@ namespace RenderCore
 			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> tmp;
 			tmp.resize(numSrvs);
 			for (uint32_t i = 0; i < numSrvs; ++i)
-				tmp[i] = (views[i].ptr == D3D12_GPU_VIRTUAL_ADDRESS_NULL) ? NullSrv : views[i];
+			{
+				if (views[i].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					tmp[i] = views[i];
+				else
+				{
+					const uint8_t dim = (slotNullDims && i < kEngineSrvSlotNullDimensionCount) ? slotNullDims[i] : (uint8_t)D3D_SRV_DIMENSION_TEXTURE2D;
+					tmp[i] = PickNullSrvForDeclaredDimension(dim, NullSrv2D, NullSrvCube);
+				}
+			}
 			heap.SetComputeDescriptorHandles((UINT)rootParamIndex, 0, numSrvs, tmp.data());
 		}
 
@@ -162,6 +196,9 @@ namespace RenderCore
 		if (NewHash == CurrentVertexHash)
 			return;
 
+		ShaderResourceViewCache.ClearFrequency(SF_Vertex);
+		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+
 		if (InVertexShader)
 		{
 			if (VertexShaders.count(InVertexShader->Hash)== 0)
@@ -183,6 +220,9 @@ namespace RenderCore
 		if (NewHash == CurrentPixelHash)
 			return;
 
+		ShaderResourceViewCache.ClearFrequency(SF_Pixel);
+		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+
 		if (InPixelShader)
 		{
 			if(PixelShaders.count(InPixelShader->Hash) == 0)
@@ -200,6 +240,14 @@ namespace RenderCore
 
 	void FD3D12StateCache::SetComputeShader(std::shared_ptr<FD3D12ComputeShader> InComputeShader)
 	{
+		const uint32_t NewHash = InComputeShader ? InComputeShader->Hash : 0u;
+		if (NewHash == CurrentComputeHash)
+			return;
+
+		ShaderResourceViewCache.ClearFrequency(SF_Compute);
+		UAVCache.Clear();
+		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+
 		if (InComputeShader)
 		{
 			if (ComputeShaders.count(InComputeShader->Hash) == 0)
@@ -885,14 +933,17 @@ namespace RenderCore
 		auto stageAllGraphicsSrvs = [&]()
 		{
 			auto DevSrv = GetParentDevice();
-			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv = DevSrv ? DevSrv->GetNullSrvCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D = DevSrv ? DevSrv->GetNullSrvCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube = DevSrv ? DevSrv->GetNullSrvCubeCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 			if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
 			{
-				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex], NullSrv);
+				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex],
+					NullSrv2D, NullSrvCube, VertexResCount.SrvSlotNullViewDimension);
 			}
 			if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
 			{
-				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel], NullSrv);
+				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel],
+					NullSrv2D, NullSrvCube, PixelResCount.SrvSlotNullViewDimension);
 			}
 		};
 
@@ -1046,8 +1097,10 @@ namespace RenderCore
 
 		if (RootSignature->SRVRootIndex[SF_Compute] > -1)
 		{
-			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv = ParentDev ? ParentDev->GetNullSrvCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-			StageAllComputeSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Compute], ComputeResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Compute], NullSrv);
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D = ParentDev ? ParentDev->GetNullSrvCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube = ParentDev ? ParentDev->GetNullSrvCubeCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+			StageAllComputeSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Compute], ComputeResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Compute],
+				NullSrv2D, NullSrvCube, ComputeResCount.SrvSlotNullViewDimension);
 		}
 
 		if (RootSignature->UAVRootIndex[SF_Compute] > -1)

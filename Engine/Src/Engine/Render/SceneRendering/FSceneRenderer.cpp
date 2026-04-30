@@ -14,7 +14,6 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHICommandContext.h"
-#include "Scene/Actor.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
 
@@ -42,8 +41,7 @@ namespace Engine
 	void FSceneRenderer::Submit(SceneRender* InSceneRenderSelf, SceneRenderPrivate* InResourceState, const FSceneViewFamily& InViewFamily,
 								std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 								std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
-								std::vector<Light> ShadowPassLights, std::shared_ptr<Actor> InShadowProjectorActor,
-								std::vector<std::shared_ptr<Actor>> InAllActorsForShadow)
+								std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene)
 	{
 		SceneRenderSelf = InSceneRenderSelf;
 		ResourceState = InResourceState;
@@ -53,8 +51,7 @@ namespace Engine
 		ShadowCasters = std::move(shadowCasters);
 		ShadowFrustumBounds = std::move(shadowFrustumBounds);
 		LightsForShadow = std::move(ShadowPassLights);
-		ShadowProjectorActor = std::move(InShadowProjectorActor);
-		AllActorsForShadow = std::move(InAllActorsForShadow);
+		ShadowProjectorScene = InShadowProjectorScene;
 		bHasFrame = (SceneRenderSelf != nullptr) && (ResourceState != nullptr) && (ViewData != nullptr);
 	}
 
@@ -72,8 +69,7 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(ShadowCasters);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(ShadowFrustumBounds);
 		std::vector<Light> ShadowPassLights = std::move(LightsForShadow);
-		std::shared_ptr<Actor> ShadowProjectorActorMoved = std::move(ShadowProjectorActor);
-		std::vector<std::shared_ptr<Actor>> AllActorsForShadowMoved = std::move(AllActorsForShadow);
+		FShadowProjectorSceneData ShadowProjectorSceneMoved = ShadowProjectorScene;
 
 		ViewData.reset();
 		SceneRenderSelf = nullptr;
@@ -99,17 +95,22 @@ namespace Engine
 					d->PreProcess->Draw(*CommandContext);
 			}});
 
-		if (!shadowCasters.empty())
+		// Schedule shadow when there are visible casters OR a projector actor: culling can empty casters while the scene still has a shadow projector (IBL / bounds fallback in ShadowRenderPass).
+		const bool bScheduleShadowPass = !shadowCasters.empty() || ShadowProjectorSceneMoved.bValid;
+		if (bScheduleShadowPass)
 		{
 			Graph.AddPass(FramePassDesc{
 				"Shadow",
 				{},
 				{},
-				[d, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorActor = std::move(ShadowProjectorActorMoved),
-				 AllActorsForShadow = std::move(AllActorsForShadowMoved)]() mutable
+				[d, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved)]() mutable
 				{
-					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorActor, AllActorsForShadow);
+					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, std::move(ShadowPassLights), ShadowProjectorScene);
 				}});
+		}
+		else if (d->ShadowRender)
+		{
+			d->ShadowRender->InvalidateCachedMainLightForShading();
 		}
 
 		const std::vector<FrameGraphResource> GBufferIO = MakeGBufferResourcesForFrameGraph(TB);

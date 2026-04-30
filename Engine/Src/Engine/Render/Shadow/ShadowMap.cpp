@@ -1,26 +1,10 @@
 ﻿#include "Render/Shadow/ShadowMap.h"
 #include "Render/MaterialPreFrame.h"
 #include "Scene/CameraComponent.h"
-#include "Scene/Actor.h"
-#include "Scene/Component.h"
-#include "Scene/GltfMeshComponent.h"
 
 namespace Engine
 {
 	static constexpr float LIGHT_DISTANCE = 4.0f;
-
-	static std::shared_ptr<GltfMeshComponent> FindFirstProjectingMesh(const std::shared_ptr<Actor>& actor)
-	{
-		if (!actor)
-			return {};
-		for (const auto& comp : actor->GetAllComponents())
-		{
-			auto mesh = ComponentCast<GltfMeshComponent>(comp);
-			if (mesh && mesh->IsProjectShadow())
-				return mesh;
-		}
-		return {};
-	}
 
 	ShadowMap::ShadowMap()
 	{
@@ -32,7 +16,7 @@ namespace Engine
 
 	}
 
-	void ShadowMap::ComputeSceneCascadeParams(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams)
+	void ShadowMap::ComputeSceneCascadeParams(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene, CascadeParameters& cascadeParams)
 	{
 		math::Vector3 lightDir{ 0.0, 0.0, 1.0f };
 		if (!lights.empty())
@@ -44,7 +28,7 @@ namespace Engine
 		cascadeParams.vsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
 		cascadeParams.wsShadowCastersVolume = {};
 		cascadeParams.wsShadowReceiversVolume = {};
-		calculateNearFar(lights, actors, cascadeParams);
+		calculateNearFar(lights, ProjectorScene, cascadeParams);
 	}
 
 	void ShadowMap::Update(const CascadeParameters& cascadesParams)
@@ -59,29 +43,13 @@ namespace Engine
 		return dist;
 	}
 
-	void ShadowMap::calculateNearFar(const std::vector<Light>& lights, const std::vector<std::shared_ptr<Actor>>& actors, CascadeParameters& cascadeParams)
+	void ShadowMap::calculateNearFar(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene, CascadeParameters& cascadeParams)
 	{
-		std::shared_ptr<Actor> projActor;
-		std::shared_ptr<GltfMeshComponent> projMesh;
-		for (const auto& actor : actors)
-		{
-			if (!actor)
-				continue;
-			auto mesh = FindFirstProjectingMesh(actor);
-			if (mesh)
-			{
-				projActor = actor;
-				projMesh = mesh;
-				break;
-			}
-		}
-		if (!projActor || !projMesh)
-		{
+		if (!ProjectorScene.bValid)
 			return;
-		}
 
-		math::Matrix4x4 toWsMat = projActor->GetWorldTransform();
-		const math::AABB3 modelBox = projMesh->GetModelBox();
+		const math::Matrix4x4& toWsMat = ProjectorScene.WorldTransform;
+		const math::AABB3& modelBox = ProjectorScene.ModelLocalAABB;
 
 		math::Vector3 wsSceneCorners[8]{};
 		modelBox.GetPoint(wsSceneCorners);

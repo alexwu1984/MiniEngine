@@ -1,6 +1,5 @@
 // Longitude–latitude HDR → cubemap face capture only.
-// Kept separate from EnvironmentShaders.hlsl so register(t0) is not shared with TextureCube CubeEnvironment
-// (HDR bind is 2D → D3D12 GBV #940 if both compile in the same TU).
+// Kept separate from EnvironmentSkyIBL.hlsl (TextureCube @ t0) so this file keeps 2D @ t0 only (GBV #940).
 
 #include "ShaderUtils.hlsl"
 #include "PerFrameStruct.hlsl"

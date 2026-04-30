@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12Allocation.h"
@@ -61,9 +61,11 @@ namespace RenderCore
 		// Not a replacement for correct binding; only prevents undefined reads when shaders declare resources.
 		std::shared_ptr<D3D12UniformBuffer> GetNullUniformBuffer() const { return NullUniformBuffer; }
 		void InitializeNullUniformBuffer();
-		/** UE-style: one null SRV/UAV in the device CPU descriptor pool, created during Initialize (RHI-thread safe reads). */
+		/** Creates shared null SRV/UAV descriptors in the device CPU pool during Initialize (safe to read from the RHI thread). */
 		void InitializeNullSrvUavDescriptors();
 		D3D12_CPU_DESCRIPTOR_HANDLE GetNullSrvCpu() const noexcept { return NullSrvCpu; }
+		/** Null SRV with ViewDimension TEXTURECUBE (GBV: cube slots cannot use 2D null SRV). */
+		D3D12_CPU_DESCRIPTOR_HANDLE GetNullSrvCubeCpu() const noexcept { return NullSrvCubeCpu; }
 		D3D12_CPU_DESCRIPTOR_HANDLE GetNullUavCpu() const noexcept { return NullUavCpu; }
 
 		// Accumulate command lists per queue and submit in a batch.
@@ -100,6 +102,8 @@ namespace RenderCore
 
 		FD3D12ResourceAllocator::FDescriptorAllocation NullSrvAlloc{};
 		D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCpu{};
+		FD3D12ResourceAllocator::FDescriptorAllocation NullSrvCubeAlloc{};
+		D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCubeCpu{};
 		FD3D12ResourceAllocator::FDescriptorAllocation NullUavAlloc{};
 		D3D12_CPU_DESCRIPTOR_HANDLE NullUavCpu{};
 	};

@@ -1,4 +1,4 @@
-﻿#include "Scene/GltfMeshComponent.h"
+#include "Scene/GltfMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
 #include "ObjModel/ObjMesh.h"
@@ -200,7 +200,7 @@ namespace Engine
 
 	}
 
-	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum& ViewCullFrustum)
+	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum)
 	{
 		C_P(GltfMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
@@ -208,11 +208,14 @@ namespace Engine
 		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
 		{
 			math::AABB3 Box = PM->Box.Transform(SceneMeshInfo.WorldTransform);
-			bool Render = ViewCullFrustum.Intersects(Box);
+			const bool Render = (ViewCullFrustum == nullptr) || ViewCullFrustum->Intersects(Box);
 			if (Render)
 			{
 				for (auto& Mesh : PM->Meshes)
-					SceneMeshInfo.Meshes.push_back(Mesh);
+				{
+					if (Mesh)
+						SceneMeshInfo.Meshes.push_back(Mesh);
+				}
 			}
 			return Render;
 		}
@@ -235,11 +238,12 @@ namespace Engine
 			if (!mergedValid)
 				mergedWorldAabb = GM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 
-			bool Render = ViewCullFrustum.Intersects(mergedWorldAabb);
+			const bool Render = (ViewCullFrustum == nullptr) || ViewCullFrustum->Intersects(mergedWorldAabb);
 			if (Render)
 			{
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
-					SceneMeshInfo.Meshes.push_back(Item);
+					if (Item)
+						SceneMeshInfo.Meshes.push_back(Item);
 					});
 
 			}
@@ -260,11 +264,12 @@ namespace Engine
 			if (!mergedValid)
 				mergedWorldAabb = OM->GetModelBox().Transform(SceneMeshInfo.WorldTransform);
 
-			bool Render = ViewCullFrustum.Intersects(mergedWorldAabb);
+			const bool Render = (ViewCullFrustum == nullptr) || ViewCullFrustum->Intersects(mergedWorldAabb);
 			if (Render)
 			{
 				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<ObjMesh> Item) {
-					SceneMeshInfo.Meshes.push_back(Item);
+					if (Item)
+						SceneMeshInfo.Meshes.push_back(Item);
 					});
 
 			}

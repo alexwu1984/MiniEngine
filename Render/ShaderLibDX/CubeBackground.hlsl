@@ -1,4 +1,4 @@
-// Do not include EnvironmentShaders.hlsl: it also binds register(t0) (Cube / 2D helpers), which confuses
+// Do not include EnvironmentSkyIBL/EnvironmentShaders: they share environment registers and confuse
 // reflection and D3D12 GBV #940 (pixel t0 expects TEXTURECUBE vs bound TEXTURE2D) for this pass.
 // Must match engine row-major matrices (previously came in via EnvironmentShaders → ShaderUtils).
 #pragma pack_matrix(row_major)

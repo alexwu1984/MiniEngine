@@ -3,7 +3,7 @@
 
 namespace Engine
 {
-	struct GltfDeviceInputComponentP;
+	struct GltfDeviceInputComponentPrivate;
 
 	class GltfDeviceInputComponent : public Component
 	{
@@ -15,7 +15,7 @@ namespace Engine
 		virtual void ProcessInput(const InputDeviceState& State);
 
 	private:
-		std::shared_ptr< GltfDeviceInputComponentP> Impl;
+		GltfDeviceInputComponentPrivate* d_ptr = nullptr;
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(GltfDeviceInputComponent)
 }

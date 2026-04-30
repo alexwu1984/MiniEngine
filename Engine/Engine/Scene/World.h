@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "core/inc.h"
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
@@ -43,6 +43,8 @@ namespace Engine
 		void SetMainCamera(std::shared_ptr<CameraComponent> Camera);
 		std::shared_ptr<CameraComponent> GetMainCamera() const;
 		const std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
+		/** Thread-safe copy of current actors (holds World's lock); prefer this when copying off the mutation path. */
+		std::vector<std::shared_ptr<Actor>> GetAllActorsCopy() const;
 		const std::vector<Light>& GetLights() const;
 		std::vector<Light>& GetLights();
 

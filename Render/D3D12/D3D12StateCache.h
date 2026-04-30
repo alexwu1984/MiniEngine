@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "D3D12/D3D12DescriptorCache.h"
 #include <cstring>
 #include <memory>
@@ -77,6 +77,15 @@ namespace RenderCore
 					Views[FrequencyIdx][SRVIdx] = { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 				}
 			}
+		}
+
+		/** Shader swap: bindings are register-indexed; stale handles (e.g. 2D at t0) must not leak into a new program (e.g. cube@t0 / GBV #940). */
+		inline void ClearFrequency(EShaderFrequency FrequencyIdx)
+		{
+			if (FrequencyIdx >= SF_NumStandardFrequencies)
+				return;
+			for (int32_t SRVIdx = 0; SRVIdx < MAX_SRVS; ++SRVIdx)
+				Views[FrequencyIdx][SRVIdx] = { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		}
 
 		D3D12_CPU_DESCRIPTOR_HANDLE Views[SF_NumStandardFrequencies][MAX_SRVS];
@@ -200,7 +209,7 @@ namespace RenderCore
 
 		/**
 		 * ImGui / other passes that call ID3D12GraphicsCommandList directly must call this on the owning context's
-		 * state cache after recording so the next Apply*State sees a clean mirror (UE-style external pass boundary).
+		 * state cache after recording so the next Apply*State sees a clean mirror of bindings and heaps.
 		 */
 		void NotifyExternalGraphicsPassRecorded(D3D12CommandListHandle& CommandList);
 
@@ -208,7 +217,10 @@ namespace RenderCore
 		std::size_t GetGraphicsPSOCacheSize() const;
 		std::size_t GetComputePSOCacheSize() const;
 
-		/** PSO / root / input-layout may have changed (use with ApplyGraphicState incremental path). */
+		/**
+		 * Pipeline state description fields used for graphics PSO creation (formats, static rasterizer/blend/depth, etc.) are stale.
+		 * Does not clear cached CBV/SRV/UAV mirrors; coherency relies on shader-boundary clears, ClearState, and external-pass notification.
+		 */
 		void MarkGraphicsLayoutDirty() { m_GraphicsLayoutDirty = true; }
 
 		FD3D12SamplerStateCache SamplerCache;

@@ -1,4 +1,4 @@
-﻿#include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12CommandContext.h"
 #include "RHI/RHIThreadPolicy.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12Adapter.h"
@@ -382,22 +382,9 @@ namespace RenderCore
 		auto d3d12VertexShader = std::static_pointer_cast<FD3D12VertexShader>(Initializer.VertexShader);
 		auto d3d12PixelShader = std::static_pointer_cast<FD3D12PixelShader>(Initializer.PixelShader);
 
-		std::string key; 
-		if (d3d12VertexShader)
-			key = std::to_string(d3d12VertexShader->Hash);
-		if (d3d12PixelShader)
-			key += "_" + std::to_string(d3d12PixelShader->Hash);
-		
-		auto itFind = StateCacheMap.find(key);
-		if (itFind != StateCacheMap.end())
-		{
-			CurrentStateCache = itFind->second;
-		}
-		else
-		{
-			CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
-			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
-		}
+		EnsureStateCache();
+		if (!CurrentStateCache)
+			return;
 
 		if (Initializer.BlendState)
 			RHISetBlendState(Initializer.BlendState, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
@@ -633,18 +620,9 @@ namespace RenderCore
 		auto computeShader = std::static_pointer_cast<FD3D12ComputeShader>(Initializer.ComputeShader);
 		if (!computeShader)
 			return;
-		std::string key = std::to_string(computeShader->Hash);
-
-		auto itFind = StateCacheMap.find(key);
-		if (itFind != StateCacheMap.end())
-		{
-			CurrentStateCache = itFind->second;
-		}
-		else
-		{
-			CurrentStateCache = std::make_shared<FD3D12StateCache>(GetParentAdapter()->GetDevice(), this->shared_from_this());
-			StateCacheMap.emplace(std::make_pair(key, CurrentStateCache));
-		}
+		EnsureStateCache();
+		if (!CurrentStateCache)
+			return;
 		CurrentStateCache->SetVertexShader(nullptr);
 		CurrentStateCache->SetPixelShader(nullptr);
 		CurrentStateCache->SetComputeShader(computeShader);
@@ -839,6 +817,16 @@ namespace RenderCore
 		return GetParentAdapter()->GetDevice();
 	}
 
+	void D3D12CommandContext::EnsureStateCache()
+	{
+		if (CurrentStateCache)
+			return;
+		auto Dev = GetParentDevice();
+		if (!Dev)
+			return;
+		CurrentStateCache = std::make_shared<FD3D12StateCache>(Dev, this->shared_from_this());
+	}
+
 	void D3D12CommandContext::OpenCommandList()
 	{
 		D3D12RHI_CheckRecordingAllowed("OpenCommandList");
@@ -1025,7 +1013,6 @@ namespace RenderCore
 
 	void D3D12CommandContext::Destroy()
 	{
-		StateCacheMap.clear();
 		CurrentStateCache = {};
 		D3D12GenerateMips = {};
 		// Release the current command list handle before tearing down managers/allocators.
@@ -1043,13 +1030,6 @@ namespace RenderCore
 
 	void D3D12CommandContext::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)
 	{
-		for (auto& StateCache : StateCacheMap)
-		{
-			if (StateCache.second)
-				StateCache.second->CleanupUsedHeaps(FenceValue, QueueType);
-		}
-
-		// CurrentStateCache is normally one of the map entries; calling twice is harmless and avoids missing cleanup if map/state ever diverge.
 		if (CurrentStateCache)
 			CurrentStateCache->CleanupUsedHeaps(FenceValue, QueueType);
 	}

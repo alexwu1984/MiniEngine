@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Allocation.h"
@@ -104,6 +104,9 @@ namespace RenderCore
 			return (numDraws | numDispatches | numClears | numBarriers | numCopies | otherWorkCounter) != 0;
 		}
 	private:
+		/** Lazily create the single FD3D12StateCache for this context (one cache per command context, shared across shader combinations). */
+		void EnsureStateCache();
+
 		// If necessary, this gets a new command allocator for this context.
 		void ConditionalObtainCommandAllocator();
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;
@@ -114,7 +117,6 @@ namespace RenderCore
 		FD3D12CommandAllocatorManager CommandAllocatorManager;
 
 		std::shared_ptr<FD3D12StateCache> CurrentStateCache;
-		std::map<std::string, std::shared_ptr<FD3D12StateCache> > StateCacheMap;
 		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
 
 	};

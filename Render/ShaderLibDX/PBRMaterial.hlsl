@@ -1,5 +1,4 @@
-// Do NOT include EnvironmentShaders.hlsl: it binds TextureCube CubeEnvironment at register(t0), which
-// collides with PBR material SRVs (t0–t8) and causes D3D12 GBV #940 (SRV dimension mismatch at table slot 0).
+// Do NOT include EnvironmentSkyIBL.hlsl / EnvironmentShaders.hlsl: they bind a cubemap at t0 and collide with PBR t0–t8.
 #include "ShaderUtils.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
@@ -55,11 +54,12 @@ float3 GetIBLContribution(MaterialInfo MaterialInfo, float3 n, float3 v)
 {
     float NdotV = clamp(dot(n, v), 0.0, 1.0);
 
-    float u_MipCount = myPerFrame.IBLMIpCount; // resolution of 512x512 of the IBL
-    float lod = clamp(MaterialInfo.perceptualRoughness * float(u_MipCount), 0.0, float(u_MipCount));
+    float u_MipCount = myPerFrame.IBLMIpCount; // mip count of specular prefilter cube (>=1)
+    float maxMipIndex = max(u_MipCount - 1.0, 0.0);
+    float lod = clamp(MaterialInfo.perceptualRoughness * maxMipIndex, 0.0, maxMipIndex);
     float3 reflection = normalize(reflect(-v, n));
     reflection = mul(float4(reflection, 1.0), myPerFrame.RotateIBL).xyz;
-    float Mip = ComputeReflectionCaptureMipFromRoughness(MaterialInfo.perceptualRoughness, u_MipCount - 1);
+    float Mip = ComputeReflectionCaptureMipFromRoughness(MaterialInfo.perceptualRoughness, maxMipIndex);
     
     float2 brdfSamplePoint = clamp(float2(NdotV, Mip), float2(0.0, 0.0), float2(1.0, 1.0));
 
@@ -148,8 +148,7 @@ float GetRangeAttenuation(float Range, float Distance)
     // negative range means unlimited
     if (Range < 0.0)
         return 1.0;
-    float att = max(lerp(1.0, 0.0, Distance / Range), 0.0);
-    return att;
+    return max(lerp(1.0, 0.0, Distance / Range), 0.0);
 }
 
 // https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles

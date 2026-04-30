@@ -1,5 +1,7 @@
 #pragma once
+#include "D3D12/D3D12Limits.h"
 #include "RHI/RHI.h"
+#include <cstring>
 
 namespace RenderCore
 {
@@ -62,13 +64,30 @@ namespace RenderCore
 		std::map<std::string, FParameterAllocation> ParameterMap;
 	};
 
+	/** Reflection-derived bind counts and per-t# null-SRV dimensions (D3D_SRV_DIMENSION bytes) packed for runtime root layout. */
+	struct FShaderCodePackedResourceCounts
+	{
+		static const uint8_t Key = 'p';
+
+		bool bGlobalUniformBufferUsed{};
+		uint8_t NumSamplers{};
+		uint8_t NumSRVs{};
+		uint8_t NumCBs{};
+		uint8_t NumUAVs{};
+		uint8_t SrvSlotNullViewDimension[kEngineSrvSlotNullDimensionCount]{};
+	};
+
+	using FShaderCodeResourceCounts = FShaderCodePackedResourceCounts;
 
 	struct FShaderCompilerOutput
 	{
 		FShaderCompilerOutput()
 		{
+			// Default null SRV dimension: D3D_SRV_DIMENSION_TEXTURE2D (4) until reflection overwrites per slot.
+			std::memset(ResourceCounts.SrvSlotNullViewDimension, 4, sizeof(ResourceCounts.SrvSlotNullViewDimension));
 		}
 
 		FShaderParameterMap ParameterMap;
+		FShaderCodePackedResourceCounts ResourceCounts;
 	};
 }

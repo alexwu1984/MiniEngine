@@ -1,7 +1,8 @@
-﻿#include "D3D12/D3D12Shaders.h"
+#include "D3D12/D3D12Shaders.h"
 #include "RHIPrivate/D3DShaderUtil.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "common/crc.h"
+#include <cstring>
 #include <filesystem>
 #include "core/strings.h"
 
@@ -15,6 +16,18 @@ namespace RenderCore
 			Hash = core::HashString(Macro.Definition, Hash);
 		}
 		return Hash;
+	}
+
+	// PBR bindless uses ps_5_1 texture arrays; everything else uses ps_5_0 so D3DReflect reports TextureCube
+	// dimensions reliably (ps_5_1/DXIL can mis-report t0 and break GBV #940 under multi-pass descriptor heap churn).
+	static bool PixelShaderUsesBindlessMacros(const std::vector<RHIShaderMacro>& MacroDefines)
+	{
+		for (const RHIShaderMacro& M : MacroDefines)
+		{
+			if (M.Name == "RHI_BINDLESS")
+				return true;
+		}
+		return false;
 	}
 
 	FD3D12VertexShader::FD3D12VertexShader()
@@ -48,10 +61,7 @@ namespace RenderCore
 
 		ShaderUtil::ExtractParameterMapFromD3DShader(0, shaderCode, NumSamplers, NumSRVs, NumCBs, NumUAVs, Output);
 
-		ResourceCounts.NumCBs = NumCBs;
-		ResourceCounts.NumSRVs = NumSRVs;
-		ResourceCounts.NumUAVs = NumUAVs;
-		ResourceCounts.NumSamplers = NumSamplers;
+		ResourceCounts = Output.ResourceCounts;
 		CBBind0RootConstantsDwords = ShaderUtil::GetCBBindPoint0RootConstantDwordCount(0, shaderCode);
 		ElementDescs = VertexDeclare.GetDeclareDesc();
 
@@ -60,6 +70,7 @@ namespace RenderCore
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		Hash = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), Hash);
 		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
+		Hash = core::Crc::MemCrc32(shaderCode.data(), (int32_t)shaderCode.size(), Hash);
 		return true;
 	}
 
@@ -74,8 +85,8 @@ namespace RenderCore
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
-		// ps_5_1: texture arrays / bindless array indexing (PBR RHI_BINDLESS path); still loads on D3D11 with ps_5_0.
-		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, "ps_5_1", Code.get_init_ref());
+		const char* const psTarget = PixelShaderUsesBindlessMacros(MacroDefines) ? "ps_5_1" : "ps_5_0";
+		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, psTarget, Code.get_init_ref());
 		if (!Ret)
 		{
 			Assert(false);
@@ -94,16 +105,14 @@ namespace RenderCore
 
 		ShaderUtil::ExtractParameterMapFromD3DShader(0, shaderCode, NumSamplers, NumSRVs, NumCBs, NumUAVs, Output);
 
-		ResourceCounts.NumCBs = NumCBs;
-		ResourceCounts.NumSRVs = NumSRVs;
-		ResourceCounts.NumUAVs = NumUAVs;
-		ResourceCounts.NumSamplers = NumSamplers;
+		ResourceCounts = Output.ResourceCounts;
 		CBBind0RootConstantsDwords = ShaderUtil::GetCBBindPoint0RootConstantDwordCount(0, shaderCode);
 
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", PSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
+		Hash = core::Crc::MemCrc32(shaderCode.data(), (int32_t)shaderCode.size(), Hash);
 		return true;
 	}
 
@@ -137,16 +146,14 @@ namespace RenderCore
 
 		ShaderUtil::ExtractParameterMapFromD3DShader(0, shaderCode, NumSamplers, NumSRVs, NumCBs, NumUAVs, Output);
 
-		ResourceCounts.NumCBs = NumCBs;
-		ResourceCounts.NumSRVs = NumSRVs;
-		ResourceCounts.NumUAVs = NumUAVs;
-		ResourceCounts.NumSamplers = NumSamplers;
+		ResourceCounts = Output.ResourceCounts;
 		CBBind0RootConstantsDwords = ShaderUtil::GetCBBindPoint0RootConstantDwordCount(0, shaderCode);
 
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", CSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
+		Hash = core::Crc::MemCrc32(shaderCode.data(), (int32_t)shaderCode.size(), Hash);
 		return true;
 	}
 

@@ -1,4 +1,4 @@
-﻿#include "Tex2DRender.h"
+#include "Tex2DRender.h"
 #include "core/system.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -20,8 +20,7 @@ Tex2DRender::~Tex2DRender() = default;
 
 void Tex2DRender::InitResource()
 {
-	std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
-	ShaderPath += L"EnvironmentShaders.hlsl";
+	std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/EnvironmentShaders.hlsl";
 	m_ShowTexture2DVS = m_RHI->RHICreateVertexShader(ShaderPath, "VS_ShowTexture2D", {}, {});
 	m_ShowTexture2DPS = m_RHI->RHICreatePixelShader(ShaderPath, "PS_ShowTexture2DNormal", {});
 }
@@ -62,7 +61,7 @@ void Tex2DRender::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::
 	ViewPort->SetRenderTarget();
 
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
-	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Texture2D);
+	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
 	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);

@@ -1,4 +1,4 @@
-﻿// dear imgui: Renderer for DirectX12
+// dear imgui: Renderer for DirectX12
 // This needs to be used along with a Platform Binding (e.g. Win32)
 
 // Implemented features:
@@ -353,8 +353,7 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         global_vtx_offset += cmd_list->VtxBuffer.Size;
     }
 
-    // UE-style external pass: ImGui bound its own root signature / PSO / heaps on the same command list as the engine.
-    // Invalidate FD3D12StateCache mirrors so the next ApplyGraphicState / descriptor heap path rebinds engine state.
+    // ImGui recorded with its own root signature / PSO / heaps on the engine command list; invalidate state-cache mirrors for the next ApplyGraphicState / heap bind.
     if (bUseEngineUpload && upload_ctx)
     {
         if (const std::shared_ptr<RenderCore::FD3D12StateCache> sc = upload_ctx->GetD3D12StateCache())

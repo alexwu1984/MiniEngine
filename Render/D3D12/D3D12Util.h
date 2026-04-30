@@ -1,10 +1,11 @@
-﻿#pragma once
+#pragma once
 /**
  * D3D12 RHI utilities: sync point, resource state, barriers, thread-safe queue,
  * heap helpers, shader quantize types, resource desc helpers, queue mapping.
  */
 #include "D3D12/D3D12Limits.h"
 #include "D3D12/D3D12RHICommon.h"
+#include "RHIPrivate/ShaderCore.h"
 #include "RHI/RHIDefinitions.h"
 #include <d3d12.h>
 #include <intrin.h>
@@ -78,17 +79,6 @@ namespace RenderCore
 		uint8_t ConstantBufferCount;
 		uint8_t ShaderResourceCount;
 		uint8_t UnorderedAccessCount;
-	};
-
-	struct FShaderCodePackedResourceCounts
-	{
-		static const uint8_t Key = 'p';
-
-		bool bGlobalUniformBufferUsed;
-		uint8_t NumSamplers;
-		uint8_t NumSRVs;
-		uint8_t NumCBs;
-		uint8_t NumUAVs;
 	};
 
 	template <class Type>

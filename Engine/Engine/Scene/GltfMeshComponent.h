@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Scene/Component.h"
 #include "math/frustum.h"
 #include "math/vector3.h"
@@ -34,7 +34,8 @@ namespace Engine
 		virtual void Tick(float deltaTime) override;
 		virtual void OnUpdateWorldTransform(float deltaTime) override;
 
-		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum& ViewCullFrustum);
+		/** @param ViewCullFrustum If null, fills SceneMeshInfo without view-frustum rejection (for shadow casters outside the camera frustum). */
+		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum);
 
 		void SetProjectShadow(bool projShadow);
 		bool IsProjectShadow() const;

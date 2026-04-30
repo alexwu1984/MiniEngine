@@ -1,4 +1,5 @@
-﻿#include "Scene/Actor.h"
+#include "core/inc.h"
+#include "Scene/Actor.h"
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"
 #include "Scene/World.h"
@@ -10,13 +11,15 @@ namespace Engine
 	IMP_ACTOR_TRAITS_CLASS_NAME(Actor)
 
 	Actor::Actor(std::weak_ptr<World> InWorld)
-		:ImplActorP(std::make_shared<ActorPrivate>())
+		: d_ptr(new ActorPrivate())
 	{
-		ImplActorP->WorldRef = std::move(InWorld);
+		C_P(Actor);
+		d->WorldRef = std::move(InWorld);
 	}
 	Actor::~Actor()
 	{
-
+		delete d_ptr;
+		d_ptr = nullptr;
 	}
 
 	void Actor::InitResouce()
@@ -26,7 +29,8 @@ namespace Engine
 
 	void Actor::Tick(float deltaTime)
 	{
-		if (ImplActorP->State == AState::EActive)
+		C_P(Actor);
+		if (d->State == AState::EActive)
 		{
 			ComputeWorldTransform(deltaTime);
 
@@ -37,7 +41,8 @@ namespace Engine
 
 	void Actor::TickComponents(float deltaTime)
 	{
-		for (auto comp : ImplActorP->Components)
+		C_P(Actor);
+		for (auto comp : d->Components)
 		{
 			comp->Tick(deltaTime);
 		}
@@ -50,53 +55,60 @@ namespace Engine
 
 	Vector3 Actor::GetPosition() const
 	{
-		return ImplActorP->Position;
+		C_P(Actor);
+		return d->Position;
 	}
 
 	void Actor::SetPosition(const Vector3& pos)
 	{
-		ImplActorP->Position = pos;
-		ImplActorP->RecomputeWorldTransform = true;
+		C_P(Actor);
+		d->Position = pos;
+		d->RecomputeWorldTransform = true;
 	}
 
 	float Actor::GetScale() const
 	{
-		return ImplActorP->Scale;
+		C_P(Actor);
+		return d->Scale;
 	}
 
 	void Actor::SetScale(float scale)
 	{
-		ImplActorP->Scale = scale;
-		ImplActorP->RecomputeWorldTransform = true;
+		C_P(Actor);
+		d->Scale = scale;
+		d->RecomputeWorldTransform = true;
 	}
 
 	math::Quaternion Actor::GetRotation() const
 	{
-		return ImplActorP->Rotation;
+		C_P(Actor);
+		return d->Rotation;
 	}
 
 	void Actor::SetRotation(const Quaternion& rotation)
 	{
-		ImplActorP->Rotation = rotation;
-		ImplActorP->RecomputeWorldTransform = true;
+		C_P(Actor);
+		d->Rotation = rotation;
+		d->RecomputeWorldTransform = true;
 	}
 
 	void Actor::ComputeWorldTransform(float deltaTime)
 	{
-		ImplActorP->PrevWorldTransform = ImplActorP->WorldTransform;
+		C_P(Actor);
+		d->PrevWorldTransform = d->WorldTransform;
 
-		if (ImplActorP->RecomputeWorldTransform)
+		if (d->RecomputeWorldTransform)
 		{
-			ImplActorP->RecomputeWorldTransform = false;
+			d->RecomputeWorldTransform = false;
 
 			// Scale, then rotate, then translate
-			ImplActorP->WorldTransform = Matrix4x4::ScaleMatrix(ImplActorP->Scale);  
-			
-			ImplActorP->WorldTransform *= Matrix4x4::CreateFromQuaternion(ImplActorP->Rotation);
-			ImplActorP->WorldTransform *= Matrix4x4::CreateFromTranslate(ImplActorP->Position);
+			d->WorldTransform = Matrix4x4::ScaleMatrix(d->Scale);
+
+			d->WorldTransform *= Matrix4x4::CreateFromQuaternion(d->Rotation);
+			d->WorldTransform *= Matrix4x4::CreateFromTranslate(d->Position);
 
 			// Inform components world transform updated
-			for (auto comp : ImplActorP->Components)
+			for (auto comp : d->Components)
 			{
 				comp->OnUpdateWorldTransform(deltaTime);
 			}
@@ -105,42 +117,50 @@ namespace Engine
 
 	const Matrix4x4& Actor::GetWorldTransform() const
 	{
-		return ImplActorP->WorldTransform;
+		C_P(Actor);
+		return d->WorldTransform;
 	}
 
 	const math::Matrix4x4& Actor::GetPrevWorldTransform() const
 	{
-		return ImplActorP->PrevWorldTransform;
+		C_P(Actor);
+		return d->PrevWorldTransform;
 	}
 
 	Actor::AState Actor::GetState() const
 	{
-		return ImplActorP->State;
+		C_P(Actor);
+		return d->State;
 	}
 
 	void Actor::SetState(AState State)
 	{
-		ImplActorP->State = State;
+		C_P(Actor);
+		d->State = State;
 	}
 
 	std::shared_ptr<World> Actor::GetWorld() const
 	{
-		return ImplActorP->WorldRef.lock();
+		C_P(Actor);
+		return d->WorldRef.lock();
 	}
 
 	Vector3 Actor::GetForward() const
 	{
-		return Vector3::Transform(Vector3::UnitZ, ImplActorP->Rotation);
+		C_P(Actor);
+		return Vector3::Transform(Vector3::UnitZ, d->Rotation);
 	}
 
 	Vector3 Actor::GetRight() const
 	{
-		return Vector3::Transform(Vector3::UnitX, ImplActorP->Rotation);
+		C_P(Actor);
+		return Vector3::Transform(Vector3::UnitX, d->Rotation);
 	}
 
 	Vector3 Actor::GetUp() const
 	{
-		return Vector3::Transform(Vector3::UnitY, ImplActorP->Rotation);
+		C_P(Actor);
+		return Vector3::Transform(Vector3::UnitY, d->Rotation);
 	}
 
 	void Actor::RotateToNewForward(const math::Vector3& Forward)
@@ -167,19 +187,26 @@ namespace Engine
 		}
 	}
 
+	bool Actor::IsActorPrivateAllocated() const noexcept
+	{
+		return d_ptr != nullptr;
+	}
+
 	void Actor::AddComponent(std::shared_ptr<Component> component)
 	{
-		ImplActorP->Components.push_back(component);
+		C_P(Actor);
+		d->Components.push_back(component);
 		if (auto W = GetWorld())
 			W->RefreshShadowProjectorForActor(shared_from_this());
 	}
 
 	void Actor::RemoveComponent(std::shared_ptr<Component> component)
 	{
-		auto iter = std::find(ImplActorP->Components.begin(), ImplActorP->Components.end(), component);
-		if (iter != ImplActorP->Components.end())
+		C_P(Actor);
+		auto iter = std::find(d->Components.begin(), d->Components.end(), component);
+		if (iter != d->Components.end())
 		{
-			ImplActorP->Components.erase(iter);
+			d->Components.erase(iter);
 			if (auto W = GetWorld())
 				W->RefreshShadowProjectorForActor(shared_from_this());
 		}
@@ -187,32 +214,44 @@ namespace Engine
 
 	std::vector<std::shared_ptr<Engine::Component>>& Actor::GetAllComponents() const
 	{
-		return ImplActorP->Components;
+		if (!d_ptr)
+		{
+			static thread_local std::vector<std::shared_ptr<Engine::Component>> s_emptyComponents;
+			s_emptyComponents.clear();
+			return s_emptyComponents;
+		}
+		C_P(Actor);
+		return d->Components;
 	}
 
 	void Actor::SetVisible(bool visible)
 	{
-		ImplActorP->visible = visible;
+		C_P(Actor);
+		d->visible = visible;
 	}
 
 	bool Actor::IsVisible() const
 	{
-		return ImplActorP->visible;
+		C_P(Actor);
+		return d->visible;
 	}
 
 	void Actor::SetActorName(const std::wstring& name)
 	{
-		ImplActorP->ActorName = name;
+		C_P(Actor);
+		d->ActorName = name;
 	}
 
 	std::wstring Actor::GetActorName() const
 	{
-		return ImplActorP->ActorName;
+		C_P(Actor);
+		return d->ActorName;
 	}
 
 	void Actor::ProcessInput(const InputDeviceState& State)
 	{
-		for (auto comp : ImplActorP->Components)
+		C_P(Actor);
+		for (auto comp : d->Components)
 		{
 			comp->ProcessInput(State);
 		}

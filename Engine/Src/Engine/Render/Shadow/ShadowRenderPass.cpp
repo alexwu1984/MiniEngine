@@ -208,9 +208,10 @@ namespace Engine
 			{
 				if (!Mesh)
 					continue;
-				const bool bFitUseActorOnly = Mesh->HasSkin() || Mesh->GetSkinId() > -1;
-				const math::Matrix4x4 worldFromLocal = bFitUseActorOnly ? MeshInfo.WorldTransform : (Mesh->GetMeshMat() * MeshInfo.WorldTransform);
-				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(worldFromLocal);
+				// Frustum fit: actor world only. MeshMat includes per-frame node/skin pose; merging it into
+				// the light AABB shifts LightViewProj every frame and drags unrelated receivers' shadows.
+				// Shadow draws still use MeshMat * WorldTransform below.
+				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
 				mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
 				mergedValid = true;
 			}

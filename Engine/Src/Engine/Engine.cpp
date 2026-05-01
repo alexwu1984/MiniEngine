@@ -68,6 +68,14 @@ namespace Engine
 			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
 			d->ViewportClient->Init(AppWin);
 			d->SeRender->InitResource(ViewPort);
+
+			// World notifies scene changes; flush mesh draw cache on scene render (weak_ptr avoids lifetime issues).
+			d->GameWorld->sigSceneActorRenderResourcesInvalidated.bind(
+				std::function<void()>([wpSceneRender = std::weak_ptr<FWorldSceneRender>(d->SeRender)]() {
+					if (const auto sr = wpSceneRender.lock())
+						sr->RequestMeshMaterialRenderCacheInvalidate();
+				}),
+				this);
 		}
 	}
 
@@ -92,6 +100,8 @@ namespace Engine
 	void MainEngine::ShutDown()
 	{
 		C_P(MainEngine);
+		if (d->GameWorld)
+			d->GameWorld->sigSceneActorRenderResourcesInvalidated.unbind(this); // paired with Init bind
 		d->GameTick.SigTick.unbind(this);
 		if (d->AppWin)
 			d->AppWin->EvtSizeChanged.unbind(this);

@@ -3,7 +3,6 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIThreadPolicy.h"
 #include "core/logger.h"
-#include <thread>
 
 namespace Engine
 {

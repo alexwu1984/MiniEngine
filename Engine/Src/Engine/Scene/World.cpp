@@ -192,6 +192,7 @@ namespace Engine
 
 	World::~World()
 	{
+		sigSceneActorRenderResourcesInvalidated.unbindall(); // release render-side subscriptions
 		delete d_ptr;
 	}
 
@@ -201,6 +202,7 @@ namespace Engine
 		nlohmann::json Root;
 		if (!LoadJsonFile(ModelFile, Root))
 			return;
+		sigSceneActorRenderResourcesInvalidated();
 		Engine::GEngine->LoadConfig(ModelFile, Root);
 
 		try
@@ -276,11 +278,13 @@ namespace Engine
 	{
 		C_P(World);
 		std::lock_guard<std::recursive_mutex> l(d->lock);
+		bool bRemoved = false;
 		auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
 		if (iter != d->PendingActors.end())
 		{
 			std::iter_swap(iter, d->PendingActors.end() - 1);
 			d->PendingActors.pop_back();
+			bRemoved = true;
 		}
 
 		iter = std::find(d->Actors.begin(), d->Actors.end(), actor);
@@ -288,8 +292,11 @@ namespace Engine
 		{
 			std::iter_swap(iter, d->Actors.end() - 1);
 			d->Actors.pop_back();
+			bRemoved = true;
 		}
 		RefreshShadowProjectorForActor(nullptr);
+		if (bRemoved)
+			sigSceneActorRenderResourcesInvalidated();
 	}
 
 	void World::RemoveAllActors()
@@ -301,6 +308,7 @@ namespace Engine
 			(*ItActor)->SetState(Actor::EDead);
 		}
 		RefreshShadowProjectorForActor(nullptr);
+		sigSceneActorRenderResourcesInvalidated();
 	}
 
 	void World::DispatchInput(const InputDeviceState& InputState)

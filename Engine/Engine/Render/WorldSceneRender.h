@@ -3,9 +3,6 @@
 #include "core/event.h"
 #include "core/color.h"
 #include "tinygltf/json.h"
-#include <functional>
-#include <memory>
-#include <string>
 
 namespace RenderCore
 {
@@ -46,6 +43,9 @@ namespace Engine
 		std::shared_ptr<PostProcessor> GetPostProcessor() const;
 		std::shared_ptr<ShadowRenderPass> GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
+
+		/** Request clearing the mesh draw cache on the next render (cache keys are raw pointers). */
+		void RequestMeshMaterialRenderCacheInvalidate();
 
 	private:
 		/** Game thread: gather views/primitives, Submit to FSceneRenderer, enqueue render-thread work. */

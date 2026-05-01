@@ -1,7 +1,5 @@
 ﻿#pragma once
 #include "Render/MaterialRender.h"
-#include <memory>
-#include <unordered_map>
 
 namespace Engine
 {
@@ -12,6 +10,8 @@ namespace Engine
 	{
 	public:
 		std::shared_ptr<MaterialRender> GetOrCreate(std::shared_ptr<MeshBase> Mesh);
+		/** Clear entries (keys are raw pointers; call after world invalidates scene meshes). */
+		void Clear() noexcept { CachedRenders.clear(); }
 
 	private:
 		struct FMaterialRenderCacheKey

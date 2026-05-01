@@ -207,6 +207,14 @@ namespace Engine
 		return d->MainViewPort;
 	}
 
+	void FWorldSceneRender::RequestMeshMaterialRenderCacheInvalidate()
+	{
+		// Game thread sets flag; render thread clears FMeshMaterialRenderCache on next Render.
+		FWorldSceneRenderPrivate* d = d_ptr.get();
+		if (d)
+			d->bMeshMaterialCacheInvalidatePending.store(true, std::memory_order_release);
+	}
+
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
 	{
 		(void)DeltaTime;

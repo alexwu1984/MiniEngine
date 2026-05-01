@@ -29,6 +29,7 @@ namespace Engine
 		std::shared_ptr<PreProcessor> PreProcess;
 		std::shared_ptr<PostProcessor> PostProcess;
 		std::unique_ptr<FMeshMaterialRenderCache> MeshMaterialRenderCache;
+		std::atomic_bool bMeshMaterialCacheInvalidatePending{ false }; // game sets; render thread clears cache then resets
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;

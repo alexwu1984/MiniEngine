@@ -1,14 +1,9 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "core/event.h"
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowMap.h"
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <queue>
-#include <string>
-#include <vector>
 
 namespace Engine
 {
@@ -78,6 +73,9 @@ namespace Engine
 
 		/** True if current scene JSON listed a RoamCamera entry (after last LoadScene). */
 		bool UsesRoamCameraScene() const;
+
+		/** Fired when actors are removed or a new scene JSON is about to load; listeners flush render caches keyed by raw mesh/material pointers. */
+		core::event<void()> sigSceneActorRenderResourcesInvalidated;
 
 	private:
 		WorldPrivate* d_ptr = nullptr;

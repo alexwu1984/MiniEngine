@@ -86,6 +86,10 @@ namespace Engine
 		if (!CommandContext)
 			return;
 
+		// Mesh draw cache keys are raw pointers; drop stale entries when the world signals a scene change.
+		if (d->bMeshMaterialCacheInvalidatePending.exchange(false, std::memory_order_acq_rel))
+			d->MeshMaterialRenderCache->Clear();
+
 		if (d->PreProcess)
 			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrOverrideForFrame));
 		SkyLightHdrOverrideForFrame.reset();

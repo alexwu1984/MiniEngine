@@ -72,6 +72,7 @@ namespace RenderCore
 		// Close the current command list and return it for batching/submission.
 		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) override;
+		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void BeginUserMark(const char* name) override;
 		virtual void EndUserMark() override;
 

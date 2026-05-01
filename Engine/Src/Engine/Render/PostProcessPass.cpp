@@ -100,8 +100,8 @@ namespace Engine
 	{
 		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
 		ViewPort->SetRenderTarget();
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		if (BloomConstants)
 		{
 			BloomConstants->UpdateUniformBuffer();
@@ -148,12 +148,11 @@ namespace Engine
 	}
 
 	BloomPass::BloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-						 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<Bloom> InBloomEffect,
+						 std::shared_ptr<Bloom> InBloomEffect,
 						 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture,
 						 std::string InSceneColorDependencyName)
 		: RHIContext(InRHIContext)
 		, TargetBuffer(std::move(InTargetBuffer))
-		, ViewPort(std::move(InViewPort))
 		, BloomEffect(std::move(InBloomEffect))
 		, SourceTexture(std::move(InSourceTexture))
 		, SceneColorDependencyName(std::move(InSceneColorDependencyName))
@@ -177,7 +176,6 @@ namespace Engine
 	void BloomPass::Execute() const
 	{
 		UnbindGraphicsRenderTargets(RHIContext);
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		BloomEffect->Draw(RHIContext, TargetBuffer);
 	}
 
@@ -208,9 +206,9 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, BloomTexture());
@@ -250,9 +248,9 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplySSR");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithSSR(), nullptr);
+		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetSceneColor());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, SSRTexture());
@@ -260,12 +258,10 @@ namespace Engine
 	}
 
 	TAAPass::TAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<GBuffer> InTargetBuffer,
-					 std::shared_ptr<RenderCore::RHIViewPort> InViewPort, std::shared_ptr<const FSceneViewData> InViewData,
-					 std::shared_ptr<TemporallAA> InTAA,
+					 std::shared_ptr<const FSceneViewData> InViewData, std::shared_ptr<TemporallAA> InTAA,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
 		: RHIContext(InRHIContext)
 		, TargetBuffer(std::move(InTargetBuffer))
-		, ViewPort(std::move(InViewPort))
 		, ViewData(std::move(InViewData))
 		, TAA(std::move(InTAA))
 		, SourceTexture(std::move(InSourceTexture))
@@ -291,15 +287,12 @@ namespace Engine
 	void TAAPass::Execute() const
 	{
 		UnbindGraphicsRenderTargets(RHIContext);
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		TAA->Draw(RHIContext, TargetBuffer, ViewData);
 	}
 
-	FXAAPass::FXAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<RenderCore::RHIViewPort> InViewPort,
-					   std::shared_ptr<RenderCore::FXAA> InFXAA,
+	FXAAPass::FXAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<RenderCore::FXAA> InFXAA,
 					   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
 		: RHIContext(InRHIContext)
-		, ViewPort(std::move(InViewPort))
 		, FXAA(std::move(InFXAA))
 		, SourceTexture(std::move(InSourceTexture))
 	{
@@ -321,7 +314,6 @@ namespace Engine
 
 	void FXAAPass::Execute() const
 	{
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		FXAA->Draw(RHIContext, SourceTexture());
 	}
 }

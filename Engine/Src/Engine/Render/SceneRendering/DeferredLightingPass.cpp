@@ -128,10 +128,24 @@ namespace Engine
 		}
 	}
 
-	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
-									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
+	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<GBuffer>& TargetBuffer) const
 	{
-		if (!RHI || !VertexShader || !PixelShader || !TargetBuffer || !ViewData)
+		if (!TargetBuffer)
+			return;
+		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = TargetBuffer->GetSceneColorPreLighting();
+		const std::shared_ptr<RHITexture2D> SceneColor = TargetBuffer->GetSceneColor();
+		if (!SceneColorPreLighting || !SceneColor)
+			return;
+
+		RHICommandMark Mark(RHIContext, "DeferredLighting_CopySceneColor");
+		// RHICopyResource(dst, src): preserve base-pass output in PreLighting; raster pass overwrites SceneColor.
+		RHIContext.RHICopyResource(SceneColorPreLighting, SceneColor);
+	}
+
+	void DeferredLightingPass::ExecuteRaster(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
+											 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
+	{
+		if (!RHI || !VertexShader || !PixelShader || !TargetBuffer || !ViewData || !ViewPort)
 			return;
 		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = TargetBuffer->GetSceneColorPreLighting();
 		const std::shared_ptr<RHITexture2D> SceneColor = TargetBuffer->GetSceneColor();
@@ -139,9 +153,6 @@ namespace Engine
 			return;
 
 		RHICommandMark Mark(RHIContext, "DeferredLighting");
-
-		// Preserve base-pass albedo in SceneColorPreLighting; fullscreen pass writes lit HDR to SceneColor (RHICopyResource: dst, src).
-		RHIContext.RHICopyResource(SceneColorPreLighting, SceneColor);
 
 		PreProcessor* Pre = nullptr;
 		if (WorldSceneRender)
@@ -200,5 +211,12 @@ namespace Engine
 		}
 
 		RHIContext.Draw(3);
+	}
+
+	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
+									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
+	{
+		CopySceneColorToPreLighting(RHIContext, TargetBuffer);
+		ExecuteRaster(RHIContext, std::move(ViewPort), TargetBuffer, WorldSceneRender, ViewData);
 	}
 }

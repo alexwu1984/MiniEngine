@@ -112,6 +112,10 @@ namespace RenderCore
 			d->FxaaRT = Engine::RenderTexturePool::Get().AcquireRenderTarget(
 				d->RHI, TargetBuffer->GetPixelFormat(), InSize.x, InSize.y, 1, false, false);
 
+		RHIContext.SetRenderTarget(d->FxaaRT);
+		const auto OutSz = d->FxaaRT->GetTex()->GetSize();
+		RHIContext.SetViewPort(0, 0, static_cast<int32_t>(OutSz.x), static_cast<int32_t>(OutSz.y));
+
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;
@@ -119,7 +123,6 @@ namespace RenderCore
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 		RHIContext.RHISetGraphicsPipelineState(Init);
-		RHIContext.SetRenderTarget(d->FxaaRT);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampPointSampler);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 0, TargetBuffer);

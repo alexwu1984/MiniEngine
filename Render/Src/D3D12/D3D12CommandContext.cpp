@@ -1,4 +1,6 @@
 ﻿#include "D3D12/D3D12CommandContext.h"
+#include "RHI/RDGResourceAccess.h"
+#include "D3D12/D3D12Util.h"
 #include "RHI/RHIThreadPolicy.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12Adapter.h"
@@ -662,11 +664,16 @@ namespace RenderCore
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->CopyResource(D3D12Dst->GetResource()->GetResource(), D3D12Src->GetResource()->GetResource());
 		++numCopies;
-		
-		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
-		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
-		// Restore barriers are ordered after Copy in the batch; defer flush to the next GPU boundary
-		// (Draw/Clear/Dispatch/Close) to avoid an extra ResourceBarrier split per copy.
+
+		// Never emit transitions into TBD/CORRUPT — invalid StateAfter breaks validation and can wedge the GPU/debug runtime.
+		// Omit restore when unknown; subsequent binds (RTV/SRV) transition from COPY_DEST/COPY_SOURCE as needed.
+		if (IsValidD3D12ResourceState(DstOldState))
+			TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
+		if (IsValidD3D12ResourceState(SrcOldState))
+			TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
+		// Flush restore transitions before subsequent passes; GPU-based validation is stricter about leaving
+		// COPY_* states visible across unrelated commands than retail scheduling.
+		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect)
@@ -708,8 +715,11 @@ namespace RenderCore
 		);
 		++numCopies;
 
-		TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
-		TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
+		if (IsValidD3D12ResourceState(SrcOldState))
+			TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
+		if (IsValidD3D12ResourceState(DstOldState))
+			TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
+		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::FlushCommands(bool WaitForCompletion /*= false*/)
@@ -769,6 +779,60 @@ namespace RenderCore
 		auto TexRHI = RHIResourceCast(Tex.get());
 		if (TexRHI)
 			TransitionResource(TexRHI->GetResource(), (D3D12_RESOURCE_STATES)NewState, Flush);
+	}
+
+	void D3D12CommandContext::RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
+	{
+		if (!Items || Count == 0 || !CommandListHandle)
+			return;
+
+		const bool bAsyncCompute = (PassQueue == ERDGPassQueue::AsyncCompute);
+
+		for (size_t i = 0; i < Count; ++i)
+		{
+			const FRDGTextureBarrierDesc& D = Items[i];
+			if (!D.Texture || D.Access == FRDGResourceAccess::Unknown)
+				continue;
+
+			D3D12Texture2D* Tex2D = RHIResourceCast(D.Texture.get());
+			if (!Tex2D)
+				continue;
+			FD3D12Resource* Res = Tex2D->GetResource();
+			if (!Res || !Res->RequiresResourceStateTracking())
+				continue;
+
+			D3D12_RESOURCE_STATES Target = D3D12_RESOURCE_STATE_COMMON;
+			switch (D.Access)
+			{
+			case FRDGResourceAccess::SRV:
+				Target = bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				break;
+			case FRDGResourceAccess::UAV:
+				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				break;
+			case FRDGResourceAccess::RTV:
+				Target = D3D12_RESOURCE_STATE_RENDER_TARGET;
+				break;
+			case FRDGResourceAccess::DSV:
+				Target = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+				break;
+			case FRDGResourceAccess::CopySrc:
+				Target = D3D12_RESOURCE_STATE_COPY_SOURCE;
+				break;
+			case FRDGResourceAccess::CopyDst:
+				Target = D3D12_RESOURCE_STATE_COPY_DEST;
+				break;
+			default:
+				continue;
+			}
+
+			if (D.SubresourceIndex == 0xFFFFFFFFu)
+				TransitionResource(Res, Target, false);
+			else
+				TransitionSubResource(Res, Target, D.SubresourceIndex, false);
+		}
+
+		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::BeginUserMark(const char* name)

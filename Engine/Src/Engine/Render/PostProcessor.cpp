@@ -41,6 +41,7 @@ namespace Engine
 				Out.bDumpDotToLog = J.value("DumpDotToLog", Out.bDumpDotToLog);
 				Out.bLogCompileSummary = J.value("LogCompileSummary", Out.bLogCompileSummary);
 				Out.bLogRenderTexturePoolStats = J.value("LogRenderTexturePoolStats", Out.bLogRenderTexturePoolStats);
+				Out.bRDGAutoPipelineBarriers = J.value("AutoPipelineBarriers", Out.bRDGAutoPipelineBarriers);
 			}
 			catch (const std::exception&)
 			{
@@ -213,13 +214,15 @@ namespace Engine
 		FRDGBuilder Graph;
 		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData);
+		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
+		RDGExecParams.RDGBarrierCommandContext = &RHIContext;
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))
 		{
 			core::LOG(core::log_err, L"FRDG: post-process graph compile failed (cycle); executing passes in AddPass order.");
-			Graph.ExecutePassesInSetupOrder(d->RDGCompileParams);
+			Graph.ExecutePassesInSetupOrder(RDGExecParams);
 		}
 		else
-			Graph.ExecutePasses(d->RDGCompileParams);
+			Graph.ExecutePasses(RDGExecParams);
 	}
 
 	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
@@ -294,7 +297,6 @@ namespace Engine
 		BloomPass BloomPassNode(
 			RHIContext,
 			TargetBuffer,
-			ViewPort,
 			d->BloomEffect,
 			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); },
 			bloomSceneInput);
@@ -318,13 +320,7 @@ namespace Engine
 		{
 		case EPostProcessorAAType::TAA:
 		{
-			TAAPass Pass(
-				RHIContext,
-				TargetBuffer,
-				ViewPort,
-				ViewData,
-				d->TAA,
-				[AntiAliasingColor]() { return AntiAliasingColor; });
+			TAAPass Pass(RHIContext, TargetBuffer, ViewData, d->TAA, [AntiAliasingColor]() { return AntiAliasingColor; });
 			Graph.AddPass(Pass.BuildDesc());
 			break;
 		}
@@ -332,7 +328,6 @@ namespace Engine
 		{
 			FXAAPass Pass(
 				RHIContext,
-				ViewPort,
 				d->FXaa,
 				[AntiAliasingColor]() { return AntiAliasingColor; });
 			Graph.AddPass(Pass.BuildDesc());

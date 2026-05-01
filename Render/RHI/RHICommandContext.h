@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "RHI/RHIDefinitions.h"
+#include "RHI/RDGResourceAccess.h"
 #include "core/color.h"
 #include "RHI/RHIPipeLineState.h"
 #include "core/vec4.h"
@@ -66,6 +67,11 @@ namespace RenderCore
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) = 0;
 		virtual void FlushCommands(bool WaitForCompletion = false) {};
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) {};
+		/**
+		 * UE-style RDG pass begin: transition textures to states implied by FRDGResourceAccess before Pass.Execute().
+		 * Default implementation is a no-op (e.g. D3D11). D3D12 batches ResourceBarrier then flushes once.
+		 */
+		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) {}
 		virtual void BeginUserMark(const char* name) {};
 		virtual void EndUserMark(){};
 	};

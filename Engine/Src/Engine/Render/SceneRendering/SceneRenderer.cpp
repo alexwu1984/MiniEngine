@@ -30,13 +30,14 @@ namespace Engine
 		{
 			if (!TB)
 				return {};
+			using A = FRDGResourceAccess;
 			return {
-				{ "SceneColor", [TB]() { return TB->GetSceneColor(); } },
-				{ "MotionVector", [TB]() { return TB->GetMotionVector(); } },
-				{ "Normal", [TB]() { return TB->GetNormalBuffer(); } },
-				{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); } },
-				{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); } },
-				{ "Depth", [TB]() { return TB->GetDepth(); } },
+				{ "SceneColor", [TB]() { return TB->GetSceneColor(); }, true, A::RTV },
+				{ "MotionVector", [TB]() { return TB->GetMotionVector(); }, true, A::RTV },
+				{ "Normal", [TB]() { return TB->GetNormalBuffer(); }, true, A::RTV },
+				{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); }, true, A::RTV },
+				{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); }, true, A::RTV },
+				{ "Depth", [TB]() { return TB->GetDepth(); }, true, A::DSV },
 			};
 		}
 	} // namespace
@@ -200,20 +201,34 @@ namespace Engine
 
 		if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
 		{
-			FRDGDeferredLightingPass::RegisterExternalImports(Graph, TB);
 			Graph.AddPass(FRDGPassDescriptor{
-				FRDGDeferredLightingPass::PassName,
-				FRDGDeferredLightingPass::GatherPassInputs(TB),
-				FRDGDeferredLightingPass::GatherPassOutputs(TB),
+				FRDGDeferredLightingPass::PassNameCopySceneToPreLighting,
+				FRDGDeferredLightingPass::GatherCopyPassInputs(TB),
+				FRDGDeferredLightingPass::GatherCopyPassOutputs(TB),
+				[d, CommandContext, TB]()
+				{
+					if (!d->DeferredLighting)
+						return;
+					d->DeferredLighting->CopySceneColorToPreLighting(*CommandContext, TB);
+				},
+				true,
+				RDG_Copy,
+				ERDGPassQueue::Graphics,
+				true});
+			Graph.AddPass(FRDGPassDescriptor{
+				FRDGDeferredLightingPass::PassNameRaster,
+				FRDGDeferredLightingPass::GatherRasterPassInputs(TB),
+				FRDGDeferredLightingPass::GatherRasterPassOutputs(TB),
 				[d, Self, CommandContext, ViewConst, TB]()
 				{
 					if (!d->DeferredLighting || !d->MainViewPort)
 						return;
-					d->DeferredLighting->Execute(*CommandContext, d->MainViewPort, TB, Self, ViewConst);
+					d->DeferredLighting->ExecuteRaster(*CommandContext, d->MainViewPort, TB, Self, ViewConst);
 				},
 				true,
 				RDG_Raster,
-				ERDGPassQueue::Graphics});
+				ERDGPassQueue::Graphics,
+				true});
 		}
 
 		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->TargetBuffer, d->MainViewPort, ViewConst);
@@ -243,17 +258,19 @@ namespace Engine
 			Graph.AddPassDependency("Shadow", "RenderBasePass");
 			Graph.AddPassDependency("Shadow", "RenderTranslucency");
 			if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
-				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassName);
+				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
 		}
 
 		(void)ViewFamily;
+		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
+		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))
 		{
 			core::LOG(core::log_err, L"FRDG: frame graph compile failed (cycle); executing passes in AddPass order so Present still runs.");
-			Graph.ExecutePassesInSetupOrder(d->RDGCompileParams);
+			Graph.ExecutePassesInSetupOrder(RDGExecParams);
 		}
 		else
-			Graph.ExecutePasses(d->RDGCompileParams);
+			Graph.ExecutePasses(RDGExecParams);
 		RHI->RHIEndFrame();
 	}
 

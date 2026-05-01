@@ -677,6 +677,13 @@ namespace RenderCore
 		);
 	}
 
+	void D3D11CommandContext::RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
+	{
+		(void)Items;
+		(void)Count;
+		(void)PassQueue;
+	}
+
 	bool D3D11CommandContext::UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI)
 	{
 		return TilePool->UpdateTileMappings(TexRHI);

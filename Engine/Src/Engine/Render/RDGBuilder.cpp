@@ -1,5 +1,6 @@
 #include "Render/RDGBuilder.h"
 #include "Render/RenderTexturePool.h"
+#include "RHI/RHICommandContext.h"
 #include "core/logger.h"
 #include "core/strings.h"
 #include <set>
@@ -11,6 +12,22 @@ namespace Engine
 {
 	namespace
 	{
+		void AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out)
+		{
+			auto AppendSlot = [&Out](const FRDGPassResource& R) {
+				if (R.Access == FRDGResourceAccess::Unknown || !R.Resolve)
+					return;
+				std::shared_ptr<RenderCore::RHITexture2D> tex = R.Resolve();
+				if (!tex)
+					return;
+				Out.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(tex), static_cast<RenderCore::FRDGResourceAccess>(R.Access), R.SubresourceIndex});
+			};
+			for (const FRDGPassResource& In : Pass.Inputs)
+				AppendSlot(In);
+			for (const FRDGPassResource& O : Pass.Outputs)
+				AppendSlot(O);
+		}
+
 		bool ResourceNameForScheduling(const std::string& Name)
 		{
 			return !Name.empty();
@@ -363,20 +380,26 @@ namespace Engine
 		return true;
 	}
 
-	void FRDGBuilder::ExecutePasses(const FRDGCompileParameters& Params)
+	void FRDGBuilder::ExecutePassesImpl(const FRDGCompileParameters& Params, const std::vector<std::size_t>& Order)
 	{
-		if (LastCompiledOrder.empty())
-		{
-			if (!Passes.empty())
-				core::LOG(core::log_err, L"FRDG ExecutePasses: no valid schedule (call Compile first, or compile failed). Skipping passes.");
-			return;
-		}
-
-		for (std::size_t Idx : LastCompiledOrder)
+		std::vector<RenderCore::FRDGTextureBarrierDesc> BarrierScratch;
+		for (std::size_t Idx : Order)
 		{
 			const FRDGPassDescriptor& Pass = Passes[Idx];
 			if (!ValidatePass(Pass))
 				continue;
+			if (Params.bRDGAutoPipelineBarriers && Params.RDGBarrierCommandContext)
+			{
+				if (Pass.bUnbindRenderTargetsBeforeRDGBarriers)
+				{
+					const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> emptyTargets;
+					Params.RDGBarrierCommandContext->SetRenderTarget(emptyTargets, nullptr);
+				}
+				BarrierScratch.clear();
+				AppendPassTextureBarriers(Pass, BarrierScratch);
+				if (!BarrierScratch.empty())
+					Params.RDGBarrierCommandContext->RDGApplyPassBeginBarriers(BarrierScratch.data(), BarrierScratch.size(), Pass.Queue);
+			}
 			if (Pass.Execute)
 				Pass.Execute();
 		}
@@ -395,29 +418,25 @@ namespace Engine
 		}
 	}
 
-	void FRDGBuilder::ExecutePassesInSetupOrder(const FRDGCompileParameters& Params)
+	void FRDGBuilder::ExecutePasses(const FRDGCompileParameters& Params)
 	{
-		for (std::size_t Idx = 0; Idx < Passes.size(); ++Idx)
+		if (LastCompiledOrder.empty())
 		{
-			const FRDGPassDescriptor& Pass = Passes[Idx];
-			if (!ValidatePass(Pass))
-				continue;
-			if (Pass.Execute)
-				Pass.Execute();
+			if (!Passes.empty())
+				core::LOG(core::log_err, L"FRDG ExecutePasses: no valid schedule (call Compile first, or compile failed). Skipping passes.");
+			return;
 		}
 
-		if (Params.bLogRenderTexturePoolStats)
-		{
-			const RenderTexturePool::Stats S = RenderTexturePool::Get().GetStats();
-			core::LOG(core::log_inf,
-					  L"RenderTexturePool (post-FRDG ExecutePassesInSetupOrder): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
-					  (unsigned long long)S.FrameCounter,
-					  S.FreeTex2D,
-					  S.FreeUav,
-					  S.FreeRt,
-					  S.EstimatedBytesFree / (1024.0 * 1024.0),
-					  S.BudgetBytes / (1024.0 * 1024.0));
-		}
+		ExecutePassesImpl(Params, LastCompiledOrder);
+	}
+
+	void FRDGBuilder::ExecutePassesInSetupOrder(const FRDGCompileParameters& Params)
+	{
+		std::vector<std::size_t> Order;
+		Order.reserve(Passes.size());
+		for (std::size_t i = 0; i < Passes.size(); ++i)
+			Order.push_back(i);
+		ExecutePassesImpl(Params, Order);
 	}
 
 	bool FRDGBuilder::CompileAndExecute(const FRDGCompileParameters& Params)

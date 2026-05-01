@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "RHI/RDGResourceAccess.h"
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -10,21 +11,13 @@
 namespace RenderCore
 {
 	class RHITexture2D;
+	class RHICommandContext;
 }
 
 namespace Engine
 {
-/** How a pass uses a texture; kept for compile metadata and future barrier batching. */
-enum class FRDGResourceAccess : uint8_t
-{
-	Unknown = 0,
-	SRV,
-	UAV,
-	RTV,
-	DSV,
-	CopySrc,
-	CopyDst,
-};
+using FRDGResourceAccess = RenderCore::FRDGResourceAccess;
+using ERDGPassQueue = RenderCore::ERDGPassQueue;
 
 enum ERDGPassFlags : uint32_t
 {
@@ -36,13 +29,6 @@ enum ERDGPassFlags : uint32_t
 	RDG_MayCullIfUnreachableFromSink = 1u << 3,
 	/** Reachability root for culling (typically swap chain; pass name Present or RHISubmitAndPresent). */
 	RDG_GraphSink = 1u << 4,
-};
-
-enum class ERDGPassQueue : uint8_t
-{
-	Graphics = 0,
-	AsyncCompute = 1,
-	Copy = 2,
 };
 
 /** Placeholder for transient texture allocation (future pool). */
@@ -75,6 +61,11 @@ struct FRDGPassDescriptor
 	bool ValidateOutputs = false;
 	uint32_t PassFlags = RDG_Raster;
 	ERDGPassQueue Queue = ERDGPassQueue::Graphics;
+	/**
+	 * When applying RDG barriers, OM bindings can make transitions illegal (e.g. RTV-bound color -> COPY_SOURCE,
+	 * DSV-bound depth -> SRV). If true, clears RTV/DSV binds on the barrier command context before transitions.
+	 */
+	bool bUnbindRenderTargetsBeforeRDGBarriers = false;
 };
 
 struct FRDGCompileStats
@@ -95,6 +86,13 @@ struct FRDGCompileParameters
 	bool bLogRenderTexturePoolStats = false;
 	/** Log when a pass uses AsyncCompute/Copy: multi-queue execution ordering is not implemented. */
 	bool bWarnOnNonGraphicsPassQueues = true;
+	/**
+	 * When set with bRDGAutoPipelineBarriers, ExecutePasses inserts pass-begin transitions from FRDGResourceAccess
+	 * (UE RDG-style pipeline barriers). Must point at the same command list passes record into.
+	 */
+	RenderCore::RHICommandContext* RDGBarrierCommandContext = nullptr;
+	/** If false, skips RDGApplyPassBeginBarriers even when RDGBarrierCommandContext is set. */
+	bool bRDGAutoPipelineBarriers = true;
 };
 
 /**
@@ -105,7 +103,10 @@ struct FRDGCompileParameters
  * Scheduling edges come from (1) resource name flow: each output name remembers the last pass that
  * wrote it; a pass that lists that name as an input depends on that writer, and (2) AddPassDependency
  * for producer/consumer pairs without a shared RDG texture name (e.g. shadow maps).
- * FRDGResourceAccess is metadata for future barrier batching; it does not affect ordering yet.
+ * Multi-step producers split across passes when helpful (e.g. deferred lighting: copy SceneColor ->
+ * SceneColorPreLighting, then raster writes lit SceneColor).
+ * FRDGResourceAccess drives pass-begin resource transitions when FRDGCompileParameters supplies an RHI command context
+ * and bRDGAutoPipelineBarriers (UE-style Epilogue): Unknown skips a slot; declare RTV/SRV/DSV/Copy* as appropriate.
  */
 class FRDGBuilder
 {
@@ -139,6 +140,7 @@ private:
 	bool ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const;
 	void DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const;
 	void LogNonGraphicsQueueWarnings() const;
+	void ExecutePassesImpl(const FRDGCompileParameters& Params, const std::vector<std::size_t>& Order);
 
 	std::vector<FRDGPassResource> Imports;
 	std::vector<FRDGPassDescriptor> Passes;

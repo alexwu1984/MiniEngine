@@ -132,7 +132,6 @@ namespace Engine
 		if (!WriteSSR)
 			return;
 
-		RHIContext.SetViewPort(0, 0, VpW, VpH);
 		RHIContext.Clear(WriteSSR, nullptr, core::FLinearColor::Transparent, 1.f, 0);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
@@ -144,6 +143,7 @@ namespace Engine
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.SetRenderTarget(WriteSSR, nullptr);
+		RHIContext.SetViewPort(0, 0, VpW, VpH);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RenderCore::RHICachedStates::ClampPointSampler);

@@ -26,6 +26,14 @@ namespace Engine
 		explicit DeferredLightingPass(RenderCore::DynamicRHI* InRHI);
 
 		void InitResource();
+
+		/** RDG pass 1: SceneColor → SceneColorPreLighting (base-pass HDR before lighting). */
+		void CopySceneColorToPreLighting(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<GBuffer>& TargetBuffer) const;
+		/** RDG pass 2: fullscreen deferred lighting into SceneColor (reads PreLighting + GBuffer). */
+		void ExecuteRaster(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
+						   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
+
+		/** Copy then raster (single submission path). */
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
 					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 

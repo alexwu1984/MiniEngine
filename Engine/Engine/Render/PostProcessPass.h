@@ -72,7 +72,7 @@ namespace Engine
 	{
 	public:
 		BloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-				  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<Bloom> BloomEffect,
+				  std::shared_ptr<Bloom> BloomEffect,
 				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 				  std::string SceneColorDependencyName);
 
@@ -83,7 +83,6 @@ namespace Engine
 
 		RenderCore::RHICommandContext& RHIContext;
 		std::shared_ptr<GBuffer> TargetBuffer;
-		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<Bloom> BloomEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 		std::string SceneColorDependencyName;
@@ -137,8 +136,7 @@ namespace Engine
 	{
 	public:
 		TAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
-				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
-				std::shared_ptr<TemporallAA> TAA,
+				std::shared_ptr<const FSceneViewData> ViewData, std::shared_ptr<TemporallAA> TAA,
 				std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
 
 		RenderPassDesc BuildDesc() const;
@@ -148,7 +146,6 @@ namespace Engine
 
 		RenderCore::RHICommandContext& RHIContext;
 		std::shared_ptr<GBuffer> TargetBuffer;
-		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<const FSceneViewData> ViewData;
 		std::shared_ptr<TemporallAA> TAA;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
@@ -157,8 +154,7 @@ namespace Engine
 	class FXAAPass
 	{
 	public:
-		FXAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
-				 std::shared_ptr<RenderCore::FXAA> FXAA,
+		FXAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::FXAA> FXAA,
 				 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
 
 		RenderPassDesc BuildDesc() const;
@@ -167,7 +163,6 @@ namespace Engine
 		void Execute() const;
 
 		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<RenderCore::FXAA> FXAA;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 	};

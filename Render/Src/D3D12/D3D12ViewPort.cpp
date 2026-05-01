@@ -18,7 +18,9 @@
 #include "D3D12/D3D12RHICommon.h"
 #include <dxgi1_4.h>
 #include <mutex>
+#include <vector>
 #include <windows.h>
+#include "RHI/RHITexture2D.h"
 
 namespace RenderCore
 {
@@ -260,6 +262,9 @@ namespace RenderCore
 		auto DefaultCtx = GetDefaultCommandContext();
 		DefaultCtx->RHIEndDrawing();
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
+		// D3D12 validation / GPU-based validation: transitioning to PRESENT while the swap-chain image is still bound
+		// as an RTV (typical after Tonemapping + ImGui) is invalid and can wedge the GPU; retail drivers often tolerate it.
+		DefaultCtx->SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>>{}, nullptr);
 		DefaultCtx->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 
 		// Flush barriers, release allocator to pool, clear state, then flush pending work.

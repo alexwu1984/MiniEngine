@@ -69,9 +69,8 @@ bool GltfViewApp::Init()
 				ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
 				ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
 
-				mDirectLight.Normalize();
 				dir->SetUseActorForward(false);
-				dir->SetWorldDirection(mDirectLight);
+				dir->SetWorldDirection(static_cast<const math::Vector3&>(mDirectLight).Normalize());
 			}
 
 			ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);

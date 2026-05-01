@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/SceneViewFamily.h"
 #include "Render/SceneRendering/SceneViewData.h"

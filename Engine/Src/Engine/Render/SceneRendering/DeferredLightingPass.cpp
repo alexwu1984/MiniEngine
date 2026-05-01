@@ -187,7 +187,10 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
-		if (WorldSceneRender && !ViewData->Lights.empty() && ViewData->Lights[0].ShadowMapIndex >= 0)
+		// Must match CB filled above: view lights keep ShadowMapIndex == -1 (e.g. DirectionalLightComponent); shadow pass patches CB via TryGetCachedMainLightForShading.
+		const bool bDeferredShadow = WorldSceneRender && PerFrameCB.Data.myPerFrame.LightCount > 0
+			&& PerFrameCB.Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
+		if (bDeferredShadow)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 			{

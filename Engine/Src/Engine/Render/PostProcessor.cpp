@@ -212,7 +212,8 @@ namespace Engine
 		FRDGBuilder Graph;
 		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData);
-		Graph.Execute(d->RDGCompileParams);
+		Graph.Compile(d->RDGCompileParams);
+		Graph.ExecutePasses(d->RDGCompileParams);
 	}
 
 	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,

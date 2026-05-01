@@ -161,10 +161,9 @@ namespace Engine
 
 		if (OutOrder.size() != N)
 		{
-			core::LOG(core::log_err, L"FRDG: cycle in pass dependencies; falling back to AddPass declaration order");
-			OutOrder.resize(N);
-			for (std::size_t I = 0; I < N; ++I)
-				OutOrder[I] = I;
+			core::LOG(core::log_err,
+					  L"FRDG: cycle in pass dependencies; graph will not execute (no fallback order). Fix edges or AddPassDependency.");
+			OutOrder.clear();
 			return false;
 		}
 
@@ -241,6 +240,25 @@ namespace Engine
 		}
 	}
 
+	void FRDGBuilder::LogNonGraphicsQueueWarnings() const
+	{
+		for (std::size_t I = 0; I < Passes.size(); ++I)
+		{
+			const FRDGPassDescriptor& P = Passes[I];
+			if (P.Queue != ERDGPassQueue::Graphics)
+			{
+				const wchar_t* Q = L"?";
+				if (P.Queue == ERDGPassQueue::AsyncCompute)
+					Q = L"AsyncCompute";
+				else if (P.Queue == ERDGPassQueue::Copy)
+					Q = L"Copy";
+				core::LOG(core::log_war,
+						  L"FRDG: pass \"%S\" uses queue %S; only Graphics ordering is implemented - treat as unordered relative to other queues.",
+						  P.Name.c_str(), Q);
+			}
+		}
+	}
+
 	void FRDGBuilder::DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const
 	{
 		std::ostringstream Dot;
@@ -298,15 +316,27 @@ namespace Engine
 		FRDGCompileStats& Stats = OutStats ? *OutStats : LocalStats;
 		Stats = FRDGCompileStats{};
 		Stats.PassCountSetup = Passes.size();
+		LastCompiledOrder.clear();
 
 		std::vector<std::pair<int, int>> Edges;
 		Stats.bUnresolvedSchedulingEdge = CollectSchedulingEdges(Edges) != 0;
 
 		std::vector<std::size_t> FullOrder;
-		Stats.bHadCycle = !BuildExecutionOrderFromEdges(Edges, FullOrder);
+		if (!BuildExecutionOrderFromEdges(Edges, FullOrder))
+		{
+			Stats.bHadCycle = true;
+			if (Params.bLogCompileSummary)
+				core::LOG(core::log_err, L"FRDG Compile: failed (cycle); scheduled=0");
+			if (Params.bDumpDotToLog)
+				DumpDotToLog(Edges);
+			return false;
+		}
 
 		ApplyPassCulling(Edges, FullOrder, Params, LastCompiledOrder, Stats);
 		Stats.PassCountScheduled = LastCompiledOrder.size();
+
+		if (Params.bWarnOnNonGraphicsPassQueues)
+			LogNonGraphicsQueueWarnings();
 
 		if (Params.bDumpDotToLog)
 			DumpDotToLog(Edges);
@@ -330,12 +360,17 @@ namespace Engine
 					  core::u8_ucs2(O).c_str());
 		}
 
-		return !Stats.bHadCycle;
+		return true;
 	}
 
-	void FRDGBuilder::Execute(const FRDGCompileParameters& Params)
+	void FRDGBuilder::ExecutePasses(const FRDGCompileParameters& Params)
 	{
-		Compile(Params, nullptr);
+		if (LastCompiledOrder.empty())
+		{
+			if (!Passes.empty())
+				core::LOG(core::log_err, L"FRDG ExecutePasses: no valid schedule (call Compile first, or compile failed). Skipping passes.");
+			return;
+		}
 
 		for (std::size_t Idx : LastCompiledOrder)
 		{
@@ -350,7 +385,7 @@ namespace Engine
 		{
 			const RenderTexturePool::Stats S = RenderTexturePool::Get().GetStats();
 			core::LOG(core::log_inf,
-					  L"RenderTexturePool (post-FRDG Execute): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
+					  L"RenderTexturePool (post-FRDG ExecutePasses): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
 					  (unsigned long long)S.FrameCounter,
 					  S.FreeTex2D,
 					  S.FreeUav,
@@ -358,6 +393,14 @@ namespace Engine
 					  S.EstimatedBytesFree / (1024.0 * 1024.0),
 					  S.BudgetBytes / (1024.0 * 1024.0));
 		}
+	}
+
+	bool FRDGBuilder::CompileAndExecute(const FRDGCompileParameters& Params)
+	{
+		if (!Compile(Params, nullptr))
+			return false;
+		ExecutePasses(Params);
+		return true;
 	}
 
 	bool FRDGBuilder::ValidatePass(const FRDGPassDescriptor& Pass) const

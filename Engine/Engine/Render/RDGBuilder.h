@@ -91,14 +91,21 @@ struct FRDGCompileParameters
 	bool bPassCullingFromSinks = false;
 	bool bDumpDotToLog = false;
 	bool bLogCompileSummary = false;
-	/** After Execute(): log RenderTexturePool::GetStats() (compile/execute RDG boundary hook). */
+	/** After ExecutePasses(): log RenderTexturePool::GetStats() (compile/execute RDG boundary hook). */
 	bool bLogRenderTexturePoolStats = false;
+	/** Log when a pass uses AsyncCompute/Copy: multi-queue execution ordering is not implemented. */
+	bool bWarnOnNonGraphicsPassQueues = true;
 };
 
 /**
  * Frame render graph: ImportTexture / AddPass / AddPassDependency,
  * Compile (ordering, optional sink reachability culling, optional DOT dump),
- * Execute (runs last successful Compile order).
+ * ExecutePasses (runs the last successful Compile order; does not call Compile).
+ *
+ * Scheduling edges come from (1) resource name flow: each output name remembers the last pass that
+ * wrote it; a pass that lists that name as an input depends on that writer, and (2) AddPassDependency
+ * for producer/consumer pairs without a shared RDG texture name (e.g. shadow maps).
+ * FRDGResourceAccess is metadata for future barrier batching; it does not affect ordering yet.
  */
 class FRDGBuilder
 {
@@ -114,7 +121,11 @@ public:
 
 	bool Compile(const FRDGCompileParameters& Params = {}, FRDGCompileStats* OutStats = nullptr);
 
-	void Execute(const FRDGCompileParameters& Params = {});
+	/** Run passes in LastCompiledOrder. Call Compile() first each frame; on compile failure this is a no-op. */
+	void ExecutePasses(const FRDGCompileParameters& Params = {});
+
+	/** Compile() then ExecutePasses(). Convenience only; prefer explicit Compile + ExecutePasses to avoid redundant work when experimenting. */
+	bool CompileAndExecute(const FRDGCompileParameters& Params = {});
 
 private:
 	bool ValidatePass(const FRDGPassDescriptor& Pass) const;
@@ -124,6 +135,7 @@ private:
 						  const FRDGCompileParameters& Params, std::vector<std::size_t>& OutOrder, FRDGCompileStats& Stats) const;
 	bool ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const;
 	void DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const;
+	void LogNonGraphicsQueueWarnings() const;
 
 	std::vector<FRDGPassResource> Imports;
 	std::vector<FRDGPassDescriptor> Passes;

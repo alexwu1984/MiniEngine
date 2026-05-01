@@ -236,8 +236,18 @@ namespace Engine
 				d->MainViewPort->RHISubmitAndPresentFrame();
 			}});
 
+		if (bScheduleShadowPass)
+		{
+			Graph.AddPassDependency("Shadow", "ClearGBuffer");
+			Graph.AddPassDependency("Shadow", "RenderBasePass");
+			Graph.AddPassDependency("Shadow", "RenderTranslucency");
+			if (d->bEnableDeferredLightingPass && d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassName);
+		}
+
 		(void)ViewFamily;
-		Graph.Execute(d->RDGCompileParams);
+		Graph.Compile(d->RDGCompileParams);
+		Graph.ExecutePasses(d->RDGCompileParams);
 		RHI->RHIEndFrame();
 	}
 

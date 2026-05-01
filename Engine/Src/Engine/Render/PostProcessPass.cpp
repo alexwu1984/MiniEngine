@@ -1,5 +1,6 @@
 ﻿#include "Render/PostProcessPass.h"
 #include "core/system.h"
+#include <vector>
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHICommandContext.h"
@@ -16,6 +17,12 @@ namespace Engine
 {
 	namespace
 	{
+		/** Unbind OM RTs before compute (avoids binding swapchain just to reset state). */
+		void UnbindGraphicsRenderTargets(RenderCore::RHICommandContext& RHIContext)
+		{
+			RHIContext.SetRenderTarget(std::vector<std::shared_ptr<RenderCore::RHITexture2D>>{}, nullptr);
+		}
+
 		RenderCore::GraphicsPipelineStateInitializer CreateFullscreenPipelineState(
 			std::shared_ptr<RenderCore::RHIVertexShader> VertexShader,
 			std::shared_ptr<RenderCore::RHIPixelShader> PixelShader)
@@ -169,7 +176,7 @@ namespace Engine
 
 	void BloomPass::Execute() const
 	{
-		ViewPort->SetRenderTarget();
+		UnbindGraphicsRenderTargets(RHIContext);
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		BloomEffect->Draw(RHIContext, TargetBuffer);
 	}
@@ -201,7 +208,6 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
-		ViewPort->SetRenderTarget();
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
@@ -244,7 +250,6 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplySSR");
-		ViewPort->SetRenderTarget();
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithSSR(), nullptr);
@@ -285,7 +290,7 @@ namespace Engine
 
 	void TAAPass::Execute() const
 	{
-		ViewPort->SetRenderTarget();
+		UnbindGraphicsRenderTargets(RHIContext);
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		TAA->Draw(RHIContext, TargetBuffer, ViewData);
 	}
@@ -316,7 +321,6 @@ namespace Engine
 
 	void FXAAPass::Execute() const
 	{
-		ViewPort->SetRenderTarget();
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		FXAA->Draw(RHIContext, SourceTexture());
 	}

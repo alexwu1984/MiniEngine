@@ -2,6 +2,7 @@
 #include "RHI/RHIUniformBuffer.h"
 #include "D3D12/D3D12RHICommon.h"
 #include <d3d12.h>
+#include <memory>
 
 namespace RenderCore
 {
@@ -23,7 +24,7 @@ namespace RenderCore
 		/** Active ring slot index for the data currently exposed via VA / CPU pointer (fence-tagged). */
 		uint32_t GetActiveRingSlotIndex() const;
 		/** Call when this buffer's active ring slot is referenced by the recording command list (before Execute). */
-		void RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList);
+		void RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList, const std::shared_ptr<D3D12UniformBuffer>& selfRef);
 		/** After Execute on the list that recorded references: stamp fence values for pending ring slots. */
 		void OnCmdListSubmitFence(uint64_t fenceValue);
 		/** Command list Reset / discard without Execute: drop pending slot bits (GPU never saw them). */

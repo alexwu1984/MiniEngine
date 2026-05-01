@@ -1,4 +1,5 @@
 ﻿#include "Render/PostProcessor.h"
+#include "core/logger.h"
 #include "core/system.h"
 #include <cmath>
 #include "RHI/RHIShdader.h"
@@ -212,8 +213,13 @@ namespace Engine
 		FRDGBuilder Graph;
 		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData);
-		Graph.Compile(d->RDGCompileParams);
-		Graph.ExecutePasses(d->RDGCompileParams);
+		if (!Graph.Compile(d->RDGCompileParams, nullptr))
+		{
+			core::LOG(core::log_err, L"FRDG: post-process graph compile failed (cycle); executing passes in AddPass order.");
+			Graph.ExecutePassesInSetupOrder(d->RDGCompileParams);
+		}
+		else
+			Graph.ExecutePasses(d->RDGCompileParams);
 	}
 
 	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,

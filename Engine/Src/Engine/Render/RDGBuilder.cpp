@@ -395,10 +395,39 @@ namespace Engine
 		}
 	}
 
+	void FRDGBuilder::ExecutePassesInSetupOrder(const FRDGCompileParameters& Params)
+	{
+		for (std::size_t Idx = 0; Idx < Passes.size(); ++Idx)
+		{
+			const FRDGPassDescriptor& Pass = Passes[Idx];
+			if (!ValidatePass(Pass))
+				continue;
+			if (Pass.Execute)
+				Pass.Execute();
+		}
+
+		if (Params.bLogRenderTexturePoolStats)
+		{
+			const RenderTexturePool::Stats S = RenderTexturePool::Get().GetStats();
+			core::LOG(core::log_inf,
+					  L"RenderTexturePool (post-FRDG ExecutePassesInSetupOrder): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
+					  (unsigned long long)S.FrameCounter,
+					  S.FreeTex2D,
+					  S.FreeUav,
+					  S.FreeRt,
+					  S.EstimatedBytesFree / (1024.0 * 1024.0),
+					  S.BudgetBytes / (1024.0 * 1024.0));
+		}
+	}
+
 	bool FRDGBuilder::CompileAndExecute(const FRDGCompileParameters& Params)
 	{
 		if (!Compile(Params, nullptr))
+		{
+			core::LOG(core::log_err, L"FRDG CompileAndExecute: compile failed; running passes in AddPass order.");
+			ExecutePassesInSetupOrder(Params);
 			return false;
+		}
 		ExecutePasses(Params);
 		return true;
 	}

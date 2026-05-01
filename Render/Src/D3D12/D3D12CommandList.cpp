@@ -59,11 +59,11 @@ namespace RenderCore
 		}
 	}
 
-	void D3D12CommandListHandle::D3D12CommandListData::AddUniformBufferFenceTag(D3D12UniformBuffer* ub)
+	void D3D12CommandListHandle::D3D12CommandListData::AddUniformBufferFenceTag(const std::shared_ptr<D3D12UniformBuffer>& ub)
 	{
 		if (!ub)
 			return;
-		for (D3D12UniformBuffer* e : PendingUniformBuffersFenceTag)
+		for (const std::shared_ptr<D3D12UniformBuffer>& e : PendingUniformBuffersFenceTag)
 		{
 			if (e == ub)
 				return;
@@ -73,7 +73,7 @@ namespace RenderCore
 
 	void D3D12CommandListHandle::D3D12CommandListData::FlushPendingUniformBufferFenceTags(uint64_t fenceValue)
 	{
-		for (D3D12UniformBuffer* ub : PendingUniformBuffersFenceTag)
+		for (const std::shared_ptr<D3D12UniformBuffer>& ub : PendingUniformBuffersFenceTag)
 		{
 			if (ub)
 				ub->OnCmdListSubmitFence(fenceValue);
@@ -83,7 +83,7 @@ namespace RenderCore
 
 	void D3D12CommandListHandle::D3D12CommandListData::CancelPendingUniformBufferFenceTags()
 	{
-		for (D3D12UniformBuffer* ub : PendingUniformBuffersFenceTag)
+		for (const std::shared_ptr<D3D12UniformBuffer>& ub : PendingUniformBuffersFenceTag)
 		{
 			if (ub)
 				ub->CancelPendingGpuFenceTags();
@@ -166,7 +166,7 @@ namespace RenderCore
 		ExecuteAndClear(WaitForCompletion);
 	}
 
-	void D3D12CommandListHandle::RegisterUniformBufferForSubmitFence(D3D12UniformBuffer* ub) const
+	void D3D12CommandListHandle::RegisterUniformBufferForSubmitFence(const std::shared_ptr<D3D12UniformBuffer>& ub) const
 	{
 		Assert(CommandListData);
 		if (ub)
@@ -205,28 +205,28 @@ namespace RenderCore
 		}
 	}
 
-	void D3D12CommandListHandle::SetGraphicsRootConstantBufferViewUniform(UINT RootParameterIndex, D3D12UniformBuffer* UniformBuffer) const
+	void D3D12CommandListHandle::SetGraphicsRootConstantBufferViewUniform(UINT RootParameterIndex, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer) const
 	{
 		Assert(CommandListData);
 		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT);
 		if (UniformBuffer)
-			UniformBuffer->RecordGpuReferenceRingSlot(*this);
+			UniformBuffer->RecordGpuReferenceRingSlot(*this, UniformBuffer);
 		const D3D12_GPU_VIRTUAL_ADDRESS va = UniformBuffer ? UniformBuffer->GetGPUVirtualAddress() : D3D12_GPU_VIRTUAL_ADDRESS_NULL;
 		GraphicsCommandList()->SetGraphicsRootConstantBufferView(RootParameterIndex, va);
 	}
 
-	void D3D12CommandListHandle::SetComputeRootConstantBufferViewUniform(UINT RootParameterIndex, D3D12UniformBuffer* UniformBuffer) const
+	void D3D12CommandListHandle::SetComputeRootConstantBufferViewUniform(UINT RootParameterIndex, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer) const
 	{
 		Assert(CommandListData);
 		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT
 			|| CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE);
 		if (UniformBuffer)
-			UniformBuffer->RecordGpuReferenceRingSlot(*this);
+			UniformBuffer->RecordGpuReferenceRingSlot(*this, UniformBuffer);
 		const D3D12_GPU_VIRTUAL_ADDRESS va = UniformBuffer ? UniformBuffer->GetGPUVirtualAddress() : D3D12_GPU_VIRTUAL_ADDRESS_NULL;
 		GraphicsCommandList()->SetComputeRootConstantBufferView(RootParameterIndex, va);
 	}
 
-	void D3D12CommandListHandle::SetGraphicsRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, D3D12UniformBuffer* UniformBuffer, UINT DestOffsetIn32BitValues) const
+	void D3D12CommandListHandle::SetGraphicsRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer, UINT DestOffsetIn32BitValues) const
 	{
 		Assert(CommandListData);
 		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -235,11 +235,11 @@ namespace RenderCore
 		void* cpu = UniformBuffer->GetResourceBaseAddress();
 		if (!cpu)
 			return;
-		UniformBuffer->RecordGpuReferenceRingSlot(*this);
+		UniformBuffer->RecordGpuReferenceRingSlot(*this, UniformBuffer);
 		GraphicsCommandList()->SetGraphicsRoot32BitConstants(RootParameterIndex, Num32BitValues, cpu, DestOffsetIn32BitValues);
 	}
 
-	void D3D12CommandListHandle::SetComputeRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, D3D12UniformBuffer* UniformBuffer, UINT DestOffsetIn32BitValues) const
+	void D3D12CommandListHandle::SetComputeRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer, UINT DestOffsetIn32BitValues) const
 	{
 		Assert(CommandListData);
 		Assert(CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT
@@ -249,7 +249,7 @@ namespace RenderCore
 		void* cpu = UniformBuffer->GetResourceBaseAddress();
 		if (!cpu)
 			return;
-		UniformBuffer->RecordGpuReferenceRingSlot(*this);
+		UniformBuffer->RecordGpuReferenceRingSlot(*this, UniformBuffer);
 		GraphicsCommandList()->SetComputeRoot32BitConstants(RootParameterIndex, Num32BitValues, cpu, DestOffsetIn32BitValues);
 	}
 

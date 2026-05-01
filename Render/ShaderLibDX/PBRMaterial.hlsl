@@ -305,6 +305,7 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
     return n * (bIsFontFacing ? -1 : 1);
 }
 
+// Forward PBR (legacy). Lit scenes use DeferredLighting.hlsl; MainPS encodes G-buffer only.
 float3 DoPbrLighting(VS_OUTPUT_SCENE Input, in PerFrame perFrame, in float3 diffuseColor, in float3 specularColor, in float perceptualRoughness, in float metallic)
 {
 #ifdef MATERIAL_UNLIT
@@ -488,13 +489,25 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     float3 diffuseColor;
     float3 specularColor;
     float metallic;
-    GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness,metallic, alpha);
+    GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, metallic, alpha);
+    float ao = AoMap.Sample(SampleLinear, Input.UV0).r;
 
-    float3 HDRColor = DoPbrLighting(Input, myPerFrame, diffuseColor, specularColor, perceptualRoughness,metallic);
-    Output.Target0 = float4(HDRColor, alpha);
-    Output.Target1 = float4(Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition),0); 
+    Output.Target1 = float4(Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition), 0);
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
     Output.Target3 = EmissMap.Sample(SampleLinear, Input.UV0);
-    Output.Target4 = float4(metallic, 0.5, perceptualRoughness, 1.0);
+    Output.Target4 = float4(metallic, ao, perceptualRoughness, 1.0);
+
+    // Unlit: final color in SceneColor (deferred pass skipped on CPU). Still fill GBuffer for effects that read normals/MR.
+    if (myPerFrame.bUnlit != 0)
+    {
+        float4 bc = AlbedoMap.Sample(SampleLinear, Input.UV0);
+        float3 em = EmissMap.Sample(SampleLinear, Input.UV0).rgb;
+        Output.Target0 = float4(bc.rgb + em, bc.a);
+        return Output;
+    }
+
+    // Lit: G-buffer only; analytic + IBL lighting in DeferredLighting.hlsl (Target0 = linear base albedo, not shaded HDR).
+    float4 baseTex = AlbedoMap.Sample(SampleLinear, Input.UV0);
+    Output.Target0 = float4(baseTex.rgb, alpha);
     return Output;
 }

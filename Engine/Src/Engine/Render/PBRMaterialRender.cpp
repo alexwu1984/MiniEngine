@@ -11,7 +11,6 @@
 #include "Render/MaterialPreFrame.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
-#include "Engine/Render/Shadow/ShadowRenderPass.h"
 #include "Engine/Render/WorldSceneRender.h"
 #include "Render/GBuffer.h"
 #include "RHI/RHITextureCube.h"
@@ -220,21 +219,6 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
-
-		if (!RenderParam.preProcessor.expired())
-		{
-			auto IBL = RenderParam.preProcessor.lock()->GetIBLRender();
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, IBL->GetDiffuseIrradianceCubemap());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 6, IBL->GetBRDFIntegrationLUT());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 7, IBL->GetSpecularReflectionCubemap());
-		}
-
-		if (RenderParam.lightInfos.size() > 0 && RenderParam.lightInfos[0].ShadowMapIndex >= 0)
-		{
-			auto shadowMap = GEngine->GetSceneRender()->GetShadowRenderPass()->GetShadowMap();
-			if (shadowMap)
-				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 8, shadowMap->GetTex());
-		}
 
 		DrawMesh(RHIContext);
 	}

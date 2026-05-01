@@ -1,4 +1,5 @@
 #include "Render/SceneRendering/SceneRenderer.h"
+#include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Render/PreProcessor.h"
@@ -197,7 +198,7 @@ namespace Engine
 				}
 			}});
 
-		if (d->bEnableDeferredLightingPass && d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+		if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
 		{
 			FRDGDeferredLightingPass::RegisterExternalImports(Graph, TB);
 			Graph.AddPass(FRDGPassDescriptor{
@@ -241,13 +242,18 @@ namespace Engine
 			Graph.AddPassDependency("Shadow", "ClearGBuffer");
 			Graph.AddPassDependency("Shadow", "RenderBasePass");
 			Graph.AddPassDependency("Shadow", "RenderTranslucency");
-			if (d->bEnableDeferredLightingPass && d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+			if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassName);
 		}
 
 		(void)ViewFamily;
-		Graph.Compile(d->RDGCompileParams);
-		Graph.ExecutePasses(d->RDGCompileParams);
+		if (!Graph.Compile(d->RDGCompileParams, nullptr))
+		{
+			core::LOG(core::log_err, L"FRDG: frame graph compile failed (cycle); executing passes in AddPass order so Present still runs.");
+			Graph.ExecutePassesInSetupOrder(d->RDGCompileParams);
+		}
+		else
+			Graph.ExecutePasses(d->RDGCompileParams);
 		RHI->RHIEndFrame();
 	}
 

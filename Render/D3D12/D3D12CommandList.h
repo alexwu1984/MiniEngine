@@ -5,7 +5,10 @@
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12RHIRecording.h"
+#include "D3D12/D3D12UniformBuffer.h"
 #include "win/com_ptr.h"
+#include <memory>
+#include <vector>
 
 namespace RenderCore
 {
@@ -263,8 +266,8 @@ namespace RenderCore
 			FD3D12LinearAllocator UploadLinearAllocator;
 			FD3D12LinearAllocator DefaultLinearAllocator;
 
-			std::vector<D3D12UniformBuffer*> PendingUniformBuffersFenceTag;
-			void AddUniformBufferFenceTag(D3D12UniformBuffer* ub);
+			std::vector<std::shared_ptr<D3D12UniformBuffer>> PendingUniformBuffersFenceTag;
+			void AddUniformBufferFenceTag(const std::shared_ptr<D3D12UniformBuffer>& ub);
 			void FlushPendingUniformBufferFenceTags(uint64_t fenceValue);
 			void CancelPendingUniformBufferFenceTags();
 		};
@@ -368,16 +371,16 @@ namespace RenderCore
 		uint64_t ExecuteAndClear(bool WaitForCompletion = false);
 		void Execute(bool WaitForCompletion = false);
 
-		void RegisterUniformBufferForSubmitFence(D3D12UniformBuffer* ub) const;
+		void RegisterUniformBufferForSubmitFence(const std::shared_ptr<D3D12UniformBuffer>& ub) const;
 		void FlushPendingUniformBufferFenceTags(uint64_t fenceValue);
 		void CancelPendingUniformBufferFenceTags();
 		ED3D12CommandQueueType GetSubmitFenceQueueType() const;
 
 		/** Ring uniform: Record + Set* in one call. Copy lists assert; graphics APIs require DIRECT; compute APIs allow DIRECT or COMPUTE. */
-		void SetGraphicsRootConstantBufferViewUniform(UINT RootParameterIndex, D3D12UniformBuffer* UniformBuffer) const;
-		void SetComputeRootConstantBufferViewUniform(UINT RootParameterIndex, D3D12UniformBuffer* UniformBuffer) const;
-		void SetGraphicsRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, D3D12UniformBuffer* UniformBuffer, UINT DestOffsetIn32BitValues = 0) const;
-		void SetComputeRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, D3D12UniformBuffer* UniformBuffer, UINT DestOffsetIn32BitValues = 0) const;
+		void SetGraphicsRootConstantBufferViewUniform(UINT RootParameterIndex, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer) const;
+		void SetComputeRootConstantBufferViewUniform(UINT RootParameterIndex, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer) const;
+		void SetGraphicsRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer, UINT DestOffsetIn32BitValues = 0) const;
+		void SetComputeRoot32BitConstantsFromUniform(UINT RootParameterIndex, UINT Num32BitValues, const std::shared_ptr<D3D12UniformBuffer>& UniformBuffer, UINT DestOffsetIn32BitValues = 0) const;
 
 		// Fence-tied recycling for linear allocators + dynamic descriptor heaps (same work as ExecuteAndClear's post-submit hook).
 		// Required for command lists submitted via ExecuteAndIncrementFence (e.g. async-compute resource-barrier batches on the direct queue).

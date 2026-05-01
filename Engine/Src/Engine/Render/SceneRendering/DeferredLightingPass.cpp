@@ -30,7 +30,7 @@ namespace Engine
 			GraphicsPipelineStateInitializer Init;
 			Init.VertexShader = std::move(VS);
 			Init.PixelShader = std::move(PS);
-			Init.BlendState = RHICachedStates::BlendTraditional;
+			Init.BlendState = RHICachedStates::BlendDisable;
 			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
 			Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 			return Init;
@@ -140,6 +140,7 @@ namespace Engine
 
 		RHICommandMark Mark(RHIContext, "DeferredLighting");
 
+		// Preserve base-pass albedo in SceneColorPreLighting; fullscreen pass writes lit HDR to SceneColor (RHICopyResource: dst, src).
 		RHIContext.RHICopyResource(SceneColorPreLighting, SceneColor);
 
 		PreProcessor* Pre = nullptr;
@@ -148,14 +149,15 @@ namespace Engine
 
 		CBPerFrameWrap PerFrameCB(RHI);
 		FillPerFrameFromView(PerFrameCB, *ViewData, Pre, WorldSceneRender);
-		PerFrameCB.UpdateUniformBuffer();
-		PerFrameCB.SetShaderUniformBuffer(SF_Vertex);
-		PerFrameCB.SetShaderUniformBuffer(SF_Pixel);
 
 		const auto Sz = ViewPort->GetSize();
 		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
 		FRDGUtils::RHICmdListSetViewportSize(RHIContext, Sz.x, Sz.y);
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
+
+		PerFrameCB.UpdateUniformBuffer();
+		PerFrameCB.SetShaderUniformBuffer(SF_Vertex);
+		PerFrameCB.SetShaderUniformBuffer(SF_Pixel);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);

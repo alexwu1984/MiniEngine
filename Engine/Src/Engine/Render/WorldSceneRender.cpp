@@ -125,7 +125,6 @@ namespace Engine
 			{
 				const auto& Evn = *EvnIt;
 				d->bUnlit = Evn.value("Unlit", Evn.value("ForceUnlit", Evn.value("UnlitView", false)));
-				d->bEnableDeferredLightingPass = Evn.value("EnableDeferredLighting", false);
 			}
 		}
 		catch (const std::exception&)

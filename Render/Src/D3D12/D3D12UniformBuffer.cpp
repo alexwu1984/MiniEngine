@@ -106,16 +106,17 @@ namespace RenderCore
 		return 0;
 	}
 
-	void D3D12UniformBuffer::RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList)
+	void D3D12UniformBuffer::RecordGpuReferenceRingSlot(const D3D12CommandListHandle& cmdList, const std::shared_ptr<D3D12UniformBuffer>& selfRef)
 	{
 		C_P(D3D12UniformBuffer);
-		if (!d->RingAllocated || !cmdList)
+		if (!d->RingAllocated || !cmdList || !selfRef)
 			return;
+		Assert(selfRef.get() == this);
 		const uint32_t slot = GetActiveRingSlotIndex();
 		const ED3D12CommandQueueType q = cmdList.GetSubmitFenceQueueType();
 		d->PendingPublishMask |= (1u << slot);
 		d->SubmitQueueForSlot[slot] = q;
-		cmdList.RegisterUniformBufferForSubmitFence(this);
+		cmdList.RegisterUniformBufferForSubmitFence(selfRef);
 	}
 
 	void D3D12UniformBuffer::OnCmdListSubmitFence(uint64_t fenceValue)

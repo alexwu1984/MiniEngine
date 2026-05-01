@@ -877,7 +877,7 @@ namespace RenderCore
 				std::shared_ptr<D3D12UniformBuffer> ub = m_RootConstantUniformBuffer[Freq];
 				if (ub)
 				{
-					CommandList.SetGraphicsRoot32BitConstantsFromUniform((UINT)rcIdx, N, ub.get(), 0);
+					CommandList.SetGraphicsRoot32BitConstantsFromUniform((UINT)rcIdx, N, ub, 0);
 				}
 				else
 				{
@@ -904,7 +904,7 @@ namespace RenderCore
 					{
 						CommandList.SetGraphicsRootConstantBufferViewUniform(
 							rootParamOffset + StartIndex,
-							ub.get());
+							ub);
 					}
 					++rootParamOffset;
 				}
@@ -923,7 +923,7 @@ namespace RenderCore
 					{
 						CommandList.SetGraphicsRootConstantBufferViewUniform(
 							rootParamOffset + StartIndex,
-							ub.get());
+							ub);
 					}
 					++rootParamOffset;
 				}
@@ -1064,7 +1064,7 @@ namespace RenderCore
 			std::shared_ptr<D3D12UniformBuffer> ub = m_RootConstantUniformBuffer[SF_Compute];
 			if (ub && N > 0)
 			{
-				CommandList.SetComputeRoot32BitConstantsFromUniform((UINT)csRcIdx, N, ub.get(), 0);
+				CommandList.SetComputeRoot32BitConstantsFromUniform((UINT)csRcIdx, N, ub, 0);
 			}
 			else if (N > 0)
 			{
@@ -1089,7 +1089,7 @@ namespace RenderCore
 				{
 					CommandList.SetComputeRootConstantBufferViewUniform(
 						rootParamOffset + StartIndex,
-						ub.get());
+						ub);
 				}
 				++rootParamOffset;
 			}

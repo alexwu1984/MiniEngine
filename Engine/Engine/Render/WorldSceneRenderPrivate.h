@@ -41,8 +41,6 @@ namespace Engine
 
 		bool bUnlit = false;
 
-		bool bEnableDeferredLightingPass = false;
-
 		FSceneRenderer SceneRenderer;
 		std::mutex RenderFrameMutex;
 	};

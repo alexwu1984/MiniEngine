@@ -1,6 +1,6 @@
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
-
+#include "PerFrameStruct.hlsl"
 
 Texture2D AlbedoMap : register(t0);
 Texture2D NoiseMap : register(t1);
@@ -15,55 +15,65 @@ struct PS_OUTPUT_SCENE
     float4 Target4 : SV_Target4;
 };
 
-float3 Reinhard(float3 color)
+float3 Calculate3DFurVelocity(float4 CurrentVelocity, float4 PreVelocity)
 {
-    return color / (1 + color);
+    float2 ScreenPos = CurrentVelocity.xy / CurrentVelocity.w - myPerFrame.TemporalAAJitter.xy;
+    float2 PrevScreenPos = PreVelocity.xy / PreVelocity.w - myPerFrame.TemporalAAJitter.zw;
+    float DeviceZ = CurrentVelocity.z / CurrentVelocity.w;
+    float PrevDeviceZ = PreVelocity.z / PreVelocity.w;
+    return float3(ScreenPos - PrevScreenPos, DeviceZ - PrevDeviceZ);
 }
 
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 {
-	// Initialize all output members to avoid "reading uninitialized value" error in Release mode
-	PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;
-    
+    PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;
+
     float3 BaseColor = AlbedoMap.Sample(SampleLinear, Input.UV1).rgb;
-    if(DrawSolid.x == 1)
+    float3 n = normalize(Input.Normal);
+    Output.Target2 = float4(n * 0.5 + 0.5, 0);
+    Output.Target1 = float4(Calculate3DFurVelocity(Input.svCurrPosition, Input.svPrevPosition), 0);
+
+    // Defaults for fur: dielectric, full AO, medium roughness (shells refine alpha only).
+    const float kMetallic = 0.0;
+    const float kAO = 1.0;
+    const float kRough = 0.85;
+
+    if (DrawSolid.x == 1)
     {
         Output.Target0 = float4(BaseColor.rgb, 1.f);
+        Output.Target3 = float4(0, 0, 0, 0);
+        Output.Target4 = float4(kMetallic, kAO, kRough, 1.0);
         return Output;
     }
-    
-    float Noise = 1.0;
-    Noise = NoiseMap.Sample(SampleLinear, Input.UV0).r;
 
-    //Ambient occlusion
+    float Noise = NoiseMap.Sample(SampleLinear, Input.UV0).r;
     float Occlusion = FurOffset * FurOffset;
     Occlusion += 0.04;
-    float3 SHL = lerp(FurColor * Input.SH, Input.SH, Occlusion);
-    
-    float3 LightDir = float3(0.f, 0.f, 1.f);
-  
-    //太阳光
-    float3 L = normalize(LightDir.xyz);
-    float NoL = dot(L, normalize(Input.Normal));
-    float LightFilter = 1.6f;
-    float DirLight = clamp(NoL + LightFilter + FurOffset, 0.0, 1.0);
-    
-    //轮廓光
-    float FresnelLV = 2.0f;
-    float3 V = normalize(myPerFrame.CameraPos.xyz - Input.WorldPos);
-    float Fresnel = 1.0 - max(0.0, dot(Input.Normal, V));
-    float3 RimLight = float3(Fresnel * Occlusion, Fresnel * Occlusion, Fresnel * Occlusion); //���ֵ���С����ΪOcclusion̫С�ˣ����Զ�����Ч��Ӱ��Ƚ�С
-    RimLight *= RimLight;
-    RimLight *= FresnelLV * Input.SH * BaseColor;
-    SHL += RimLight;
-    
+
     float FurMask = 0.5;
     float Tming = 0.5;
     float Alpha = clamp((Noise * 2.0 - (FurOffset * FurOffset + (FurOffset * FurMask * 5.0))) * Tming, 0.0, 1.0);
 
-    // Fix: Use BaseColor instead of uninitialized Output.Target0.rgb
-    float3 OutColor = BaseColor * FurLightExposure * FurAmbientStrength + SHL * FurLightExposure;
+    // G-buffer path: albedo in Target0 (linear); fake rim/ambient folded into emissive so fur keeps soft look under deferred lights.
+    float3 V = normalize(myPerFrame.CameraPos.xyz - Input.WorldPos);
+    float Fresnel = 1.0 - max(0.0, dot(Input.Normal, V));
+    float3 RimLight = float3(Fresnel * Occlusion, Fresnel * Occlusion, Fresnel * Occlusion);
+    RimLight *= RimLight;
+    RimLight *= 2.0 * Input.SH * BaseColor;
+    float3 SHL = lerp(FurColor * Input.SH, Input.SH, Occlusion);
+    float3 ExtraEmissive = SHL * FurLightExposure + RimLight * FurLightExposure;
+    float3 ShellAlbedo = BaseColor * FurLightExposure * FurAmbientStrength;
 
-    Output.Target0 = float4(Reinhard(OutColor), Alpha);
+    Output.Target0 = float4(ShellAlbedo, Alpha);
+    Output.Target3 = float4(ExtraEmissive, 1.0);
+    Output.Target4 = float4(kMetallic, kAO, kRough, 1.0);
+
+    if (myPerFrame.bUnlit != 0)
+    {
+        float3 em = Output.Target3.rgb;
+        Output.Target0 = float4(ShellAlbedo + em, Alpha);
+        Output.Target3 = float4(0, 0, 0, 0);
+    }
+
     return Output;
 }

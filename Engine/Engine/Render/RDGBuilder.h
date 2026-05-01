@@ -124,7 +124,10 @@ public:
 	/** Run passes in LastCompiledOrder. Call Compile() first each frame; on compile failure this is a no-op. */
 	void ExecutePasses(const FRDGCompileParameters& Params = {});
 
-	/** Compile() then ExecutePasses(). Convenience only; prefer explicit Compile + ExecutePasses to avoid redundant work when experimenting. */
+	/** Run passes in AddPass order (recovery when Compile() fails due to a cycle). Still validates inputs per pass. */
+	void ExecutePassesInSetupOrder(const FRDGCompileParameters& Params = {});
+
+	/** Compile() then ExecutePasses(); on compile failure runs ExecutePassesInSetupOrder and returns false. */
 	bool CompileAndExecute(const FRDGCompileParameters& Params = {});
 
 private:

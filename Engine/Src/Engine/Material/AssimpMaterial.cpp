@@ -1,4 +1,4 @@
-﻿#include "Material/AssimpMaterial.h"
+#include "Material/AssimpMaterial.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 #include "RHI/RHITexture2D.h"
@@ -112,10 +112,15 @@ namespace Engine
 
 		const std::string baseColorPath = pickByName("albedo", "diffuse");
 		const std::string normalPath = pickByName("normal", "bump");
-		const std::string roughPath = pickByName("rough");
-		const std::string metalPath = pickByName("metal");
-		const std::string aoPath = pickByName("ao", "occlusion");
+		const std::string ormPath = pickByName("orm", "occlusionroughnessmetallic");
+		const std::string armPath = pickByName("arm"); // ambient-roughness-metallic
+		std::string roughPath = pickByName("rough", "roughness");
+		std::string metalPath = pickByName("metal", "metallic");
+		std::string aoPath = pickByName("ao", "occlusion");
 		const std::string emissPath = pickByName("emiss");
+
+		// Combined textures: ORM/ARM often used as a single packed map (R=AO, G=Roughness, B=Metallic).
+		const std::string combinedOrmLike = !ormPath.empty() ? ormPath : armPath;
 
 		aiColor3D AmbientColor, DiffuseColor, SpecularColor;
 		float Shininess = 0.0f, Refracti = 0.0f;
@@ -152,7 +157,7 @@ namespace Engine
 			return TexRHI;
 		};
 
-		auto CreateTexCommand = [this, CreateTexture, baseColorPath, normalPath, roughPath, metalPath, aoPath, emissPath](DynamicRHI* DyRHI) {
+		auto CreateTexCommand = [this, CreateTexture, baseColorPath, normalPath, roughPath, metalPath, aoPath, emissPath, combinedOrmLike](DynamicRHI* DyRHI) {
 			C_P(AssimpMaterial);
 			auto toAi = [](const std::string& s) {
 				aiString a;
@@ -166,39 +171,80 @@ namespace Engine
 			d->EmissiveTexture = CreateTexture(toAi(emissPath), core::FLinearColor(0.f, 0.f, 0.f, 1.f));
 			d->OcclusionTexture = CreateTexture(toAi(aoPath), core::FLinearColor(1.f, 1.f, 1.f, 1.f));
 
+			// Prefer combined ORM/ARM packed maps when present.
+			if (!combinedOrmLike.empty())
+			{
+				std::shared_ptr<RHITexture2D> packed = CreateTexture(toAi(combinedOrmLike), core::FLinearColor(1.f, 1.f, 0.f, 1.f));
+				if (packed)
+				{
+					d->MetallicRoughnessTexture = packed;
+					// If AO wasn't explicitly specified, reuse packed R channel as AO.
+					if (aoPath.empty())
+						d->OcclusionTexture = packed;
+				}
+			}
+
 			// Metallic-Roughness
 			// Our deferred path expects a combined texture. If both Metalness + Roughness exist, pack them (G=rough, B=metal).
-			if (!metalPath.empty() || !roughPath.empty())
+			if (!d->MetallicRoughnessTexture && (!metalPath.empty() || !roughPath.empty()))
 			{
 				const std::filesystem::path metalFull = !metalPath.empty() ? (std::filesystem::u8path(d->Directory) / std::filesystem::u8path(metalPath)) : std::filesystem::path();
 				const std::filesystem::path roughFull = !roughPath.empty() ? (std::filesystem::u8path(d->Directory) / std::filesystem::u8path(roughPath)) : std::filesystem::path();
 
-				DirectX::ScratchImage metalImg, roughImg;
-				bool hasMetal = false, hasRough = false;
-				if (!metalFull.empty() && SUCCEEDED(DirectX::LoadFromWICFile(metalFull.wstring().c_str(), 0, nullptr, metalImg)))
-					hasMetal = true;
-				if (!roughFull.empty() && SUCCEEDED(DirectX::LoadFromWICFile(roughFull.wstring().c_str(), 0, nullptr, roughImg)))
-					hasRough = true;
+				auto loadWicAsRgbaUnorm = [](const std::filesystem::path& fullPath, DirectX::ScratchImage& outRgba) -> bool {
+					DirectX::ScratchImage raw;
+					if (fullPath.empty())
+						return false;
+					if (FAILED(DirectX::LoadFromWICFile(fullPath.wstring().c_str(), DirectX::WIC_FLAGS_NONE, nullptr, raw)))
+						return false;
+					const DirectX::Image* src = raw.GetImage(0, 0, 0);
+					if (!src || !src->pixels)
+						return false;
+					const HRESULT hrConvert = DirectX::Convert(*src, DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_DEFAULT, 0.f, outRgba);
+					return SUCCEEDED(hrConvert) && outRgba.GetImage(0, 0, 0) && outRgba.GetImage(0, 0, 0)->pixels;
+				};
 
-				const DirectX::Image* ref = hasRough ? roughImg.GetImage(0, 0, 0) : (hasMetal ? metalImg.GetImage(0, 0, 0) : nullptr);
-				if (ref && ref->pixels)
+				auto resizeTo = [](DirectX::ScratchImage& rgba, uint32_t tw, uint32_t th) -> bool {
+					const DirectX::Image* img = rgba.GetImage(0, 0, 0);
+					if (!img || !img->pixels || tw == 0 || th == 0)
+						return false;
+					if (img->width == tw && img->height == th)
+						return true;
+					DirectX::ScratchImage resized;
+					if (FAILED(DirectX::Resize(*img, tw, th, DirectX::TEX_FILTER_DEFAULT, resized)))
+						return false;
+					rgba = std::move(resized);
+					return rgba.GetImage(0, 0, 0) != nullptr;
+				};
+
+				DirectX::ScratchImage metalRgba, roughRgba;
+				bool hasMetal = loadWicAsRgbaUnorm(metalFull, metalRgba);
+				bool hasRough = loadWicAsRgbaUnorm(roughFull, roughRgba);
+
+				uint32_t w = 0, h = 0;
+				if (hasRough && roughRgba.GetImage(0, 0, 0))
 				{
-					const uint32_t w = (uint32_t)ref->width;
-					const uint32_t h = (uint32_t)ref->height;
+					w = (uint32_t)roughRgba.GetImage(0, 0, 0)->width;
+					h = (uint32_t)roughRgba.GetImage(0, 0, 0)->height;
+				}
+				else if (hasMetal && metalRgba.GetImage(0, 0, 0))
+				{
+					w = (uint32_t)metalRgba.GetImage(0, 0, 0)->width;
+					h = (uint32_t)metalRgba.GetImage(0, 0, 0)->height;
+				}
 
-					DirectX::ScratchImage metalRgba, roughRgba;
-					const DirectX::Image* m0 = nullptr;
-					const DirectX::Image* r0 = nullptr;
-					if (hasMetal)
-					{
-						DirectX::Convert(*metalImg.GetImage(0, 0, 0), DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_DEFAULT, 0.f, metalRgba);
-						m0 = metalRgba.GetImage(0, 0, 0);
-					}
-					if (hasRough)
-					{
-						DirectX::Convert(*roughImg.GetImage(0, 0, 0), DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_DEFAULT, 0.f, roughRgba);
-						r0 = roughRgba.GetImage(0, 0, 0);
-					}
+				if (w > 0 && h > 0)
+				{
+					if (hasMetal && !resizeTo(metalRgba, w, h))
+						hasMetal = false;
+					if (hasRough && !resizeTo(roughRgba, w, h))
+						hasRough = false;
+				}
+
+				if ((hasMetal || hasRough) && w > 0 && h > 0)
+				{
+					const DirectX::Image* m0 = hasMetal ? metalRgba.GetImage(0, 0, 0) : nullptr;
+					const DirectX::Image* r0 = hasRough ? roughRgba.GetImage(0, 0, 0) : nullptr;
 
 					std::vector<uint8_t> packed;
 					packed.resize((size_t)w * (size_t)h * 4u);
@@ -222,7 +268,16 @@ namespace Engine
 			if (!d->MetallicRoughnessTexture)
 			{
 				// Fallback constant: (R=1, G=roughness, B=metallic).
-				d->MetallicRoughnessTexture = GEngine->GetRHI()->RHICreateTexture2D(core::FLinearColor(1.f, 1.f, 0.f, 1.f));
+				// For legacy OBJ/MTL (no PBR maps), derive a plausible constant from Ks/Ns:
+				// - Higher shininess => lower roughness
+				// - Strong specular color => more "metal-like" response
+				const float ks = (std::max)(d->MatProperty.SpecularColor.x, (std::max)(d->MatProperty.SpecularColor.y, d->MatProperty.SpecularColor.z));
+				const float ns = (std::max)(d->MatProperty.Shininess, 0.0f);
+				// Map Ns~[0, 1000] into perceptual roughness~[1, 0.05]
+				const float ns01 = (std::min)(ns / 1000.0f, 1.0f);
+				const float rough = (std::max)(0.05f, 1.0f - ns01);
+				const float metal = (ks > 0.5f) ? 1.0f : 0.0f;
+				d->MetallicRoughnessTexture = GEngine->GetRHI()->RHICreateTexture2D(core::FLinearColor(1.f, rough, metal, 1.f));
 			}
 			};
 

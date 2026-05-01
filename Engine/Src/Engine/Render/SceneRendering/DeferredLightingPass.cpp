@@ -1,6 +1,7 @@
 ﻿#include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/FRDGUtils.h"
 #include "Render/GBuffer.h"
-#include "Render/SceneRender.h"
+#include "Render/FWorldSceneRender.h"
 #include "Render/SceneRendering/FSceneViewData.h"
 #include "Render/PreProcessor.h"
 #include "Render/IBLRender.h"
@@ -35,7 +36,7 @@ namespace Engine
 			return Init;
 		}
 
-		static void FillPerFrameFromView(CBPerFrameWrap& Out, const FSceneViewData& View, PreProcessor* Pre, SceneRender* Scene)
+		static void FillPerFrameFromView(CBPerFrameWrap& Out, const FSceneViewData& View, PreProcessor* Pre, FWorldSceneRender* WorldSceneRender)
 		{
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProj = View.CurrViewProjMatrix;
@@ -63,9 +64,9 @@ namespace Engine
 			}
 			else
 				Out.Data.myPerFrame.Lights[0] = Light{};
-			if (Scene && !View.Lights.empty())
+			if (WorldSceneRender && !View.Lights.empty())
 			{
-				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = Scene->GetShadowRenderPass())
+				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 				{
 					Light L{};
 					if (ShadowPass->TryGetCachedMainLightForShading(L))
@@ -78,9 +79,9 @@ namespace Engine
 				}
 			}
 			// CB says shadow on but no map bound -> PS would sample undefined t8 (hang / corruption).
-			if (Scene && Out.Data.myPerFrame.Lights[0].ShadowMapIndex >= 0)
+			if (WorldSceneRender && Out.Data.myPerFrame.Lights[0].ShadowMapIndex >= 0)
 			{
-				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = Scene->GetShadowRenderPass())
+				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 				{
 					const std::shared_ptr<RHIRenderTarget> ShadowRt = ShadowPass->GetShadowMap();
 					if (!ShadowRt || !ShadowRt->GetTex())
@@ -128,38 +129,38 @@ namespace Engine
 	}
 
 	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
-									   SceneRender* Scene, const std::shared_ptr<const FSceneViewData>& ViewData) const
+									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
 		if (!RHI || !VertexShader || !PixelShader || !TargetBuffer || !ViewData)
 			return;
-		const std::shared_ptr<RHITexture2D> Scratch = TargetBuffer->GetDeferredLightingScratch();
+		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = TargetBuffer->GetSceneColorPreLighting();
 		const std::shared_ptr<RHITexture2D> SceneColor = TargetBuffer->GetSceneColor();
-		if (!Scratch || !SceneColor)
+		if (!SceneColorPreLighting || !SceneColor)
 			return;
 
 		RHICommandMark Mark(RHIContext, "DeferredLighting");
 
-		RHIContext.RHICopyResource(Scratch, SceneColor);
+		RHIContext.RHICopyResource(SceneColorPreLighting, SceneColor);
 
 		PreProcessor* Pre = nullptr;
-		if (Scene)
-			Pre = Scene->GetPreProcessor().get();
+		if (WorldSceneRender)
+			Pre = WorldSceneRender->GetPreProcessor().get();
 
 		CBPerFrameWrap PerFrameCB(RHI);
-		FillPerFrameFromView(PerFrameCB, *ViewData, Pre, Scene);
+		FillPerFrameFromView(PerFrameCB, *ViewData, Pre, WorldSceneRender);
 		PerFrameCB.UpdateUniformBuffer();
 		PerFrameCB.SetShaderUniformBuffer(SF_Vertex);
 		PerFrameCB.SetShaderUniformBuffer(SF_Pixel);
 
-		RHIContext.SetRenderTarget(SceneColor, nullptr);
 		const auto Sz = ViewPort->GetSize();
-		RHIContext.SetViewPort(0, 0, Sz.x, Sz.y);
+		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
+		FRDGUtils::RHICmdListSetViewportSize(RHIContext, Sz.x, Sz.y);
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
 
-		RHIContext.RHISetShaderTexture(SF_Pixel, 0, Scratch);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 0, SceneColorPreLighting);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 1, TargetBuffer->GetNormalBuffer());
 		RHIContext.RHISetShaderTexture(SF_Pixel, 2, TargetBuffer->GetEmissiveBuffer());
 		RHIContext.RHISetShaderTexture(SF_Pixel, 3, TargetBuffer->GetMetallicRoughnessBuffer());
@@ -184,9 +185,9 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
-		if (Scene && !ViewData->Lights.empty() && ViewData->Lights[0].ShadowMapIndex >= 0)
+		if (WorldSceneRender && !ViewData->Lights.empty() && ViewData->Lights[0].ShadowMapIndex >= 0)
 		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = Scene->GetShadowRenderPass())
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 			{
 				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
 					RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowRt->GetTex());

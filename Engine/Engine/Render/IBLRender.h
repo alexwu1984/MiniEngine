@@ -14,7 +14,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class FrameGraph;
+	class FRDGBuilder;
 	struct FSkyLightIBLPrecomputePrivate;
 
 	// Precomputes skylight/reflection IBL resources (capture cubemap, diffuse irradiance,
@@ -31,7 +31,7 @@ namespace Engine
 		/** Game thread supplies primary SkyLightComponent path each frame; falls back to JSON Evn.Hdr when nullopt. */
 		void ResolveAndApplyHDRSource(std::optional<std::wstring> ComponentOverrideFullPath);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
-		void AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext);
+		void AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext);
 		std::shared_ptr<RenderCore::RHITextureCube> GetSkyLightCubemap();
 		std::shared_ptr<RenderCore::RHITextureCube> GetDiffuseIrradianceCubemap();
 		std::shared_ptr<RenderCore::RHITextureCube> GetSpecularReflectionCubemap();

@@ -54,7 +54,7 @@ namespace Engine
 			uint32_t NumMips, bool IsMultiSampled, bool CreateDepth,
 			std::shared_ptr<RenderCore::RHIRenderTarget>&& Rt);
 
-		// FrameGraph: use FrameGraphCompileParams::bLogRenderTexturePoolStats after Execute for stats; RHI SetFrameCallbacks drive Begin/EndFrame.
+		// FRDG: use FRDGCompileParameters::bLogRenderTexturePoolStats after Execute for stats; RHI SetFrameCallbacks drive Begin/EndFrame.
 		void BeginFrame();
 		void EndFrame();
 		void Clear();

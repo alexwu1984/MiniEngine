@@ -10,7 +10,7 @@
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/CubeRender.h"
-#include "Render/FrameGraph.h"
+#include "Render/FRDGBuilder.h"
 #include "core/logger.h"
 
 using namespace math;
@@ -152,7 +152,7 @@ namespace Engine
 		GenerateSpecularPrefilter(RHIContext);
 	}
 
-	void FSkyLightIBLPrecompute::AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightIBLPrecompute::AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(FSkyLightIBLPrecompute);
 		if (!d->HDRTex || d->bInitRender)
@@ -160,41 +160,41 @@ namespace Engine
 
 		// Add explicit passes instead of doing all work inside one callback.
 		// Note: resources are owned by IBLRender; the graph edges are for ordering/culling only.
-		Graph.AddPass(FramePassDesc{
+		Graph.AddPass(FRDGPassDescriptor{
 			"SkyLight_CaptureCubemap",
-			{ { "SkyLight_SourceHDR", [HDR = d->HDRTex]() { return HDR; }, false, ERGTextureAccess::SRV } },
-			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::RTV } },
+			{ { "SkyLight_SourceHDR", [HDR = d->HDRTex]() { return HDR; }, false, FRDGResourceAccess::SRV } },
+			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::RTV } },
 			[this, &RHIContext]() { CaptureSkyLightCubemap(RHIContext); },
 			false,
-			ERGPass_Raster | ERGPass_MayCullIfUnreachableFromSink,
-			ERGQueueType::Graphics });
+			RDG_Raster | RDG_MayCullIfUnreachableFromSink,
+			ERDGPassQueue::Graphics });
 
-		Graph.AddPass(FramePassDesc{
+		Graph.AddPass(FRDGPassDescriptor{
 			"SkyLight_GenerateDiffuseIrradiance",
-			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::SRV } },
-			{ { "SkyLight_DiffuseIrradiance", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::RTV } },
+			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::SRV } },
+			{ { "SkyLight_DiffuseIrradiance", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::RTV } },
 			[this, &RHIContext]() { GenerateDiffuseIrradiance(RHIContext); },
 			false,
-			ERGPass_Raster | ERGPass_MayCullIfUnreachableFromSink,
-			ERGQueueType::Graphics });
+			RDG_Raster | RDG_MayCullIfUnreachableFromSink,
+			ERDGPassQueue::Graphics });
 
-		Graph.AddPass(FramePassDesc{
+		Graph.AddPass(FRDGPassDescriptor{
 			"SkyLight_GenerateSpecularPrefilter",
-			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::SRV } },
-			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::RTV } },
+			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::SRV } },
+			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::RTV } },
 			[this, &RHIContext]() { GenerateSpecularPrefilter(RHIContext); },
 			false,
-			ERGPass_Raster | ERGPass_MayCullIfUnreachableFromSink,
-			ERGQueueType::Graphics });
+			RDG_Raster | RDG_MayCullIfUnreachableFromSink,
+			ERDGPassQueue::Graphics });
 
-		Graph.AddPass(FramePassDesc{
+		Graph.AddPass(FRDGPassDescriptor{
 			"SkyLight_Finalize",
-			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, ERGTextureAccess::SRV } },
+			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::SRV } },
 			{},
 			[this]() { C_P(FSkyLightIBLPrecompute); d->bInitRender = true; },
 			false,
-			ERGPass_None | ERGPass_MayCullIfUnreachableFromSink,
-			ERGQueueType::Graphics });
+			RDG_MayCullIfUnreachableFromSink,
+			ERDGPassQueue::Graphics });
 	}
 
 	std::shared_ptr<RHITextureCube> FSkyLightIBLPrecompute::GetSkyLightCubemap()

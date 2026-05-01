@@ -14,8 +14,8 @@ namespace RenderCore
 
 namespace Engine
 {
-/** Shader / RHI view access (compile-time metadata for future barrier batching). */
-enum class ERGTextureAccess : uint8_t
+/** How a pass uses a texture; kept for compile metadata and future barrier batching. */
+enum class FRDGResourceAccess : uint8_t
 {
 	Unknown = 0,
 	SRV,
@@ -26,19 +26,19 @@ enum class ERGTextureAccess : uint8_t
 	CopyDst,
 };
 
-enum ERGPassFlags : uint32_t
+enum ERDGPassFlags : uint32_t
 {
-	ERGPass_None = 0,
-	ERGPass_Raster = 1u << 0,
-	ERGPass_Compute = 1u << 1,
-	ERGPass_Copy = 1u << 2,
+	RDG_None = 0,
+	RDG_Raster = 1u << 0,
+	RDG_Compute = 1u << 1,
+	RDG_Copy = 1u << 2,
 	/** Culled when compile enables sink reachability culling and pass is not an ancestor of any GraphSink. */
-	ERGPass_MayCullIfUnreachableFromSink = 1u << 3,
+	RDG_MayCullIfUnreachableFromSink = 1u << 3,
 	/** Reachability root for culling (typically swap chain; pass name Present or RHISubmitAndPresent). */
-	ERGPass_GraphSink = 1u << 4,
+	RDG_GraphSink = 1u << 4,
 };
 
-enum class ERGQueueType : uint8_t
+enum class ERDGPassQueue : uint8_t
 {
 	Graphics = 0,
 	AsyncCompute = 1,
@@ -46,7 +46,7 @@ enum class ERGQueueType : uint8_t
 };
 
 /** Placeholder for transient texture allocation (future pool). */
-struct RDGTextureDesc
+struct FRDGTextureDesc
 {
 	uint32_t Width = 0;
 	uint32_t Height = 0;
@@ -54,29 +54,30 @@ struct RDGTextureDesc
 	uint8_t MSAA_Count = 1;
 };
 
-struct FrameGraphResource
+/** One named texture slot on a pass (resolve + access hint). */
+struct FRDGPassResource
 {
 	std::string Name;
 	std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve;
 	bool Required = true;
-	ERGTextureAccess Access = ERGTextureAccess::Unknown;
+	FRDGResourceAccess Access = FRDGResourceAccess::Unknown;
 	/** 0xFFFFFFFF = whole resource; per-mip/slice later. */
 	uint32_t SubresourceIndex = 0xFFFFFFFFu;
 };
 
-struct FramePassDesc
+/** Pass definition: declared inputs/outputs, execute lambda, flags and queue. */
+struct FRDGPassDescriptor
 {
 	std::string Name;
-	std::vector<FrameGraphResource> Inputs;
-	std::vector<FrameGraphResource> Outputs;
+	std::vector<FRDGPassResource> Inputs;
+	std::vector<FRDGPassResource> Outputs;
 	std::function<void()> Execute;
 	bool ValidateOutputs = false;
-	/** Appended after legacy {Name, IO, Execute} initializer lists (flags / queue). */
-	uint32_t PassFlags = ERGPass_Raster;
-	ERGQueueType Queue = ERGQueueType::Graphics;
+	uint32_t PassFlags = RDG_Raster;
+	ERDGPassQueue Queue = ERDGPassQueue::Graphics;
 };
 
-struct RDGCompileStats
+struct FRDGCompileStats
 {
 	std::size_t PassCountSetup = 0;
 	std::size_t PassCountScheduled = 0;
@@ -85,7 +86,7 @@ struct RDGCompileStats
 	bool bUnresolvedSchedulingEdge = false;
 };
 
-struct FrameGraphCompileParams
+struct FRDGCompileParameters
 {
 	bool bPassCullingFromSinks = false;
 	bool bDumpDotToLog = false;
@@ -95,38 +96,37 @@ struct FrameGraphCompileParams
 };
 
 /**
- * Render graph: Setup (ImportTexture / AddPass / AddPassDependency),
- * Compile (ordering, optional sink reachability culling, debug dump),
- * Execute (last Compile() order only).
+ * Frame render graph: ImportTexture / AddPass / AddPassDependency,
+ * Compile (ordering, optional sink reachability culling, optional DOT dump),
+ * Execute (runs last successful Compile order).
  */
-class FrameGraph
+class FRDGBuilder
 {
 public:
 	void Clear();
 
 	void ImportTexture(std::string Name, std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve, bool Required = true);
 
-	void AddPass(FramePassDesc Pass);
+	void AddPass(FRDGPassDescriptor Pass);
 
 	/** Scheduling edge only (no shared texture): Producer must finish before Consumer. */
 	void AddPassDependency(std::string ProducerPassName, std::string ConsumerPassName);
 
-	bool Compile(const FrameGraphCompileParams& Params = {}, RDGCompileStats* OutStats = nullptr);
+	bool Compile(const FRDGCompileParameters& Params = {}, FRDGCompileStats* OutStats = nullptr);
 
-	void Execute(const FrameGraphCompileParams& Params = {});
+	void Execute(const FRDGCompileParameters& Params = {});
 
 private:
-	bool ValidatePass(const FramePassDesc& Pass) const;
-	/** Returns count of user scheduling edges that failed name resolution. */
+	bool ValidatePass(const FRDGPassDescriptor& Pass) const;
 	std::size_t CollectSchedulingEdges(std::vector<std::pair<int, int>>& OutEdges) const;
 	bool BuildExecutionOrderFromEdges(const std::vector<std::pair<int, int>>& Edges, std::vector<std::size_t>& OutOrder) const;
 	void ApplyPassCulling(const std::vector<std::pair<int, int>>& Edges, const std::vector<std::size_t>& FullTopoOrder,
-						  const FrameGraphCompileParams& Params, std::vector<std::size_t>& OutOrder, RDGCompileStats& Stats) const;
+						  const FRDGCompileParameters& Params, std::vector<std::size_t>& OutOrder, FRDGCompileStats& Stats) const;
 	bool ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const;
 	void DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const;
 
-	std::vector<FrameGraphResource> Imports;
-	std::vector<FramePassDesc> Passes;
+	std::vector<FRDGPassResource> Imports;
+	std::vector<FRDGPassDescriptor> Passes;
 	std::vector<std::pair<std::string, std::string>> SchedulingEdges;
 	std::vector<std::size_t> LastCompiledOrder;
 };

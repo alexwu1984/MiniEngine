@@ -41,7 +41,9 @@ namespace Engine
 		C_P(RenderThread);
 		if (!d->WorkerThread.joinable())
 		{
-			d->DrainWait.create(true, true);
+			// Auto-reset + initially non-signaled: WaitForSingleObject clears the signal.
+			// Manual-reset + initially set caused WaitForFinish() to return before the queued batch ran (game/render race).
+			d->DrainWait.create(false, false);
 			d->WorkerThread = std::thread(&RenderThread::Run, this);
 			d->bStopRequested = false;
 		}
@@ -97,6 +99,10 @@ namespace Engine
 	void RenderThread::WaitForFinish()
 	{
 		C_P(RenderThread);
+		// After Stop() the worker is joined; DrainWait is never set again — waiting would deadlock
+		// (e.g. FWorldSceneRender dtor runs after Engine::ShutDown already stopped the render thread).
+		if (!d->WorkerThread.joinable())
+			return;
 		d->DrainWait.wait();
 	}
 

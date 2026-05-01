@@ -20,6 +20,7 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> NormalBuffer;
 		std::shared_ptr<RHITexture2D> EmissiveBuffer;
 		std::shared_ptr<RHITexture2D> MetallicSpecularRoughness;
+		std::shared_ptr<RHITexture2D> SceneColorPreLighting;
 	};
 
 	namespace
@@ -56,6 +57,8 @@ namespace Engine
 			ReleaseTex2DToPool(d->EmissiveBuffer, EPixelFormat::PF_FloatRGBA,
 							   static_cast<int32_t>(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource), 1);
 			ReleaseTex2DToPool(d->MetallicSpecularRoughness, EPixelFormat::PF_FloatRGBA,
+							   static_cast<int32_t>(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource), 1);
+			ReleaseTex2DToPool(d->SceneColorPreLighting, EPixelFormat::PF_FloatRGBA,
 							   static_cast<int32_t>(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource), 1);
 		}
 	} // namespace
@@ -121,6 +124,13 @@ namespace Engine
 				(int32_t)Height,
 				1);
 			d->SceneColorWithSSR = Pool.AcquireTexture2D(
+				d->RHI,
+				EPixelFormat::PF_FloatRGBA,
+				static_cast<int32_t>(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource),
+				(int32_t)Width,
+				(int32_t)Height,
+				1);
+			d->SceneColorPreLighting = Pool.AcquireTexture2D(
 				d->RHI,
 				EPixelFormat::PF_FloatRGBA,
 				static_cast<int32_t>(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource),
@@ -224,6 +234,12 @@ namespace Engine
 	{
 		C_P(const GBuffer);
 		return d->MetallicSpecularRoughness;
+	}
+
+	std::shared_ptr<RHITexture2D> GBuffer::GetSceneColorPreLighting() const
+	{
+		C_P(const GBuffer);
+		return d->SceneColorPreLighting;
 	}
 
 }

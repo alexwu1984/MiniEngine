@@ -6,7 +6,7 @@
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
-#include "Render/SceneRender.h"
+#include "Render/FWorldSceneRender.h"
 #include "Render/MaterialPreFrame.h"
 #include "Imgui/imgui.h"
 #include "Thread/RenderThread.h"

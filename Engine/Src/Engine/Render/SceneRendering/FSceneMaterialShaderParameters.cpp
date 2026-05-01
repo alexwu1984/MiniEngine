@@ -1,5 +1,5 @@
 ﻿#include "Render/SceneRendering/FSceneMaterialShaderParameters.h"
-#include "Render/SceneRender.h"
+#include "Render/FWorldSceneRender.h"
 #include "Render/SceneRendering/FSceneViewData.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/GBuffer.h"
@@ -7,18 +7,18 @@
 
 namespace Engine
 {
-	MaterialRenderParam FSceneMaterialShaderParameters::BuildForDeferredBasePass(const SceneRender* SceneRender, const FSceneViewData* ViewData, const MeshBase* Mesh,
+	MaterialRenderParam FSceneMaterialShaderParameters::BuildForDeferredBasePass(const FWorldSceneRender* WorldSceneRender, const FSceneViewData* ViewData, const MeshBase* Mesh,
 																				 const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
 																				 const std::shared_ptr<GBuffer>& TargetBuffer)
 	{
 		MaterialRenderParam Out;
-		if (!ViewData || !SceneRender || !Mesh)
+		if (!ViewData || !WorldSceneRender || !Mesh)
 			return Out;
 
 		Out.lightInfos = ViewData->Lights;
 		if (!Out.lightInfos.empty())
 		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = SceneRender->GetShadowRenderPass())
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 			{
 				Light L{};
 				if (ShadowPass->TryGetCachedMainLightForShading(L))
@@ -39,7 +39,7 @@ namespace Engine
 		Out.PrevViewProjInverseMatrix = ViewData->PrevViewProjInverseMatrix;
 		Out.TemporalAAJitter = ViewData->TemporalAAJitter;
 		Out.HasSkin = Mesh->HasSkin();
-		Out.preProcessor = SceneRender->GetPreProcessor();
+		Out.preProcessor = WorldSceneRender->GetPreProcessor();
 		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(ViewData->EnvironmentRotatePitchDegrees));
 		Rotate *= math::Matrix4x4::RotateY(math::Radians(ViewData->EnvironmentRotateYawDegrees));
 		Out.RotateIBL = Rotate;

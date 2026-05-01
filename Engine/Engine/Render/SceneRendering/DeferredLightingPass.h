@@ -16,7 +16,7 @@ namespace RenderCore
 namespace Engine
 {
 	class GBuffer;
-	class SceneRender;
+	class FWorldSceneRender;
 	struct FSceneViewData;
 
 	/** Fullscreen pass: analytic lights + IBL into scene color from G-buffer. */
@@ -27,7 +27,7 @@ namespace Engine
 
 		void InitResource();
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
-					 SceneRender* Scene, const std::shared_ptr<const FSceneViewData>& ViewData) const;
+					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 	private:
 		RenderCore::DynamicRHI* RHI = nullptr;

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
-#include "Render/FrameGraph.h"
+#include "Render/FRDGBuilder.h"
 
 namespace RenderCore
 {
@@ -35,7 +35,7 @@ namespace Engine
 		void InvalidateTransientResources();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 				  std::shared_ptr<const FSceneViewData> ViewData);
-		void AddFramePasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetSSRBuffer() const;
 		EPostProcessorAAType GetPostProcessorAAType() const;
@@ -47,15 +47,15 @@ namespace Engine
 		bool WantsHaltonProjectionJitterForMainPass() const;
 
 	private:
-		void BuildSSRPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 							std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor);
-		void BuildBloomPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 							  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite);
-		void BuildAAPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 						   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 						   std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor);
-		void BuildTonemappingPass(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 								  std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 	private:
 		PostProcessorPrivate* d_ptr = nullptr;

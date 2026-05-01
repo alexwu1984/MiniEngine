@@ -15,12 +15,11 @@
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
 #include "Render/SSRProcessor.h"
-#include "Render/FrameGraph.h"
+#include "Render/FRDGBuilder.h"
 #include "Render/RenderTexturePool.h"
 #include "Render/PostProcessPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/FSceneViewData.h"
-#include "Render/SceneRender.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
 
@@ -30,7 +29,7 @@ namespace Engine
 
 	namespace
 	{
-		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FrameGraphCompileParams& Out)
+		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FRDGCompileParameters& Out)
 		{
 			try
 			{
@@ -48,7 +47,7 @@ namespace Engine
 		}
 	} // namespace
 
-	static void RegisterPostOnlyGBufferImports(FrameGraph& Graph, std::shared_ptr<GBuffer> TB)
+	static void RegisterPostOnlyGBufferImports(FRDGBuilder& Graph, std::shared_ptr<GBuffer> TB)
 	{
 		if (!TB)
 			return;
@@ -73,7 +72,7 @@ namespace Engine
 		bool EnableSSR = false;
 		EPostProcessorAAType AAType = EPostProcessorAAType::TAA;
 		bool IsResourceInitialized = false;
-		FrameGraphCompileParams RDGCompileParams{};
+		FRDGCompileParameters RDGCompileParams{};
 		/** EV-style exposure before tonemap / bloom threshold scaling (see Evn.ExposureStops in scene JSON). */
 		float ExposureStops = 0.f;
 
@@ -210,13 +209,13 @@ namespace Engine
 						   std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(PostProcessor);
-		FrameGraph Graph;
+		FRDGBuilder Graph;
 		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData);
 		Graph.Execute(d->RDGCompileParams);
 	}
 
-	void PostProcessor::AddFramePasses(FrameGraph& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 									   std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(PostProcessor);
@@ -256,7 +255,7 @@ namespace Engine
 		BuildTonemappingPass(Graph, RHIContext, TargetBuffer, ViewPort);
 	}
 
-	void PostProcessor::BuildSSRPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 									   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 									   std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor)
 	{
@@ -280,7 +279,7 @@ namespace Engine
 			[d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildBloomPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 										 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite)
 	{
 		C_P(PostProcessor);
@@ -303,7 +302,7 @@ namespace Engine
 			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildAAPasses(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 									  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 									  std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor)
 	{
@@ -335,7 +334,7 @@ namespace Engine
 		}
 	}
 
-	void PostProcessor::BuildTonemappingPass(FrameGraph& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);

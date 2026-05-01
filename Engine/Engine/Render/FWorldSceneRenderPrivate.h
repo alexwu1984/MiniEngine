@@ -1,9 +1,10 @@
 ﻿#pragma once
 #include "core/color.h"
-#include "Render/FrameGraph.h"
-#include "Render/SceneRendering/FSceneRenderer.h"
+#include "Render/FRDGBuilder.h"
+#include "Render/SceneRendering/FFrameSceneRenderer.h"
 #include <atomic>
 #include <memory>
+#include <mutex>
 
 namespace RenderCore
 {
@@ -19,8 +20,9 @@ namespace Engine
 	class GBuffer;
 	class ShadowRenderPass;
 	class FMeshMaterialRenderCache;
+	class DeferredLightingPass;
 
-	struct SceneRenderPrivate
+	struct FWorldSceneRenderPrivate
 	{
 		std::weak_ptr<World> Owner;
 		std::shared_ptr<RenderCore::RHIViewPort> MainViewPort;
@@ -30,14 +32,18 @@ namespace Engine
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<GBuffer> TargetBuffer;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
+		std::shared_ptr<DeferredLightingPass> DeferredLighting;
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
-		FrameGraphCompileParams RDGCompileParams{};
+		FRDGCompileParameters RDGCompileParams{};
 		float DeferredBasePassEnvironmentRotateX = 0.f;
 		float DeferredBasePassEnvironmentRotateY = 1.f;
 
 		bool bUnlit = false;
 
-		FSceneRenderer SceneFrameRenderer;
+		bool bEnableDeferredLightingPass = false;
+
+		FFrameSceneRenderer FrameSceneRenderer;
+		std::mutex RenderFrameMutex;
 	};
-}
+} // namespace Engine

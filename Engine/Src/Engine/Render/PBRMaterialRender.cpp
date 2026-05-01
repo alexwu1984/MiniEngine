@@ -12,7 +12,7 @@
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
 #include "Engine/Render/Shadow/ShadowRenderPass.h"
-#include "Engine/Render/SceneRender.h"
+#include "Engine/Render/FWorldSceneRender.h"
 #include "Render/GBuffer.h"
 #include "RHI/RHITextureCube.h"
 #include <algorithm>

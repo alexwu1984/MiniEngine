@@ -1,7 +1,8 @@
-﻿#include "Render/FrameGraph.h"
+﻿#include "Render/FRDGBuilder.h"
 #include "Render/RenderTexturePool.h"
 #include "core/logger.h"
 #include "core/strings.h"
+#include <set>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -29,7 +30,7 @@ namespace Engine
 		}
 	} // namespace
 
-	bool FrameGraph::ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const
+	bool FRDGBuilder::ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const
 	{
 		for (std::size_t I = 0; I < Passes.size(); ++I)
 		{
@@ -42,7 +43,7 @@ namespace Engine
 		return false;
 	}
 
-	std::size_t FrameGraph::CollectSchedulingEdges(std::vector<std::pair<int, int>>& OutEdges) const
+	std::size_t FRDGBuilder::CollectSchedulingEdges(std::vector<std::pair<int, int>>& OutEdges) const
 	{
 		OutEdges.clear();
 		std::size_t UnresolvedScheduling = 0;
@@ -52,7 +53,7 @@ namespace Engine
 
 		std::unordered_set<std::string> ImportNames;
 		ImportNames.reserve(Imports.size() * 2);
-		for (const FrameGraphResource& I : Imports)
+		for (const FRDGPassResource& I : Imports)
 		{
 			if (ResourceNameForScheduling(I.Name))
 				ImportNames.insert(I.Name);
@@ -62,9 +63,9 @@ namespace Engine
 
 		for (int J = 0; J < N; ++J)
 		{
-			const FramePassDesc& Pass = Passes[static_cast<std::size_t>(J)];
+			const FRDGPassDescriptor& Pass = Passes[static_cast<std::size_t>(J)];
 
-			for (const FrameGraphResource& In : Pass.Inputs)
+			for (const FRDGPassResource& In : Pass.Inputs)
 			{
 				if (!ResourceNameForScheduling(In.Name))
 					continue;
@@ -79,12 +80,12 @@ namespace Engine
 				else if (!ImportNames.count(In.Name) && In.Required)
 				{
 					core::LOG(core::log_war,
-							  L"FrameGraph: pass \"%S\" reads \"%S\" but no prior writer or ImportTexture",
+							  L"FRDG: pass \"%S\" reads \"%S\" but no prior writer or ImportTexture",
 							  Pass.Name.c_str(), In.Name.c_str());
 				}
 			}
 
-			for (const FrameGraphResource& Out : Pass.Outputs)
+			for (const FRDGPassResource& Out : Pass.Outputs)
 			{
 				if (ResourceNameForScheduling(Out.Name))
 					LastWriter[Out.Name] = J;
@@ -98,7 +99,7 @@ namespace Engine
 			{
 				++UnresolvedScheduling;
 				core::LOG(core::log_war,
-						  L"FrameGraph: unresolved scheduling edge \"%S\" -> \"%S\"",
+						  L"FRDG: unresolved scheduling edge \"%S\" -> \"%S\"",
 						  Names.first.c_str(), Names.second.c_str());
 				continue;
 			}
@@ -109,7 +110,7 @@ namespace Engine
 		return UnresolvedScheduling;
 	}
 
-	bool FrameGraph::BuildExecutionOrderFromEdges(const std::vector<std::pair<int, int>>& Edges, std::vector<std::size_t>& OutOrder) const
+	bool FRDGBuilder::BuildExecutionOrderFromEdges(const std::vector<std::pair<int, int>>& Edges, std::vector<std::size_t>& OutOrder) const
 	{
 		OutOrder.clear();
 		const std::size_t N = Passes.size();
@@ -160,7 +161,7 @@ namespace Engine
 
 		if (OutOrder.size() != N)
 		{
-			core::LOG(core::log_err, L"FrameGraph: cycle in pass dependencies; falling back to AddPass declaration order");
+			core::LOG(core::log_err, L"FRDG: cycle in pass dependencies; falling back to AddPass declaration order");
 			OutOrder.resize(N);
 			for (std::size_t I = 0; I < N; ++I)
 				OutOrder[I] = I;
@@ -170,8 +171,8 @@ namespace Engine
 		return true;
 	}
 
-	void FrameGraph::ApplyPassCulling(const std::vector<std::pair<int, int>>& Edges, const std::vector<std::size_t>& FullTopoOrder,
-									const FrameGraphCompileParams& Params, std::vector<std::size_t>& OutOrder, RDGCompileStats& Stats) const
+	void FRDGBuilder::ApplyPassCulling(const std::vector<std::pair<int, int>>& Edges, const std::vector<std::size_t>& FullTopoOrder,
+									   const FRDGCompileParameters& Params, std::vector<std::size_t>& OutOrder, FRDGCompileStats& Stats) const
 	{
 		OutOrder = FullTopoOrder;
 		if (!Params.bPassCullingFromSinks)
@@ -179,9 +180,9 @@ namespace Engine
 
 		const std::size_t N = Passes.size();
 		bool AnySink = false;
-		for (const FramePassDesc& P : Passes)
+		for (const FRDGPassDescriptor& P : Passes)
 		{
-			if ((P.PassFlags & ERGPass_GraphSink) != 0)
+			if ((P.PassFlags & RDG_GraphSink) != 0)
 			{
 				AnySink = true;
 				break;
@@ -205,7 +206,7 @@ namespace Engine
 		std::vector<int> Stack;
 		for (std::size_t I = 0; I < N; ++I)
 		{
-			if ((Passes[I].PassFlags & ERGPass_GraphSink) != 0)
+			if ((Passes[I].PassFlags & RDG_GraphSink) != 0)
 				Stack.push_back(static_cast<int>(I));
 		}
 
@@ -228,8 +229,8 @@ namespace Engine
 		OutOrder.clear();
 		for (std::size_t Idx : FullTopoOrder)
 		{
-			const FramePassDesc& P = Passes[Idx];
-			const bool MayCull = (P.PassFlags & ERGPass_MayCullIfUnreachableFromSink) != 0;
+			const FRDGPassDescriptor& P = Passes[Idx];
+			const bool MayCull = (P.PassFlags & RDG_MayCullIfUnreachableFromSink) != 0;
 			const bool Reach = Visited[Idx] != 0;
 			if (MayCull && !Reach)
 			{
@@ -240,10 +241,10 @@ namespace Engine
 		}
 	}
 
-	void FrameGraph::DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const
+	void FRDGBuilder::DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const
 	{
 		std::ostringstream Dot;
-		Dot << "digraph FrameGraph {\n";
+		Dot << "digraph FRDG {\n";
 		for (std::size_t I = 0; I < Passes.size(); ++I)
 		{
 			Dot << "  p" << I << " [label=\"" << DotEscapeLabel(Passes[I].Name) << "\"];\n";
@@ -255,10 +256,10 @@ namespace Engine
 		}
 		Dot << "}\n";
 		const std::string S = Dot.str();
-		core::LOG(core::log_inf, L"FrameGraph DOT:\n%S", core::u8_ucs2(S).c_str());
+		core::LOG(core::log_inf, L"FRDG DOT:\n%S", core::u8_ucs2(S).c_str());
 	}
 
-	void FrameGraph::Clear()
+	void FRDGBuilder::Clear()
 	{
 		Imports.clear();
 		Passes.clear();
@@ -266,37 +267,36 @@ namespace Engine
 		LastCompiledOrder.clear();
 	}
 
-	void FrameGraph::ImportTexture(std::string Name, std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve, bool Required)
+	void FRDGBuilder::ImportTexture(std::string Name, std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve, bool Required)
 	{
-		FrameGraphResource R;
+		FRDGPassResource R;
 		R.Name = std::move(Name);
 		R.Resolve = std::move(Resolve);
 		R.Required = Required;
 		Imports.emplace_back(std::move(R));
 	}
 
-	void FrameGraph::AddPass(FramePassDesc Pass)
+	void FRDGBuilder::AddPass(FRDGPassDescriptor Pass)
 	{
-		// Graph sink: swap-chain submission (legacy name "Present" or split pipeline "RHISubmitAndPresent").
 		if (Pass.Name == "Present" || Pass.Name == "RHISubmitAndPresent")
 		{
-			Pass.PassFlags |= ERGPass_GraphSink;
+			Pass.PassFlags |= RDG_GraphSink;
 			if (!Passes.empty())
 				SchedulingEdges.emplace_back(Passes.back().Name, Pass.Name);
 		}
 		Passes.emplace_back(std::move(Pass));
 	}
 
-	void FrameGraph::AddPassDependency(std::string ProducerPassName, std::string ConsumerPassName)
+	void FRDGBuilder::AddPassDependency(std::string ProducerPassName, std::string ConsumerPassName)
 	{
 		SchedulingEdges.emplace_back(std::move(ProducerPassName), std::move(ConsumerPassName));
 	}
 
-	bool FrameGraph::Compile(const FrameGraphCompileParams& Params, RDGCompileStats* OutStats)
+	bool FRDGBuilder::Compile(const FRDGCompileParameters& Params, FRDGCompileStats* OutStats)
 	{
-		RDGCompileStats LocalStats;
-		RDGCompileStats& Stats = OutStats ? *OutStats : LocalStats;
-		Stats = RDGCompileStats{};
+		FRDGCompileStats LocalStats;
+		FRDGCompileStats& Stats = OutStats ? *OutStats : LocalStats;
+		Stats = FRDGCompileStats{};
 		Stats.PassCountSetup = Passes.size();
 
 		std::vector<std::pair<int, int>> Edges;
@@ -322,7 +322,7 @@ namespace Engine
 			}
 			const std::string O = OrderText.str();
 			core::LOG(core::log_inf,
-					  L"FrameGraph Compile: setup=%zu scheduled=%zu culled=%zu cycle=%d order=%S",
+					  L"FRDG Compile: setup=%zu scheduled=%zu culled=%zu cycle=%d order=%S",
 					  Stats.PassCountSetup,
 					  Stats.PassCountScheduled,
 					  Stats.PassCountCulled,
@@ -333,13 +333,13 @@ namespace Engine
 		return !Stats.bHadCycle;
 	}
 
-	void FrameGraph::Execute(const FrameGraphCompileParams& Params)
+	void FRDGBuilder::Execute(const FRDGCompileParameters& Params)
 	{
 		Compile(Params, nullptr);
 
 		for (std::size_t Idx : LastCompiledOrder)
 		{
-			const FramePassDesc& Pass = Passes[Idx];
+			const FRDGPassDescriptor& Pass = Passes[Idx];
 			if (!ValidatePass(Pass))
 				continue;
 			if (Pass.Execute)
@@ -350,7 +350,7 @@ namespace Engine
 		{
 			const RenderTexturePool::Stats S = RenderTexturePool::Get().GetStats();
 			core::LOG(core::log_inf,
-					  L"RenderTexturePool (post-RDG Execute): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
+					  L"RenderTexturePool (post-FRDG Execute): frame=%llu freeTex2D=%zu freeUav=%zu freeRt=%zu estFreeMB=%.2f budgetMB=%.2f",
 					  (unsigned long long)S.FrameCounter,
 					  S.FreeTex2D,
 					  S.FreeUav,
@@ -360,30 +360,30 @@ namespace Engine
 		}
 	}
 
-	bool FrameGraph::ValidatePass(const FramePassDesc& Pass) const
+	bool FRDGBuilder::ValidatePass(const FRDGPassDescriptor& Pass) const
 	{
 		if (!Pass.Execute)
 		{
-			core::LOG(core::log_war, L"FrameGraph pass has no execute callback: %S", Pass.Name.c_str());
+			core::LOG(core::log_war, L"FRDG pass has no execute callback: %S", Pass.Name.c_str());
 			return false;
 		}
 
-		for (const FrameGraphResource& Input : Pass.Inputs)
+		for (const FRDGPassResource& Input : Pass.Inputs)
 		{
 			if (Input.Required && (!Input.Resolve || !Input.Resolve()))
 			{
-				core::LOG(core::log_war, L"FrameGraph pass missing input: %S.%S", Pass.Name.c_str(), Input.Name.c_str());
+				core::LOG(core::log_war, L"FRDG pass missing input: %S.%S", Pass.Name.c_str(), Input.Name.c_str());
 				return false;
 			}
 		}
 
 		if (Pass.ValidateOutputs)
 		{
-			for (const FrameGraphResource& Output : Pass.Outputs)
+			for (const FRDGPassResource& Output : Pass.Outputs)
 			{
 				if (Output.Required && (!Output.Resolve || !Output.Resolve()))
 				{
-					core::LOG(core::log_war, L"FrameGraph pass missing output: %S.%S", Pass.Name.c_str(), Output.Name.c_str());
+					core::LOG(core::log_war, L"FRDG pass missing output: %S.%S", Pass.Name.c_str(), Output.Name.c_str());
 					return false;
 				}
 			}

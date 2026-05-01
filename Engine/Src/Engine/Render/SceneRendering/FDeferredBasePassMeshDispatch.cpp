@@ -11,7 +11,7 @@ namespace Engine
 												 const FDeferredBasePassDrawContext& DrawContext)
 	{
 		const FSceneViewData* ViewData = DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr;
-		MaterialRenderParam Params = FSceneMaterialShaderParameters::BuildForDeferredBasePass(DrawContext.SceneRenderRaw, ViewData, Mesh.get(), WorldTransform, PrevWorldTransform,
+		MaterialRenderParam Params = FSceneMaterialShaderParameters::BuildForDeferredBasePass(DrawContext.WorldSceneRender, ViewData, Mesh.get(), WorldTransform, PrevWorldTransform,
 																							   DrawContext.TargetBuffer);
 
 		if (!bIsPrePass && Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
@@ -23,9 +23,18 @@ namespace Engine
 			}
 		}
 
+		RenderCore::RHICommandContext* CmdList = DrawContext.RHICmdList;
+		if (!CmdList)
+		{
+			auto DefaultCtx = RHI->GetDefaultCommandContext();
+			CmdList = DefaultCtx ? DefaultCtx.get() : nullptr;
+		}
+		if (!CmdList)
+			return;
+
 		if (bIsPrePass)
-			Material->PreDraw(*RHI->GetDefaultCommandContext(), Params);
+			Material->PreDraw(*CmdList, Params);
 		else
-			Material->Draw(*RHI->GetDefaultCommandContext(), Params);
+			Material->Draw(*CmdList, Params);
 	}
 }

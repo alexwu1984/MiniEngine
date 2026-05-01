@@ -16,33 +16,32 @@ namespace RenderCore
 
 namespace Engine
 {
-	class SceneRender;
-	struct SceneRenderPrivate;
+	class FWorldSceneRender;
+	struct FWorldSceneRenderPrivate;
 
 	/**
-	 * Per-frame deferred scene renderer (instance).
-	 * Game thread: Submit(...) captures immutable frame inputs.
-	 * Render thread: Render(RHI) is the single entry that builds the frame graph and records commands.
+	 * Holds one frame's deferred rendering inputs and records them via RDG on the render thread.
+	 * FWorldSceneRender is the long-lived owner of scene resources; this object is the per-frame bridge (Submit → Render).
 	 */
-	class FSceneRenderer
+	class FFrameSceneRenderer
 	{
 	public:
-		FSceneRenderer() = default;
+		FFrameSceneRenderer() = default;
 
-		/** Record everything needed for one deferred frame (no RHI recording). Safe to call from the game thread. */
-		void Submit(SceneRender* SceneRenderSelf, SceneRenderPrivate* ResourceState, const FSceneViewFamily& ViewFamily,
+		/** Capture inputs for the next Render call (game thread; no RHI). */
+		void Submit(FWorldSceneRender* WorldSceneRenderOwner, FWorldSceneRenderPrivate* SceneResources, const FSceneViewFamily& ViewFamily,
 					std::shared_ptr<const FSceneViewData> ViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 					std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
 					std::vector<Light> ShadowPassLights, FShadowProjectorSceneData ShadowProjectorScene,
 					std::optional<std::wstring> SkyLightHdrFullPathOverride);
 
-		/** Execute the submitted frame on the render thread. No-op if Submit was not called or RHI is null. */
+		/** Execute the last Submit on the render thread. */
 		void Render(RenderCore::DynamicRHI* RHI);
 
 	private:
 		bool bHasFrame = false;
-		SceneRender* SceneRenderSelf = nullptr;
-		SceneRenderPrivate* ResourceState = nullptr;
+		FWorldSceneRender* WorldSceneRenderOwner = nullptr;
+		FWorldSceneRenderPrivate* SceneResources = nullptr;
 		FSceneViewFamily ViewFamily{};
 		std::shared_ptr<const FSceneViewData> ViewData;
 		std::vector<GltfSceneMeshInfo> MeshesInfo;
@@ -52,4 +51,4 @@ namespace Engine
 		FShadowProjectorSceneData ShadowProjectorScene{};
 		std::optional<std::wstring> SkyLightHdrOverrideForFrame{};
 	};
-}
+} // namespace Engine

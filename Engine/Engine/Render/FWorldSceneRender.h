@@ -19,16 +19,20 @@ namespace Engine
 	class PreProcessor;
 	class PostProcessor;
 	class World;
-	struct SceneRenderPrivate;
+	struct FWorldSceneRenderPrivate;
 	class ShadowRenderPass;
 	class CubeBackground;
 	class FMeshMaterialRenderCache;
 
-	class SceneRender : public std::enable_shared_from_this<SceneRender>
+	/**
+	 * World-scoped scene rendering entry: viewport, GBuffer/post/shadow resources, and game-thread submission.
+	 * Paired with FFrameSceneRenderer, which records exactly one submitted frame on the render thread.
+	 */
+	class FWorldSceneRender : public std::enable_shared_from_this<FWorldSceneRender>
 	{
 	public:
-		SceneRender(std::weak_ptr<World> Owner);
-		~SceneRender();
+		FWorldSceneRender(std::weak_ptr<World> Owner);
+		~FWorldSceneRender();
 		std::shared_ptr<World> GetWorld() const;
 
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
@@ -43,12 +47,13 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
 	private:
-		void RenderScene(float DeltaTime);
+		/** Game thread: gather views/primitives, Submit to FFrameSceneRenderer, enqueue render-thread work. */
+		void SubmitSceneForRendering(float DeltaTime);
 
 	public:
 		core::event<void()> sigGuiEvent;
 
 	private:
-		SceneRenderPrivate* d_ptr = nullptr;
+		FWorldSceneRenderPrivate* d_ptr = nullptr;
 	};
-}
+} // namespace Engine

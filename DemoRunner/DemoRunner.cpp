@@ -94,7 +94,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 
 	demo->Init(RHI.get(), viewPort, window);
 
-	// Handle resize directly; this runner avoids SceneRender/FrameGraph completely.
+	// Handle resize directly; this runner avoids FWorldSceneRender/FRDG completely.
 	window->EvtSizeChanged.bind([viewPort](core::vec2i sz) {
 		if (viewPort && sz.w > 0 && sz.h > 0)
 			viewPort->Resize((uint32_t)sz.w, (uint32_t)sz.h, false);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -63,12 +63,14 @@ file(GLOB Engine_Render_Source Src/Engine/Render/*.cpp)
 file(GLOB Engine_Render_Shadow_Source Src/Engine/Render/Shadow/*.cpp)
 # Explicit: GLOB can omit new files until reconfigure (LNK2019).
 set(Engine_Render_SceneRendering_Source
+	Src/Engine/Render/SceneRendering/DeferredLightingPass.cpp
+	Src/Engine/Render/SceneRendering/FRDGDeferredLightingPass.cpp
 	Src/Engine/Render/SceneRendering/FDeferredBasePassMeshDispatch.cpp
 	Src/Engine/Render/SceneRendering/FDeferredShadingBasePassRenderer.cpp
 	Src/Engine/Render/SceneRendering/FMeshMaterialRenderCache.cpp
 	Src/Engine/Render/SceneRendering/FOpaqueMeshDrawBuilder.cpp
 	Src/Engine/Render/SceneRendering/FSceneMaterialShaderParameters.cpp
-	Src/Engine/Render/SceneRendering/FSceneRenderer.cpp
+	Src/Engine/Render/SceneRendering/FFrameSceneRenderer.cpp
 	Src/Engine/Render/SceneRendering/FSceneRendererPrimitiveGather.cpp
 	Src/Engine/Render/SceneRendering/FSceneViewData.cpp
 	Src/Engine/Render/SceneRendering/FSceneViewFamily.cpp

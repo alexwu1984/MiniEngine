@@ -7,7 +7,7 @@
 #include "RHI/RHIThreadPolicy.h"
 #include "Scene/World.h"
 #include "Scene/GameViewportClient.h"
-#include "Render/SceneRender.h"
+#include "Render/FWorldSceneRender.h"
 #include "win/high_precision_tick.h"
 #include "Engine/Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
@@ -22,7 +22,7 @@ namespace Engine
 		{
 			GameWorld = std::make_shared<Engine::World>();
 			ViewportClient = std::make_shared<GameViewportClient>(std::weak_ptr<World>(GameWorld));
-			SeRender = std::make_shared<SceneRender>(std::weak_ptr<World>(GameWorld));
+			SeRender = std::make_shared<FWorldSceneRender>(std::weak_ptr<World>(GameWorld));
 		}
 		std::shared_ptr<AppWindow> AppWin;
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
@@ -31,7 +31,7 @@ namespace Engine
 		RenderCore::RHIAPIType InitApiType = RenderCore::RHIAPIType::E_D3D11;
 		std::shared_ptr<World> GameWorld;
 		std::shared_ptr<GameViewportClient> ViewportClient;
-		std::shared_ptr<SceneRender> SeRender;
+		std::shared_ptr<FWorldSceneRender> SeRender;
 		win32::HighPrecisionTick GameTick;
 		std::wstring ModelPath;
 		std::atomic_bool NeedResize = false;
@@ -164,7 +164,7 @@ namespace Engine
 		return d->ViewportClient;
 	}
 
-	std::shared_ptr<SceneRender> MainEngine::GetSceneRender() const
+	std::shared_ptr<FWorldSceneRender> MainEngine::GetSceneRender() const
 	{
 		C_P(const MainEngine);
 		return d->SeRender;

@@ -1,10 +1,10 @@
 ﻿#pragma once
-#include "Render/FrameGraph.h"
+#include "Render/FRDGBuilder.h"
 
 namespace Engine
 {
-	using RenderPassResource = FrameGraphResource;
-	using RenderPassDesc = FramePassDesc;
-	using PostProcessGraph = FrameGraph;
-	using RDGCompileParams = FrameGraphCompileParams;
+	using RenderPassResource = FRDGPassResource;
+	using RenderPassDesc = FRDGPassDescriptor;
+	using PostProcessGraph = FRDGBuilder;
+	using RDGCompileParams = FRDGCompileParameters;
 }

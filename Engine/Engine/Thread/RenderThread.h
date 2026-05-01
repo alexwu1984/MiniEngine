@@ -36,5 +36,6 @@ namespace Engine
 	extern RenderThread* GRenderThread;
 
 
+	/** If the lambda reads mutable state filled on the calling thread just before enqueueing, pass wait=true so that state is not overwritten until the lambda runs. */
 	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun, bool wait = false);
 }

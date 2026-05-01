@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 
 namespace RenderCore
@@ -41,6 +41,8 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetNormalBuffer() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveBuffer() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessBuffer() const;
+		/** HDR scene color before deferred lighting (base pass output); copy target so the pass can read it while writing lit result to SceneColor. */
+		std::shared_ptr<RenderCore::RHITexture2D> GetSceneColorPreLighting() const;
 	private:
 		GBufferPrivate* d_ptr = nullptr;
 	};

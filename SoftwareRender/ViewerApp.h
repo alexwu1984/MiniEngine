@@ -19,7 +19,7 @@ namespace Engine
 
 class Tex2DRender;
 
-/** CPU ray trace + GPU blit viewer (standalone runner; no MainEngine / SceneRender). */
+/** CPU ray trace + GPU blit viewer (standalone runner; no MainEngine / FWorldSceneRender). */
 class ViewerApp
 {
 public:

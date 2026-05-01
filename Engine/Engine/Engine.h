@@ -18,7 +18,7 @@ namespace Engine
 	class AppWindow;
 	class World;
 	class GameViewportClient;
-	class SceneRender;
+	class FWorldSceneRender;
 
 	class MainEngine
 	{
@@ -35,7 +35,7 @@ namespace Engine
 		std::shared_ptr<AppWindow> GetAppWindow()const;
 		std::shared_ptr<World> GetWorld() const;
 		std::shared_ptr<GameViewportClient> GetViewportClient() const;
-		std::shared_ptr<SceneRender> GetSceneRender() const;
+		std::shared_ptr<FWorldSceneRender> GetSceneRender() const;
 
 	private:
 		void Tick(float DeltaTime);

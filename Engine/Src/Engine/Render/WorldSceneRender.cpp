@@ -28,11 +28,6 @@
 #include "Render/SceneRendering/SceneRenderer.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "core/logger.h"
-#include <exception>
-#include <mutex>
-#include <optional>
-#include <string>
-#include <thread>
 
 using namespace RenderCore;
 
@@ -115,8 +110,7 @@ namespace Engine
 					dLife->DeferredLighting = std::make_shared<DeferredLightingPass>(RHI);
 				dLife->DeferredLighting->InitResource();
 				dLife->IsInit = true;
-			},
-			true);
+			});
 	}
 
 	void FWorldSceneRender::LoadConfig(const nlohmann::json& Root)
@@ -143,8 +137,7 @@ namespace Engine
 					dLife->PreProcess->LoadConfig(Root);
 				if (dLife->PostProcess)
 					dLife->PostProcess->LoadConfig(Root);
-			},
-			true);
+			});
 	}
 
 	void FWorldSceneRender::SetBackgroundColor(const core::FLinearColor& Color)
@@ -168,8 +161,7 @@ namespace Engine
 					dLife->TargetBuffer->InitDefaultSceneTargets(InSizeX, InSizeY);
 				if (dLife->PostProcess)
 					dLife->PostProcess->InvalidateTransientResources();
-			},
-			true);
+			});
 	}
 
 	void FWorldSceneRender::Render(float DeltaTime)

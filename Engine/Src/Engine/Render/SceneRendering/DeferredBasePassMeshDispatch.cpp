@@ -1,6 +1,6 @@
-﻿#include "Render/SceneRendering/FDeferredBasePassMeshDispatch.h"
-#include "Render/SceneRendering/FSceneMaterialShaderParameters.h"
-#include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/SceneRendering/DeferredBasePassMeshDispatch.h"
+#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "RHI/DynamicRHI.h"
 #include "GltfModel/GltfMesh.h"
 

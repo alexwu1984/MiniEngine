@@ -10,7 +10,7 @@
 #include "Render/GBuffer.h"
 #include "Render/SSRProcessor.h"
 #include "Render/TemporalAA.h"
-#include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/SceneRendering/SceneViewData.h"
 
 namespace Engine
 {

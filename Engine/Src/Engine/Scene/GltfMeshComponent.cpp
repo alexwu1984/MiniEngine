@@ -1,4 +1,4 @@
-﻿#include "Scene/GltfMeshComponent.h"
+#include "Scene/GltfMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
 #include "ObjModel/ObjMesh.h"
@@ -18,7 +18,7 @@
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
 #include "Engine/Engine.h"
-#include "Render/FWorldSceneRender.h"
+#include "Render/WorldSceneRender.h"
 #include <variant>
 
 namespace Engine

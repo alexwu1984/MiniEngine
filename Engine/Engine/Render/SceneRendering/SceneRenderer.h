@@ -1,7 +1,7 @@
-﻿#pragma once
+#pragma once
 #include "Render/MaterialPreFrame.h"
-#include "Render/SceneRendering/FSceneViewFamily.h"
-#include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/SceneRendering/SceneViewFamily.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "Render/Shadow/ShadowMap.h"
 #include "Scene/GltfMeshComponent.h"
 #include <memory>
@@ -23,10 +23,10 @@ namespace Engine
 	 * Holds one frame's deferred rendering inputs and records them via RDG on the render thread.
 	 * FWorldSceneRender is the long-lived owner of scene resources; this object is the per-frame bridge (Submit → Render).
 	 */
-	class FFrameSceneRenderer
+	class FSceneRenderer
 	{
 	public:
-		FFrameSceneRenderer() = default;
+		FSceneRenderer() = default;
 
 		/** Capture inputs for the next Render call (game thread; no RHI). */
 		void Submit(FWorldSceneRender* WorldSceneRenderOwner, FWorldSceneRenderPrivate* SceneResources, const FSceneViewFamily& ViewFamily,

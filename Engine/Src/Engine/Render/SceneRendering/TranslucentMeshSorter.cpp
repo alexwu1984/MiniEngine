@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/FTranslucentMeshSorter.h"
+#include "Render/SceneRendering/TranslucentMeshSorter.h"
 #include "GltfModel/GltfMesh.h"
 
 namespace Engine

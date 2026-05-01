@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
@@ -26,7 +26,7 @@ namespace Engine
 
 	/**
 	 * World-scoped scene rendering entry: viewport, GBuffer/post/shadow resources, and game-thread submission.
-	 * Paired with FFrameSceneRenderer, which records exactly one submitted frame on the render thread.
+	 * Paired with FSceneRenderer, which records exactly one submitted frame on the render thread.
 	 */
 	class FWorldSceneRender : public std::enable_shared_from_this<FWorldSceneRender>
 	{
@@ -47,7 +47,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
 	private:
-		/** Game thread: gather views/primitives, Submit to FFrameSceneRenderer, enqueue render-thread work. */
+		/** Game thread: gather views/primitives, Submit to FSceneRenderer, enqueue render-thread work. */
 		void SubmitSceneForRendering(float DeltaTime);
 
 	public:

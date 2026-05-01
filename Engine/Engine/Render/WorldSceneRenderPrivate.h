@@ -1,7 +1,7 @@
-﻿#pragma once
+#pragma once
 #include "core/color.h"
-#include "Render/FRDGBuilder.h"
-#include "Render/SceneRendering/FFrameSceneRenderer.h"
+#include "Render/RDGBuilder.h"
+#include "Render/SceneRendering/SceneRenderer.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -43,7 +43,7 @@ namespace Engine
 
 		bool bEnableDeferredLightingPass = false;
 
-		FFrameSceneRenderer FrameSceneRenderer;
+		FSceneRenderer SceneRenderer;
 		std::mutex RenderFrameMutex;
 	};
 } // namespace Engine

@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/FSceneViewFamily.h"
+#include "Render/SceneRendering/SceneViewFamily.h"
 
 namespace Engine
 {

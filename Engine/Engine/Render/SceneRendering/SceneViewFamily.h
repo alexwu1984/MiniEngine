@@ -1,5 +1,5 @@
-﻿#pragma once
-#include "Render/SceneRendering/FSceneViewData.h"
+#pragma once
+#include "Render/SceneRendering/SceneViewData.h"
 #include <cstdint>
 #include <vector>
 

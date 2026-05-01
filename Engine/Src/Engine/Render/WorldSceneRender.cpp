@@ -1,5 +1,5 @@
-﻿#include "Render/FWorldSceneRender.h"
-#include "Render/FWorldSceneRenderPrivate.h"
+#include "Render/WorldSceneRender.h"
+#include "Render/WorldSceneRenderPrivate.h"
 #include "Scene/World.h"
 #include "RHI/RHICommandContext.h"
 #include "Scene/Actor.h"
@@ -11,20 +11,20 @@
 #include "App/AppWindow.h"
 #include "Render/PreProcessor.h"
 #include "GltfModel/GltfMesh.h"
-#include "Render/SceneRendering/FMeshMaterialRenderCache.h"
-#include "Render/SceneRendering/FSceneRendererPrimitiveGather.h"
+#include "Render/SceneRendering/MeshMaterialRenderCache.h"
+#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/CubeBackground.h"
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
-#include "Render/FRDGBuilder.h"
+#include "Render/RDGBuilder.h"
 #include "Render/GBuffer.h"
 #include "Render/RenderTexturePool.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/Shadow/ShadowMap.h"
 #include "Scene/Component.h"
-#include "Render/SceneRendering/FSceneViewData.h"
-#include "Render/SceneRendering/FSceneViewFamily.h"
-#include "Render/SceneRendering/FFrameSceneRenderer.h"
+#include "Render/SceneRendering/SceneViewData.h"
+#include "Render/SceneRendering/SceneViewFamily.h"
+#include "Render/SceneRendering/SceneRenderer.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "core/logger.h"
 #include <exception>
@@ -243,13 +243,13 @@ namespace Engine
 		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
 
 		std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
-		d->FrameSceneRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
+		d->SceneRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
 									 std::move(shadowLights), shadowProjectorScene, std::move(skyLightHdrOverride));
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			[d](DynamicRHI* RHIIn)
 			{
-				d->FrameSceneRenderer.Render(RHIIn);
+				d->SceneRenderer.Render(RHIIn);
 			},
 			true);
 	}

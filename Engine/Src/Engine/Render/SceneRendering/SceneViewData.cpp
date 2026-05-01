@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "Scene/CameraComponent.h"
 
 namespace Engine

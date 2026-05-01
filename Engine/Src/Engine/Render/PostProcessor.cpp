@@ -15,11 +15,11 @@
 #include "Render/Bloom.h"
 #include "Render/RenderUtil.h"
 #include "Render/SSRProcessor.h"
-#include "Render/FRDGBuilder.h"
+#include "Render/RDGBuilder.h"
 #include "Render/RenderTexturePool.h"
 #include "Render/PostProcessPass.h"
 #include "Render/MaterialPreFrame.h"
-#include "Render/SceneRendering/FSceneViewData.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
 

@@ -64,17 +64,17 @@ file(GLOB Engine_Render_Shadow_Source Src/Engine/Render/Shadow/*.cpp)
 # Explicit: GLOB can omit new files until reconfigure (LNK2019).
 set(Engine_Render_SceneRendering_Source
 	Src/Engine/Render/SceneRendering/DeferredLightingPass.cpp
-	Src/Engine/Render/SceneRendering/FRDGDeferredLightingPass.cpp
-	Src/Engine/Render/SceneRendering/FDeferredBasePassMeshDispatch.cpp
-	Src/Engine/Render/SceneRendering/FDeferredShadingBasePassRenderer.cpp
-	Src/Engine/Render/SceneRendering/FMeshMaterialRenderCache.cpp
-	Src/Engine/Render/SceneRendering/FOpaqueMeshDrawBuilder.cpp
-	Src/Engine/Render/SceneRendering/FSceneMaterialShaderParameters.cpp
-	Src/Engine/Render/SceneRendering/FFrameSceneRenderer.cpp
-	Src/Engine/Render/SceneRendering/FSceneRendererPrimitiveGather.cpp
-	Src/Engine/Render/SceneRendering/FSceneViewData.cpp
-	Src/Engine/Render/SceneRendering/FSceneViewFamily.cpp
-	Src/Engine/Render/SceneRendering/FTranslucentMeshSorter.cpp
+	Src/Engine/Render/SceneRendering/RDGDeferredLightingPass.cpp
+	Src/Engine/Render/SceneRendering/DeferredBasePassMeshDispatch.cpp
+	Src/Engine/Render/SceneRendering/DeferredShadingBasePassRenderer.cpp
+	Src/Engine/Render/SceneRendering/MeshMaterialRenderCache.cpp
+	Src/Engine/Render/SceneRendering/OpaqueMeshDrawBuilder.cpp
+	Src/Engine/Render/SceneRendering/SceneMaterialShaderParameters.cpp
+	Src/Engine/Render/SceneRendering/SceneRenderer.cpp
+	Src/Engine/Render/SceneRendering/SceneRendererPrimitiveGather.cpp
+	Src/Engine/Render/SceneRendering/SceneViewData.cpp
+	Src/Engine/Render/SceneRendering/SceneViewFamily.cpp
+	Src/Engine/Render/SceneRendering/TranslucentMeshSorter.cpp
 )
 file(GLOB Engine_Material_Source Src/Engine/Material/*.cpp)
 file(GLOB Engine_Procedural_Source Src/Engine/Procedural/*.cpp)

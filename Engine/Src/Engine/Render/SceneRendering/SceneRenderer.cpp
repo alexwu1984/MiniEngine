@@ -1,17 +1,17 @@
-﻿#include "Render/SceneRendering/FFrameSceneRenderer.h"
-#include "Render/FWorldSceneRender.h"
-#include "Render/FWorldSceneRenderPrivate.h"
+#include "Render/SceneRendering/SceneRenderer.h"
+#include "Render/WorldSceneRender.h"
+#include "Render/WorldSceneRenderPrivate.h"
 #include "Render/PreProcessor.h"
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
 #include "Render/CubeBackground.h"
 #include "Render/GBuffer.h"
-#include "Render/FRDGBuilder.h"
-#include "Render/SceneRendering/FRDGDeferredLightingPass.h"
+#include "Render/RDGBuilder.h"
+#include "Render/SceneRendering/RDGDeferredLightingPass.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
-#include "Render/SceneRendering/FDeferredShadingBasePassRenderer.h"
-#include "Render/SceneRendering/FMeshMaterialRenderCache.h"
-#include "Render/SceneRendering/FDeferredBasePassDrawContext.h"
+#include "Render/SceneRendering/DeferredShadingBasePassRenderer.h"
+#include "Render/SceneRendering/MeshMaterialRenderCache.h"
+#include "Render/SceneRendering/DeferredBasePassDrawContext.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
@@ -40,7 +40,7 @@ namespace Engine
 		}
 	} // namespace
 
-	void FFrameSceneRenderer::Submit(FWorldSceneRender* InWorldSceneRenderOwner, FWorldSceneRenderPrivate* InSceneResources, const FSceneViewFamily& InViewFamily,
+	void FSceneRenderer::Submit(FWorldSceneRender* InWorldSceneRenderOwner, FWorldSceneRenderPrivate* InSceneResources, const FSceneViewFamily& InViewFamily,
 									 std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 									 std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
 									 std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene,
@@ -59,7 +59,7 @@ namespace Engine
 		bHasFrame = (WorldSceneRenderOwner != nullptr) && (SceneResources != nullptr) && (ViewData != nullptr);
 	}
 
-	void FFrameSceneRenderer::Render(DynamicRHI* RHI)
+	void FSceneRenderer::Render(DynamicRHI* RHI)
 	{
 		if (!bHasFrame || !RHI || !SceneResources || !ViewData)
 			return;

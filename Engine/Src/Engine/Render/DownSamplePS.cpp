@@ -97,7 +97,6 @@ namespace Engine
 
 		for (int32_t IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)
 		{
-
 			RHIContext.SetRenderTarget(d->DownSampleTarget,IndexMip);
 			RHIContext.SetViewPort(0, 0, d->Size.cx >> (IndexMip + 1), d->Size.cy >> (IndexMip + 1));
 
@@ -106,8 +105,7 @@ namespace Engine
 			d->GET_UNIFORMDATA(DownSampleParam).MipLevel = IndexMip;
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer();
-			Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);
-			
+			Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);	
 		}
 	}
 

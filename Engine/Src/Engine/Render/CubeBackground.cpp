@@ -28,7 +28,7 @@ namespace Engine
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr<RHITextureCube> TexCube;
 		float xHDRRotate{ 0.f };
-		float yHDRRotate{ 1.f };
+		float yHDRRotate{ 0.f };
 
 		CubeBackgroundPrivate(RenderCore::DynamicRHI* _RHI)
 			:RHI(_RHI),

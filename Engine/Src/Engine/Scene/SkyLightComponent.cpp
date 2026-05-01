@@ -32,6 +32,16 @@ namespace Engine
 		IBLIntensity = InIntensity;
 	}
 
+	void SkyLightComponent::SetIBLRotationPitchDegrees(float InPitchDeg)
+	{
+		IBLRotationPitchDegrees = InPitchDeg;
+	}
+
+	void SkyLightComponent::SetIBLRotationYawDegrees(float InYawDeg)
+	{
+		IBLRotationYawDegrees = InYawDeg;
+	}
+
 	std::wstring SkyLightComponent::ResolveHDRFullPath() const
 	{
 		return core::process_directory().wstring() + L"/GLTFModel/" + HdrRelativePath;

@@ -272,6 +272,11 @@ void DecodeMaterialFromGBuffer(float3 baseColor, float metallic, float perceptua
     materialInfo.alphaRoughness = materialInfo.perceptualRoughness * materialInfo.perceptualRoughness;
     materialInfo.diffuseColor = baseColor * (float3(1.0, 1.0, 1.0) - f0) * (1.0 - metallic);
     materialInfo.specularColor = lerp(f0, baseColor, metallic);
+    // glTF: metal uses baseColor as F82 tint — near-black albedo zeros split-sum IBL specular. Keep a minimal conductor
+    // response so environment/cubemap still reads on dark chrome / paint (matches common game/Tutorial look).
+    const float specLum = dot(materialInfo.specularColor, float3(0.2126, 0.7152, 0.0722));
+    if (metallic > 0.5 && specLum < 0.003)
+        materialInfo.specularColor = max(materialInfo.specularColor, f0);
     float reflectance = max(max(materialInfo.specularColor.r, materialInfo.specularColor.g), materialInfo.specularColor.b);
     materialInfo.reflectance0 = materialInfo.specularColor;
     materialInfo.reflectance90 = float3(1.0, 1.0, 1.0) * clamp(reflectance * 50.0, 0.0, 1.0);
@@ -310,8 +315,11 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	float4 emiss = EmissiveGBuffer.Sample(SampleLinear, uv);
 	float4 mr = MRGBuffer.Sample(SampleLinear, uv);
 	float metallic = mr.r;
-	float ao = mr.g;
+	float aoRaw = mr.g;
 	float perceptualRoughness = mr.b;
+	// Aggressive baked AO (often 0 in crevices) drives specOcc to ~0 and removes all IBL specular. Floor for spec path only.
+	const float aoDiffuse = max(aoRaw, 1e-4);
+	const float aoSpec = max(aoRaw, 0.2);
 
 	float3 viewVec = myPerFrame.CameraPos.xyz - worldPos;
 	float vLen = length(viewVec);
@@ -337,12 +345,12 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 			if (light.Type == LightType_Directional)
 			{
 				float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
-				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, ao, strandT, normal, view);
+				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, view);
 			}
 			else if (light.Type == LightType_Point)
-				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, ao, strandT, normal, worldPos, view);
+				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view);
 			else if (light.Type == LightType_Spot)
-				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, ao, strandT, normal, worldPos, view);
+				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view);
 		}
 		else
 		{
@@ -361,17 +369,17 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	float3 iblDiffuse, iblSpecular;
 	GetIBLContributionSplit(materialInfo, normal, view, iblDiffuse, iblSpecular);
 	float NdotVao = saturate(dot(normal, view));
-	float specOccPowBase = max(NdotVao + ao - 0.0001, 1e-5);
-	float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + ao);
+	float specOccPowBase = max(NdotVao + aoSpec - 0.0001, 1e-5);
+	float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + aoSpec);
 
 	if (bHair)
 	{
 		float kkIbDiffuseMul = lerp(0.32, 0.72, perceptualRoughness);
-		color += iblDiffuse * ao * hairIblDiffuseScale * kkIbDiffuseMul * myPerFrame.IBLFactor;
+		color += iblDiffuse * aoDiffuse * hairIblDiffuseScale * kkIbDiffuseMul * myPerFrame.IBLFactor;
 		color += iblSpecular * specOcc * 0.14 * myPerFrame.IBLFactor;
 	}
 	else
-		color += (iblDiffuse * ao + iblSpecular * specOcc) * myPerFrame.IBLFactor;
+		color += (iblDiffuse * aoDiffuse + iblSpecular * specOcc) * myPerFrame.IBLFactor;
 
 	color += emiss.rgb;
 

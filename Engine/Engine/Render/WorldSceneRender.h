@@ -40,6 +40,7 @@ namespace Engine
 		void SetBackgroundColor(const core::FLinearColor& Color);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render(float DeltaTime);
+		/** Writes primary SkyLightComponent IBL rotation (degrees); rendering reads it via FSceneViewData each frame. */
 		void SetIBLRotate(float x, float y);
 		std::shared_ptr<PreProcessor> GetPreProcessor() const;
 		std::shared_ptr<PostProcessor> GetPostProcessor() const;

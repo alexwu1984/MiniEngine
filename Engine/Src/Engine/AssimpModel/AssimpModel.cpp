@@ -3,6 +3,7 @@
 #include "Scene/SceneModelAsset.h"
 #include "core/strings.h"
 #include <filesystem>
+#include <cctype>
 #include <Assimp/Importer.hpp>
 #include <Assimp/scene.h>
 #include <Assimp/postprocess.h>
@@ -16,6 +17,8 @@ namespace Engine
 		Assimp::Importer ModelImpoter;
 		const aiScene* pScene = nullptr;
 		std::string Directory;
+		// Align OBJ vertex normals with DirectX12Tutorial FModel(..., FlipNormalZ=true) after Assimp import.
+		bool ObjFlipNormalZ = false;
 		std::vector<std::shared_ptr<AssimpMesh>> ModelMesh;
 		AABB3  ModelBox;
 	};
@@ -41,6 +44,12 @@ namespace Engine
 		if (!d->pScene || !d->pScene->mRootNode || d->pScene->mFlags == AI_SCENE_FLAGS_INCOMPLETE)
 		{
 			return false;
+		}
+		{
+			std::string ext = std::filesystem::path(utf8FileName).extension().string();
+			for (char& c : ext)
+				c = (char)std::tolower((unsigned char)c);
+			d->ObjFlipNormalZ = (ext == ".obj");
 		}
 		// Robust directory extraction on Windows (paths may contain '\\').
 		// Assimp uses the directory to resolve MTL/texture relative paths.
@@ -68,7 +77,7 @@ namespace Engine
 		int32_t NumMeshes = d->pScene->mNumMeshes;
 		for (int32_t i = 0; i < NumMeshes; ++i)
 		{
-			std::shared_ptr<AssimpMesh> mesh = std::make_shared<AssimpMesh>(d->pScene, d->pScene->mMeshes[i], d->Directory);
+			std::shared_ptr<AssimpMesh> mesh = std::make_shared<AssimpMesh>(d->pScene, d->pScene->mMeshes[i], d->Directory, d->ObjFlipNormalZ);
 			mesh->Init();
 			d->ModelMesh.push_back(mesh);
 

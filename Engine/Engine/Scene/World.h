@@ -73,6 +73,8 @@ namespace Engine
 		std::optional<std::wstring> ResolvePrimarySkyLightHDRFullPath() const;
 		/** 0 when no enabled primary skylight or empty HDR; else primary component IBL intensity (clamped >= 0). */
 		float GetSkyLightIBLScale() const;
+		/** Primary skylight IBL environment rotation (degrees); (0,0) when no skylight. */
+		void GetPrimarySkyLightIBLRotationDegrees(float& outPitchDeg, float& outYawDeg) const;
 
 		/** True if current scene JSON listed a RoamCamera entry (after last LoadScene). */
 		bool UsesRoamCameraScene() const;

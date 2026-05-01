@@ -1,6 +1,7 @@
 ﻿#include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Scene/World.h"
+#include "Scene/SkyLightComponent.h"
 #include "RHI/RHICommandContext.h"
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
@@ -170,9 +171,14 @@ namespace Engine
 	void FWorldSceneRender::SetIBLRotate(float x, float y)
 	{
 		C_P(FWorldSceneRender);
-		d->BackgroundRender->SetRotate(x, y);
-		d->DeferredBasePassEnvironmentRotateX = x;
-		d->DeferredBasePassEnvironmentRotateY = y;
+		const std::shared_ptr<World> w = GetWorld();
+		if (!w)
+			return;
+		const std::shared_ptr<SkyLightComponent> sl = w->FindPrimarySkyLightComponent();
+		if (!sl)
+			return;
+		sl->SetIBLRotationPitchDegrees(x);
+		sl->SetIBLRotationYawDegrees(y);
 	}
 
 	std::shared_ptr<PreProcessor> FWorldSceneRender::GetPreProcessor() const
@@ -215,8 +221,10 @@ namespace Engine
 		ViewFamily.Views.resize(1);
 		FSceneViewData& Primary = ViewFamily.PrimaryView();
 		std::vector<Light> lightsSnapshot = World->GatherLightsForView();
-		Primary.BuildFromCamera(*World->GetMainCamera(), std::move(lightsSnapshot), d->DeferredBasePassEnvironmentRotateX, d->DeferredBasePassEnvironmentRotateY,
-								bHaltonProjJitter, 0, 0, (int32_t)ViewFamily.RenderSizeX, (int32_t)ViewFamily.RenderSizeY);
+		float envPitchDeg = 0.f, envYawDeg = 0.f;
+		World->GetPrimarySkyLightIBLRotationDegrees(envPitchDeg, envYawDeg);
+		Primary.BuildFromCamera(*World->GetMainCamera(), std::move(lightsSnapshot), envPitchDeg, envYawDeg, bHaltonProjJitter, 0, 0,
+								(int32_t)ViewFamily.RenderSizeX, (int32_t)ViewFamily.RenderSizeY);
 		Primary.bUnlit = d->bUnlit;
 		Primary.SkyLightIBLScale = World->GetSkyLightIBLScale();
 

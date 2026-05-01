@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/SceneRenderer.h"
+﻿#include "Render/SceneRendering/SceneRenderer.h"
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
@@ -174,6 +174,7 @@ namespace Engine
 					auto IBL = d->PreProcess->GetIBLRender();
 					auto SkyCube = IBL ? IBL->GetSkyLightCubemap() : nullptr;
 					d->BackgroundRender->SetTextureCube(SkyCube);
+					d->BackgroundRender->SetRotate(ViewConst->EnvironmentRotatePitchDegrees, ViewConst->EnvironmentRotateYawDegrees);
 					d->BackgroundRender->Render(*CommandContext, Targets, d->TargetBuffer->GetDepth());
 				}
 				else

@@ -36,8 +36,6 @@ namespace Engine
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
 		FRDGCompileParameters RDGCompileParams{};
-		float DeferredBasePassEnvironmentRotateX = 0.f;
-		float DeferredBasePassEnvironmentRotateY = 1.f;
 
 		bool bUnlit = false;
 

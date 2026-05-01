@@ -34,7 +34,7 @@ namespace Engine
 		uint32_t TemporalHistoryGeneration = 0;
 		std::vector<Light> Lights;
 		float EnvironmentRotatePitchDegrees = 0.f;
-		float EnvironmentRotateYawDegrees = 1.f;
+		float EnvironmentRotateYawDegrees = 0.f;
 		/** True when main pass used jittered projection matrices for temporal resolve (driven by post AA policy). */
 		bool bHaltonProjectionJitterForMainPass = false;
 		int32_t ViewRectMinX = 0;

@@ -1,4 +1,4 @@
-#include "Material/AssimpMaterial.h"
+﻿#include "Material/AssimpMaterial.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 #include "RHI/RHITexture2D.h"
@@ -75,8 +75,9 @@ namespace Engine
 			return;
 		
 		aiMaterial* pAiMat = d->Scene->mMaterials[d->vAiMesh->mMaterialIndex];
-		// Some Assimp versions don't expose PBR-specific aiTextureType_* enums for OBJ extensions.
-		// Collect all available texture paths and classify them by filename patterns.
+		// OBJ map_Pm / map_Pr (and glTF PBR) are stored as dedicated semantics in Assimp 5.1+:
+		// aiTextureType_METALNESS = 15, aiTextureType_DIFFUSE_ROUGHNESS = 16 (see assimp material.h).
+		// This repo may ship older headers while linking a newer assimp DLL — those slots were never collected.
 		std::vector<std::string> allTex;
 		auto collect = [&allTex, pAiMat](aiTextureType t) {
 			const unsigned count = pAiMat->GetTextureCount(t);
@@ -87,15 +88,9 @@ namespace Engine
 					allTex.emplace_back(s.C_Str());
 			}
 		};
-		collect(aiTextureType_DIFFUSE);
-		collect(aiTextureType_SHININESS);
-		collect(aiTextureType_HEIGHT);
-		collect(aiTextureType_NORMALS);
-		collect(aiTextureType_EMISSIVE);
-		collect(aiTextureType_LIGHTMAP);
-		collect(aiTextureType_AMBIENT);
-		collect(aiTextureType_SPECULAR);
-		collect(aiTextureType_UNKNOWN);
+		// Scan all plausible texture semantics (unknown / vendor slots included).
+		for (unsigned ti = (unsigned)aiTextureType_DIFFUSE; ti < 32u; ++ti)
+			collect((aiTextureType)ti);
 
 		auto pickByName = [&allTex](const char* needleA, const char* needleB = nullptr) -> std::string {
 			for (const auto& p : allTex)
@@ -118,6 +113,28 @@ namespace Engine
 		std::string metalPath = pickByName("metal", "metallic");
 		std::string aoPath = pickByName("ao", "occlusion");
 		const std::string emissPath = pickByName("emiss");
+
+		// Prefer official PBR texture slots when present (OBJ map_Pm / map_Pr).
+		auto slotTexturePath = [pAiMat](unsigned typeIndex) -> std::string {
+			const aiTextureType tt = (aiTextureType)typeIndex;
+			if (pAiMat->GetTextureCount(tt) == 0u)
+				return {};
+			aiString path;
+			if (pAiMat->GetTexture(tt, 0, &path) != aiReturn_SUCCESS || path.length == 0)
+				return {};
+			return std::string(path.C_Str());
+		};
+		{
+			const std::string roughSlot = slotTexturePath(16u); // aiTextureType_DIFFUSE_ROUGHNESS
+			const std::string metalSlot = slotTexturePath(15u); // aiTextureType_METALNESS
+			const std::string aoSlot = slotTexturePath(17u);     // aiTextureType_AMBIENT_OCCLUSION
+			if (!roughSlot.empty())
+				roughPath = roughSlot;
+			if (!metalSlot.empty())
+				metalPath = metalSlot;
+			if (!aoSlot.empty())
+				aoPath = aoSlot;
+		}
 
 		// Combined textures: ORM/ARM often used as a single packed map (R=AO, G=Roughness, B=Metallic).
 		const std::string combinedOrmLike = !ormPath.empty() ? ormPath : armPath;

@@ -14,7 +14,8 @@ namespace Engine
 	class AssimpMesh : public MeshBase
 	{
 	public:
-		AssimpMesh(const aiScene *pScene, aiMesh* pMesh,const std::string& Directory);
+		// bFlipObjNormalZ: match DirectX12Tutorial FModel(obj, FlipV, NegateZ=false, FlipNormalZ=true) — flip vn.z for DX-style shading.
+		AssimpMesh(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory, bool bFlipObjNormalZ = false);
 		~AssimpMesh();
 
 		void Init();

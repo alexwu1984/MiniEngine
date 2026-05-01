@@ -126,7 +126,9 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     float3 specularColor;
     float metallic;
     GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, metallic, alpha);
-    float ao = AoMap.Sample(SampleLinear, Input.UV0).r;
+    // AO may live in any channel depending on source asset; take max so wrong swizzle / packed maps do not zero IBL.
+    float4 aoSamp = AoMap.Sample(SampleLinear, Input.UV0);
+    float ao = max(max(aoSamp.r, aoSamp.g), aoSamp.b);
 
     Output.Target1 = float4(Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition), 0);
     Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);

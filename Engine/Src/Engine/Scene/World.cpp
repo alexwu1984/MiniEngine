@@ -10,6 +10,7 @@
 #include "Engine/JsonConfig.h"
 #include "core/system.h"
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include <string>
 
@@ -104,6 +105,28 @@ namespace Engine
 		}
 
 		/** Evn.Light[] KHR-style strings; used only at scene load to spawn light actors. */
+		/** Evn.RotateIBL: "pitchDeg,yawDeg" — authoritative on primary SkyLightComponent (UE-style). */
+		static void ApplyEvnRotateIBL(const std::shared_ptr<World>& world, const nlohmann::json& evnJson)
+		{
+			try
+			{
+				if (!world || evnJson.find("RotateIBL") == evnJson.end() || !evnJson["RotateIBL"].is_string())
+					return;
+				const std::string s = evnJson["RotateIBL"].get<std::string>();
+				float x = 0.f, y = 0.f;
+				if (std::sscanf(s.c_str(), "%f,%f", &x, &y) < 2)
+					return;
+				const auto sl = world->FindPrimarySkyLightComponent();
+				if (!sl)
+					return;
+				sl->SetIBLRotationPitchDegrees(x);
+				sl->SetIBLRotationYawDegrees(y);
+			}
+			catch (const std::exception&)
+			{
+			}
+		}
+
 		static bool ParseEvnLightJsonEntry(const nlohmann::json& lightInfoJson, Light& lightInfo)
 		{
 			try
@@ -209,6 +232,7 @@ namespace Engine
 
 			nlohmann::json evnJson = Root["Evn"];
 			SpawnConfigSkyLightActor(self, evnJson);
+			ApplyEvnRotateIBL(self, evnJson);
 
 			const nlohmann::json lightJsons = evnJson["Light"];
 			int32_t directionalJsonOrder = 0;
@@ -467,6 +491,17 @@ namespace Engine
 			return 0.f;
 		const float i = sl->GetIBLIntensity();
 		return i > 0.f ? i : 0.f;
+	}
+
+	void World::GetPrimarySkyLightIBLRotationDegrees(float& outPitchDeg, float& outYawDeg) const
+	{
+		outPitchDeg = 0.f;
+		outYawDeg = 0.f;
+		const auto sl = FindPrimarySkyLightComponent();
+		if (!sl)
+			return;
+		outPitchDeg = sl->GetIBLRotationPitchDegrees();
+		outYawDeg = sl->GetIBLRotationYawDegrees();
 	}
 
 	bool World::UsesRoamCameraScene() const

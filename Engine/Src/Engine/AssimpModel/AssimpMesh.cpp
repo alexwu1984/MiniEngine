@@ -12,6 +12,7 @@ namespace Engine
 {
 	struct AssimpMeshPrivate
 	{
+		bool FlipObjNormalZ = false;
 		const aiScene* pScene = nullptr;
 		aiMesh* vAiMesh = nullptr;
 		std::shared_ptr<GltfMeshInfo> Mesh;
@@ -31,10 +32,11 @@ namespace Engine
 		std::vector<std::vector<BoneSkinInfo>> BoneSkinInfos;
 	};
 
-	AssimpMesh::AssimpMesh(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory)
+	AssimpMesh::AssimpMesh(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory, bool bFlipObjNormalZ)
 		:d_ptr(new AssimpMeshPrivate())
 	{
 		C_P(AssimpMesh);
+		d->FlipObjNormalZ = bFlipObjNormalZ;
 		d->pScene = pScene;
 		d->vAiMesh = pMesh;
 		d->Directory = Directory;
@@ -102,6 +104,8 @@ namespace Engine
 			math::Vector3 Normal{ 0.0f, 0.0f, 1.0f };
 			if (d->vAiMesh->mNormals != nullptr)
 				Normal = math::Vector3(d->vAiMesh->mNormals[i].x, d->vAiMesh->mNormals[i].y, d->vAiMesh->mNormals[i].z);
+			if (d->FlipObjNormalZ)
+				Normal.z = -Normal.z;
 			d->Normals.emplace_back(Normal);
 			math::Vector2 TextureCoord{ 0.0f, 0.0f };
 			if (d->vAiMesh->mTextureCoords[0])
@@ -109,7 +113,32 @@ namespace Engine
 			d->TexCoords.emplace_back(TextureCoord);
 			math::Vector4 Tangent{ 1.0f, 0.0f, 0.0f, 1.0f };
 			if (d->vAiMesh->mTangents)
-				Tangent = math::Vector4(d->vAiMesh->mTangents[i].x, d->vAiMesh->mTangents[i].y, d->vAiMesh->mTangents[i].z,1.0f);
+			{
+				float tx = d->vAiMesh->mTangents[i].x;
+				float ty = d->vAiMesh->mTangents[i].y;
+				float tz = d->vAiMesh->mTangents[i].z;
+				if (d->FlipObjNormalZ)
+					tz = -tz;
+				float handednessW = 1.0f;
+				// Assimp stores tangent as aiVector3D; handedness for mikktspace / our VS is sign(dot(cross(N,T), B)).
+				if (d->vAiMesh->mBitangents && d->vAiMesh->mNormals)
+				{
+					const aiVector3D& b = d->vAiMesh->mBitangents[i];
+					const aiVector3D& n = d->vAiMesh->mNormals[i];
+					float nx = n.x, ny = n.y, nz = n.z;
+					if (d->FlipObjNormalZ)
+						nz = -nz;
+					float bx = b.x, by = b.y, bz = b.z;
+					if (d->FlipObjNormalZ)
+						bz = -bz;
+					const math::Vector3 T3(tx, ty, tz);
+					const math::Vector3 B3(bx, by, bz);
+					const math::Vector3 N3(nx, ny, nz);
+					const float sign = math::Vector3::Cross(N3, T3).Dot(B3);
+					handednessW = (sign < 0.0f) ? -1.0f : 1.0f;
+				}
+				Tangent = math::Vector4(tx, ty, tz, handednessW);
+			}
 			d->Tangents.emplace_back(Tangent);
 		}
 		d->Mesh->nNumVertices = NumVertices;

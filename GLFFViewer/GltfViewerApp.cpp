@@ -1,7 +1,8 @@
-#include "GltfViewerApp.h"
+﻿#include "GltfViewerApp.h"
 #include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/World.h"
+#include "Scene/SkyLightComponent.h"
 #include "Engine/Scene/DirectionalLightComponent.h"
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
@@ -45,6 +46,11 @@ bool GltfViewApp::Init()
 		if (!mergedLights.empty())
 			mDirectLight = mergedLights[0].Direction;
 	}
+	if (const auto sl = Scene->FindPrimarySkyLightComponent())
+	{
+		xHDRRotate = sl->GetIBLRotationPitchDegrees();
+		yHDRRotate = sl->GetIBLRotationYawDegrees();
+	}
 
 	if (Engine::GEngine)
 	{
@@ -84,9 +90,17 @@ bool GltfViewApp::Init()
 				dir->SetWorldDirection(static_cast<const math::Vector3&>(mDirectLight).Normalize());
 			}
 
-			ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
-			ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
-			Engine::GEngine->GetSceneRender()->SetIBLRotate(xHDRRotate,yHDRRotate);
+			if (const auto sl = Scene->FindPrimarySkyLightComponent())
+			{
+				ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
+				ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
+				sl->SetIBLRotationPitchDegrees(xHDRRotate);
+				sl->SetIBLRotationYawDegrees(yHDRRotate);
+			}
+			else
+			{
+				ImGui::TextUnformatted("无 SkyLight（IBL 旋转不可用）");
+			}
 		}
 
 		ImGui::End();
@@ -111,8 +125,8 @@ void GltfViewApp::BuildModelList()
 
 	const core::filesystem::path gltfDir = core::filesystem::path(ProcessDir) / "GLTFModel";
 	const std::vector<std::wstring> rel = {
-		L"Model3.json",
 		L"harley.json",
+		L"Model3.json",
 		L"BS_Model5.json",
 		L"Model1.json",
 		L"Model2.json",
@@ -150,6 +164,11 @@ void GltfViewApp::ReloadScene(int32_t NewIndex)
 		const auto mergedLights = Scene->GatherLightsForView();
 		if (!mergedLights.empty())
 			mDirectLight = mergedLights[0].Direction;
+	}
+	if (const auto sl = Scene->FindPrimarySkyLightComponent())
+	{
+		xHDRRotate = sl->GetIBLRotationPitchDegrees();
+		yHDRRotate = sl->GetIBLRotationYawDegrees();
 	}
 }
 

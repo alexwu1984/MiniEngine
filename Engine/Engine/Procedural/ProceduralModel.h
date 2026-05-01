@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/aabb3.h"
 
 namespace Engine

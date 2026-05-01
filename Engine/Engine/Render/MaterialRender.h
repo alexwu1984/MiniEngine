@@ -10,7 +10,7 @@ namespace RenderCore
 namespace Engine
 {
 	class PreProcessor;
-	class GBuffer;
+	class SceneTextures;
 
 	struct MaterialRenderParam
 	{
@@ -26,7 +26,7 @@ namespace Engine
 		bool HasSkin = false;
 		std::weak_ptr<PreProcessor> preProcessor;
 		std::vector< Light> lightInfos;
-		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<SceneTextures> TargetBuffer;
 		bool bUnlit = false;
 		/** Per-view skylight IBL scale (0 = off). */
 		float SkyLightIBLScale = 0.f;

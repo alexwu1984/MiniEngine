@@ -60,6 +60,7 @@ set(Engine_Scene_Source
 file(GLOB Engine_GltfModel_Source Src/Engine/GltfModel/*.cpp)
 file(GLOB Engine_ObjModel_Source Src/Engine/ObjModel/*.cpp)
 file(GLOB Engine_Render_Source Src/Engine/Render/*.cpp)
+list(REMOVE_DUPLICATES Engine_Render_Source)
 file(GLOB Engine_Render_Shadow_Source Src/Engine/Render/Shadow/*.cpp)
 # Explicit: GLOB can omit new files until reconfigure (LNK2019).
 set(Engine_Render_SceneRendering_Source

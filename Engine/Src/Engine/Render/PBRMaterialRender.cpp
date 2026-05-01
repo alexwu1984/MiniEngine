@@ -1,4 +1,4 @@
-#include "Engine/Render/PBRMaterialRender.h"
+﻿#include "Engine/Render/PBRMaterialRender.h"
 #include "Engine.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -12,7 +12,7 @@
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/IBLRender.h"
 #include "Engine/Render/WorldSceneRender.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "RHI/RHITextureCube.h"
 #include <algorithm>
 
@@ -125,7 +125,7 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
+	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
 	{
 		C_P(PBRMaterialRender);
 		GraphicsPipelineStateInitializer Init;

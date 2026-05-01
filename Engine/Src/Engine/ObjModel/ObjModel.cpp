@@ -1,4 +1,4 @@
-#include "ObjModel/ObjModel.h"
+﻿#include "ObjModel/ObjModel.h"
 #include "ObjModel/ObjMesh.h"
 #include "GltfModel/GltfModelConfig.h"
 #include "core/strings.h"

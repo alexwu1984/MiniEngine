@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Scene/CameraComponent.h"
 #include "Scene/DeviceInputState.h"
 #include "core/inc.h"

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 
 namespace RenderCore
@@ -11,7 +11,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct PostProcessorPrivate;
-	class GBuffer;
+	class SceneTextures;
 
 	class SimplePostProcessor
 	{

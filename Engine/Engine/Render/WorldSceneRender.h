@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
@@ -25,7 +25,7 @@ namespace Engine
 	class FMeshMaterialRenderCache;
 
 	/**
-	 * World-scoped scene rendering entry: viewport, GBuffer/post/shadow resources, and game-thread submission.
+	 * World-scoped scene rendering entry: viewport, scene textures/post/shadow resources, and game-thread submission.
 	 * Paired with FSceneRenderer, which records exactly one submitted frame on the render thread.
 	 */
 	class FWorldSceneRender : public std::enable_shared_from_this<FWorldSceneRender>

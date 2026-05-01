@@ -1,4 +1,4 @@
-#include "GltfModel/GltfNode.h"
+﻿#include "GltfModel/GltfNode.h"
 #include "math/quaternion.h"
 
 namespace Engine

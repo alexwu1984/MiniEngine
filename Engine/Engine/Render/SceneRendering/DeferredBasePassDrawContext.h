@@ -8,7 +8,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class GBuffer;
+	class SceneTextures;
 	class FWorldSceneRender;
 	struct FSceneViewData;
 
@@ -16,7 +16,7 @@ namespace Engine
 	struct FDeferredBasePassDrawContext
 	{
 		std::shared_ptr<const FSceneViewData> ViewData;
-		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<SceneTextures> TargetBuffer;
 		FWorldSceneRender* WorldSceneRender = nullptr;
 		/** Command list used for the entire frame (D3D12 requires a single consistent recording context per submission). */
 		RenderCore::RHICommandContext* RHICmdList = nullptr;

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "RHI/RHIShaderDefine.h"
 #include "math/vector2.h"
@@ -13,7 +13,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct BloomPrivate;
-	class GBuffer;
+	class SceneTextures;
 
 	BEGIN_SHADER_STRUCT(BloomContants, 0)
 		DECLARE_PARAM_VALUE(float, BloomIntensity, 0.5f)
@@ -32,9 +32,9 @@ namespace Engine
 		~Bloom();
 
 		void InitResource();
-		// Drop UAV mips (e.g. after GBuffer resize). Shaders stay valid.
+		// Drop UAV mips (e.g. after scene texture resize). Shaders stay valid.
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
 		std::shared_ptr<RenderCore::RHITexture2D> GetResult() const;
 	private:
 		BloomPrivate* d_ptr = nullptr;

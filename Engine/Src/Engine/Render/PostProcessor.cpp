@@ -10,7 +10,7 @@
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHITextureCube.h"
 #include "Engine/Engine.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/TemporalAA.h"
 #include "Render/FXAA.h"
 #include "Render/Bloom.h"
@@ -49,7 +49,7 @@ namespace Engine
 		}
 	} // namespace
 
-	static void RegisterPostOnlyGBufferImports(FRDGBuilder& Graph, std::shared_ptr<GBuffer> TB)
+	static void RegisterPostOnlySceneTexturesImports(FRDGBuilder& Graph, std::shared_ptr<SceneTextures> TB)
 	{
 		if (!TB)
 			return;
@@ -207,12 +207,12 @@ namespace Engine
 			d->FXaa->InvalidateTransientResources();
 	}
 
-	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<RHIViewPort> ViewPort,
+	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<RHIViewPort> ViewPort,
 						   std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(PostProcessor);
 		FRDGBuilder Graph;
-		RegisterPostOnlyGBufferImports(Graph, TargetBuffer);
+		RegisterPostOnlySceneTexturesImports(Graph, TargetBuffer);
 		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData);
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = &RHIContext;
@@ -225,7 +225,7 @@ namespace Engine
 			Graph.ExecutePasses(RDGExecParams);
 	}
 
-	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 									   std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(PostProcessor);
@@ -265,7 +265,7 @@ namespace Engine
 		BuildTonemappingPass(Graph, RHIContext, TargetBuffer, ViewPort);
 	}
 
-	void PostProcessor::BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 									   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 									   std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor)
 	{
@@ -289,7 +289,7 @@ namespace Engine
 			[d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 										 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite)
 	{
 		C_P(PostProcessor);
@@ -311,7 +311,7 @@ namespace Engine
 			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 									  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 									  std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor)
 	{
@@ -336,7 +336,7 @@ namespace Engine
 		}
 	}
 
-	void PostProcessor::BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+	void PostProcessor::BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);

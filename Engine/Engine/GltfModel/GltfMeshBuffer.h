@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "GltfModel/GltfMeshInfo.h"
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHIVertexBuffer.h"

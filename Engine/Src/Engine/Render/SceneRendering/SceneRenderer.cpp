@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/SceneRenderer.h"
+﻿#include "Render/SceneRendering/SceneRenderer.h"
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
@@ -6,7 +6,7 @@
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
 #include "Render/CubeBackground.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/RDGDeferredLightingPass.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
@@ -26,7 +26,7 @@ namespace Engine
 {
 	namespace
 	{
-		std::vector<FRDGPassResource> GatherGBufferPassResources(const std::shared_ptr<GBuffer>& TB)
+		std::vector<FRDGPassResource> GatherSceneTexturesPassResources(const std::shared_ptr<SceneTextures>& TB)
 		{
 			if (!TB)
 				return {};
@@ -122,15 +122,15 @@ namespace Engine
 			d->ShadowRender->InvalidateCachedMainLightForShading();
 		}
 
-		const std::vector<FRDGPassResource> GBufferIO = GatherGBufferPassResources(TB);
+		const std::vector<FRDGPassResource> SceneTexturesIO = GatherSceneTexturesPassResources(TB);
 
 		Graph.AddPass(FRDGPassDescriptor{
-			"ClearGBuffer",
+			"ClearSceneTextures",
 			{},
-			GBufferIO,
+			SceneTexturesIO,
 			[d, CommandContext]()
 			{
-				// Do not bind/clear the swapchain here: this pass only fills the off-screen GBuffer. Binding the back buffer
+				// Do not bind/clear the swapchain here: this pass only fills off-screen scene textures. Binding the back buffer
 				// then immediately switching to MRT wasted OM state and a full-screen clear before sky/base pass.
 				d->MainViewPort->Prepare();
 				int32_t width = GEngine->GetAppWindow()->GetWidth();
@@ -151,14 +151,14 @@ namespace Engine
 				CommandContext->Clear(Normal, nullptr, core::FLinearColor(0.5f, 0.5f, 1.f, 0.f), 1.f, 0);
 				CommandContext->Clear(MR, nullptr, core::FLinearColor(0.f, 1.f, 0.85f, 1.f), 1.f, 0);
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {SceneCol, Motion, Normal, Emissive, MR};
-				// Clear() uses CPU RTV handles only (no OM bind). Establish GBuffer as active RTs + depth for subsequent passes.
+				// Clear() uses CPU RTV handles only (no OM bind). Establish scene textures as active RTs + depth for subsequent passes.
 				CommandContext->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			}});
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"RenderSky",
-			GBufferIO,
-			GBufferIO,
+			SceneTexturesIO,
+			SceneTexturesIO,
 			[d, CommandContext, ViewConst]()
 			{
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
@@ -179,8 +179,8 @@ namespace Engine
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"RenderBasePass",
-			GBufferIO,
-			GBufferIO,
+			SceneTexturesIO,
+			SceneTexturesIO,
 			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst]()
 			{
 				if (!MeshesForDraw->empty())
@@ -196,8 +196,8 @@ namespace Engine
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"RenderTranslucency",
-			GBufferIO,
-			GBufferIO,
+			SceneTexturesIO,
+			SceneTexturesIO,
 			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst]()
 			{
 				if (!MeshesForDraw->empty())
@@ -266,7 +266,7 @@ namespace Engine
 
 		if (bScheduleShadowPass)
 		{
-			Graph.AddPassDependency("Shadow", "ClearGBuffer");
+			Graph.AddPassDependency("Shadow", "ClearSceneTextures");
 			Graph.AddPassDependency("Shadow", "RenderBasePass");
 			Graph.AddPassDependency("Shadow", "RenderTranslucency");
 			if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)

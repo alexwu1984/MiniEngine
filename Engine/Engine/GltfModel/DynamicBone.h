@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "GltfModel/DynamicBoneInfo.h"
 #include "math/vector3.h"
 #include "math/quaternion.h"
@@ -35,11 +35,11 @@ namespace Engine
 		FDynamicBone();
 		~FDynamicBone();
 
-		// È¥¸üĞÂÄÚ²¿ËùÓĞ½ÚµãµÄĞÅÏ¢
-		void Update(); //¸üĞÂ½Úµã£¬Ã¿Ò»Ö¡¶¼»á½øĞĞ¸üĞÂ£¬¸üĞÂ¶¯Ì¬¹Ç÷ÀµÄÎ»ÖÃ
-		void Init( FDynamicBoneInfo& BoneInfo); //3.ÉèÖÃ½çÃæÉÏÉèÖÃµÄ¸ÕĞÔ¡¢µ¯ĞÔµÈ²ÎÊı
-		void InitParticle(FDyTransformNode* RootTransform);  //1.³õÊ¼»¯Ã¿¸ö½ÚµãĞÅÏ¢
-		void InitTransform(); //2.³õÊ¼»¯¶¯Ì¬¹Ç÷ÀµÄ¾Ö²¿Î»ÖÃºÍ¾Ö²¿Ğı×ª
+		// å»æ›´æ–°å†…éƒ¨æ‰€æœ‰èŠ‚ç‚¹çš„ä¿¡æ¯
+		void Update(); //æ›´æ–°èŠ‚ç‚¹ï¼Œæ¯ä¸€å¸§éƒ½ä¼šè¿›è¡Œæ›´æ–°ï¼Œæ›´æ–°åŠ¨æ€éª¨éª¼çš„ä½ç½®
+		void Init( FDynamicBoneInfo& BoneInfo); //3.è®¾ç½®ç•Œé¢ä¸Šè®¾ç½®çš„åˆšæ€§ã€å¼¹æ€§ç­‰å‚æ•°
+		void InitParticle(FDyTransformNode* RootTransform);  //1.åˆå§‹åŒ–æ¯ä¸ªèŠ‚ç‚¹ä¿¡æ¯
+		void InitTransform(); //2.åˆå§‹åŒ–åŠ¨æ€éª¨éª¼çš„å±€éƒ¨ä½ç½®å’Œå±€éƒ¨æ—‹è½¬
 		void UpdateParticleParam(FDynamicBoneInfo& Info);
 		std::string GetID() const;
 	private:

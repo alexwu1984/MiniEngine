@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "math/vector2.h"
 
@@ -14,7 +14,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct BlurPSPrivate;
-	class GBuffer;
+	class SceneTextures;
 
 	class BlurPS
 	{

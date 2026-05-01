@@ -1,4 +1,4 @@
-#include "GltfModel/GltfSkeleton.h"
+﻿#include "GltfModel/GltfSkeleton.h"
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"
 #include "GltfModel/DynamicBoneManager.h"

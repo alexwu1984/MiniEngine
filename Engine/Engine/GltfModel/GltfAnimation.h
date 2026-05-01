@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "GltfModel/GltfAnimaionInfo.h"
 #include "GltfModel/GltfModelBase.h"
 

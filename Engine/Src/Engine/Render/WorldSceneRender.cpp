@@ -1,4 +1,4 @@
-#include "Render/WorldSceneRender.h"
+﻿#include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Scene/World.h"
 #include "RHI/RHICommandContext.h"
@@ -17,7 +17,7 @@
 #include "Render/IBLRender.h"
 #include "Render/PostProcessor.h"
 #include "Render/RDGBuilder.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/Shadow/ShadowMap.h"
@@ -99,7 +99,7 @@ namespace Engine
 			d->BackgroundRender->InitResource();
 
 			if (!d->TargetBuffer)
-				d->TargetBuffer = std::make_shared<GBuffer>(RHI);
+				d->TargetBuffer = std::make_shared<SceneTextures>(RHI);
 			auto Size = d->MainViewPort->GetSize();
 			d->TargetBuffer->InitDefaultSceneTargets(Size.cx, Size.cy);
 

@@ -6,7 +6,7 @@
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIUnorderedAccessView.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 #include "core/system.h"
 
@@ -70,7 +70,7 @@ namespace Engine
 		}
 	}
 
-	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
+	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
 	{
 		C_P(Bloom);
 		RenderCore::RHICommandMark Mark(RHIContext, "Bloom");

@@ -1,15 +1,15 @@
-#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
+﻿#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/Shadow/ShadowRenderPass.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "GltfModel/GltfMesh.h"
 
 namespace Engine
 {
 	MaterialRenderParam FSceneMaterialShaderParameters::BuildForDeferredBasePass(const FWorldSceneRender* WorldSceneRender, const FSceneViewData* ViewData, const MeshBase* Mesh,
 																				 const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
-																				 const std::shared_ptr<GBuffer>& TargetBuffer)
+																				 const std::shared_ptr<SceneTextures>& TargetBuffer)
 	{
 		MaterialRenderParam Out;
 		if (!ViewData || !WorldSceneRender || !Mesh)

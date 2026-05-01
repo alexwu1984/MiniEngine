@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "win/win32.h"
 #include "core/event.h"
 #include "Scene/DeviceInputState.h"

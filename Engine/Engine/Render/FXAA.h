@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "RHI/RHIShaderDefine.h"
 
 namespace RenderCore
 {
-	class GBuffer;
+	class SceneTextures;
 	class RHICommandContext;
 	class DynamicRHI;
 	class RHITexture2D;

@@ -1,4 +1,4 @@
-#include "GltfModel/GltfModel.h"
+﻿#include "GltfModel/GltfModel.h"
 #include "core/strings.h"
 #include "GltfModel/GltfNode.h"
 #include "GltfModel/GltfMesh.h"

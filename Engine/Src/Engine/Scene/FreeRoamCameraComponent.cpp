@@ -1,4 +1,4 @@
-#include "Scene/FreeRoamCameraComponent.h"
+﻿#include "Scene/FreeRoamCameraComponent.h"
 #include "Scene/CameraComponentPrivate.h"
 #include "Scene/DeviceInputState.h"
 #include "Scene/Actor.h"

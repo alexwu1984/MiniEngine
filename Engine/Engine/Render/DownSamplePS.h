@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 
 namespace RenderCore
@@ -10,7 +10,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class GBuffer;
+	class SceneTextures;
 	struct DownSamplePSPrivate;
 
 	class DownSamplePS
@@ -20,7 +20,7 @@ namespace Engine
 		~DownSamplePS();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetDownSampleTarget();
 	private:
 		DownSamplePSPrivate* d_ptr = nullptr;

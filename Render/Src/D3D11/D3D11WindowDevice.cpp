@@ -1,4 +1,4 @@
-#include "D3D11/D3D11RHI.h"
+﻿#include "D3D11/D3D11RHI.h"
 #include "core/commandline.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "RHIPrivate/D3D11StateCachePrivate.h"
@@ -550,7 +550,7 @@ namespace RenderCore
 
 					// D3D11_MESSAGE_ID_DEVICE_DRAW_RENDERTARGETVIEW_NOT_SET - This warning gets triggered by shadow depth rendering because the shader outputs
 					//		a color but we don't bind a color render target. That is safe as writes to unbound render targets are discarded.
-					//		Also, batched elements triggers it when rendering outside of scene rendering as it outputs to the GBuffer containing normals which is not bound.
+					//		Also, batched elements triggers it when rendering outside of scene rendering as it outputs to deferred normals RT which is not bound.
 					(D3D11_MESSAGE_ID)3146081, // D3D11_MESSAGE_ID_DEVICE_DRAW_RENDERTARGETVIEW_NOT_SET,
 
 					// Spams constantly as we change the debug name on rendertargets that get reused.

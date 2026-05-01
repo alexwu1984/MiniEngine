@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "win/win32.h"
 
 namespace Engine

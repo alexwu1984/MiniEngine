@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/SceneRendering/DeferredBasePassDrawContext.h"
 #include <vector>
 
@@ -12,7 +12,7 @@ namespace Engine
 	class FMeshMaterialRenderCache;
 	struct GltfSceneMeshInfo;
 
-	/** Records opaque and translucent mesh draws into the deferred GBuffer targets. */
+	/** Records opaque and translucent mesh draws into the deferred scene texture targets. */
 	class FDeferredShadingBasePassRenderer
 	{
 	public:

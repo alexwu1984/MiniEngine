@@ -1,4 +1,4 @@
-#include "core/inc.h"
+﻿#include "core/inc.h"
 #include "Scene/Actor.h"
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"

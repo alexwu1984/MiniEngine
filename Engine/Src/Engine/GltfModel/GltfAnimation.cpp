@@ -1,4 +1,4 @@
-#include "GLTFModel/GltfAnimation.h"
+﻿#include "GLTFModel/GltfAnimation.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfNode.h"
 #include "GltfModel/GltfMesh.h"

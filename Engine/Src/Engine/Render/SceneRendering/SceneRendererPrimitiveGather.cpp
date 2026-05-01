@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
+﻿#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Scene/Actor.h"
 #include "Scene/GltfMeshComponent.h"

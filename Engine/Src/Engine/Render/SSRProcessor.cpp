@@ -1,4 +1,4 @@
-#include "Render/SSRProcessor.h"
+﻿#include "Render/SSRProcessor.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
@@ -10,7 +10,7 @@
 #include "Render/SceneRendering/SceneViewData.h"
 #include "core/system.h"
 #include "math/vector2.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 
 using namespace RenderCore;
@@ -105,7 +105,7 @@ namespace Engine
 		}
 	}
 
-	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,std::shared_ptr<RHIViewPort> ViewPort,
+	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,std::shared_ptr<RHIViewPort> ViewPort,
 							std::shared_ptr<RHITexture2D> HistorySceneColor,
 		                    std::shared_ptr<const FSceneViewData> ViewData)
 	{

@@ -1,46 +1,46 @@
-#include "Render/SceneRendering/RDGDeferredLightingPass.h"
-#include "Render/GBuffer.h"
+﻿#include "Render/SceneRendering/RDGDeferredLightingPass.h"
+#include "Render/SceneTextures.h"
 
 namespace Engine
 {
-	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherCopyPassInputs(const std::shared_ptr<GBuffer>& GBuffer)
+	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherCopyPassInputs(const std::shared_ptr<SceneTextures>& TargetTextures)
 	{
-		if (!GBuffer)
+		if (!TargetTextures)
 			return {};
 		return {
-			{ "SceneColor", [GBuffer]() { return GBuffer->GetSceneColor(); }, true, FRDGResourceAccess::CopySrc },
+			{ "SceneColor", [TargetTextures]() { return TargetTextures->GetSceneColor(); }, true, FRDGResourceAccess::CopySrc },
 		};
 	}
 
-	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherCopyPassOutputs(const std::shared_ptr<GBuffer>& GBuffer)
+	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherCopyPassOutputs(const std::shared_ptr<SceneTextures>& TargetTextures)
 	{
-		if (!GBuffer)
+		if (!TargetTextures)
 			return {};
 		return {
-			{ TextureNameSceneColorPreLighting, [GBuffer]() { return GBuffer->GetSceneColorPreLighting(); }, true, FRDGResourceAccess::CopyDst },
+			{ TextureNameSceneColorPreLighting, [TargetTextures]() { return TargetTextures->GetSceneColorPreLighting(); }, true, FRDGResourceAccess::CopyDst },
 		};
 	}
 
-	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherRasterPassInputs(const std::shared_ptr<GBuffer>& GBuffer)
+	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherRasterPassInputs(const std::shared_ptr<SceneTextures>& TargetTextures)
 	{
-		if (!GBuffer)
+		if (!TargetTextures)
 			return {};
 		using A = FRDGResourceAccess;
 		return {
-			{ TextureNameSceneColorPreLighting, [GBuffer]() { return GBuffer->GetSceneColorPreLighting(); }, true, A::SRV },
-			{ "Normal", [GBuffer]() { return GBuffer->GetNormalBuffer(); }, true, A::SRV },
-			{ "Emissive", [GBuffer]() { return GBuffer->GetEmissiveBuffer(); }, true, A::SRV },
-			{ "MetallicRoughness", [GBuffer]() { return GBuffer->GetMetallicRoughnessBuffer(); }, true, A::SRV },
-			{ "Depth", [GBuffer]() { return GBuffer->GetDepth(); }, true, A::SRV },
+			{ TextureNameSceneColorPreLighting, [TargetTextures]() { return TargetTextures->GetSceneColorPreLighting(); }, true, A::SRV },
+			{ "Normal", [TargetTextures]() { return TargetTextures->GetNormalBuffer(); }, true, A::SRV },
+			{ "Emissive", [TargetTextures]() { return TargetTextures->GetEmissiveBuffer(); }, true, A::SRV },
+			{ "MetallicRoughness", [TargetTextures]() { return TargetTextures->GetMetallicRoughnessBuffer(); }, true, A::SRV },
+			{ "Depth", [TargetTextures]() { return TargetTextures->GetDepth(); }, true, A::SRV },
 		};
 	}
 
-	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherRasterPassOutputs(const std::shared_ptr<GBuffer>& GBuffer)
+	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherRasterPassOutputs(const std::shared_ptr<SceneTextures>& TargetTextures)
 	{
-		if (!GBuffer)
+		if (!TargetTextures)
 			return {};
 		return {
-			{ "SceneColor", [GBuffer]() { return GBuffer->GetSceneColor(); }, true, FRDGResourceAccess::RTV },
+			{ "SceneColor", [TargetTextures]() { return TargetTextures->GetSceneColor(); }, true, FRDGResourceAccess::RTV },
 		};
 	}
 } // namespace Engine

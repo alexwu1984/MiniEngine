@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include <string>
 #include "Render/Bloom.h"
@@ -20,7 +20,7 @@ namespace Engine
 {
 	class Bloom;
 	struct FSceneViewData;
-	class GBuffer;
+	class SceneTextures;
 	class SSRProcessor;
 	class TemporallAA;
 
@@ -31,13 +31,13 @@ namespace Engine
 						BloomContantsWrap* InBloomConstants);
 
 		void InitResource();
-		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 								 const std::string& SourceResourceName) const;
 
 	private:
-		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const;
 
@@ -50,7 +50,7 @@ namespace Engine
 	class SSRPass
 	{
 	public:
-		SSRPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		SSRPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 				std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 				std::shared_ptr<SSRProcessor> SSR,
 				std::function<std::shared_ptr<RenderCore::RHITexture2D>()> ReflectionColor);
@@ -61,7 +61,7 @@ namespace Engine
 		void Execute() const;
 
 		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<const FSceneViewData> ViewData;
 		std::shared_ptr<SSRProcessor> SSR;
@@ -71,7 +71,7 @@ namespace Engine
 	class BloomPass
 	{
 	public:
-		BloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		BloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 				  std::shared_ptr<Bloom> BloomEffect,
 				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 				  std::string SceneColorDependencyName);
@@ -82,7 +82,7 @@ namespace Engine
 		void Execute() const;
 
 		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<Bloom> BloomEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 		std::string SceneColorDependencyName;
@@ -95,13 +95,13 @@ namespace Engine
 					   BloomContantsWrap* BloomConstants);
 
 		void InitResource();
-		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::string& SceneColorDependencyName,
 								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const;
 
 	private:
-		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> BloomTexture) const;
@@ -118,12 +118,12 @@ namespace Engine
 		ApplySSRPass(RenderCore::DynamicRHI* RHI, std::shared_ptr<RenderCore::RHIVertexShader> VertexShader);
 
 		void InitResource();
-		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		RenderPassDesc BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 								 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 								 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const;
 
 	private:
-		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 					 std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 					 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const;
 
@@ -135,7 +135,7 @@ namespace Engine
 	class TAAPass
 	{
 	public:
-		TAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer,
+		TAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
 				std::shared_ptr<const FSceneViewData> ViewData, std::shared_ptr<TemporallAA> TAA,
 				std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
 
@@ -145,7 +145,7 @@ namespace Engine
 		void Execute() const;
 
 		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<const FSceneViewData> ViewData;
 		std::shared_ptr<TemporallAA> TAA;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;

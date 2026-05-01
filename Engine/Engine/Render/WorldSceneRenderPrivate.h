@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/color.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
@@ -17,7 +17,7 @@ namespace Engine
 	class PreProcessor;
 	class PostProcessor;
 	class CubeBackground;
-	class GBuffer;
+	class SceneTextures;
 	class ShadowRenderPass;
 	class FMeshMaterialRenderCache;
 	class DeferredLightingPass;
@@ -30,7 +30,7 @@ namespace Engine
 		std::shared_ptr<PostProcessor> PostProcess;
 		std::unique_ptr<FMeshMaterialRenderCache> MeshMaterialRenderCache;
 		std::shared_ptr<CubeBackground> BackgroundRender;
-		std::shared_ptr<GBuffer> TargetBuffer;
+		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
 		std::shared_ptr<DeferredLightingPass> DeferredLighting;
 		std::atomic_bool IsInit{ false };

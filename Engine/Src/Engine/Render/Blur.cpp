@@ -8,7 +8,6 @@
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIUnorderedAccessView.h"
 #include "core/system.h"
-#include "Render/GBuffer.h"
 #include "Render/RenderUtil.h"
 #include "Render/RenderTexturePool.h"
 #include "math/vector2.h"

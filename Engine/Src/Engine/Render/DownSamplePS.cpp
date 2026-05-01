@@ -7,7 +7,7 @@
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderTarget.h"
 #include "core/system.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/RenderUtil.h"
 #include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
@@ -72,7 +72,7 @@ namespace Engine
 		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_DownSample", {});
 	}
 
-	void DownSamplePS::Draw(RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer)
+	void DownSamplePS::Draw(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
 	{
 		C_P(DownSamplePS);
 

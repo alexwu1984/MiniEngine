@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "GltfModel/GltfModelBase.h"
 #include "GltfModel/DynamicBoneInfo.h"
 

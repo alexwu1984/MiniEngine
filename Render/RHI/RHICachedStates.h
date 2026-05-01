@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIState.h"
 
 namespace RenderCore
@@ -27,7 +27,7 @@ namespace RenderCore
 
 		static std::shared_ptr<RHIBlendState> BlendDisable;
 		static std::shared_ptr<RHIBlendState> BlendTraditional;
-		/** SrcAlpha * Src.RGB + InvSrcAlpha * Dst.RGB on RT0-RT4 (matches BlendTraditional RT0); use when filling deferred GBuffer with transparency so all targets blend consistently. */
+		/** SrcAlpha * Src.RGB + InvSrcAlpha * Dst.RGB on RT0-RT4 (matches BlendTraditional RT0); use when filling deferred scene textures with transparency so all targets blend consistently. */
 		static std::shared_ptr<RHIBlendState> BlendDeferredTranslucentMRT;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOff;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOn;

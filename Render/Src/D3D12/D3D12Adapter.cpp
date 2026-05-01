@@ -589,7 +589,7 @@ namespace RenderCore
 
 					// D3D12_MESSAGE_ID_DEVICE_DRAW_RENDERTARGETVIEW_NOT_SET - This warning gets triggered by shadow depth rendering because the shader outputs
 					//		a color but we don't bind a color render target. That is safe as writes to unbound render targets are discarded.
-					//		Also, batched elements triggers it when rendering outside of scene rendering as it outputs to the GBuffer containing normals which is not bound.
+					//		Also, batched elements triggers it when rendering outside of scene rendering as it outputs to deferred normals RT which is not bound.
 					//(D3D12_MESSAGE_ID)3146081, // D3D12_MESSAGE_ID_DEVICE_DRAW_RENDERTARGETVIEW_NOT_SET,
 					// BUGBUG: There is a D3D12_MESSAGE_ID_DEVICE_DRAW_DEPTHSTENCILVIEW_NOT_SET, why not one for RT?
 

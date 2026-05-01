@@ -1,6 +1,6 @@
-#include "Render/SceneRendering/DeferredLightingPass.h"
+﻿#include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/RDGUtils.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/PreProcessor.h"
@@ -128,7 +128,7 @@ namespace Engine
 		}
 	}
 
-	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<GBuffer>& TargetBuffer) const
+	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer) const
 	{
 		if (!TargetBuffer)
 			return;
@@ -142,7 +142,7 @@ namespace Engine
 		RHIContext.RHICopyResource(SceneColorPreLighting, SceneColor);
 	}
 
-	void DeferredLightingPass::ExecuteRaster(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
+	void DeferredLightingPass::ExecuteRaster(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
 											 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
 		if (!RHI || !VertexShader || !PixelShader || !TargetBuffer || !ViewData || !ViewPort)
@@ -218,7 +218,7 @@ namespace Engine
 		RHIContext.Draw(3);
 	}
 
-	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<GBuffer>& TargetBuffer,
+	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
 									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
 		CopySceneColorToPreLighting(RHIContext, TargetBuffer);

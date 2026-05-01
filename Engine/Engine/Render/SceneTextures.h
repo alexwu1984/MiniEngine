@@ -11,26 +11,27 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct GBufferPrivate;
+	struct SceneTexturesPrivate;
 
-	enum GBufferFlagBits
+	enum class ESceneTexturesFlags : uint32_t
 	{
-		GBUFFER_NONE = 0,
-		GBUFFER_DEPTH = 0x1,
-		GBUFFER_MOTION_VECTORS = 0x3,
-		GBUFFER_SCENE_COLOR = 0x7,
-		GBUFFER_NORMAL_BUFFER = 0xf,
-		GBUFFER_EMISSIVE_BUFFER = 0x1f,
-		GBUFFER_METALLIC_ROUGHNESS_BUFFER = 0x3f,
+		None = 0,
+		SceneDepth = 0x1,
+		SceneVelocity = 0x3,
+		SceneColor = 0x7,
+		DeferredNormals = 0xf,
+		DeferredEmissive = 0x1f,
+		DeferredMetallicRoughness = 0x3f,
+		DeferredMaterialAux = 0x40,
 	};
 
-	class GBuffer
+	class SceneTextures
 	{
 	public:
-		GBuffer(RenderCore::DynamicRHI* RHI);
-		~GBuffer();
+		SceneTextures(RenderCore::DynamicRHI* RHI);
+		~SceneTextures();
 
-		void InitResource(GBufferFlagBits Flag,uint32_t Width,uint32_t Height);
+		void InitResource(ESceneTexturesFlags Flags, uint32_t Width, uint32_t Height);
 		void InitDefaultSceneTargets(uint32_t Width, uint32_t Height);
 		std::shared_ptr<RenderCore::RHITexture2D> GetDepth() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetSceneColor() const;
@@ -41,9 +42,10 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetNormalBuffer() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetEmissiveBuffer() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessBuffer() const;
-		/** HDR scene color before deferred lighting (base pass output); copy target so the pass can read it while writing lit result to SceneColor. */
+		std::shared_ptr<RenderCore::RHITexture2D> GetMaterialAuxBuffer() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetSceneColorPreLighting() const;
+
 	private:
-		GBufferPrivate* d_ptr = nullptr;
+		SceneTexturesPrivate* d_ptr = nullptr;
 	};
 }

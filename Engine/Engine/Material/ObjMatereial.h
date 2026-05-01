@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Material/MaterialBase.h"
 #include <Assimp/material.h>
 

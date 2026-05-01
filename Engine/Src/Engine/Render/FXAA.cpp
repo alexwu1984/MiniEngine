@@ -6,7 +6,6 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderTarget.h"
-#include "Render/GBuffer.h"
 #include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
 

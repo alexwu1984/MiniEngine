@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/SceneRendering/TranslucentMeshSortKey.h"
 #include "Scene/GltfMeshComponent.h"
 #include "math/vector3.h"

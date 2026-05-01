@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "Scene/DeviceInputState.h"
 #include "ActorTraits.h"

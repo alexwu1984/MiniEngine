@@ -1,4 +1,4 @@
-#include "Render/TemporalAA.h"
+﻿#include "Render/TemporalAA.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
@@ -8,7 +8,7 @@
 #include "RHI/RHIUnorderedAccessView.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "core/system.h"
-#include "Render/GBuffer.h"
+#include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 
 namespace Engine
@@ -77,7 +77,7 @@ namespace Engine
 		d->First = true;
 	}
 
-	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<GBuffer> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData)
+	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(TemporallAA);
 		if (!ViewData)

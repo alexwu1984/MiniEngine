@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/vector3.h"
 #include "math/quaternion.h"
 #include "math/matrix4x4.h"

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/SceneRendering/DeferredBasePassDrawContext.h"
 #include "math/vector3.h"
 #include <memory>

@@ -1,9 +1,16 @@
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
+#include "ShaderUtils.hlsl"
 
+#if defined(RHI_BINDLESS)
+Texture2D Fur_Material2D[2] : register(t0);
+#define AlbedoMap Fur_Material2D[0]
+#define NoiseMap  Fur_Material2D[1]
+#else
 Texture2D AlbedoMap : register(t0);
 Texture2D NoiseMap : register(t1);
+#endif
 SamplerState SampleLinear : register(s0);
 
 struct PS_OUTPUT_SCENE
@@ -28,7 +35,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 {
     PS_OUTPUT_SCENE Output = (PS_OUTPUT_SCENE)0;
 
-    float3 BaseColor = AlbedoMap.Sample(SampleLinear, Input.UV1).rgb;
+    float3 BaseColor = sRGBToLinear(AlbedoMap.Sample(SampleLinear, Input.UV1).rgb);
     float3 n = normalize(Input.Normal);
     float3 nPacked = n * 0.5 + 0.5;
     float3 FurVelocity = Calculate3DFurVelocity(Input.svCurrPosition, Input.svPrevPosition);

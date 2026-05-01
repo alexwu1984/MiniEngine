@@ -28,7 +28,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
 		std::unique_ptr<RenderThread> RThread;
 		std::unique_ptr<RHISubmissionThread> RHISubmitThread;
-		RenderCore::RHIAPIType InitApiType = RenderCore::RHIAPIType::E_D3D11;
+		RenderCore::RHIAPIType InitApiType = RenderCore::RHIAPIType::E_D3D12;
 		std::shared_ptr<World> GameWorld;
 		std::shared_ptr<GameViewportClient> ViewportClient;
 		std::shared_ptr<FWorldSceneRender> SeRender;

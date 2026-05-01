@@ -79,7 +79,7 @@ struct FRDGCompileStats
 
 struct FRDGCompileParameters
 {
-	bool bPassCullingFromSinks = false;
+	bool bPassCullingFromSinks = true;
 	bool bDumpDotToLog = false;
 	bool bLogCompileSummary = false;
 	/** After ExecutePasses(): log RenderTexturePool::GetStats() (compile/execute RDG boundary hook). */

@@ -32,6 +32,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 
 using namespace RenderCore;
 
@@ -59,9 +60,9 @@ namespace Engine
 	} // namespace
 
 	FWorldSceneRender::FWorldSceneRender(std::weak_ptr<World> Owner)
-		: d_ptr(new FWorldSceneRenderPrivate())
+		: d_ptr(std::make_shared<FWorldSceneRenderPrivate>())
 	{
-		C_P(FWorldSceneRender);
+		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->Owner = std::move(Owner);
 		d->MeshMaterialRenderCache = std::make_unique<FMeshMaterialRenderCache>();
 	}
@@ -70,54 +71,57 @@ namespace Engine
 	{
 		if (GRenderThread)
 		{
-			GRenderThread->WaitForFinish();
+			if (std::this_thread::get_id() != GRenderThread->GetWorkerThreadId())
+				GRenderThread->WaitForFinish();
 		}
-		delete d_ptr;
 	}
 
 	std::shared_ptr<World> FWorldSceneRender::GetWorld() const
 	{
-		C_P(FWorldSceneRender);
+		const FWorldSceneRenderPrivate* d = d_ptr.get();
 		return d->Owner.lock();
 	}
 
 	void FWorldSceneRender::InitResource(std::shared_ptr<RHIViewPort> ViewPort)
 	{
-		C_P(FWorldSceneRender);
+		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->MainViewPort = ViewPort;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d](RenderCore::DynamicRHI* RHI) {
-			if (!d->PreProcess)
-				d->PreProcess = std::make_shared<PreProcessor>(RHI);
-			d->PreProcess->InitResource();
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[dLife = d_ptr](RenderCore::DynamicRHI* RHI)
+			{
+				if (!dLife->PreProcess)
+					dLife->PreProcess = std::make_shared<PreProcessor>(RHI);
+				dLife->PreProcess->InitResource();
 
-			if (!d->PostProcess)
-				d->PostProcess = std::make_shared<PostProcessor>(RHI);
-			d->PostProcess->InitResource();
+				if (!dLife->PostProcess)
+					dLife->PostProcess = std::make_shared<PostProcessor>(RHI);
+				dLife->PostProcess->InitResource();
 
-			if (!d->BackgroundRender)
-				d->BackgroundRender = std::make_shared<CubeBackground>(RHI);
-			d->BackgroundRender->InitResource();
+				if (!dLife->BackgroundRender)
+					dLife->BackgroundRender = std::make_shared<CubeBackground>(RHI);
+				dLife->BackgroundRender->InitResource();
 
-			if (!d->TargetBuffer)
-				d->TargetBuffer = std::make_shared<SceneTextures>(RHI);
-			auto Size = d->MainViewPort->GetSize();
-			d->TargetBuffer->InitDefaultSceneTargets(Size.cx, Size.cy);
+				if (!dLife->TargetBuffer)
+					dLife->TargetBuffer = std::make_shared<SceneTextures>(RHI);
+				auto Size = dLife->MainViewPort->GetSize();
+				dLife->TargetBuffer->InitDefaultSceneTargets(Size.cx, Size.cy);
 
-			if (!d->ShadowRender)
-				d->ShadowRender = std::make_shared<ShadowRenderPass>(RHI);
-			d->ShadowRender->InitResource();
+				if (!dLife->ShadowRender)
+					dLife->ShadowRender = std::make_shared<ShadowRenderPass>(RHI);
+				dLife->ShadowRender->InitResource();
 
-			if (!d->DeferredLighting)
-				d->DeferredLighting = std::make_shared<DeferredLightingPass>(RHI);
-			d->DeferredLighting->InitResource();
-			d->IsInit = true;
-		});
+				if (!dLife->DeferredLighting)
+					dLife->DeferredLighting = std::make_shared<DeferredLightingPass>(RHI);
+				dLife->DeferredLighting->InitResource();
+				dLife->IsInit = true;
+			},
+			true);
 	}
 
 	void FWorldSceneRender::LoadConfig(const nlohmann::json& Root)
 	{
-		C_P(FWorldSceneRender);
+		FWorldSceneRenderPrivate* d = d_ptr.get();
 		ApplyRDGCompileParamsFromJson(Root, d->RDGCompileParams);
 		RenderTexturePool::Get().ApplyConfigFromJson(Root);
 		try
@@ -132,17 +136,20 @@ namespace Engine
 		catch (const std::exception&)
 		{
 		}
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, Root](RenderCore::DynamicRHI* RHI) {
-			if (d->PreProcess)
-				d->PreProcess->LoadConfig(Root);
-			if (d->PostProcess)
-				d->PostProcess->LoadConfig(Root);
-		});
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[dLife = d_ptr, Root](RenderCore::DynamicRHI* RHI)
+			{
+				if (dLife->PreProcess)
+					dLife->PreProcess->LoadConfig(Root);
+				if (dLife->PostProcess)
+					dLife->PostProcess->LoadConfig(Root);
+			},
+			true);
 	}
 
 	void FWorldSceneRender::SetBackgroundColor(const core::FLinearColor& Color)
 	{
-		C_P(FWorldSceneRender);
+		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->Color = Color;
 	}
 
@@ -152,25 +159,28 @@ namespace Engine
 		{
 			return;
 		}
-		C_P(FWorldSceneRender);
-		ENQUEUE_UNIQUE_RENDER_COMMAND([d, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI) {
-			d->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
-			if (d->TargetBuffer)
-				d->TargetBuffer->InitDefaultSceneTargets(InSizeX, InSizeY);
-			if (d->PostProcess)
-				d->PostProcess->InvalidateTransientResources();
-		});
+		FWorldSceneRenderPrivate* d = d_ptr.get();
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[dLife = d_ptr, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI)
+			{
+				dLife->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
+				if (dLife->TargetBuffer)
+					dLife->TargetBuffer->InitDefaultSceneTargets(InSizeX, InSizeY);
+				if (dLife->PostProcess)
+					dLife->PostProcess->InvalidateTransientResources();
+			},
+			true);
 	}
 
 	void FWorldSceneRender::Render(float DeltaTime)
 	{
-		C_P(FWorldSceneRender);
+		(void)DeltaTime;
 		SubmitSceneForRendering(DeltaTime);
 	}
 
 	void FWorldSceneRender::SetIBLRotate(float x, float y)
 	{
-		C_P(FWorldSceneRender);
+		FWorldSceneRenderPrivate* d = d_ptr.get();
 		const std::shared_ptr<World> w = GetWorld();
 		if (!w)
 			return;
@@ -183,32 +193,32 @@ namespace Engine
 
 	std::shared_ptr<PreProcessor> FWorldSceneRender::GetPreProcessor() const
 	{
-		C_P(const FWorldSceneRender);
+		const FWorldSceneRenderPrivate* d = d_ptr.get();
 		return d->PreProcess;
 	}
 
 	std::shared_ptr<PostProcessor> FWorldSceneRender::GetPostProcessor() const
 	{
-		C_P(const FWorldSceneRender);
+		const FWorldSceneRenderPrivate* d = d_ptr.get();
 		return d->PostProcess;
 	}
 
 	std::shared_ptr<ShadowRenderPass> FWorldSceneRender::GetShadowRenderPass() const
 	{
-		C_P(const FWorldSceneRender);
+		const FWorldSceneRenderPrivate* d = d_ptr.get();
 		return d->ShadowRender;
 	}
 
 	std::shared_ptr<RHIViewPort> FWorldSceneRender::GetViewPort() const
 	{
-		C_P(const FWorldSceneRender);
+		const FWorldSceneRenderPrivate* d = d_ptr.get();
 		return d->MainViewPort;
 	}
 
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
 	{
 		(void)DeltaTime;
-		C_P(FWorldSceneRender);
+		FWorldSceneRenderPrivate* d = d_ptr.get();
 		std::shared_ptr<World> World = GetWorld();
 		if (!d->IsInit || !World || !World->GetMainCamera())
 			return;
@@ -257,9 +267,9 @@ namespace Engine
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[d](DynamicRHI* RHIIn)
+			[dLife = d_ptr](DynamicRHI* RHIIn)
 			{
-				d->SceneRenderer.Render(RHIIn);
+				dLife->SceneRenderer.Render(RHIIn);
 			},
 			true);
 	}

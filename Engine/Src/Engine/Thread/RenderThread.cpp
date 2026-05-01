@@ -3,6 +3,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIThreadPolicy.h"
 #include "core/logger.h"
+#include <thread>
 
 namespace Engine
 {
@@ -104,6 +105,14 @@ namespace Engine
 		if (!d->WorkerThread.joinable())
 			return;
 		d->DrainWait.wait();
+	}
+
+	std::thread::id RenderThread::GetWorkerThreadId() const
+	{
+		C_P(const RenderThread);
+		if (!d->WorkerThread.joinable())
+			return {};
+		return d->WorkerThread.get_id();
 	}
 
 	void RenderThread::Run()

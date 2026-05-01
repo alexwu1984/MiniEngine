@@ -55,6 +55,6 @@ namespace Engine
 		core::event<void()> sigGuiEvent;
 
 	private:
-		FWorldSceneRenderPrivate* d_ptr = nullptr;
+		std::shared_ptr<FWorldSceneRenderPrivate> d_ptr;
 	};
 } // namespace Engine

@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Engine/Thread/EngineThread.h"
+#include <thread>
 
 namespace RenderCore
 {
@@ -25,6 +26,8 @@ namespace Engine
 
 		void AppendCommand(std::function<void(RenderCore::DynamicRHI*)> fun);
 		void WaitForFinish();
+		/** Worker thread id after Start(); default-constructed if the worker is not running. */
+		std::thread::id GetWorkerThreadId() const;
 
 	private:
 		void Run();

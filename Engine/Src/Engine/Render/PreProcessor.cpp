@@ -1,5 +1,5 @@
 ﻿#include "Render/PreProcessor.h"
-#include "Render/IBLRender.h"
+#include "Render/SkyLightEnvironment.h"
 #include "RHI/DynamicRHI.h"
 
 namespace Engine
@@ -45,7 +45,7 @@ namespace Engine
 		d->GenIBL->Draw(RHIContext);
 	}
 
-	std::shared_ptr<FSkyLightIBLPrecompute> PreProcessor::GetIBLRender()
+	std::shared_ptr<FSkyLightIBLPrecompute> PreProcessor::GetSkyLightEnvironment()
 	{
 		C_P(PreProcessor);
 		return d->GenIBL;

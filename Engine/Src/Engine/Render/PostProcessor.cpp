@@ -22,7 +22,7 @@
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Engine/Render/PreProcessor.h"
-#include "Engine/Render/IBLRender.h"
+#include "Engine/Render/SkyLightEnvironment.h"
 
 namespace Engine
 {

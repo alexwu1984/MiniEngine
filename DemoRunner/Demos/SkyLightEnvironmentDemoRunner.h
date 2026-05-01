@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "DemoRunner/Demos/IDemo.h"
 
@@ -24,13 +24,14 @@ namespace RenderCore
 
 namespace DemoRunner
 {
-	class IBLRenderDemoRunner final : public IDemo
+	/** Debug runner for skylight environment IBL precompute (HDR → cubemap, irradiance, prefilter, BRDF LUT). */
+	class SkyLightEnvironmentDemoRunner final : public IDemo
 	{
 	public:
-		explicit IBLRenderDemoRunner(RenderCore::DynamicRHI* RHI);
-		~IBLRenderDemoRunner() override;
+		explicit SkyLightEnvironmentDemoRunner(RenderCore::DynamicRHI* RHI);
+		~SkyLightEnvironmentDemoRunner() override;
 
-		const char* GetName() const override { return "ibl"; }
+		const char* GetName() const override { return "skylight"; }
 		ClearColor GetClearColor() const override { return { Clear.x, Clear.y, Clear.z, 1.0f }; }
 
 		void Init(RenderCore::DynamicRHI* RHI,
@@ -53,7 +54,7 @@ namespace DemoRunner
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<Engine::AppWindow> Window;
 
-		std::shared_ptr<Engine::FSkyLightIBLPrecompute> IBL;
+		std::shared_ptr<Engine::FSkyLightIBLPrecompute> SkyLightEnv;
 		std::shared_ptr<Engine::CubeMapCrossRender> CubeCross;
 
 		std::vector<std::string> AllHDRFiles;
@@ -83,4 +84,3 @@ namespace DemoRunner
 		Engine::DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
 	};
 }
-

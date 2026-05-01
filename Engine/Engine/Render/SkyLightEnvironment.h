@@ -17,8 +17,7 @@ namespace Engine
 	class FRDGBuilder;
 	struct FSkyLightIBLPrecomputePrivate;
 
-	// Precomputes skylight/reflection IBL resources (capture cubemap, diffuse irradiance,
-	// specular prefilter, BRDF integration LUT).
+	/** Skylight environment: precompute HDR → cubemap, diffuse irradiance, specular prefilter, BRDF LUT (FSkyLightIBLPrecompute). */
 	class FSkyLightIBLPrecompute
 	{
 	public:

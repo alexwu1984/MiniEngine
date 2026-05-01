@@ -9,7 +9,7 @@
 #include "core/system.h"
 #include "Render/MaterialPreFrame.h"
 #include "Engine/Render/PreProcessor.h"
-#include "Engine/Render/IBLRender.h"
+#include "Engine/Render/SkyLightEnvironment.h"
 #include "Engine/Render/WorldSceneRender.h"
 #include "Render/SceneTextures.h"
 #include "RHI/RHITextureCube.h"
@@ -198,9 +198,9 @@ namespace Engine
 		{
 			if (auto Pre = RenderParam.preProcessor.lock())
 			{
-				if (auto IBL = Pre->GetIBLRender())
+				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
 				{
-					if (auto SpecCube = IBL->GetSpecularReflectionCubemap())
+					if (auto SpecCube = SkyLightEnv->GetSpecularReflectionCubemap())
 						d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
 				}
 			}

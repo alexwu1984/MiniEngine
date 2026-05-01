@@ -3,7 +3,7 @@
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Render/PreProcessor.h"
-#include "Render/IBLRender.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/PostProcessor.h"
 #include "Render/CubeBackground.h"
 #include "Render/SceneTextures.h"
@@ -171,8 +171,8 @@ namespace Engine
 					d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
 				if (ViewConst && ViewConst->SkyLightIBLScale > 0.f && d->PreProcess)
 				{
-					auto IBL = d->PreProcess->GetIBLRender();
-					auto SkyCube = IBL ? IBL->GetSkyLightCubemap() : nullptr;
+					auto SkyLightEnv = d->PreProcess->GetSkyLightEnvironment();
+					auto SkyCube = SkyLightEnv ? SkyLightEnv->GetSkyLightCubemap() : nullptr;
 					d->BackgroundRender->SetTextureCube(SkyCube);
 					d->BackgroundRender->SetRotate(ViewConst->EnvironmentRotatePitchDegrees, ViewConst->EnvironmentRotateYawDegrees);
 					d->BackgroundRender->Render(*CommandContext, Targets, d->TargetBuffer->GetDepth());

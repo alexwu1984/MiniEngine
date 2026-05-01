@@ -1,7 +1,7 @@
-﻿#include "DemoRunner/Demos/IBLRenderDemoRunner.h"
+﻿#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
 
-#include "Render/IBLRender.h"
-#include "Render/CubeRender.h"
+#include "Engine/Render/SkyLightEnvironment.h"
+#include "Engine/Render/CubeRender.h"
 #include "core/system.h"
 
 #include "App/AppWindow.h"
@@ -15,7 +15,7 @@
 
 using namespace DemoRunner;
 
-IBLRenderDemoRunner::IBLRenderDemoRunner(RenderCore::DynamicRHI* InRHI)
+SkyLightEnvironmentDemoRunner::SkyLightEnvironmentDemoRunner(RenderCore::DynamicRHI* InRHI)
 	: RHI(InRHI)
 	, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant)(InRHI)
 	, GET_SHADER_STRUCT_MEMBER(CBPerFrame)(InRHI)
@@ -23,9 +23,9 @@ IBLRenderDemoRunner::IBLRenderDemoRunner(RenderCore::DynamicRHI* InRHI)
 {
 }
 
-IBLRenderDemoRunner::~IBLRenderDemoRunner() = default;
+SkyLightEnvironmentDemoRunner::~SkyLightEnvironmentDemoRunner() = default;
 
-void IBLRenderDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
+void SkyLightEnvironmentDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
 							   const std::shared_ptr<RenderCore::RHIViewPort>& InViewPort,
 							   const std::shared_ptr<Engine::AppWindow>& InWindow)
 {
@@ -33,9 +33,9 @@ void IBLRenderDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
 	ViewPort = InViewPort;
 	Window = InWindow;
 
-	IBL = std::make_shared<Engine::FSkyLightIBLPrecompute>(RHI);
+	SkyLightEnv = std::make_shared<Engine::FSkyLightIBLPrecompute>(RHI);
 	CubeCross = std::make_shared<Engine::CubeMapCrossRender>(RHI);
-	if (IBL) IBL->InitResource();
+	if (SkyLightEnv) SkyLightEnv->InitResource();
 	if (CubeCross) CubeCross->InitResource();
 
 	// Enumerate HDRs.
@@ -60,9 +60,9 @@ void IBLRenderDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
 	CubeCrossPS = RHI->RHICreatePixelShader(shaderPath, "PS_CubeMapCross", {});
 }
 
-void IBLRenderDemoRunner::OnGui()
+void SkyLightEnvironmentDemoRunner::OnGui()
 {
-	ImGui::Text("IBLRenderDemo");
+	ImGui::Text("SkyLight Environment (IBL precompute)");
 	ImGui::ColorEdit3("Clear Color", &Clear.x);
 	ImGui::SliderFloat("Exposure", &Exposure, 0.f, 10.f, "%.1f");
 
@@ -85,50 +85,50 @@ void IBLRenderDemoRunner::OnGui()
 	ImGui::RadioButton("Prefiltered", &Mode, SM_Prefiltered);
 	ImGui::RadioButton("PreintegratedGF", &Mode, SM_PreintegratedGF);
 
-	if (IBL)
+	if (SkyLightEnv)
 	{
-		if (Mode == SM_CubeCross && IBL->GetSkyLightCubemap())
-			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetSkyLightCubemap()->GetNumMips() - 1);
-		else if (Mode == SM_Irradiance && IBL->GetDiffuseIrradianceCubemap())
-			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetDiffuseIrradianceCubemap()->GetNumMips() - 1);
-		else if (Mode == SM_Prefiltered && IBL->GetSpecularReflectionCubemap())
-			ImGui::SliderInt("Mip Level", &MipLevel, 0, IBL->GetSpecularReflectionCubemap()->GetNumMips() - 1);
+		if (Mode == SM_CubeCross && SkyLightEnv->GetSkyLightCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, SkyLightEnv->GetSkyLightCubemap()->GetNumMips() - 1);
+		else if (Mode == SM_Irradiance && SkyLightEnv->GetDiffuseIrradianceCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, SkyLightEnv->GetDiffuseIrradianceCubemap()->GetNumMips() - 1);
+		else if (Mode == SM_Prefiltered && SkyLightEnv->GetSpecularReflectionCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, SkyLightEnv->GetSpecularReflectionCubemap()->GetNumMips() - 1);
 	}
 }
 
-void IBLRenderDemoRunner::Draw(RenderCore::RHICommandContext& Ctx,
+void SkyLightEnvironmentDemoRunner::Draw(RenderCore::RHICommandContext& Ctx,
 							   const std::shared_ptr<RenderCore::RHIViewPort>&,
 							   float)
 {
-	if (!IBL || !Window)
+	if (!SkyLightEnv || !Window)
 		return;
 
 	GenerateIBLMaps();
-	IBL->Draw(Ctx);
+	SkyLightEnv->Draw(Ctx);
 
 	switch (Mode)
 	{
 	case SM_LongLat:
-		ShowTexture2D(Ctx, IBL->GetSkyLightSourceHDR());
+		ShowTexture2D(Ctx, SkyLightEnv->GetSkyLightSourceHDR());
 		break;
 	case SM_CubeCross:
-		ShowSHCubeMapDebugView(Ctx, IBL->GetSkyLightCubemap());
+		ShowSHCubeMapDebugView(Ctx, SkyLightEnv->GetSkyLightCubemap());
 		break;
 	case SM_Irradiance:
-		ShowSHCubeMapDebugView(Ctx, IBL->GetDiffuseIrradianceCubemap());
+		ShowSHCubeMapDebugView(Ctx, SkyLightEnv->GetDiffuseIrradianceCubemap());
 		break;
 	case SM_Prefiltered:
-		ShowSHCubeMapDebugView(Ctx, IBL->GetSpecularReflectionCubemap());
+		ShowSHCubeMapDebugView(Ctx, SkyLightEnv->GetSpecularReflectionCubemap());
 		break;
 	case SM_PreintegratedGF:
-		ShowTexture2D(Ctx, IBL->GetBRDFIntegrationLUT());
+		ShowTexture2D(Ctx, SkyLightEnv->GetBRDFIntegrationLUT());
 		break;
 	}
 }
 
-void IBLRenderDemoRunner::GenerateIBLMaps()
+void SkyLightEnvironmentDemoRunner::GenerateIBLMaps()
 {
-	if (!IBL)
+	if (!SkyLightEnv)
 		return;
 	if (AllHDRFiles.empty())
 		return;
@@ -137,11 +137,11 @@ void IBLRenderDemoRunner::GenerateIBLMaps()
 	{
 		CurrentHDR = ChooseHDR;
 		CurrentHDR = std::max(0, std::min(CurrentHDR, (int)AllHDRFiles.size() - 1));
-		IBL->LoadTex(core::u8_ucs2(AllHDRFiles[CurrentHDR]));
+		SkyLightEnv->LoadTex(core::u8_ucs2(AllHDRFiles[CurrentHDR]));
 	}
 }
 
-void IBLRenderDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITexture2D>& Texture2D)
+void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITexture2D>& Texture2D)
 {
 	if (!Texture2D || !ViewPort || !Window)
 		return;
@@ -172,7 +172,7 @@ void IBLRenderDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, cons
 	Ctx.Draw(3);
 }
 
-void IBLRenderDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITextureCube>& Cube)
+void SkyLightEnvironmentDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITextureCube>& Cube)
 {
 	if (!CubeCross || !Cube || !ViewPort || !Window)
 		return;
@@ -208,4 +208,3 @@ void IBLRenderDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHICommandContext& 
 
 	CubeCross->Render(Ctx);
 }
-

@@ -1,10 +1,10 @@
-#include "Render/SceneRendering/DeferredLightingPass.h"
+﻿#include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/RDGUtils.h"
 #include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/PreProcessor.h"
-#include "Render/IBLRender.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "RHI/RHIRenderTarget.h"
@@ -94,9 +94,9 @@ namespace Engine
 			Out.Data.myPerFrame.Material.padding2 = 0;
 			if (Pre)
 			{
-				if (auto IBL = Pre->GetIBLRender())
+				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
 				{
-					if (auto SpecCube = IBL->GetSpecularReflectionCubemap())
+					if (auto SpecCube = SkyLightEnv->GetSpecularReflectionCubemap())
 						Out.Data.myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
 					else
 						Out.Data.myPerFrame.IBLMIpCount = 1.f;
@@ -183,13 +183,13 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
 		if (Pre)
 		{
-			if (const auto IBL = Pre->GetIBLRender())
+			if (const auto SkyLightEnv = Pre->GetSkyLightEnvironment())
 			{
-				if (const auto t = IBL->GetDiffuseIrradianceCubemap())
+				if (const auto t = SkyLightEnv->GetDiffuseIrradianceCubemap())
 					irrCube = t;
-				if (const auto t = IBL->GetSpecularReflectionCubemap())
+				if (const auto t = SkyLightEnv->GetSpecularReflectionCubemap())
 					specCube = t;
-				if (const auto t = IBL->GetBRDFIntegrationLUT())
+				if (const auto t = SkyLightEnv->GetBRDFIntegrationLUT())
 					brdfLut = t;
 			}
 		}

@@ -15,7 +15,7 @@
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/CubeBackground.h"
-#include "Render/IBLRender.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/PostProcessor.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneTextures.h"

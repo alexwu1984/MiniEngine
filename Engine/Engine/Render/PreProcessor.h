@@ -25,7 +25,7 @@ namespace Engine
 		void LoadConfig(const nlohmann::json& Root);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 
-		std::shared_ptr<FSkyLightIBLPrecompute> GetIBLRender();
+		std::shared_ptr<FSkyLightIBLPrecompute> GetSkyLightEnvironment();
 
 		/** Call on render thread before PreProcess::Draw; applies SkyLightComponent HDR or JSON fallback. */
 		void ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath);

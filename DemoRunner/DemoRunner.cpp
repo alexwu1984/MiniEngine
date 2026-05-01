@@ -1,4 +1,4 @@
-#include "win/win32.h"
+﻿#include "win/win32.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"
@@ -16,7 +16,7 @@
 
 #include "DemoRunner/Demos/IDemo.h"
 #include "DemoRunner/Demos/PostProcessDemoRunner.h"
-#include "DemoRunner/Demos/IBLRenderDemoRunner.h"
+#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
 #include "DemoRunner/Demos/LiquidClassDemoRunner.h"
 #include "RHI/DynamicRHI.h"
 
@@ -85,8 +85,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	core::CommandLine::Get().GetString("demo", demoId);
 
 	std::unique_ptr<DemoRunner::IDemo> demo;
-	if (demoId == "ibl")
-		demo = std::make_unique<DemoRunner::IBLRenderDemoRunner>(RHI.get());
+	if (demoId == "skylight" || demoId == "ibl")
+		demo = std::make_unique<DemoRunner::SkyLightEnvironmentDemoRunner>(RHI.get());
 	else if (demoId == "liquid")
 		demo = std::make_unique<DemoRunner::LiquidClassDemoRunner>(RHI.get());
 	else

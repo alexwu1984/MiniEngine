@@ -39,12 +39,20 @@
     {
       "Model": "harley/harley.obj",
       "Scale": 1.0,
-      "Position": "0.0,0.0,0.0",
+      "Position": "0.0,-0.05,0.0",
       "Material": {
         "Metallic": 1.0
       },
-      "MainCamera": true,
       "ProjShadow": true
+    },
+    {
+      "RoamCamera": {
+        "Position": "2.35,1.0,2.05",
+        "LookAt": "0,0.37,0",
+        "MainCamera": true,
+        "MoveSpeed": 6.0,
+        "LookSensitivity": 0.12
+      }
     }
   ],
   "Tonemapping": {

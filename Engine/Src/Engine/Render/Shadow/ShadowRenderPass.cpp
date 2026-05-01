@@ -83,7 +83,7 @@ namespace
 		lightView._31 += targetY - lvRef.y;
 	}
 
-	// After View*Proj, nudge LightView so the reference point projects to integer shadow-map pixels (same UV remap as PBRMaterial.hlsl ComputeShadow).
+	// After View*Proj, nudge LightView so the reference point projects to integer shadow-map pixels (same UV remap as deferred PCSS).
 	static void RefineLightViewFromClipTexelSnap(
 		math::Matrix4x4& lightView,
 		const math::Matrix4x4& proj,
@@ -152,7 +152,7 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		const int32_t SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
-		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_FloatRGBA, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
+		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 	}
 
 	void ShadowRenderPass::InvalidateCachedMainLightForShading()

@@ -4,6 +4,7 @@
 
 float4 MainPS(VS_OUTPUT_SCENE Input) : SV_Target
 {
-	float depth = Input.svPosition.z;
-    return float4(depth, depth * depth, 1.0f, 1.0f);
+	// R32 shadow map: linear clip depth [0,1] (must match deferred mul(worldPos, LightViewProj).z / w).
+	float z = Input.svPosition.z / max(Input.svPosition.w, 1e-6);
+	return float4(z, 0.0, 0.0, 1.0);
 }

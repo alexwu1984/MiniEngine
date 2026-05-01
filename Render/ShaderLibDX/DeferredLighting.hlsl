@@ -17,6 +17,8 @@ Texture2D MaterialAuxGBuffer : register(t9);
 SamplerState SampleLinear : register(s0);
 SamplerState SampleShadow : register(s1);
 
+#include "ShadowPCSS.hlsl"
+
 struct PSInput
 {
     float2 Tex : TEXCOORD;
@@ -134,60 +136,10 @@ float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterC
     return att;
 }
 
-float Linstep(float a, float b, float v)
-{
-    return clamp((v - a) / (b - a), 0.0, 0.8);
-}
-
-float ReduceLightBleeding(float pMax, float amount)
-{
-    return Linstep(amount, 1.0f, pMax);
-}
-
-float ChebyshevUpperBound(float2 Moments, float t, float3 Normal)
-{
-    float Variance = Moments.y - Moments.x * Moments.x;
-    float MinVariance = 0.0000001;
-    Variance = max(Variance, MinVariance);
-    float d = t - Moments.x;
-    float pMax = Variance / (Variance + d * d);
-    static const float lightBleedingReduction = 0.5;
-    pMax = ReduceLightBleeding(pMax, lightBleedingReduction);
-    pMax /= 0.8;
-    float3 normal = normalize(Normal);
-    float3 L = normalize(GetMainLight().Direction);
-    float NdotL = abs(dot(normal, L));
-    float baseBias = 0.005;
-    float slopeBias = 0.01;
-    float bias = baseBias + slopeBias * (1.0 - NdotL);
-    bias = max(bias, 0.001);
-    return (t - bias <= Moments.x ? 1.0 : pMax);
-}
-
 float ComputeShadow(float4 ShadowCoord, float3 Normal)
 {
     // Avoid identifier 'shadow' (reserved context); single writer avoids X4000 flow bugs.
-    float shadowFactor = 1.0;
-    const float w = ShadowCoord.w;
-    [branch]
-    if (abs(w) >= 1e-6)
-    {
-        const float3 proj = ShadowCoord.xyz / w;
-        [branch]
-        if (proj.z > 0.0 && proj.z < 1.0)
-        {
-            const float2 uvShadow = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
-            [branch]
-            if (!(any(uvShadow < 0.0) || any(uvShadow > 1.0)))
-            {
-                const float3 Moments = ShadowMap.SampleLevel(SampleShadow, uvShadow, 0.0).xyz;
-                const float blockerVis = ChebyshevUpperBound(Moments.xy, clamp(proj.z, 0.0, 1.0), Normal);
-                const float penumbraWeight = Moments.z;
-                shadowFactor = 1.0 - (1.0 - blockerVis) * penumbraWeight;
-            }
-        }
-    }
-    return shadowFactor;
+    return clamp(ComputeShadowPCSS(ShadowCoord, Normal), 0.0, 1.0);
 }
 
 float3 ApplyDirectionalLightDeferred(float4 lightClipPos, Light light, MaterialInfo materialInfo, float3 normal, float3 view)

@@ -106,6 +106,9 @@ namespace Engine
 			d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);
 			d->ConfigHdrFullPath = HdrFile;
 			d->LastAppliedHdrFullPath = HdrFile;
+			// Must rerun capture / irradiance / prefilter for the new equirect (same as LoadTex).
+			// Otherwise ResolveAndApplyHDRSource skips (path already LastApplied) while bInitRender stays true and Draw() never rebuilds cubemaps.
+			d->bInitRender = false;
 		}
 		catch (const std::exception&)
 		{

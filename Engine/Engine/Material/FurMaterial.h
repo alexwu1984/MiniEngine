@@ -1,16 +1,16 @@
 ﻿#pragma once
 #include "Material/GltfMaterial.h"
+#include "Scene/SceneModelSettings.h"
 
 namespace Engine
 {
-	struct GltfFurMaterialPrivate;
-	struct FurConfig;
+	struct FurMaterialPrivate;
 	
-	class GltfFurMaterial : public GltfMaterial
+	class FurMaterial : public GltfMaterial
 	{
 	public:
-		GltfFurMaterial(GltfModel* Owner, tinygltf::Model* Model);
-		~GltfFurMaterial();
+		FurMaterial(GltfModel* Owner, tinygltf::Model* Model);
+		~FurMaterial();
 
 		virtual void  InitMaterial(uint32_t MaterialIndex) override;
 		virtual MaterialType GetMaterialType() const override;
@@ -18,7 +18,7 @@ namespace Engine
 		const FurConfig& GetFurConfig() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetNoiseTex() const;
 	private:
-		GltfFurMaterialPrivate* d_ptr = nullptr;
+		FurMaterialPrivate* d_ptr = nullptr;
 	};
 }
 

@@ -1,6 +1,6 @@
 ﻿#include "Render/Shadow/ShadowRenderPass.h"
 #include "GltfModel/GltfMesh.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "Render/Shadow/ShadowPS.h"

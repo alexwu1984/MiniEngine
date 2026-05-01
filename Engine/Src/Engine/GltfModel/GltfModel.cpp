@@ -3,10 +3,10 @@
 #include "GltfModel/GltfNode.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/GltfMaterial.h"
-#include "Material/GltfFurMaterial.h"
+#include "Material/FurMaterial.h"
 #include "GltfModel/GltfAnimationManager.h"
 #include "GltfModel/GltfSkeleton.h"
-#include "GltfModel/GltfModelConfig.h"
+#include "Scene/SceneModelAsset.h"
 
 
 namespace Engine
@@ -23,7 +23,7 @@ namespace Engine
 		bool HasSkin = false;
 		AABB3  ModelBox;
 		std::shared_ptr<GltfAnimationManager> AnimationMgr;
-		std::shared_ptr< GltfModelConfig> Config;
+		std::shared_ptr<SceneModelAsset> Asset;
 	};
 
 	GltfModel::GltfModel()
@@ -37,10 +37,10 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	bool GltfModel::Load(const std::wstring& FileName, std::shared_ptr< GltfModelConfig> Config)
+	bool GltfModel::Load(const std::wstring& FileName, std::shared_ptr<SceneModelAsset> Asset)
 	{
 		C_P(GltfModel);
-		d->Config = Config;
+		d->Asset = std::move(Asset);
 		std::string err;
 		std::string warn;
 		std::string utf8FileName = core::ucs2_u8(FileName);
@@ -116,10 +116,10 @@ namespace Engine
 			d->Skeleton->UpdateBone();
 	}
 
-	std::shared_ptr< Engine::GltfModelConfig> GltfModel::GetModelConfig() const
+	std::shared_ptr<Engine::SceneModelAsset> GltfModel::GetAsset() const
 	{
-		C_P(GltfModel);
-		return d->Config;
+		C_P(const GltfModel);
+		return d->Asset;
 	}
 
 	void GltfModel::LoadNode()
@@ -208,9 +208,9 @@ namespace Engine
 		C_P(GltfModel);
 		d->Skeleton = std::make_shared<GltfSkeleton>(&d->GltfMode, d->RootNode);
 		d->Skeleton->InitSkeleton();
-		if (d->Config)
+		if (d->Asset)
 		{
-			d->Skeleton->AddDynamicBone(d->Config->GetDyNamicBoneInfoList());
+			d->Skeleton->AddDynamicBone(d->Asset->GetDyNamicBoneInfoList());
 		}
 	}
 
@@ -223,9 +223,9 @@ namespace Engine
 			auto& Material = d->GltfMode.materials[i];
 			std::string MaterialName = Material.name;
 			std::shared_ptr< GltfMaterial> PBRMaterial;
-			if (d->Config && !d->Config->GetFurConfig().Name.empty() &&  MaterialName == d->Config->GetFurConfig().Name)
+			if (d->Asset && !d->Asset->GetFurConfig().Name.empty() &&  MaterialName == d->Asset->GetFurConfig().Name)
 			{
-				PBRMaterial = std::make_shared<GltfFurMaterial>(this, &d->GltfMode);	
+				PBRMaterial = std::make_shared<FurMaterial>(this, &d->GltfMode);	
 			}
 			else
 			{
@@ -238,7 +238,7 @@ namespace Engine
 
 		if (d->GltfMode.materials.empty())
 		{
-			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<GltfFurMaterial>(this, &d->GltfMode);
+			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<FurMaterial>(this, &d->GltfMode);
 			PBRMaterial->InitMaterial(0);
 			ModelMaterial.push_back(PBRMaterial);
 		}

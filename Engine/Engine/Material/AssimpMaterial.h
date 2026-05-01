@@ -7,13 +7,13 @@ struct aiScene;
 
 namespace Engine
 {
-	struct ObjMaterialPrivate;
+	struct AssimpMaterialPrivate;
 
-	class ObjMaterial : public MaterialBase
+	class AssimpMaterial : public MaterialBase
 	{
 	public:
-		ObjMaterial(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory);
-		~ObjMaterial();
+		AssimpMaterial(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory);
+		~AssimpMaterial();
 		void Init();
 		virtual MaterialType GetMaterialType() const override{
 			return MaterialType::PBR;
@@ -29,6 +29,6 @@ namespace Engine
 	private:
 		void loadTextureFromMaterial(aiTextureType vTextureType, const aiMaterial* vMat, std::map< int32_t, aiString> &TexNames);
 	private:
-		ObjMaterialPrivate* d_ptr = nullptr;
+		AssimpMaterialPrivate* d_ptr = nullptr;
 	};
 }

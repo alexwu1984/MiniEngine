@@ -1,7 +1,7 @@
 ﻿#include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/GltfMaterial.h"
-#include "Material/GltfFurMaterial.h"
+#include "Material/FurMaterial.h"
 #include "Render/PBRMaterialRender.h"
 #include "Render/FurMaterialRender.h"
 
@@ -17,13 +17,13 @@ namespace Engine
 		std::shared_ptr<PBRMaterialRender> PBRMaterial;
 		switch (Mesh->GetMaterial()->GetMaterialType())
 		{
-		case GltfMaterial::MaterialType::PBR:
+		case MaterialBase::MaterialType::PBR:
 			PBRMaterial = std::make_shared<PBRMaterialRender>(Mesh->GetMeshBuffer(), Mesh->GetMaterial());
 			break;
-		case GltfMaterial::MaterialType::FUR:
+		case MaterialBase::MaterialType::FUR:
 		{
-			auto FurMaterial = std::static_pointer_cast<GltfFurMaterial>(Mesh->GetMaterial());
-			PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), FurMaterial, FurMaterial->GetFurConfig(), FurMaterial->GetNoiseTex());
+			auto FurMat = std::static_pointer_cast<Engine::FurMaterial>(Mesh->GetMaterial());
+			PBRMaterial = std::make_shared<FurMaterialRender>(Mesh->GetMeshBuffer(), FurMat, FurMat->GetFurConfig(), FurMat->GetNoiseTex());
 		}
 		break;
 		default:

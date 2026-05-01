@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "Scene/SceneModelSettings.h"
 
 namespace RenderCore
 {
@@ -8,7 +9,6 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct MaterialConfig;
 	class MaterialBase
 	{
 	public:

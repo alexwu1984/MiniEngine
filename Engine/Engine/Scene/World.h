@@ -58,7 +58,7 @@ namespace Engine
 
 		/** Call when an actor's mesh components or shadow flags change; invalidates shadow-projector cache. */
 		void RefreshShadowProjectorForActor(std::shared_ptr<Actor> actor);
-		/** First actor that owns a GltfMeshComponent with project-shadow enabled (same order as scene iteration). */
+		/** First actor that owns a SceneMeshComponent with project-shadow enabled (same order as scene iteration). */
 		std::shared_ptr<Actor> GetShadowProjectorActor() const;
 
 		/** Union world AABB of every ProjShadow mesh (multi-caster); drives shadow cascade + fallback frustum. */

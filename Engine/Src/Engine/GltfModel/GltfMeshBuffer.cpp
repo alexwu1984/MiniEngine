@@ -27,7 +27,14 @@ namespace Engine
 
 	void GltfMeshBuffer::InitMesh(std::shared_ptr< GltfMeshInfo> MeshInfo)
 	{
-		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, this](RenderCore::DynamicRHI* RHI) {
+		// If UVs are missing, feed a zero UV stream (do NOT alias normals with a smaller stride).
+		std::shared_ptr<std::vector<math::Vector2>> FallbackUVs;
+		if (!MeshInfo->TextureCoords && MeshInfo->nNumVertices > 0)
+		{
+			FallbackUVs = std::make_shared<std::vector<math::Vector2>>(MeshInfo->nNumVertices, math::Vector2(0.0f, 0.0f));
+		}
+
+		auto CreateVertexBufferCommand = [MeshInfo = MeshInfo, FallbackUVs, this](RenderCore::DynamicRHI* RHI) {
 			C_P(GltfMeshBuffer);
 			d->VerticesBuffer[RenderCore::EVertexType::VT_Position] = RHI->RHICreateVertexBuffer(MeshInfo->Vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
 			d->VerticesBuffer[RenderCore::EVertexType::VT_Normal] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector3), MeshInfo->nNumVertices);
@@ -36,10 +43,13 @@ namespace Engine
 				d->VerticesBuffer[RenderCore::EVertexType::VT_UV0] = RHI->RHICreateVertexBuffer(MeshInfo->TextureCoords, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
 
 			}
+			else if (FallbackUVs)
+			{
+				d->VerticesBuffer[RenderCore::EVertexType::VT_UV0] = RHI->RHICreateVertexBuffer(FallbackUVs->data(), RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
+			}
 			else
 			{
-				//If TextureCoords is null,use normal instead of TextureCoords
-				d->VerticesBuffer[RenderCore::EVertexType::VT_UV0] = RHI->RHICreateVertexBuffer(MeshInfo->Normals, RenderCore::BUF_Dynamic, sizeof(math::Vector2), MeshInfo->nNumVertices);
+				// No UVs and no vertices: create nothing.
 			}
 			if (MeshInfo->Tangents)
 			{

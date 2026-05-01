@@ -3,8 +3,7 @@
 #include "RHI/RHICachedStates.h"
 #include "Engine.h"
 #include "Render/MaterialPreFrame.h"
-#include "Material/GltfFurMaterial.h"
-#include "GltfModel/GltfModelConfig.h"
+#include "Material/FurMaterial.h"
 #include "Render/SceneTextures.h"
 
 namespace Engine

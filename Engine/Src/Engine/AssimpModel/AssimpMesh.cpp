@@ -1,8 +1,8 @@
-﻿#include "ObjModel/ObjMesh.h"
+﻿#include "AssimpModel/AssimpMesh.h"
 #include "GltfModel/GltfMeshInfo.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/DynamicBoneInfo.h"
-#include "Material/ObjMatereial.h"
+#include "Material/AssimpMaterial.h"
 #include <Assimp/Importer.hpp>
 #include <Assimp/scene.h>
 #include <Assimp/postprocess.h>
@@ -10,13 +10,13 @@
 
 namespace Engine
 {
-	struct ObjMeshPrivate
+	struct AssimpMeshPrivate
 	{
 		const aiScene* pScene = nullptr;
 		aiMesh* vAiMesh = nullptr;
 		std::shared_ptr<GltfMeshInfo> Mesh;
 		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
-		std::shared_ptr<ObjMaterial> Material;
+		std::shared_ptr<AssimpMaterial> Material;
 		std::string MeshName;
 		std::string Directory;
 
@@ -31,10 +31,10 @@ namespace Engine
 		std::vector<std::vector<BoneSkinInfo>> BoneSkinInfos;
 	};
 
-	ObjMesh::ObjMesh(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory)
-		:d_ptr(new ObjMeshPrivate())
+	AssimpMesh::AssimpMesh(const aiScene* pScene, aiMesh* pMesh, const std::string& Directory)
+		:d_ptr(new AssimpMeshPrivate())
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		d->pScene = pScene;
 		d->vAiMesh = pMesh;
 		d->Directory = Directory;
@@ -42,72 +42,72 @@ namespace Engine
 		d->MeshBuffer = std::make_shared<GltfMeshBuffer>();
 	}
 
-	ObjMesh::~ObjMesh()
+	AssimpMesh::~AssimpMesh()
 	{
 		delete d_ptr;
 	}
 
-	void ObjMesh::Init()
+	void AssimpMesh::Init()
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		ProcessVertex();
 		ProcessIndices();
 		ProcessTextures();
 		d->MeshBuffer->InitMesh(d->Mesh);
 	}
 
-	const math::AABB3& ObjMesh::GetBoundingBox() const
+	const math::AABB3& AssimpMesh::GetBoundingBox() const
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		return d->ModelBox;
 	}
 
-	const math::Matrix4x4& ObjMesh::GetMeshMat() const
+	const math::Matrix4x4& AssimpMesh::GetMeshMat() const
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		return d->MeshMat;
 	}
 
-	std::shared_ptr<GltfMeshBuffer> ObjMesh::GetMeshBuffer()
+	std::shared_ptr<GltfMeshBuffer> AssimpMesh::GetMeshBuffer()
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		return d->MeshBuffer;
 	}
 
-	std::shared_ptr<Engine::MaterialBase> ObjMesh::GetMaterial()
+	std::shared_ptr<Engine::MaterialBase> AssimpMesh::GetMaterial()
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		return d->Material;
 	}
 
-	std::string ObjMesh::GetMeshName() const
+	std::string AssimpMesh::GetMeshName() const
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		return d->MeshName;
 	}
 
-	std::vector<std::vector<BoneSkinInfo>>& ObjMesh::GetBoneNodeArray()
+	std::vector<std::vector<BoneSkinInfo>>& AssimpMesh::GetBoneNodeArray()
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		return d->BoneSkinInfos;
 	}
 
-	void ObjMesh::ProcessVertex()
+	void AssimpMesh::ProcessVertex()
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		int32_t NumVertices = (int32_t)d->vAiMesh->mNumVertices;
 		for (int32_t i = 0; i < NumVertices; ++i)
 		{
 			d->Positions.emplace_back(math::Vector3(d->vAiMesh->mVertices[i].x, d->vAiMesh->mVertices[i].y, d->vAiMesh->mVertices[i].z));
-			math::Vector3 Normal;
+			math::Vector3 Normal{ 0.0f, 0.0f, 1.0f };
 			if (d->vAiMesh->mNormals != nullptr)
 				Normal = math::Vector3(d->vAiMesh->mNormals[i].x, d->vAiMesh->mNormals[i].y, d->vAiMesh->mNormals[i].z);
 			d->Normals.emplace_back(Normal);
-			math::Vector2 TextureCoord;
+			math::Vector2 TextureCoord{ 0.0f, 0.0f };
 			if (d->vAiMesh->mTextureCoords[0])
 				TextureCoord = math::Vector2(d->vAiMesh->mTextureCoords[0][i].x, d->vAiMesh->mTextureCoords[0][i].y);
 			d->TexCoords.emplace_back(TextureCoord);
-			math::Vector4 Tangent;
+			math::Vector4 Tangent{ 1.0f, 0.0f, 0.0f, 1.0f };
 			if (d->vAiMesh->mTangents)
 				Tangent = math::Vector4(d->vAiMesh->mTangents[i].x, d->vAiMesh->mTangents[i].y, d->vAiMesh->mTangents[i].z,1.0f);
 			d->Tangents.emplace_back(Tangent);
@@ -120,9 +120,9 @@ namespace Engine
 		d->ModelBox.CreateAABB(d->Positions);
 	}
 
-	void ObjMesh::ProcessIndices()
+	void AssimpMesh::ProcessIndices()
 	{
-		C_P(ObjMesh);
+		C_P(AssimpMesh);
 		int32_t NumFaces = d->vAiMesh->mNumFaces;
 		for (int32_t i = 0; i < NumFaces; ++i)
 		{
@@ -135,10 +135,10 @@ namespace Engine
 		d->Mesh->FacesIndex32 = d->Indices.data();
 	}
 
-	void ObjMesh::ProcessTextures()
+	void AssimpMesh::ProcessTextures()
 	{
-		C_P(ObjMesh);
-		d->Material = std::make_shared<ObjMaterial>(d->pScene, d->vAiMesh,d->Directory);
+		C_P(AssimpMesh);
+		d->Material = std::make_shared<AssimpMaterial>(d->pScene, d->vAiMesh, d->Directory);
 		d->Material->Init();
 	}
 

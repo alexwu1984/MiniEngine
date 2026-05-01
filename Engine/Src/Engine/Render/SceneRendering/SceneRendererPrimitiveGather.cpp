@@ -1,7 +1,7 @@
 ﻿#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Scene/Actor.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 
 namespace Engine
 {
@@ -25,7 +25,7 @@ namespace Engine
 			if (!ActorItem || ActorItem->GetState() != Actor::EActive || !ActorItem->IsVisible())
 				continue;
 
-			auto Components = std::move(ActorItem->GetComponents<GltfMeshComponent>());
+			auto Components = std::move(ActorItem->GetComponents<SceneMeshComponent>());
 			for (auto& ComponentItem : Components)
 			{
 				if (ComponentItem->IsProjectShadow())

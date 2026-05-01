@@ -3,7 +3,7 @@
 #include "Render/SceneRendering/SceneViewFamily.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/Shadow/ShadowMap.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include <memory>
 #include <optional>
 #include <string>

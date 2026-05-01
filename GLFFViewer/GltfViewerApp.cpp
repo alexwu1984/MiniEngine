@@ -112,6 +112,7 @@ void GltfViewApp::BuildModelList()
 	const core::filesystem::path gltfDir = core::filesystem::path(ProcessDir) / "GLTFModel";
 	const std::vector<std::wstring> rel = {
 		L"Model3.json",
+		L"harley.json",
 		L"BS_Model5.json",
 		L"Model1.json",
 		L"Model2.json",

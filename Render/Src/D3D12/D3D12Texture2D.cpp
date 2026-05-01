@@ -406,15 +406,10 @@ namespace RenderCore
 		C_P(D3D12Texture2D);
 		d->Size.cx = (int32_t)Image.GetImages()->width;
 		d->Size.cy = (int32_t)Image.GetImages()->height;
-		// Only apply sRGB decoding for LDR UNORM formats. HDR (float) sources (e.g. LoadFromHDRFile) must stay linear
-		// or IBL energy will be too high and tonemapping will look over-exposed / de-saturated.
-		const DXGI_FORMAT fmt = Image.GetMetadata().format;
-		const bool IsFloat =
-			fmt == DXGI_FORMAT_R16G16B16A16_FLOAT ||
-			fmt == DXGI_FORMAT_R32G32B32A32_FLOAT ||
-			fmt == DXGI_FORMAT_R32G32_FLOAT ||
-			fmt == DXGI_FORMAT_R11G11B10_FLOAT;
-		const bool IsSRGB = !IsFloat;
+		// Keep all WIC-loaded LDR textures as linear UNORM and do explicit sRGBToLinear in shaders for color maps.
+		// This matches the D3D11 path (no automatic sRGB decode) and avoids double-decoding in D3D12.
+		// HDR (float) sources are loaded via CreateHDRFromFile and are already linear.
+		const bool IsSRGB = false;
 
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		win32::com_ptr<ID3D12Resource> Resoure;

@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 #include "Engine/Render/PBRMaterialRender.h"
+#include "Scene/SceneModelSettings.h"
 
 namespace Engine
 {
 	struct FurMaterialRenderPrivate;
-	struct FurConfig;
 
 	class FurMaterialRender : public PBRMaterialRender
 	{

@@ -5,7 +5,7 @@
 #include "Thread/RenderThread.h"
 #include "core/color.h"
 #include "GltfModel/GltfModel.h"
-#include "GltfModel/GltfModelConfig.h"
+#include "Scene/SceneModelAsset.h"
 
 namespace Engine
 {
@@ -173,7 +173,10 @@ namespace Engine
 	const Engine::MaterialConfig& GltfMaterial::GetMaterialConfig() const
 	{
 		C_P(GltfMaterial);
-		return d->Owner->GetModelConfig()->GetMaterialConfig();
+		if (auto Asset = d->Owner ? d->Owner->GetAsset() : nullptr)
+			return Asset->GetMaterialConfig();
+		static MaterialConfig Fallback{};
+		return Fallback;
 	}
 
 	tinygltf::Model* GltfMaterial::GetModel()

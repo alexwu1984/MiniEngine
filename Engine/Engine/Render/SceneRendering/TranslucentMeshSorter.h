@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "Render/SceneRendering/TranslucentMeshSortKey.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "math/vector3.h"
 #include <vector>
 

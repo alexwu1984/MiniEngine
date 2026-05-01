@@ -2,7 +2,7 @@
 #include "Scene/Actor.h"
 #include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "Scene/SkyLightComponent.h"
 #include "Scene/DirectionalLightComponent.h"
 #include "Scene/RoamCameraActor.h"
@@ -23,7 +23,7 @@ namespace Engine
 				return false;
 			for (const auto& comp : actor->GetAllComponents())
 			{
-				auto mesh = ComponentCast<GltfMeshComponent>(comp);
+				auto mesh = ComponentCast<SceneMeshComponent>(comp);
 				if (mesh && mesh->IsProjectShadow())
 					return true;
 			}
@@ -418,7 +418,7 @@ namespace Engine
 					continue;
 				for (const auto& c : a->GetAllComponents())
 				{
-					auto mesh = ComponentCast<GltfMeshComponent>(c);
+					auto mesh = ComponentCast<SceneMeshComponent>(c);
 					if (!mesh || !mesh->IsProjectShadow())
 						continue;
 					const math::AABB3 wbox = mesh->GetModelBox().Transform(a->GetWorldTransform());

@@ -2,7 +2,6 @@
 #include "Engine.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
-#include "GltfModel/GltfModelConfig.h"
 #include "Thread/RenderThread.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"

@@ -8,13 +8,14 @@ struct aiScene;
 struct aiMesh;
 namespace Engine
 {
-	struct ObjMeshPrivate;
+	struct AssimpMeshPrivate;
 
-	class ObjMesh : public MeshBase
+	// Single mesh extracted via Assimp.
+	class AssimpMesh : public MeshBase
 	{
 	public:
-		ObjMesh(const aiScene *pScene, aiMesh* pMesh,const std::string& Directory);
-		~ObjMesh();
+		AssimpMesh(const aiScene *pScene, aiMesh* pMesh,const std::string& Directory);
+		~AssimpMesh();
 
 		void Init();
 		virtual const math::AABB3& GetBoundingBox() const override;
@@ -31,6 +32,6 @@ namespace Engine
 		void ProcessIndices();
 		void ProcessTextures();
 	private:
-		ObjMeshPrivate* d_ptr = nullptr;
+		AssimpMeshPrivate* d_ptr = nullptr;
 	};
 }

@@ -10,7 +10,7 @@ namespace Engine
 	class MaterialRender;
 	class GltfModel;
 
-	struct GltfMeshComponentPrivate;
+	struct SceneMeshComponentPrivate;
 
 	struct GltfSceneMeshInfo
 	{
@@ -19,15 +19,16 @@ namespace Engine
 		math::Matrix4x4 PrevWorldTransform;
 	};
 
-	class GltfMeshComponent : public Component
+	// Component that can load a scene model from JSON (glTF, Assimp-backed, procedural).
+	class SceneMeshComponent : public Component
 	{
 	public:
-		DECLARE_COMPONENT_CLASS_NAME(GltfMeshComponent)
-		GltfMeshComponent(class std::weak_ptr<Actor> Owner);
-		~GltfMeshComponent();
+		DECLARE_COMPONENT_CLASS_NAME(SceneMeshComponent)
+		SceneMeshComponent(class std::weak_ptr<Actor> Owner);
+		~SceneMeshComponent();
 
 		bool Load(const std::wstring& FileName);
-		bool Load(const nlohmann::json& GltfJson);
+		bool Load(const nlohmann::json& ModelJson);
 		GltfModel& GetModel() const;
 		math::AABB3 GetModelBox() const;
 
@@ -41,9 +42,9 @@ namespace Engine
 		bool IsProjectShadow() const;
 
 	private:
-		GltfMeshComponentPrivate* d_ptr = nullptr;
+		SceneMeshComponentPrivate* d_ptr = nullptr;
 	};
 
-	DECLARE_COMPONENT_TRAITS_CLASS_NAME(GltfMeshComponent)
+	DECLARE_COMPONENT_TRAITS_CLASS_NAME(SceneMeshComponent)
 }
 

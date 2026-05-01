@@ -8,7 +8,7 @@ namespace Engine
 	class GltfNode;
 	class GltfMesh;
 	class GltfSkeleton;
-	class GltfModelConfig;
+	class SceneModelAsset;
 
 	class GltfModel : public std::enable_shared_from_this<GltfModel>
 	{
@@ -16,13 +16,13 @@ namespace Engine
 		GltfModel();
 		~GltfModel();
 
-		bool Load(const std::wstring& FileName, std::shared_ptr< GltfModelConfig> Config);
+		bool Load(const std::wstring& FileName, std::shared_ptr<SceneModelAsset> Asset);
 		std::vector<std::shared_ptr<GltfMesh>>& GetModelMesh();
 		math::AABB3 GetModelBox() const;
 		std::shared_ptr<GltfNode> RootNode();
 		std::shared_ptr<GltfSkeleton> GetSkeleton();
 		void Play(float TotalDeltaTime,float DeltaFrameTime);
-		std::shared_ptr< GltfModelConfig> GetModelConfig() const;
+		std::shared_ptr<SceneModelAsset> GetAsset() const;
 	private:
 		void LoadNode();
 		void UpdateNode();

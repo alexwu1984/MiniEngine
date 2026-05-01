@@ -1,11 +1,11 @@
-﻿#include "Scene/GltfMeshComponent.h"
+﻿#include "Scene/SceneMeshComponent.h"
 #include "GltfModel/GltfModel.h"
 #include "GltfModel/GltfMesh.h"
-#include "ObjModel/ObjMesh.h"
-#include "ObjModel/ObjModel.h"
+#include "AssimpModel/AssimpMesh.h"
+#include "AssimpModel/AssimpModel.h"
 #include "Material/GltfMaterial.h"
 #include "GltfModel/GltfSkeleton.h"
-#include "GltfModel/GltfModelConfig.h"
+#include "Scene/SceneModelAsset.h"
 #include "Render/PBRMaterialRender.h"
 #include "Render/FurMaterialRender.h"
 #include "RHI/RHICommandContext.h"
@@ -18,31 +18,32 @@
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
 #include "Engine/Engine.h"
+#include "Engine/JsonConfig.h"
 #include "Render/WorldSceneRender.h"
 #include <variant>
 
 namespace Engine
 {
-	IMP_COMPONENT_CLASS_NAME(GltfMeshComponent)
-	IMP_COMPONENT_TRAITS_CLASS_NAME(GltfMeshComponent)
+	IMP_COMPONENT_CLASS_NAME(SceneMeshComponent)
+	IMP_COMPONENT_TRAITS_CLASS_NAME(SceneMeshComponent)
 
-	struct GltfMeshComponentPrivate
+	struct SceneMeshComponentPrivate
 	{
-		using ModelVariant = std::variant<GltfModel, ObjModel, ProceduralModel>;
+		using ModelVariant = std::variant<GltfModel, AssimpModel, ProceduralModel>;
 		ModelVariant Model;
 		float TotalDeltaTime = 0.f;
-		std::shared_ptr< GltfModelConfig>  ModelConfig;
+		std::shared_ptr<SceneModelAsset> Asset;
 		bool bProjectShadow = false;
 	};
 
-	GltfMeshComponent::GltfMeshComponent(std::weak_ptr<Actor> Owner)
+	SceneMeshComponent::SceneMeshComponent(std::weak_ptr<Actor> Owner)
 		:Component(Owner)
-		, d_ptr(new GltfMeshComponentPrivate())
+		, d_ptr(new SceneMeshComponentPrivate())
 	{
 		
 	}
 
-	GltfMeshComponent::~GltfMeshComponent()
+	SceneMeshComponent::~SceneMeshComponent()
 	{
 		if (GRenderThread)
 		{
@@ -52,9 +53,9 @@ namespace Engine
 	}
 
 	//Todo: load json config
-	bool GltfMeshComponent::Load(const std::wstring& FileName)
+	bool SceneMeshComponent::Load(const std::wstring& FileName)
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 		std::filesystem::path Path = FileName;
 		if (!Path.has_extension())
 		{
@@ -65,27 +66,31 @@ namespace Engine
 
 		if (Extension == L".json")
 		{
-			d->ModelConfig = std::make_shared<GltfModelConfig>(std::static_pointer_cast<GltfMeshComponent>(this->shared_from_this()));
-			if (d->ModelConfig->Load(FileName))
+			d->Asset = std::make_shared<SceneModelAsset>();
+			// Legacy entry-point: this path expects the JSON to be the per-model config.
+			// Prefer World::LoadScene model entries going forward.
+			nlohmann::json Root;
+			if (!LoadJsonFile(FileName, Root))
+				return false;
+			if (!d->Asset->Load(Root))
+			{
+				return false;
+			}
 			{
 				std::wstring Path = std::filesystem::path(FileName).parent_path().wstring();
-				Path += L"/" + d->ModelConfig->GetModelName();
+				Path += L"/" + d->Asset->GetModelRelativePath();
 				if (Path.find(L".glb") != std::wstring::npos)
 				{
 					d->Model.emplace<GltfModel>();
-					if (!std::get<GltfModel>(d->Model).Load(Path, d->ModelConfig))
+					if (!std::get<GltfModel>(d->Model).Load(Path, d->Asset))
 						return false;
 				}
 				else
 				{
-					d->Model.emplace<ObjModel>();
-					if (!std::get<ObjModel>(d->Model).Load(Path, d->ModelConfig))
+					d->Model.emplace<AssimpModel>();
+					if (!std::get<AssimpModel>(d->Model).Load(Path, d->Asset))
 						return false;
 				}
-			}
-			else
-			{
-				return false;
 			}
 		}
 		else
@@ -100,17 +105,17 @@ namespace Engine
 		return true;
 	}
 
-	bool GltfMeshComponent::Load(const nlohmann::json& GltfJson)
+	bool SceneMeshComponent::Load(const nlohmann::json& ModelJson)
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 
 		// Procedural floor path: replaces external floor.glb
 		try
 		{
-			if (GltfJson.find("ProceduralFloor") != GltfJson.end())
+			if (ModelJson.find("ProceduralFloor") != ModelJson.end())
 			{
 				ProceduralBuildResult BuildResult;
-				if (BuildProceduralFloor(GltfJson["ProceduralFloor"], BuildResult))
+				if (BuildProceduralFloor(ModelJson["ProceduralFloor"], BuildResult))
 				{
 					ProceduralModel PM;
 					PM.Meshes = std::move(BuildResult.Meshes);
@@ -124,21 +129,21 @@ namespace Engine
 		{
 		}
 
-		d->ModelConfig = std::make_shared<GltfModelConfig>(std::static_pointer_cast<GltfMeshComponent>(this->shared_from_this()));
-		if (d->ModelConfig->Load(GltfJson))
+		d->Asset = std::make_shared<SceneModelAsset>();
+		if (d->Asset->Load(ModelJson))
 		{
 			std::wstring Path = GEngine->GetModelPath();
-			Path += L"/" + d->ModelConfig->GetModelName();
+			Path += L"/" + d->Asset->GetModelRelativePath();
 			if (Path.find(L".glb") != std::wstring::npos)
 			{
 				d->Model.emplace<GltfModel>();
-				if (!std::get<GltfModel>(d->Model).Load(Path, d->ModelConfig))
+				if (!std::get<GltfModel>(d->Model).Load(Path, d->Asset))
 					return false;
 			}
 			else
 			{
-				d->Model.emplace<ObjModel>();
-				if (!std::get<ObjModel>(d->Model).Load(Path, d->ModelConfig))
+				d->Model.emplace<AssimpModel>();
+				if (!std::get<AssimpModel>(d->Model).Load(Path, d->Asset))
 					return false;
 			}
 			return true;
@@ -149,34 +154,34 @@ namespace Engine
 		}
 	}
 
-	GltfModel& GltfMeshComponent::GetModel() const
+	GltfModel& SceneMeshComponent::GetModel() const
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 		// Backward compatibility: this component historically exposed gltfModel directly.
 		// If current model isn't GLTF, return a default-constructed temporary stored in variant.
 		if (!std::holds_alternative<GltfModel>(d->Model))
 		{
-			const_cast<GltfMeshComponentPrivate*>(d)->Model.emplace<GltfModel>();
+			const_cast<SceneMeshComponentPrivate*>(d)->Model.emplace<GltfModel>();
 		}
 		return std::get<GltfModel>(d->Model);
 	}
 
-	math::AABB3 GltfMeshComponent::GetModelBox() const
+	math::AABB3 SceneMeshComponent::GetModelBox() const
 	{
-		C_P(const GltfMeshComponent);
+		C_P(const SceneMeshComponent);
 		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
 			return PM->Box;
 		if (auto GM = std::get_if<GltfModel>(&d->Model))
 			return GM->GetModelBox();
-		if (auto OM = std::get_if<ObjModel>(&d->Model))
+		if (auto OM = std::get_if<AssimpModel>(&d->Model))
 			return OM->GetModelBox();
 		return {};
 	}
 
 
-	void GltfMeshComponent::Tick(float deltaTime)
+	void SceneMeshComponent::Tick(float deltaTime)
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 		d->TotalDeltaTime += deltaTime;
 		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
@@ -185,9 +190,9 @@ namespace Engine
 		
 	}
 
-	void GltfMeshComponent::OnUpdateWorldTransform(float deltaTime)
+	void SceneMeshComponent::OnUpdateWorldTransform(float deltaTime)
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 		if (auto GM = std::get_if<GltfModel>(&d->Model))
 		{
 			auto Skel = GM->GetSkeleton();
@@ -210,9 +215,9 @@ namespace Engine
 
 	}
 
-	bool GltfMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum)
+	bool SceneMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum)
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
 		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
 		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
@@ -259,7 +264,7 @@ namespace Engine
 			}
 			return Render;
 		}
-		if (auto OM = std::get_if<ObjModel>(&d->Model))
+		if (auto OM = std::get_if<AssimpModel>(&d->Model))
 		{
 			math::AABB3 mergedWorldAabb;
 			bool mergedValid = false;
@@ -277,7 +282,7 @@ namespace Engine
 			const bool Render = (ViewCullFrustum == nullptr) || ViewCullFrustum->Intersects(mergedWorldAabb);
 			if (Render)
 			{
-				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<ObjMesh> Item) {
+				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<AssimpMesh> Item) {
 					if (Item)
 						SceneMeshInfo.Meshes.push_back(Item);
 					});
@@ -289,9 +294,9 @@ namespace Engine
 
 	}
 
-	void GltfMeshComponent::SetProjectShadow(bool projShadow)
+	void SceneMeshComponent::SetProjectShadow(bool projShadow)
 	{
-		C_P(GltfMeshComponent);
+		C_P(SceneMeshComponent);
 		if (d->bProjectShadow == projShadow)
 			return;
 		d->bProjectShadow = projShadow;
@@ -300,9 +305,9 @@ namespace Engine
 				W->RefreshShadowProjectorForActor(Owner);
 	}
 
-	bool GltfMeshComponent::IsProjectShadow() const
+	bool SceneMeshComponent::IsProjectShadow() const
 	{
-		C_P(const GltfMeshComponent);
+		C_P(const SceneMeshComponent);
 		return d->bProjectShadow;
 	}
 

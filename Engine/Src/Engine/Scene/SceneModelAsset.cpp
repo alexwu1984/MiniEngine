@@ -1,38 +1,35 @@
-﻿#include "GltfModel/GltfModelConfig.h"
+﻿#include "Scene/SceneModelAsset.h"
 #include "json.h"
-#include "Scene/GltfMeshComponent.h"
 #include "GltfModel/DynamicBoneInfo.h"
 #include "core/strings.h"
 
 namespace Engine
 {
-	struct GltfModelConfigPrivate
+	struct SceneModelAssetPrivate
 	{
 		nlohmann::json Config;
-		std::weak_ptr< GltfMeshComponent> Owner;
 		std::vector< FDynamicBoneInfo> DyBonelist;
-		std::wstring ModelName;
+		std::wstring ModelRelativePath;
 		FurConfig FurConfig;
 		MaterialConfig MaterialConfig;
 	};
 
-	GltfModelConfig::GltfModelConfig(std::weak_ptr< GltfMeshComponent> Owner)
-		:d_ptr(new GltfModelConfigPrivate())
+	SceneModelAsset::SceneModelAsset()
+		:d_ptr(new SceneModelAssetPrivate())
 	{
-		C_P(GltfModelConfig);
-		d->Owner = Owner;
+		C_P(SceneModelAsset);
 	}
 
-	GltfModelConfig::~GltfModelConfig()
+	SceneModelAsset::~SceneModelAsset()
 	{
 		delete d_ptr;
 	}
 
-	bool GltfModelConfig::Load(const nlohmann::json& GltfJson)
+	bool SceneModelAsset::Load(const nlohmann::json& ModelJson)
 	{
-		C_P(GltfModelConfig);
-		d->Config = GltfJson;
-		d->ModelName = core::u8_ucs2(GltfJson["Model"]);
+		C_P(SceneModelAsset);
+		d->Config = ModelJson;
+		d->ModelRelativePath = core::u8_ucs2(ModelJson["Model"]);
 
 		try
 		{
@@ -82,30 +79,30 @@ namespace Engine
 		catch (const std::exception&)
 		{
 		}
-		return !d->ModelName.empty();
+		return !d->ModelRelativePath.empty();
 	}
 
-	std::wstring GltfModelConfig::GetModelName() const
+	std::wstring SceneModelAsset::GetModelRelativePath() const
 	{
-		C_P(const GltfModelConfig);
-		return d->ModelName;
+		C_P(const SceneModelAsset);
+		return d->ModelRelativePath;
 	}
 
-	const std::vector< FDynamicBoneInfo>& GltfModelConfig::GetDyNamicBoneInfoList() const
+	const std::vector< FDynamicBoneInfo>& SceneModelAsset::GetDyNamicBoneInfoList() const
 	{
-		C_P(const GltfModelConfig);
+		C_P(const SceneModelAsset);
 		return d->DyBonelist;
 	}
 
-	const Engine::FurConfig& GltfModelConfig::GetFurConfig() const
+	const Engine::FurConfig& SceneModelAsset::GetFurConfig() const
 	{
-		C_P(const GltfModelConfig);
+		C_P(const SceneModelAsset);
 		return d->FurConfig;
 	}
 
-	const Engine::MaterialConfig& GltfModelConfig::GetMaterialConfig() const
+	const Engine::MaterialConfig& SceneModelAsset::GetMaterialConfig() const
 	{
-		C_P(const GltfModelConfig);
+		C_P(const SceneModelAsset);
 		return d->MaterialConfig;
 	}
 }

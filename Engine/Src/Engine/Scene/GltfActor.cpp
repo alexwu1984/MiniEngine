@@ -1,9 +1,8 @@
 ﻿#include "Scene/GltfActor.h"
 #include "Scene/CameraComponent.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "Scene/GltfInputComponent.h"
 #include "Scene/World.h"
-#include "GltfModel/GltfModelConfig.h"
 #include "GltfModel/GltfModel.h"
 
 namespace Engine
@@ -15,7 +14,7 @@ namespace Engine
 	{
 		nlohmann::json GltfJson;
 		std::shared_ptr<CameraComponent> CameraComp;
-		std::shared_ptr<GltfMeshComponent> MeshComp;
+		std::shared_ptr<SceneMeshComponent> MeshComp;
 		std::shared_ptr<GltfDeviceInputComponent> InputComp;
 	};
 
@@ -36,7 +35,7 @@ namespace Engine
 	{
 		Actor::InitResouce();
 		C_P(GltfActor);
-		d->MeshComp = std::make_shared<GltfMeshComponent>(this->shared_from_this());
+		d->MeshComp = std::make_shared<SceneMeshComponent>(this->shared_from_this());
 		bool bLoad = d->MeshComp->Load(d->GltfJson);
 		if (!bLoad)
 		{

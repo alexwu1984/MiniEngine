@@ -32,7 +32,7 @@ namespace Engine
 		float SkyLightIBLScale = 0.f;
 	};
 
-	class GltfModelConfig;
+	class SceneModelAsset;
 
 	class MaterialRender
 	{

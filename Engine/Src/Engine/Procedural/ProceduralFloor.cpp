@@ -3,7 +3,7 @@
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/MeshBase.h"
 #include "GltfModel/DynamicBoneInfo.h"
-#include "GltfModel/GltfModelConfig.h"
+#include "Scene/SceneModelAsset.h"
 #include "Material/MaterialBase.h"
 #include "Engine/Engine.h"
 #include "RHI/DynamicRHI.h"

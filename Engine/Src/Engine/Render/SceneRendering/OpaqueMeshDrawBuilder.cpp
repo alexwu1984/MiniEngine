@@ -4,7 +4,7 @@
 #include "Render/SceneRendering/TranslucentMeshSorter.h"
 #include "Render/SceneRendering/TranslucentMeshSortKey.h"
 #include "RHI/DynamicRHI.h"
-#include "Scene/GltfMeshComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/GltfMaterial.h"
 

@@ -33,9 +33,10 @@ float4 EncodeMaterialAux_DefaultLit()
 	return float4(EncodeShadingModelIdAndSelectiveOutputMask(SHADINGMODELID_DEFAULT_LIT, 0), 0.0, 0.0, 0.0);
 }
 
-float4 EncodeMaterialAux_Hair(float HairAmbientStrength, float HairLightExposure, float HairCoverageAlpha)
+// Strand tangent (world, oct-encoded in .yz as [0,1]^2) + IBL diffuse scale in .w for deferred Kajiya-Kay.
+float4 EncodeMaterialAux_HairStrand(float2 tangentOct01, float iblDiffuseScale)
 {
-	return float4(EncodeShadingModelIdAndSelectiveOutputMask(SHADINGMODELID_HAIR, 0), HairAmbientStrength, HairLightExposure, HairCoverageAlpha);
+	return float4(EncodeShadingModelIdAndSelectiveOutputMask(SHADINGMODELID_HAIR, 0), tangentOct01.x, tangentOct01.y, saturate(iblDiffuseScale));
 }
 
 #endif // DEFERREDSHADINGCOMMON_HLSL

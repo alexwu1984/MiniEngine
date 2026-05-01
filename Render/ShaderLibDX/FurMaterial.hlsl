@@ -40,11 +40,12 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 
     if (DrawSolid.x == 1)
     {
-        Output.Target1 = float4(FurVelocity, 0);
-        Output.Target2 = float4(nPacked, 0);
-        Output.Target0 = float4(BaseColor.rgb, 1.f);
+        // Prepass: write depth, but keep MRT color unchanged (alpha=0 under BlendDeferredTranslucentMRT).
+        Output.Target1 = float4(0, 0, 0, 0);
+        Output.Target2 = float4(0, 0, 0, 0);
+        Output.Target0 = float4(0, 0, 0, 0);
         Output.Target3 = float4(0, 0, 0, 0);
-        Output.Target4 = float4(kMetallic, kAO, kRough, 1.0);
+        Output.Target4 = float4(0, 0, 0, 0);
         return Output;
     }
 

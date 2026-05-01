@@ -1,6 +1,8 @@
-// Fullscreen deferred lighting: reads GBuffer from base pass, applies analytic lights + split-sum IBL.
+// Fullscreen deferred lighting: reads scene textures from base pass, applies analytic lights + split-sum IBL.
 #include "ShaderUtils.hlsl"
 #include "PerFrameStruct.hlsl"
+#include "DeferredShadingCommon.hlsl"
+#include "HairShading.hlsl"
 
 Texture2D BaseColorGBuffer : register(t0);
 Texture2D NormalGBuffer : register(t1);
@@ -11,6 +13,7 @@ TextureCube IrradianceTex : register(t5);
 Texture2D BrdfLut : register(t6);
 TextureCube PrefilterCubeMap : register(t7);
 Texture2D ShadowMap : register(t8);
+Texture2D MaterialAuxGBuffer : register(t9);
 SamplerState SampleLinear : register(s0);
 SamplerState SampleShadow : register(s1);
 
@@ -207,12 +210,58 @@ float3 ApplyPointLight(Light light, MaterialInfo materialInfo, float3 normal, fl
 
 float3 ApplySpotLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
 {
-    float3 pointToLight = light.Position - worldPos;
-    float distance = length(pointToLight);
-    float rangeAttenuation = GetRangeAttenuation(light.Range, distance);
-    float spotAttenuation = GetSpotAttenuation(pointToLight, -light.Direction, light.OuterConeCos, light.InnerConeCos);
-    float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
-    return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * shade;
+	float3 pointToLight = light.Position - worldPos;
+	float distance = length(pointToLight);
+	float rangeAttenuation = GetRangeAttenuation(light.Range, distance);
+	float spotAttenuation = GetSpotAttenuation(pointToLight, -light.Direction, light.OuterConeCos, light.InnerConeCos);
+	float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * shade;
+}
+
+float DirectionalShadowHair(float4 lightClipPos, float3 geomN)
+{
+	float visibility = 1.0f;
+	if (IsEnableShadow())
+		visibility = clamp(ComputeShadow(lightClipPos, geomN), 0.0, 1.0);
+	return visibility;
+}
+
+float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseColor, float perceptualRoughness, float ao,
+	float3 strandT, float3 geomN, float3 view)
+{
+	float3 L = normalize(light.Direction);
+	float NdotL = saturate(dot(geomN, L));
+	float3 diffKK, specKK;
+	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
+	float visibility = DirectionalShadowHair(lightClipPos, geomN);
+	return light.Intensity * light.Color * (diffKK + specKK) * NdotL * ao * visibility;
+}
+
+float3 ApplyPointLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
+	float3 strandT, float3 geomN, float3 worldPos, float3 view)
+{
+	float3 pointToLight = light.Position - worldPos;
+	float distance = length(pointToLight);
+	float3 L = pointToLight / max(distance, 1e-5);
+	float attenuation = GetRangeAttenuation(light.Range, distance);
+	float NdotL = saturate(dot(geomN, L));
+	float3 diffKK, specKK;
+	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
+	return attenuation * light.Intensity * light.Color * (diffKK + specKK) * NdotL * ao;
+}
+
+float3 ApplySpotLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
+	float3 strandT, float3 geomN, float3 worldPos, float3 view)
+{
+	float3 pointToLight = light.Position - worldPos;
+	float distance = length(pointToLight);
+	float rangeAttenuation = GetRangeAttenuation(light.Range, distance);
+	float spotAttenuation = GetSpotAttenuation(pointToLight, -light.Direction, light.OuterConeCos, light.InnerConeCos);
+	float3 L = pointToLight / max(distance, 1e-5);
+	float NdotL = saturate(dot(geomN, L));
+	float3 diffKK, specKK;
+	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
+	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * (diffKK + specKK) * NdotL * ao;
 }
 
 void DecodeMaterialFromGBuffer(float3 baseColor, float metallic, float perceptualRoughness, out MaterialInfo materialInfo)
@@ -244,59 +293,87 @@ float3 ReconstructWorldPosition(float2 uv, float depthHw)
 
 float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 {
-    float2 uv = Input.Tex;
-    float depth = DepthTexture.Sample(SampleLinear, uv).r;
-    float4 baseSample = BaseColorGBuffer.Sample(SampleLinear, uv);
-    float3 baseColor = baseSample.rgb;
-    float alpha = baseSample.a;
+	float2 uv = Input.Tex;
+	float depth = DepthTexture.Sample(SampleLinear, uv).r;
+	float4 baseSample = BaseColorGBuffer.Sample(SampleLinear, uv);
+	float3 baseColor = baseSample.rgb;
+	float alpha = baseSample.a;
 
-    if (depth >= 0.99999)
-        return float4(baseColor, alpha);
+	if (depth >= 0.99999)
+		return float4(baseColor, alpha);
 
-    float3 worldPos = ReconstructWorldPosition(uv, depth);
-    float3 packedN = NormalGBuffer.Sample(SampleLinear, uv).xyz;
-    float3 nUnnorm = packedN * 2.0 - 1.0;
-    float nLen = length(nUnnorm);
-    float3 normal = (nLen > 1e-5) ? (nUnnorm / nLen) : float3(0.0, 0.0, 1.0);
-    float4 emiss = EmissiveGBuffer.Sample(SampleLinear, uv);
-    float4 mr = MRGBuffer.Sample(SampleLinear, uv);
-    float metallic = mr.r;
-    float ao = mr.g;
-    float perceptualRoughness = mr.b;
+	float3 worldPos = ReconstructWorldPosition(uv, depth);
+	float3 packedN = NormalGBuffer.Sample(SampleLinear, uv).xyz;
+	float3 nUnnorm = packedN * 2.0 - 1.0;
+	float nLen = length(nUnnorm);
+	float3 normal = (nLen > 1e-5) ? (nUnnorm / nLen) : float3(0.0, 0.0, 1.0);
+	float4 emiss = EmissiveGBuffer.Sample(SampleLinear, uv);
+	float4 mr = MRGBuffer.Sample(SampleLinear, uv);
+	float metallic = mr.r;
+	float ao = mr.g;
+	float perceptualRoughness = mr.b;
 
-    float3 viewVec = myPerFrame.CameraPos.xyz - worldPos;
-    float vLen = length(viewVec);
-    float3 view = (vLen > 1e-5) ? (viewVec / vLen) : float3(0.0, 0.0, 1.0);
-    MaterialInfo materialInfo;
-    DecodeMaterialFromGBuffer(baseColor, metallic, perceptualRoughness, materialInfo);
+	float3 viewVec = myPerFrame.CameraPos.xyz - worldPos;
+	float vLen = length(viewVec);
+	float3 view = (vLen > 1e-5) ? (viewVec / vLen) : float3(0.0, 0.0, 1.0);
+	MaterialInfo materialInfo;
+	DecodeMaterialFromGBuffer(baseColor, metallic, perceptualRoughness, materialInfo);
 
-    float3 color = float3(0, 0, 0);
-    float4 mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[0].LightViewProj);
+	float4 auxSample = MaterialAuxGBuffer.Sample(SampleLinear, uv);
+	uint smid = DecodeShadingModelId(auxSample.r);
+	const bool bHair = IsHairShadingModel(smid);
+	float3 strandT = DecodeHairTangentOctPacked(auxSample.gb);
+	float hairIblDiffuseScale = saturate(auxSample.a);
 
-    // LightCount is uniform but unknown at compile time; default unroll hits X3511 (~MAX_LIGHT_INSTANCES iter).
-    [loop]
-    for (int i = 0; i < myPerFrame.LightCount; ++i)
-    {
-        Light light = myPerFrame.Lights[i];
-        if (light.Type == LightType_Directional)
-        {
-            float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
-            color += ApplyDirectionalLightDeferred(lc, light, materialInfo, normal, view);
-        }
-        else if (light.Type == LightType_Point)
-            color += ApplyPointLight(light, materialInfo, normal, worldPos, view);
-        else if (light.Type == LightType_Spot)
-            color += ApplySpotLight(light, materialInfo, normal, worldPos, view);
-    }
+	float3 color = float3(0, 0, 0);
+	float4 mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[0].LightViewProj);
 
-    float3 iblDiffuse, iblSpecular;
-    GetIBLContributionSplit(materialInfo, normal, view, iblDiffuse, iblSpecular);
-    float NdotVao = saturate(dot(normal, view));
-    // pow(negative, non-integer) -> NaN; breaks HDR and can TDR / stall device wait on exit.
-    float specOccPowBase = max(NdotVao + ao - 0.0001, 1e-5);
-    float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + ao);
-    color += (iblDiffuse * ao + iblSpecular * specOcc) * myPerFrame.IBLFactor;
-    color += emiss.rgb;
+	[loop]
+	for (int i = 0; i < myPerFrame.LightCount; ++i)
+	{
+		Light light = myPerFrame.Lights[i];
+		if (bHair)
+		{
+			if (light.Type == LightType_Directional)
+			{
+				float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
+				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, ao, strandT, normal, view);
+			}
+			else if (light.Type == LightType_Point)
+				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, ao, strandT, normal, worldPos, view);
+			else if (light.Type == LightType_Spot)
+				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, ao, strandT, normal, worldPos, view);
+		}
+		else
+		{
+			if (light.Type == LightType_Directional)
+			{
+				float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
+				color += ApplyDirectionalLightDeferred(lc, light, materialInfo, normal, view);
+			}
+			else if (light.Type == LightType_Point)
+				color += ApplyPointLight(light, materialInfo, normal, worldPos, view);
+			else if (light.Type == LightType_Spot)
+				color += ApplySpotLight(light, materialInfo, normal, worldPos, view);
+		}
+	}
 
-    return float4(color, alpha);
+	float3 iblDiffuse, iblSpecular;
+	GetIBLContributionSplit(materialInfo, normal, view, iblDiffuse, iblSpecular);
+	float NdotVao = saturate(dot(normal, view));
+	float specOccPowBase = max(NdotVao + ao - 0.0001, 1e-5);
+	float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + ao);
+
+	if (bHair)
+	{
+		float kkIbDiffuseMul = lerp(0.32, 0.72, perceptualRoughness);
+		color += iblDiffuse * ao * hairIblDiffuseScale * kkIbDiffuseMul * myPerFrame.IBLFactor;
+		color += iblSpecular * specOcc * 0.14 * myPerFrame.IBLFactor;
+	}
+	else
+		color += (iblDiffuse * ao + iblSpecular * specOcc) * myPerFrame.IBLFactor;
+
+	color += emiss.rgb;
+
+	return float4(color, alpha);
 }

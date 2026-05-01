@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Engine/Render/MaterialRender.h"
 #include "RHI/RHIShdader.h"
 
@@ -24,12 +24,14 @@ namespace Engine
 		virtual void PreDrawMesh(RenderCore::RHICommandContext& RHIContext);
 		virtual bool IsNeedPreDraw() const;
 		const MaterialRenderParam& GetRenderParam() const;
+	protected:
+		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
+
 	private:
 		virtual std::wstring GetShaderFileName() const;
 		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro> & ShaderMacros);
 	private:
 		void InitShader(const std::wstring& Path);
-		void SetPipeLineState(RenderCore::RHICommandContext& RHIContext,std::shared_ptr<SceneTextures> TargetBuffer);
 	private:
 		PBRMaterialRenderPrivate* d_ptr;
 	};

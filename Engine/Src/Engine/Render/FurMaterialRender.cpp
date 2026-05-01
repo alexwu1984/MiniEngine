@@ -5,6 +5,7 @@
 #include "Render/MaterialPreFrame.h"
 #include "Material/GltfFurMaterial.h"
 #include "GltfModel/GltfModelConfig.h"
+#include "Render/SceneTextures.h"
 
 namespace Engine
 {
@@ -43,6 +44,24 @@ namespace Engine
 	void FurMaterialRender::InitRenderResource()
 	{
 		PBRMaterialRender::InitRenderResource();
+	}
+
+	void FurMaterialRender::SetPipeLineState(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
+	{
+		PBRMaterialRender::SetPipeLineState(RHIContext, TargetBuffer);
+		if (!TargetBuffer)
+			return;
+
+		// Fur writes an extra MRT (MaterialAux) for shading model / strand data when enabled.
+		std::vector<std::shared_ptr<RHITexture2D>> Targets = {
+			TargetBuffer->GetSceneColor(),
+			TargetBuffer->GetMotionVector(),
+			TargetBuffer->GetNormalBuffer(),
+			TargetBuffer->GetEmissiveBuffer(),
+			TargetBuffer->GetMetallicRoughnessBuffer(),
+			TargetBuffer->GetMaterialAuxBuffer(),
+		};
+		RHIContext.SetRenderTarget(Targets, TargetBuffer->GetDepth());
 	}
 
 	std::wstring FurMaterialRender::GetShaderFileName() const
@@ -107,6 +126,12 @@ namespace Engine
 		d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Pixel);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
+
+		// Prepass must write depth for deferred world position, but should not overwrite scene color / GBuffer.
+		// FurMaterial.hlsl outputs alpha=0 in DrawSolid branch, so this blend state keeps MRTs unchanged.
+		RHIContext.RHISetBlendState(RHICachedStates::BlendDeferredTranslucentMRT, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateEnable, 0);
+		RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
 
 		DrawPrimitive(RHIContext);
 	}

@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/RDGDeferredLightingPass.h"
+#include "Render/SceneRendering/RDGDeferredLightingPass.h"
 #include "Render/SceneTextures.h"
 
 namespace Engine
@@ -31,6 +31,7 @@ namespace Engine
 			{ "Normal", [TargetTextures]() { return TargetTextures->GetNormalBuffer(); }, true, A::SRV },
 			{ "Emissive", [TargetTextures]() { return TargetTextures->GetEmissiveBuffer(); }, true, A::SRV },
 			{ "MetallicRoughness", [TargetTextures]() { return TargetTextures->GetMetallicRoughnessBuffer(); }, true, A::SRV },
+			{ "MaterialAux", [TargetTextures]() { return TargetTextures->GetMaterialAuxBuffer(); }, true, A::SRV },
 			{ "Depth", [TargetTextures]() { return TargetTextures->GetDepth(); }, true, A::SRV },
 		};
 	}

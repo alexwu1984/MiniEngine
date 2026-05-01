@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/RDGUtils.h"
 #include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
@@ -214,6 +214,11 @@ namespace Engine
 			}
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowSrvTex);
+
+		std::shared_ptr<RHITexture2D> materialAuxSrv = FallbackBrdfLut;
+		if (std::shared_ptr<RHITexture2D> ma = TargetBuffer->GetMaterialAuxBuffer())
+			materialAuxSrv = std::move(ma);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 9, materialAuxSrv);
 
 		RHIContext.Draw(3);
 	}

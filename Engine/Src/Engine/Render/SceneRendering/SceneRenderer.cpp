@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/SceneRenderer.h"
+#include "Render/SceneRendering/SceneRenderer.h"
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
@@ -37,6 +37,7 @@ namespace Engine
 				{ "Normal", [TB]() { return TB->GetNormalBuffer(); }, true, A::RTV },
 				{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); }, true, A::RTV },
 				{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); }, true, A::RTV },
+				{ "MaterialAux", [TB]() { return TB->GetMaterialAuxBuffer(); }, true, A::RTV },
 				{ "Depth", [TB]() { return TB->GetDepth(); }, true, A::DSV },
 			};
 		}
@@ -143,6 +144,7 @@ namespace Engine
 				auto Emissive = d->TargetBuffer->GetEmissiveBuffer();
 				auto Normal = d->TargetBuffer->GetNormalBuffer();
 				auto MR = d->TargetBuffer->GetMetallicRoughnessBuffer();
+				auto MatAux = d->TargetBuffer->GetMaterialAuxBuffer();
 				// Black-only clear for motion/emissive/scene is fine. Normal+MR must use neutral dielectric defaults: SrcAlpha-
 				// blended fur shells were lerping toward black (ao=0, roughness=0), which zeros IBL diffuse (iblDiffuse*ao) and
 				// causes black fringes against the sky.
@@ -150,6 +152,9 @@ namespace Engine
 									  core::FLinearColor::Black, 1.f, 0);
 				CommandContext->Clear(Normal, nullptr, core::FLinearColor(0.5f, 0.5f, 1.f, 0.f), 1.f, 0);
 				CommandContext->Clear(MR, nullptr, core::FLinearColor(0.f, 1.f, 0.85f, 1.f), 1.f, 0);
+				// Default-lit shading model tag (SHADINGMODELID_DEFAULT_LIT == 1) packed in .r as 1/255; yz Hair tangent unused.
+				if (MatAux)
+					CommandContext->Clear(MatAux, nullptr, core::FLinearColor(1.f / 255.f, 0.f, 0.f, 0.f), 1.f, 0);
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {SceneCol, Motion, Normal, Emissive, MR};
 				// Clear() uses CPU RTV handles only (no OM bind). Establish scene textures as active RTs + depth for subsequent passes.
 				CommandContext->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());

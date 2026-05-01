@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Engine/Render/PBRMaterialRender.h"
 
 namespace Engine
@@ -15,7 +15,10 @@ namespace Engine
 		virtual ~FurMaterialRender();
 
 		virtual void InitRenderResource() override;
-		
+
+	protected:
+		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer) override;
+
 	private:
 		virtual std::wstring GetShaderFileName() const;
 		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro>& ShaderMacros);

@@ -15,6 +15,12 @@
 
 namespace
 {
+	// When true: fit orthographic shadow XY/Z to shadow casters (render-thread mesh list) or, if that list is
+	// empty, to World::BuildShadowProjectorAggregateData only — not to every camera-frustum-visible mesh.
+	// Visible receivers (e.g. huge ground) used to be merged via FrustumBoundsMeshes and destroyed texel density.
+	// Set false to restore the old behavior (merge all ShadowFrustumCullPrimitives / visible bounds).
+	static constexpr bool kPreferTightShadowFrustumFromCasters = true;
+
 	static constexpr float kZMargin = 4.0f;
 	static constexpr float kXYMargin = 0.22f;
 	// Fit / snap iterations: snap changes LightView, which changes light-space bounds; need another fit+snap with updated half-extents.
@@ -174,7 +180,22 @@ namespace Engine
 		if (ShadowCasterMeshes.empty() && !ShadowProjectorScene.bValid)
 			return;
 
-		const std::vector<GltfSceneMeshInfo>& boundsMeshes = FrustumBoundsMeshes.empty() ? ShadowCasterMeshes : FrustumBoundsMeshes;
+		const std::vector<GltfSceneMeshInfo>* boundsSource = nullptr;
+		if (kPreferTightShadowFrustumFromCasters)
+		{
+			if (!ShadowCasterMeshes.empty())
+				boundsSource = &ShadowCasterMeshes;
+			else if (ShadowProjectorScene.bValid)
+				boundsSource = nullptr;
+			else if (!FrustumBoundsMeshes.empty())
+				boundsSource = &FrustumBoundsMeshes;
+			else
+				boundsSource = &ShadowCasterMeshes;
+		}
+		else
+		{
+			boundsSource = !FrustumBoundsMeshes.empty() ? &FrustumBoundsMeshes : &ShadowCasterMeshes;
+		}
 
 		std::unordered_set<const MeshBase*> casterMeshPtrs;
 		for (const auto& MeshInfo : ShadowCasterMeshes)
@@ -202,24 +223,30 @@ namespace Engine
 
 		math::AABB3 mergedWorldAabb;
 		bool mergedValid = false;
-		for (const auto& MeshInfo : boundsMeshes)
+		if (boundsSource)
 		{
-			for (const auto& Mesh : MeshInfo.Meshes)
+			for (const auto& MeshInfo : *boundsSource)
 			{
-				if (!Mesh)
-					continue;
-				// Frustum fit: actor world only. MeshMat includes per-frame node/skin pose; merging it into
-				// the light AABB shifts LightViewProj every frame and drags unrelated receivers' shadows.
-				// Shadow draws still use MeshMat * WorldTransform below.
-				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
-				mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
-				mergedValid = true;
+				for (const auto& Mesh : MeshInfo.Meshes)
+				{
+					if (!Mesh)
+						continue;
+					// Frustum fit: actor world only. MeshMat includes per-frame node/skin pose; merging it into
+					// the light AABB shifts LightViewProj every frame and drags unrelated receivers' shadows.
+					// Shadow draws still use MeshMat * WorldTransform below.
+					math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
+					mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
+					mergedValid = true;
+				}
 			}
 		}
-		if (!mergedValid)
+		if (!mergedValid && ShadowProjectorScene.bValid)
 		{
 			mergedWorldAabb = ShadowProjectorScene.ModelLocalAABB.Transform(ShadowProjectorScene.WorldTransform);
+			mergedValid = true;
 		}
+		if (!mergedValid)
+			return;
 
 		math::Vector3 wsSceneCorners[8];
 		mergedWorldAabb.GetPoint(wsSceneCorners);

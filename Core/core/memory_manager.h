@@ -235,6 +235,9 @@ inline void operator delete[](void* pvAddr) noexcept
 #endif
 }
 
+// std::align_val_t and aligned allocation/deallocation are C++17; skip in C++14 TUs (e.g. third-party /std:c++14).
+#if (defined(_MSVC_LANG) ? (_MSVC_LANG >= 201703L) : (__cplusplus >= 201703L))
+
 inline void* operator new(size_t size, std::align_val_t alignment)
 {
 	const size_t align = (size_t)alignment;
@@ -323,12 +326,22 @@ inline void operator delete[](void* block, size_t, std::align_val_t alignment) n
 	operator delete[](block, alignment);
 }
 
+#endif // C++17 aligned new/delete
+
 inline void operator delete(void* block, size_t) noexcept
 {
-	operator delete(block);
+#ifdef _DEBUG
+	win32::memory_object::GetMemManager().Deallocate((char*)block, 0, false);
+#else
+	FMemory::Free(block, 0);
+#endif
 }
 
 inline void operator delete[](void* block, size_t) noexcept
 {
-	operator delete[](block);
+#ifdef _DEBUG
+	win32::memory_object::GetMemManager().Deallocate((char*)block, 0, true);
+#else
+	FMemory::Free(block, 0);
+#endif
 }

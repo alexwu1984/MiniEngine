@@ -16,15 +16,14 @@ namespace Engine
 {
 	using namespace RenderCore;
 
-	BEGIN_SHADER_STRUCT(DownSampleParam, 0)
-		DECLARE_PARAM(math::Vector2, InvSize)
-		DECLARE_PARAM(int32_t, MipLevel)
-		DECLARE_PARAM(int32_t, Pad)
-		BEGIN_STRUCT_CONSTRUCT(DownSampleParam)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct DownSampleParam
+	{
+		math::Vector2 InvSize{};
+		int32_t MipLevel{};
+		int32_t Pad{};
+	};
+	using DownSampleParamWrap = RenderCore::TUniformBufferBinding<DownSampleParam, 0u>;
 
-	
 	struct DownSamplePSPrivate
 	{
 		DynamicRHI* RHI = nullptr;
@@ -103,8 +102,8 @@ namespace Engine
 			d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float) (d->Size.cx >> 1);
 			d->GET_UNIFORMDATA(DownSampleParam).InvSize.y = 1.f / (float)(d->Size.cy >> 1);
 			d->GET_UNIFORMDATA(DownSampleParam).MipLevel = IndexMip;
-			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
-			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer(RHIContext);
+			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RHIContext, RenderCore::SF_Pixel);
 			Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);	
 		}
 	}

@@ -235,7 +235,7 @@ namespace Engine
 		{
 			auto& BloomData = d->GET_UNIFORMDATA(BloomContants);
 			BloomData.PostExposureLinear = powf(2.f, d->ExposureStops);
-			d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer(RHIContext);
 		}
 
 		PostProcessPassInputs PassInputs;

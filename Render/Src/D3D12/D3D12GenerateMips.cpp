@@ -12,13 +12,13 @@
 
 namespace RenderCore
 {
-	BEGIN_SHADER_STRUCT(PSContant, 0)
-		DECLARE_PARAM(int32_t, MipIndex)
-		DECLARE_PARAM(int32_t, NumMips)
-		DECLARE_PARAM(int32_t, CubeFace)
-		BEGIN_STRUCT_CONSTRUCT(PSContant)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct PSContant
+	{
+		int32_t MipIndex{};
+		int32_t NumMips{};
+		int32_t CubeFace{};
+	};
+	using PSContantWrap = TUniformBufferBinding<PSContant, 0u>;
 
 	struct FD3D12GenerateMipsPrivate
 	{
@@ -90,8 +90,7 @@ namespace RenderCore
 				CommandContext->SetViewPort(0, 0, DstSize, DstSize);
 
 				d->GET_UNIFORMDATA(PSContant).CubeFace = Face;
-				d->GET_SHADER_STRUCT_MEMBER(PSContant).UpdateUniformBuffer();
-				d->GET_SHADER_STRUCT_MEMBER(PSContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+				RHI_UpdateAndBindUniformBuffer(*CommandContext, d->GET_SHADER_STRUCT_MEMBER(PSContant), SF_Pixel);
 				CommandContext->RHISetShaderTexture(RenderCore::SF_Pixel, 0, MipLevel - 1, TextureCubeRHI);
 				CommandContext->Draw(6);
 

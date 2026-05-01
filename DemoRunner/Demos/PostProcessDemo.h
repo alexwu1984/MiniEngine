@@ -1,18 +1,18 @@
-#pragma once
+﻿#pragma once
 
 #include "Render/SimplePostProcessor.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIShaderDefine.h"
 
-BEGIN_SHADER_STRUCT(cbTransition1, 0)
-	DECLARE_PARAM_VALUE(int32_t, endx, 2)
-	DECLARE_PARAM_VALUE(int32_t, endy, -1)
-	DECLARE_PARAM_VALUE(float, progress, 0.2f)
-	DECLARE_PARAM_VALUE(float, pad0, 0.f)
-	BEGIN_STRUCT_CONSTRUCT(cbTransition1)
-	END_STRUCT_CONSTRUCT
-END_SHADER_STRUCT
+struct cbTransition1
+{
+	int32_t endx{ 2 };
+	int32_t endy{ -1 };
+	float progress{ 0.2f };
+	float pad0{ 0.f };
+};
+using cbTransition1Wrap = RenderCore::TUniformBufferBinding<cbTransition1, 0u>;
 
 class PostProcessorDemo : public Engine::SimplePostProcessor
 {
@@ -33,4 +33,3 @@ private:
 	std::shared_ptr<RenderCore::RHITexture2D> Texture2;
 	DECLARE_SHADER_STRUCT_MEMBER(cbTransition1);
 };
-

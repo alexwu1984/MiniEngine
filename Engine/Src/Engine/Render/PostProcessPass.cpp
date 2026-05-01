@@ -4,6 +4,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
@@ -103,10 +104,7 @@ namespace Engine
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		if (BloomConstants)
-		{
-			BloomConstants->UpdateUniformBuffer();
-			BloomConstants->SetShaderUniformBuffer(RenderCore::SF_Pixel);
-		}
+			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, *BloomConstants, RenderCore::SF_Pixel);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture());
 		RHIContext.Draw(3);
@@ -216,8 +214,7 @@ namespace Engine
 		if (BloomConstants)
 		{
 			BloomConstants->Data.BloomIntensity = 1.0f;
-			BloomConstants->UpdateUniformBuffer();
-			BloomConstants->SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, *BloomConstants, RenderCore::SF_Pixel);
 		}
 
 		RHIContext.Draw(3);

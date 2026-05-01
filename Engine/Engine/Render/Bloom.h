@@ -15,15 +15,15 @@ namespace Engine
 	struct BloomPrivate;
 	class SceneTextures;
 
-	BEGIN_SHADER_STRUCT(BloomContants, 0)
-		DECLARE_PARAM_VALUE(float, BloomIntensity, 0.5f)
-		DECLARE_PARAM_VALUE(float, BloomThreshold, 1.0f)
+	struct BloomContants
+	{
+		float BloomIntensity{ 0.5f };
+		float BloomThreshold{ 1.0f };
 		/** exp2(exposure stops): applied to linear scene before tonemap; scales bloom extract threshold (see PostProcess.hlsl). */
-		DECLARE_PARAM_VALUE(float, PostExposureLinear, 1.0f)
-		DECLARE_PARAM_VALUE(float, Pad0, 0.0f)
-		BEGIN_STRUCT_CONSTRUCT(BloomContants)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+		float PostExposureLinear{ 1.0f };
+		float Pad0{ 0.0f };
+	};
+	using BloomContantsWrap = RenderCore::TUniformBufferBinding<BloomContants, 0u>;
 
 	class Bloom
 	{

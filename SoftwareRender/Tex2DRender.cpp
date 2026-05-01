@@ -1,8 +1,9 @@
-#include "Tex2DRender.h"
+﻿#include "Tex2DRender.h"
 #include "core/system.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIViewPort.h"
 
 using namespace math;
@@ -63,7 +64,6 @@ void Tex2DRender::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	RHI_UpdateAndBindUniformBuffer(RHIContext, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), SF_Pixel);
 	RHIContext.Draw(3);
 }

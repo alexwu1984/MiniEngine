@@ -5,15 +5,15 @@
 #include "RHI/RHIShaderDefine.h"
 #include "Render/MaterialPreFrame.h"
 
-
-BEGIN_SHADER_STRUCT(PSRenderDemoContant, 5)
-	DECLARE_PARAM(float, Exposure)
-	DECLARE_PARAM(int32_t, MipLevel)
-	DECLARE_PARAM(int32_t, MaxMipLevel)
-	DECLARE_PARAM(int32_t, NumSamplesPerDir)
-BEGIN_STRUCT_CONSTRUCT(PSRenderDemoContant)
-END_STRUCT_CONSTRUCT
-END_SHADER_STRUCT
+/** Same layout as GLFFViewer/ShaderCommon.h PSRenderDemoContant (register b5). */
+struct PSRenderDemoContant
+{
+	float Exposure{};
+	int32_t MipLevel{};
+	int32_t MaxMipLevel{};
+	int32_t NumSamplesPerDir{};
+};
+using PSRenderDemoContantWrap = RenderCore::TUniformBufferBinding<PSRenderDemoContant, 5u>;
 
 class Tex2DRender
 {

@@ -1,5 +1,6 @@
 ﻿#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
 
+#include "RHI/RHIShaderDefine.h"
 #include "Engine/Render/SkyLightEnvironment.h"
 #include "Engine/Render/CubeRender.h"
 #include "core/system.h"
@@ -167,8 +168,7 @@ void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext&
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
 	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = 0;
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), RenderCore::SF_Pixel);
 	Ctx.Draw(3);
 }
 
@@ -191,17 +191,14 @@ void SkyLightEnvironmentDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHIComman
 	ViewPort->SetRenderTarget();
 
 	GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = math::Matrix4x4();
-	GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(CBPerObject), RenderCore::SF_Vertex);
 
 	GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = math::Matrix4x4::MatrixOrthoLH(1.f, 1.f, -1.f, 1.f);
-	GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
 
 	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = MipLevel;
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), RenderCore::SF_Pixel);
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Cube);

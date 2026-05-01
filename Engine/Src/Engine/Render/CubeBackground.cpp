@@ -13,12 +13,12 @@ using namespace RenderCore;
 
 namespace Engine
 {
-	BEGIN_SHADER_STRUCT(CBMatrix, 0)
-		DECLARE_PARAM(math::Matrix4x4, View)
-		DECLARE_PARAM(math::Matrix4x4, Proj)
-		BEGIN_STRUCT_CONSTRUCT(CBMatrix)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct CBMatrix
+	{
+		math::Matrix4x4 View{};
+		math::Matrix4x4 Proj{};
+	};
+	using CBMatrixWrap = RenderCore::TUniformBufferBinding<CBMatrix, 0u>;
 
 	struct CubeBackgroundPrivate
 	{
@@ -100,8 +100,7 @@ namespace Engine
 
 		d->GET_UNIFORMDATA(CBMatrix).Proj = Proj;
 		d->GET_UNIFORMDATA(CBMatrix).View = View * Rotate;
-		d->GET_SHADER_STRUCT_MEMBER(CBMatrix).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(CBMatrix).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBMatrix), RenderCore::SF_Vertex);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->TexCube);
 		d->CubeR->Render(RHIContext);
 	}

@@ -97,9 +97,7 @@ namespace Engine
 			float FurOffset = 1.0 / FurConfig.FurLevel * (Index + 1);
 			d->GET_UNIFORMDATA(CBPerFur).FurOffset = FurOffset;
 
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 
@@ -120,9 +118,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).FurOffset = 0;
 		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 1;
 
-		d->GET_SHADER_STRUCT_MEMBER(CBPerFur).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Vertex);
-		d->GET_SHADER_STRUCT_MEMBER(CBPerFur).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 

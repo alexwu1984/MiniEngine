@@ -67,18 +67,18 @@ namespace Engine
 		MaterialPerFrame	Material;
 	};
 
-	BEGIN_SHADER_STRUCT(CBPerFrame, 0)
-		DECLARE_PARAM(PerFrame, myPerFrame)	
-		BEGIN_STRUCT_CONSTRUCT(CBPerFrame)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct CBPerFrame
+	{
+		PerFrame myPerFrame;
+	};
+	using CBPerFrameWrap = RenderCore::TUniformBufferBinding<CBPerFrame, 0u>;
 
-	BEGIN_SHADER_STRUCT(CBPerObject, 1)
-		DECLARE_PARAM(math::Matrix4x4, myPerObject_u_mCurrWorld)
-		DECLARE_PARAM(math::Matrix4x4, myPerObject_u_mPrevWorld)
-		BEGIN_STRUCT_CONSTRUCT(CBPerObject)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct CBPerObject
+	{
+		math::Matrix4x4 myPerObject_u_mCurrWorld;
+		math::Matrix4x4 myPerObject_u_mPrevWorld;
+	};
+	using CBPerObjectWrap = RenderCore::TUniformBufferBinding<CBPerObject, 1u>;
 
 	struct Matrix2
 	{
@@ -86,35 +86,35 @@ namespace Engine
 		math::Matrix4x4 Previous;
 	};
 
-	BEGIN_SHADER_STRUCT(CBPerSkeleton, 2)
-		DECLARE_ARRAY_PARAM(Matrix2,200, PerSkeleton_u_ModelMatrix)
-		BEGIN_STRUCT_CONSTRUCT(CBPerSkeleton)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct CBPerSkeleton
+	{
+		Matrix2 PerSkeleton_u_ModelMatrix[200];
+	};
+	using CBPerSkeletonWrap = RenderCore::TUniformBufferBinding<CBPerSkeleton, 2u>;
 
-	BEGIN_SHADER_STRUCT(CBPerFur, 3)
-		DECLARE_PARAM(math::Vector3, Gravity)
-	DECLARE_PARAM(float, FurOffset)
-	DECLARE_PARAM(math::Vector3, FurColor)
-	DECLARE_PARAM(float, FurLength)
-	DECLARE_PARAM_VALUE(float, UVScale, 1.0f)
-	DECLARE_PARAM_VALUE(float, FurAmbientStrength, 1.0f)
-	DECLARE_PARAM_VALUE(float, FurLevel, 1.0f)
-	DECLARE_PARAM_VALUE(float, FurLightExposure, 1.0f)
-	DECLARE_PARAM_VALUE(uint32_t, DrawSolid, 0)
-	DECLARE_PARAM(uint32_t, FurPad1)
-	DECLARE_PARAM(uint32_t, FurPad2)
-	DECLARE_PARAM(uint32_t, FurPad3)
-	BEGIN_STRUCT_CONSTRUCT(CBPerFur)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct CBPerFur
+	{
+		math::Vector3 Gravity{};
+		float FurOffset{};
+		math::Vector3 FurColor{};
+		float FurLength{};
+		float UVScale{ 1.0f };
+		float FurAmbientStrength{ 1.0f };
+		float FurLevel{ 1.0f };
+		float FurLightExposure{ 1.0f };
+		uint32_t DrawSolid{ 0 };
+		uint32_t FurPad1{};
+		uint32_t FurPad2{};
+		uint32_t FurPad3{};
+	};
+	using CBPerFurWrap = RenderCore::TUniformBufferBinding<CBPerFur, 3u>;
 
-	BEGIN_SHADER_STRUCT(ENVContant, 5)
-		DECLARE_PARAM(float, Exposure)
-	DECLARE_PARAM(int32_t, MipLevel)
-	DECLARE_PARAM(int32_t, MaxMipLevel)
-	DECLARE_PARAM(int32_t, NumSamplesPerDir)
-	BEGIN_STRUCT_CONSTRUCT(ENVContant)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct ENVContant
+	{
+		float Exposure{};
+		int32_t MipLevel{};
+		int32_t MaxMipLevel{};
+		int32_t NumSamplesPerDir{};
+	};
+	using ENVContantWrap = RenderCore::TUniformBufferBinding<ENVContant, 5u>;
 }

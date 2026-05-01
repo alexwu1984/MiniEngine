@@ -1,6 +1,7 @@
 ﻿#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "core/logger.h"
@@ -31,15 +32,13 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject), RenderCore::SF_Vertex);
 
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
 
 			RHIContext.SetRenderTarget(d->EvnCube, IndexView, 0);
 			RHIContext.Clear(d->EvnCube, IndexView, 0, core::FLinearColor::Black);
@@ -72,19 +71,16 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject), RenderCore::SF_Vertex);
 
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
 
 			d->GET_UNIFORMDATA(ENVContant).NumSamplesPerDir = 10;
-			d->GET_SHADER_STRUCT_MEMBER(ENVContant).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(ENVContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(ENVContant), RenderCore::SF_Pixel);
 
 			RHIContext.SetRenderTarget(d->IrrCube, IndexView, 0);
 			RHIContext.Clear(d->IrrCube, IndexView, 0, core::FLinearColor::Black);
@@ -117,8 +113,7 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject), RenderCore::SF_Vertex);
 
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		uint32_t NumMips = d->PreFilterCube->GetNumMips();
@@ -133,11 +128,9 @@ namespace Engine
 			for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 			{
 				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
-				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).UpdateUniformBuffer();
-				d->GET_SHADER_STRUCT_MEMBER(CBPerFrame).SetShaderUniformBuffer(RenderCore::SF_Vertex);
+				RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
 
-				d->GET_SHADER_STRUCT_MEMBER(ENVContant).UpdateUniformBuffer();
-				d->GET_SHADER_STRUCT_MEMBER(ENVContant).SetShaderUniformBuffer(RenderCore::SF_Pixel);
+				RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(ENVContant), RenderCore::SF_Pixel);
 
 				RHIContext.SetRenderTarget(d->PreFilterCube, IndexView, MipLevel);
 				RHIContext.SetViewPort(0, 0, Size, Size);

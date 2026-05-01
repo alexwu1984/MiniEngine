@@ -11,22 +11,15 @@
 
 namespace RenderCore
 {
-
-	BEGIN_SHADER_STRUCT(ShaderParameter, 0)
-		DECLARE_PARAM(math::Vector2, FXAATexelSize)
-		// FXAAEdgeThresholdMin: 0.0833 (default) - 0.0625 (high quality) - 0.0312 (visible limit)
-		// Lower values process more pixels (more aggressive anti-aliasing)
-		DECLARE_PARAM_VALUE(float, FXAAEdgeThresholdMin, 0.0625f)
-		// FXAAEdgeThreshold: 0.166 (default) - 0.125 (high quality) - 0.063 (overkill)
-		// Lower values detect more edges (more aggressive anti-aliasing)
-		DECLARE_PARAM_VALUE(float, FXAAEdgeThreshold, 0.125f)
-		// FXAASubpix: 0.75 (default) - 0.90 (softer, more anti-aliasing) - 1.00 (upper limit)
-		// Higher values provide more sub-pixel anti-aliasing
-		DECLARE_PARAM_VALUE(float, FXAASubpix, 0.90f)
-		DECLARE_PARAM(math::Vector3, pad)
-	BEGIN_STRUCT_CONSTRUCT(ShaderParameter)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct ShaderParameter
+	{
+		math::Vector2 FXAATexelSize{};
+		float FXAAEdgeThresholdMin{ 0.0625f };
+		float FXAAEdgeThreshold{ 0.125f };
+		float FXAASubpix{ 0.90f };
+		math::Vector3 pad{};
+	};
+	using ShaderParameterWrap = TUniformBufferBinding<ShaderParameter, 0u>;
 
 	struct FXAAPrivate
 	{
@@ -130,8 +123,7 @@ namespace RenderCore
 		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThresholdMin = 0.0156f;
 		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThreshold = 0.0312f;
 		d->GET_UNIFORMDATA(ShaderParameter).FXAASubpix = 1.0f;
-		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(ShaderParameter).SetShaderUniformBuffer(EShaderFrequency::SF_Pixel);
+		RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(ShaderParameter), SF_Pixel);
 		RHIContext.Draw(3);
 	}
 

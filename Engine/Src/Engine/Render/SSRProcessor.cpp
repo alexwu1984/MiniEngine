@@ -17,19 +17,19 @@ using namespace RenderCore;
 
 namespace Engine
 {
-	BEGIN_SHADER_STRUCT(SSRContants, 0)
-		DECLARE_PARAM(math::Matrix4x4, ViewProj)
-		DECLARE_PARAM(math::Matrix4x4, InvViewProj)
-		DECLARE_PARAM(math::Vector3, CameraPos)
-		DECLARE_PARAM_VALUE(float, WorldThickness, 0.06f)
-		DECLARE_PARAM_VALUE(int32_t, NumRays, 16)
-		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0) // temporal noise / random seed
-		DECLARE_PARAM(math::Vector2, Resolution)
-		DECLARE_PARAM_VALUE(float, TemporalBlendFactor, 0.93f)
-		DECLARE_PARAM(math::Vector3, Pad0)
-	BEGIN_STRUCT_CONSTRUCT(SSRContants)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct SSRContants
+	{
+		math::Matrix4x4 ViewProj{};
+		math::Matrix4x4 InvViewProj{};
+		math::Vector3 CameraPos{};
+		float WorldThickness{ 0.06f };
+		int32_t NumRays{ 16 };
+		int32_t FrameIndex{ 0 };
+		math::Vector2 Resolution{};
+		float TemporalBlendFactor{ 0.93f };
+		math::Vector3 Pad0{};
+	};
+	using SSRContantsWrap = RenderCore::TUniformBufferBinding<SSRContants, 0u>;
 
 	struct SSRProcessorPrivate
 	{
@@ -168,8 +168,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(SSRContants).TemporalBlendFactor = 0.93f;
 		d->First = false;
 		
-		d->GET_SHADER_STRUCT_MEMBER(SSRContants).UpdateUniformBuffer();
-		d->GET_SHADER_STRUCT_MEMBER(SSRContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+		RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(SSRContants), SF_Pixel);
 		RHIContext.Draw(3);
 	}
 

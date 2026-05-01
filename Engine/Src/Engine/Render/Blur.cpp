@@ -24,11 +24,11 @@ namespace Engine
 		int32_t Padding[3]{0};
 	};
 
-	BEGIN_SHADER_STRUCT(CBBlurParam, 0)
-		DECLARE_PARAM(BlurParam, Param)
-		BEGIN_STRUCT_CONSTRUCT(CBBlurParam)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct CBBlurParam
+	{
+		BlurParam Param{};
+	};
+	using CBBlurParamWrap = RenderCore::TUniformBufferBinding<CBBlurParam, 0u>;
 
 	struct BlurPSPrivate
 	{
@@ -160,13 +160,12 @@ namespace Engine
 		RHIContext.Clear(OutTex, core::FLinearColor::Black);
 		RHIContext.SetViewPort(0, 0, d->Size.cx, d->Size.cy);
 
-		// Update uniform buffer data first
-		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
-		
+		// Upload CB first; bind after samplers/textures (PSO already set).
+		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer(RHIContext);
+
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, InTex);
-		// Set UniformBuffer after PipelineState to ensure it's not cleared
-		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RHIContext, SF_Pixel);
 		
 		RHIContext.Draw(3);
 	}
@@ -239,8 +238,8 @@ namespace Engine
 
 			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 1.0f / (float)Size.cx;
 			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 0.0f / (float)Size.cy;
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Compute);
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer(RHIContext);
+			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RHIContext, SF_Compute);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SrcTex);
 			RHIContext.RHISetUAVParameter(0, d->BlurHorizontalBuffer);
 
@@ -255,8 +254,8 @@ namespace Engine
 
 			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.x = 0.0f / (float)Size.cx;
 			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 1.0f / (float)Size.cy;
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Compute);
-			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer();
+			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer(RHIContext);
+			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RHIContext, SF_Compute);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BlurHorizontalBuffer->GetTexture2D());
 			RHIContext.RHISetUAVParameter(0, Target);
 

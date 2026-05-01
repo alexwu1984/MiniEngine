@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "DemoRunner/Demos/IDemo.h"
 
@@ -18,25 +18,25 @@ namespace RenderCore
 
 namespace DemoRunner
 {
-	BEGIN_SHADER_STRUCT(LuquidClassContant, 0)
-		DECLARE_PARAM_VALUE(float, u_a, 2.4289f)
-		DECLARE_PARAM_VALUE(float, u_b, 4.315f)
-		DECLARE_PARAM_VALUE(float, u_c, 1.774f)
-		DECLARE_PARAM_VALUE(float, u_d, 6.900f)
-		DECLARE_PARAM_VALUE(float, u_fPower, 3.2330f)
-		DECLARE_PARAM_VALUE(float, u_noise, 0.0599f)
-		DECLARE_PARAM_VALUE(float, u_glowWeight, -0.47099f)
-		DECLARE_PARAM_VALUE(float, u_glowBias, 0.0f)
-		DECLARE_PARAM_VALUE(float, u_glowEdge0, 0.5f)
-		DECLARE_PARAM_VALUE(float, u_glowEdge1, -0.619f)
-		DECLARE_PARAM_VALUE(math::Vector2, rectHalfSize, math::Vector2(1, 1))
-		DECLARE_PARAM(math::Vector3, u_midPoint)
-		DECLARE_PARAM_VALUE(float, pad0, 0)
-		DECLARE_PARAM(math::Vector2, u_quadNDC2ScreenNDCScale)
-		DECLARE_PARAM(math::Vector2, pad1)
-		BEGIN_STRUCT_CONSTRUCT(LuquidClassContant)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct LuquidClassContant
+	{
+		float u_a{ 2.4289f };
+		float u_b{ 4.315f };
+		float u_c{ 1.774f };
+		float u_d{ 6.900f };
+		float u_fPower{ 3.2330f };
+		float u_noise{ 0.0599f };
+		float u_glowWeight{ -0.47099f };
+		float u_glowBias{ 0.0f };
+		float u_glowEdge0{ 0.5f };
+		float u_glowEdge1{ -0.619f };
+		math::Vector2 rectHalfSize{ 1.f, 1.f };
+		math::Vector3 u_midPoint{};
+		float pad0{ 0.f };
+		math::Vector2 u_quadNDC2ScreenNDCScale{};
+		math::Vector2 pad1{};
+	};
+	using LuquidClassContantWrap = RenderCore::TUniformBufferBinding<LuquidClassContant, 0u>;
 
 	class SceneCamera
 	{

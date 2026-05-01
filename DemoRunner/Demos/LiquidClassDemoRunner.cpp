@@ -1,4 +1,4 @@
-#include "DemoRunner/Demos/LiquidClassDemoRunner.h"
+﻿#include "DemoRunner/Demos/LiquidClassDemoRunner.h"
 
 #include "core/system.h"
 
@@ -8,6 +8,7 @@
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
+#include "RHI/RHIShaderDefine.h"
 
 #include "Render/Blur.h"
 
@@ -147,8 +148,7 @@ void LiquidClassDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, co
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Tex2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), RenderCore::SF_Pixel);
 	Ctx.Draw(3);
 }
 
@@ -171,8 +171,7 @@ void LiquidClassDemoRunner::LiquidClass(RenderCore::RHICommandContext& Ctx, cons
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Tex2D);
-	GET_SHADER_STRUCT_MEMBER(LuquidClassContant).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(LuquidClassContant).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(LuquidClassContant), RenderCore::SF_Pixel);
 	Ctx.Draw(3);
 }
 

@@ -1,9 +1,10 @@
-#include "DemoRunner/Demos/PostProcessDemo.h"
+﻿#include "DemoRunner/Demos/PostProcessDemo.h"
 
 #include "core/system.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIViewPort.h"
 
 PostProcessorDemo::PostProcessorDemo(RenderCore::DynamicRHI* InRHI)
@@ -50,8 +51,7 @@ void PostProcessorDemo::Draw(RenderCore::RHICommandContext& Ctx,
 	if (GET_UNIFORMDATA(cbTransition1).progress >= 1.0f)
 		GET_UNIFORMDATA(cbTransition1).progress = 0.0f;
 
-	GET_SHADER_STRUCT_MEMBER(cbTransition1).UpdateUniformBuffer();
-	GET_SHADER_STRUCT_MEMBER(cbTransition1).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Pixel);
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(cbTransition1), RenderCore::SF_Pixel);
 	Ctx.Draw(3);
 }
 

@@ -13,14 +13,14 @@
 
 namespace Engine
 {
-	BEGIN_SHADER_STRUCT(TAAContants, 0)
-		DECLARE_PARAM(math::Vector4, Resolution)
-		DECLARE_PARAM_VALUE(int32_t, FrameIndex, 0)
-		DECLARE_PARAM(math::Vector3,Pad0)
-		DECLARE_PARAM(math::Vector4, CurrentJitterPixels)
-	BEGIN_STRUCT_CONSTRUCT(TAAContants)
-		END_STRUCT_CONSTRUCT
-	END_SHADER_STRUCT
+	struct TAAContants
+	{
+		math::Vector4 Resolution{};
+		int32_t FrameIndex{ 0 };
+		math::Vector3 Pad0{};
+		math::Vector4 CurrentJitterPixels{};
+	};
+	using TAAContantsWrap = RenderCore::TUniformBufferBinding<TAAContants, 0u>;
 
 	struct TemporallAAPrivate
 	{
@@ -154,8 +154,7 @@ namespace Engine
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 2, TargetBuffer->GetMotionVector());
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 3, TargetBuffer->GetDepth());
 			RHIContext.RHISetUAVParameter(0, d->TemporalColor[Dst]);
-			d->GET_SHADER_STRUCT_MEMBER(TAAContants).UpdateUniformBuffer();
-			d->GET_SHADER_STRUCT_MEMBER(TAAContants).SetShaderUniformBuffer(RenderCore::EShaderFrequency::SF_Compute);
+			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(TAAContants), RenderCore::SF_Compute);
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 		}
 

@@ -165,9 +165,7 @@ namespace Engine
 		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
 
-		PerFrameCB.UpdateUniformBuffer();
-		PerFrameCB.SetShaderUniformBuffer(SF_Vertex);
-		PerFrameCB.SetShaderUniformBuffer(SF_Pixel);
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, PerFrameCB);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);

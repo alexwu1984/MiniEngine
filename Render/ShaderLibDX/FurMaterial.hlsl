@@ -30,8 +30,8 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 
     float3 BaseColor = AlbedoMap.Sample(SampleLinear, Input.UV1).rgb;
     float3 n = normalize(Input.Normal);
-    Output.Target2 = float4(n * 0.5 + 0.5, 0);
-    Output.Target1 = float4(Calculate3DFurVelocity(Input.svCurrPosition, Input.svPrevPosition), 0);
+    float3 nPacked = n * 0.5 + 0.5;
+    float3 FurVelocity = Calculate3DFurVelocity(Input.svCurrPosition, Input.svPrevPosition);
 
     // Defaults for fur: dielectric, full AO, medium roughness (shells refine alpha only).
     const float kMetallic = 0.0;
@@ -40,6 +40,8 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 
     if (DrawSolid.x == 1)
     {
+        Output.Target1 = float4(FurVelocity, 0);
+        Output.Target2 = float4(nPacked, 0);
         Output.Target0 = float4(BaseColor.rgb, 1.f);
         Output.Target3 = float4(0, 0, 0, 0);
         Output.Target4 = float4(kMetallic, kAO, kRough, 1.0);
@@ -54,19 +56,23 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     float Tming = 0.5;
     float Alpha = clamp((Noise * 2.0 - (FurOffset * FurOffset + (FurOffset * FurMask * 5.0))) * Tming, 0.0, 1.0);
 
-    // G-buffer path: albedo in Target0 (linear); fake rim/ambient folded into emissive so fur keeps soft look under deferred lights.
+    // BlendTraditional only blended RT0; RT1–RT4 defaulted to replace so emissive/MR/normals ignored strand Alpha — fix by matching Alpha on every target (BlendDeferredTranslucentMRT).
+    Output.Target1 = float4(FurVelocity, Alpha);
+    Output.Target2 = float4(nPacked, Alpha);
+
+    // Shell rim into emissive (after deferred analytic + IBL): Fresnel × vertex SH shaping × exposure — restores silhouette fluff.
     float3 V = normalize(myPerFrame.CameraPos.xyz - Input.WorldPos);
     float Fresnel = 1.0 - max(0.0, dot(Input.Normal, V));
     float3 RimLight = float3(Fresnel * Occlusion, Fresnel * Occlusion, Fresnel * Occlusion);
     RimLight *= RimLight;
-    RimLight *= 2.0 * Input.SH * BaseColor;
-    float3 SHL = lerp(FurColor * Input.SH, Input.SH, Occlusion);
-    float3 ExtraEmissive = SHL * FurLightExposure + RimLight * FurLightExposure;
-    float3 ShellAlbedo = BaseColor * FurLightExposure * FurAmbientStrength;
+    RimLight *= 2.0 * Input.SH * BaseColor * FurAmbientStrength;
+    float3 ExtraEmissive = RimLight * FurLightExposure;
+    // Linear base color into GBuffer like lit PBR (DeferredLighting applies diffuse/spec/IBL); avoid extra ambient pre-multiply on albedo.
+    float3 ShellAlbedo = BaseColor * FurLightExposure;
 
     Output.Target0 = float4(ShellAlbedo, Alpha);
-    Output.Target3 = float4(ExtraEmissive, 1.0);
-    Output.Target4 = float4(kMetallic, kAO, kRough, 1.0);
+    Output.Target3 = float4(ExtraEmissive, Alpha);
+    Output.Target4 = float4(kMetallic, kAO, kRough, Alpha);
 
     if (myPerFrame.bUnlit != 0)
     {

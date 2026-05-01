@@ -7,7 +7,6 @@
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12CommandList.h"
-#include "D3D12/D3D12DescriptorCache.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include "Imgui/imgui_impl_win32.h"
 #include "core/commandline.h"

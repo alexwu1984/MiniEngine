@@ -27,10 +27,14 @@ namespace RenderCore
 
 		static std::shared_ptr<RHIBlendState> BlendDisable;
 		static std::shared_ptr<RHIBlendState> BlendTraditional;
+		/** SrcAlpha * Src.RGB + InvSrcAlpha * Dst.RGB on RT0-RT4 (matches BlendTraditional RT0); use when filling deferred GBuffer with transparency so all targets blend consistently. */
+		static std::shared_ptr<RHIBlendState> BlendDeferredTranslucentMRT;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOff;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOn;
 
 		static std::shared_ptr<RHIDepthStencilState> DepthStateEnable;
+		/** LessEqual depth test on, depth write off - for blended passes (e.g. fur shells) that must not punch depth holes. */
+		static std::shared_ptr<RHIDepthStencilState> DepthStateLessEqualNoWrite;
 		static std::shared_ptr<RHIDepthStencilState> DepthStateDisable;
 	};
 }

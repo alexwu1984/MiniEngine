@@ -67,8 +67,9 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
 		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 0;
 
-		RHIContext.RHISetBlendState(RHICachedStates::BlendTraditional, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateEnable,0);
+		RHIContext.RHISetBlendState(RHICachedStates::BlendDeferredTranslucentMRT, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+		// Shells are blended: writing depth lets low-alpha fluff win the depth buffer so deferred reads wrong Z (dark rim).
+		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateLessEqualNoWrite, 0);
 		RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->NoiseTex);

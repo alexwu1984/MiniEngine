@@ -87,11 +87,11 @@ namespace Engine
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.SetRenderTarget(Targets, Depth);
-		RHIContext.RHISetGraphicsPipelineState(Init);
-		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-
 		int32_t w = GEngine->GetAppWindow()->GetWidth();
 		int32_t h = GEngine->GetAppWindow()->GetHeight();
+		RHIContext.SetViewPort(0, 0, w, h);
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
 		math::Matrix4x4 View = math::Matrix4x4::MatrixLookAtLH(math::Vector3::Zero, math::Vector3::NegUnitZ, math::Vector3::UnitY);
 		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(d->xHDRRotate));

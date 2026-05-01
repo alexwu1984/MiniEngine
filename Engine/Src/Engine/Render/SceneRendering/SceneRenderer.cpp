@@ -130,17 +130,29 @@ namespace Engine
 			GBufferIO,
 			[d, CommandContext]()
 			{
-				d->MainViewPort->SetRenderTarget();
-				d->MainViewPort->Clear(d->Color);
+				// Do not bind/clear the swapchain here: this pass only fills the off-screen GBuffer. Binding the back buffer
+				// then immediately switching to MRT wasted OM state and a full-screen clear before sky/base pass.
 				d->MainViewPort->Prepare();
 				int32_t width = GEngine->GetAppWindow()->GetWidth();
 				int32_t height = GEngine->GetAppWindow()->GetHeight();
 				CommandContext->SetViewPort(0, 0, width, height);
 
-				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
-					d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
-					d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-				CommandContext->Clear(Targets, d->TargetBuffer->GetDepth(), core::FLinearColor::Black, 1.f, 0);
+				auto DepthTex = d->TargetBuffer->GetDepth();
+				auto SceneCol = d->TargetBuffer->GetSceneColor();
+				auto Motion = d->TargetBuffer->GetMotionVector();
+				auto Emissive = d->TargetBuffer->GetEmissiveBuffer();
+				auto Normal = d->TargetBuffer->GetNormalBuffer();
+				auto MR = d->TargetBuffer->GetMetallicRoughnessBuffer();
+				// Black-only clear for motion/emissive/scene is fine. Normal+MR must use neutral dielectric defaults: SrcAlpha-
+				// blended fur shells were lerping toward black (ao=0, roughness=0), which zeros IBL diffuse (iblDiffuse*ao) and
+				// causes black fringes against the sky.
+				CommandContext->Clear(std::vector<std::shared_ptr<RenderCore::RHITexture2D>>{SceneCol, Motion, Emissive}, DepthTex,
+									  core::FLinearColor::Black, 1.f, 0);
+				CommandContext->Clear(Normal, nullptr, core::FLinearColor(0.5f, 0.5f, 1.f, 0.f), 1.f, 0);
+				CommandContext->Clear(MR, nullptr, core::FLinearColor(0.f, 1.f, 0.85f, 1.f), 1.f, 0);
+				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {SceneCol, Motion, Normal, Emissive, MR};
+				// Clear() uses CPU RTV handles only (no OM bind). Establish GBuffer as active RTs + depth for subsequent passes.
+				CommandContext->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
 			}});
 
 		Graph.AddPass(FRDGPassDescriptor{

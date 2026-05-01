@@ -106,9 +106,15 @@ float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Norm
 
 float GetRangeAttenuation(float Range, float Distance)
 {
-    if (Range < 0.0)
-        return 1.0;
-    return max(lerp(1.0, 0.0, Distance / Range), 0.0);
+    // Single accumulation variable keeps FXC happy (avoids X4000 on split returns).
+    float att = 1.0;
+    if (Range > 0.0)
+    {
+        const float denom = max(Range, 1e-5);
+        const float t = saturate(Distance / denom);
+        att = max(1.0 - t, 0.0);
+    }
+    return att;
 }
 
 float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterConeCos, float InnerConeCos)
@@ -157,15 +163,28 @@ float ChebyshevUpperBound(float2 Moments, float t, float3 Normal)
 
 float ComputeShadow(float4 ShadowCoord, float3 Normal)
 {
-    float3 position = ShadowCoord.xyz / ShadowCoord.w;
-    if (position.z <= 0.0 || position.z >= 1.0)
-        return 1.0;
-    position.xy = position.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
-    if (any(position.xy < 0.0) || any(position.xy > 1.0))
-        return 1.0;
-    float3 Moments = ShadowMap.Sample(SampleShadow, position.xy).xyz;
-    float shadow = ChebyshevUpperBound(Moments.xy, clamp(position.z, 0.0, 1.0), Normal);
-    return 1.0 - (1.0 - shadow) * Moments.z;
+    // Avoid identifier 'shadow' (reserved context); single writer avoids X4000 flow bugs.
+    float shadowFactor = 1.0;
+    const float w = ShadowCoord.w;
+    [branch]
+    if (abs(w) >= 1e-6)
+    {
+        const float3 proj = ShadowCoord.xyz / w;
+        [branch]
+        if (proj.z > 0.0 && proj.z < 1.0)
+        {
+            const float2 uvShadow = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+            [branch]
+            if (!(any(uvShadow < 0.0) || any(uvShadow > 1.0)))
+            {
+                const float3 Moments = ShadowMap.SampleLevel(SampleShadow, uvShadow, 0.0).xyz;
+                const float blockerVis = ChebyshevUpperBound(Moments.xy, clamp(proj.z, 0.0, 1.0), Normal);
+                const float penumbraWeight = Moments.z;
+                shadowFactor = 1.0 - (1.0 - blockerVis) * penumbraWeight;
+            }
+        }
+    }
+    return shadowFactor;
 }
 
 float3 ApplyDirectionalLightDeferred(float4 lightClipPos, Light light, MaterialInfo materialInfo, float3 normal, float3 view)

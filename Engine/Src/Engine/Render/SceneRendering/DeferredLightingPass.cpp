@@ -161,9 +161,8 @@ namespace Engine
 		CBPerFrameWrap PerFrameCB(RHI);
 		FillPerFrameFromView(PerFrameCB, *ViewData, Pre, WorldSceneRender);
 
-		const auto Sz = ViewPort->GetSize();
 		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
-		FRDGUtils::RHICmdListSetViewportSize(RHIContext, Sz.x, Sz.y);
+		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
 
 		PerFrameCB.UpdateUniformBuffer();
@@ -201,14 +200,20 @@ namespace Engine
 		// Must match CB filled above: view lights keep ShadowMapIndex == -1 (e.g. DirectionalLightComponent); shadow pass patches CB via TryGetCachedMainLightForShading.
 		const bool bDeferredShadow = WorldSceneRender && PerFrameCB.Data.myPerFrame.LightCount > 0
 			&& PerFrameCB.Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
+		// RHISetShaderTexture ignores nullptr; leaving t8 unstaged keeps whatever was bound last frame (validation / GPU faults).
+		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
 		if (bDeferredShadow)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 			{
 				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
-					RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowRt->GetTex());
+				{
+					if (std::shared_ptr<RHITexture2D> st = shadowRt->GetTex())
+						shadowSrvTex = std::move(st);
+				}
 			}
 		}
+		RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowSrvTex);
 
 		RHIContext.Draw(3);
 	}

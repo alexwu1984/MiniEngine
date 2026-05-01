@@ -9,7 +9,6 @@
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12GenerateMips.h"
-#include "D3D12/D3D12StateCache.h"
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12CreateStats.h"
@@ -18,6 +17,7 @@
 #include "D3D12/D3D12MemoryMonitor.h"
 #include "D3D12/D3D12RuntimeStatsMonitor.h"
 #include "RHI/RHI.h"
+#include "RHI/RHIDefinitions.h"
 #include "pix.h"
 #include "core/logger.h"
 #include "win/high_precision_tick.h"
@@ -29,6 +29,37 @@
 
 namespace RenderCore
 {
+	namespace
+	{
+		bool IsDepthStencilPixelFormat(EPixelFormat PF)
+		{
+			switch (PF)
+			{
+			case PF_DepthStencil:
+			case PF_ShadowDepth:
+			case PF_D24:
+				return true;
+			default:
+				return false;
+			}
+		}
+
+		D3D12_RESOURCE_STATES ShaderReadableStateForTexture2DSample(const D3D12Texture2D* Tex2D, bool bAsyncCompute)
+		{
+			if (!Tex2D)
+				return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			if (IsDepthStencilPixelFormat(Tex2D->GetPixelFormat()))
+				return D3D12_RESOURCE_STATE_DEPTH_READ;
+			return bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		}
+
+		// D32_FLOAT_S8X24 (etc.) exposes multiple planes; depth SRV reads plane 0 only. Transitioning every subresource to
+		// DEPTH_READ corrupts the stencil plane state and can wedge GPU validation / drivers while the CPU blocks on fences/Present.
+		bool ShouldTransitionDepthPlaneOnlyForShaderSample(const D3D12Texture2D* Tex2D, FD3D12Resource* Res)
+		{
+			return Tex2D && Res && IsDepthStencilPixelFormat(Tex2D->GetPixelFormat()) && Res->GetPlaneCount() > 1;
+		}
+	} // namespace
 	FD3D12CommandContextBase::FD3D12CommandContextBase(std::weak_ptr<FD3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext)
 		:FD3D12AdapterChild(InParent),
 		bIsDefaultContext(InIsDefaultContext),
@@ -433,15 +464,19 @@ namespace RenderCore
 		{
 			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
 			{
-				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
-					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				const bool bCompute = (ShaderType == SF_Compute);
+				const D3D12_RESOURCE_STATES TargetState = ShaderReadableStateForTexture2DSample(Texture2D, bCompute);
 				FD3D12Resource* const Res = Texture2D->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
 				{
-					const uint32_t n = Res->GetSubresourceCount();
-					for (uint32_t sub = 0; sub < n; ++sub)
-						TransitionSubResource(Res, TargetState, sub, false);
+					if (ShouldTransitionDepthPlaneOnlyForShaderSample(Texture2D, Res))
+						TransitionSubResource(Res, TargetState, 0, false);
+					else
+					{
+						const uint32_t n = Res->GetSubresourceCount();
+						for (uint32_t sub = 0; sub < n; ++sub)
+							TransitionSubResource(Res, TargetState, sub, false);
+					}
 				}
 			}
 			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
@@ -802,10 +837,12 @@ namespace RenderCore
 				continue;
 
 			D3D12_RESOURCE_STATES Target = D3D12_RESOURCE_STATE_COMMON;
+			bool bSrvDepthPlaneOnlyBarrier = false;
 			switch (D.Access)
 			{
 			case FRDGResourceAccess::SRV:
-				Target = bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				Target = ShaderReadableStateForTexture2DSample(Tex2D, bAsyncCompute);
+				bSrvDepthPlaneOnlyBarrier = ShouldTransitionDepthPlaneOnlyForShaderSample(Tex2D, Res);
 				break;
 			case FRDGResourceAccess::UAV:
 				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
@@ -827,7 +864,12 @@ namespace RenderCore
 			}
 
 			if (D.SubresourceIndex == 0xFFFFFFFFu)
-				TransitionResource(Res, Target, false);
+			{
+				if (bSrvDepthPlaneOnlyBarrier)
+					TransitionSubResource(Res, Target, 0, false);
+				else
+					TransitionResource(Res, Target, false);
+			}
 			else
 				TransitionSubResource(Res, Target, D.SubresourceIndex, false);
 		}

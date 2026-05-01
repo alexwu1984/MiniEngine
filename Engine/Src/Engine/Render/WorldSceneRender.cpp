@@ -242,9 +242,11 @@ namespace Engine
 
 		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
 
-		std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
-		d->SceneRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
-									 std::move(shadowLights), shadowProjectorScene, std::move(skyLightHdrOverride));
+		{
+			std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
+			d->SceneRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
+											std::move(shadowLights), shadowProjectorScene, std::move(skyLightHdrOverride));
+		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			[d](DynamicRHI* RHIIn)

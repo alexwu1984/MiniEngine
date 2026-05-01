@@ -16,10 +16,12 @@ namespace RenderCore
 
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendDisable;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendTraditional;
+	std::shared_ptr<RHIBlendState> RHICachedStates::BlendDeferredTranslucentMRT;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOff;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOn;
 
 	std::shared_ptr<RHIDepthStencilState> RHICachedStates::DepthStateEnable;
+	std::shared_ptr<RHIDepthStencilState> RHICachedStates::DepthStateLessEqualNoWrite;
 	std::shared_ptr<RHIDepthStencilState> RHICachedStates::DepthStateDisable;
 
 	void RHICachedStates::Initialize(DynamicRHI* RHI)
@@ -37,11 +39,18 @@ namespace RenderCore
 
 		BlendDisable = TStaticBlendState<>::CreateRHI(RHI);
 		BlendTraditional = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::CreateRHI(RHI);
+		BlendDeferredTranslucentMRT = TStaticBlendState<
+			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
+			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
+			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
+			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
+			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::CreateRHI(RHI);
 		BlendOnAlphaOff = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::CreateRHI(RHI);
 		BlendOnAlphaOn = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::CreateRHI(RHI);
 
 		DepthStateDisable = TStaticDepthStencilState<false, CF_Always>::CreateRHI(RHI);
 		DepthStateEnable = TStaticDepthStencilState<true, CF_LessEqual>::CreateRHI(RHI);
+		DepthStateLessEqualNoWrite = TStaticDepthStencilState<false, CF_LessEqual>::CreateRHI(RHI);
 
 	}
 
@@ -60,11 +69,13 @@ namespace RenderCore
 
 		BlendDisable = {};
 		BlendTraditional = {};
+		BlendDeferredTranslucentMRT = {};
 		BlendOnAlphaOff = {};
 		BlendOnAlphaOn = {};
 
 		DepthStateDisable = {};
 		DepthStateEnable = {};
+		DepthStateLessEqualNoWrite = {};
 	}
 
 }

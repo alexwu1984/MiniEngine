@@ -145,10 +145,10 @@ namespace Engine
 		}
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
-		RHIContext.RHISetGraphicsPipelineState(Init);
 		std::vector <std::shared_ptr<RenderCore::RHITexture2D>> Targets = { TargetBuffer->GetSceneColor(),TargetBuffer->GetMotionVector(),TargetBuffer->GetNormalBuffer(),
 					TargetBuffer->GetEmissiveBuffer(),TargetBuffer->GetMetallicRoughnessBuffer() };
 		RHIContext.SetRenderTarget(Targets, TargetBuffer->GetDepth());
+		RHIContext.RHISetGraphicsPipelineState(Init);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);

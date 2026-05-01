@@ -83,6 +83,11 @@ namespace win32
 		class Block
 		{
 		public:
+			enum : uint32_t
+			{
+				kGuardDead = 0,
+				kGuardLive = 0xDEBE1100u // debug heap block sentinel
+			};
 			Block()
 			{
 				for (unsigned int i = 0; i < CALLSTACK_NUM; i++)
@@ -95,12 +100,14 @@ namespace win32
 				m_bIsArray = false;
 				m_uiSize = 0;
 				m_uiStackInfoNum = 0;
+				m_Guard = kGuardDead;
 			}
 			void* pAddr[CALLSTACK_NUM];	// call stack frames captured at allocation
 			unsigned int m_uiStackInfoNum;	// number of valid stack frames
 			size_t	 m_uiSize;			// requested allocation size
 			bool m_bIsArray;				// array new[] vs single new
 			bool m_bAlignment;				// aligned allocation flag
+			uint32_t m_Guard;				// kGuardLive while in debug heap list
 			Block* m_pPrev;				// previous block in list
 			Block* m_pNext;				// next block in list
 		};
@@ -115,6 +122,7 @@ namespace win32
 		unsigned int m_uiSizeRecord[RECORD_NUM];
 		void InsertBlock(Block* pBlock);
 		void RemoveBlock(Block* pBlock);
+		bool LiveListContains(const Block* pBlock) const;
 		bool GetFileAndLine(const void* pAddress, wchar_t szFile[260], int& line);
 		bool InitDbgHelpLib();
 		void FreeLeakMem();

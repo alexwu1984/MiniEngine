@@ -1,4 +1,4 @@
-#include "Render/PostProcessPass.h"
+﻿#include "Render/PostProcessPass.h"
 #include "core/system.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
@@ -92,8 +92,8 @@ namespace Engine
 								  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const
 	{
 		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		if (BloomConstants)
 		{
@@ -201,8 +201,8 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithBloom(), nullptr);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
@@ -244,8 +244,8 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplySSR");
-		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		ViewPort->SetRenderTarget();
+		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
 		RHIContext.SetRenderTarget(TargetBuffer->GetSceneColorWithSSR(), nullptr);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);

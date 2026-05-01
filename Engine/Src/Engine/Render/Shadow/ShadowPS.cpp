@@ -106,9 +106,9 @@ namespace Engine
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
+		RHIContext.SetRenderTarget(renderTarget);
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-		RHIContext.SetRenderTarget(renderTarget);
 		//to do,set uniform buffer
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
 		d->GET_SHADER_STRUCT_MEMBER(CBPerObject).UpdateUniformBuffer();

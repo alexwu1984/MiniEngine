@@ -86,14 +86,19 @@ namespace RenderCore
 			}
 		}
 		D3D12_CPU_DESCRIPTOR_HANDLE DSV{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		bool bBindDepth = false;
 		if (DepthRHI)
 		{
 			DSV = DepthRHI->GetDSV();
-			TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+			bBindDepth = (DSV.ptr != 0u);
+			if (bBindDepth)
+				TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		}
 		// Defer barrier flush until Clear/Draw/Dispatch/Close — OMSetRenderTargets does not consume the RT/DS contents.
-		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, DepthRHI ? &DSV : nullptr);
-		CurrentStateCache->SetRenderTargetFormats(Targets, Depth);	
+		// If the depth texture exists but DSV was never created, binding &DSV with ptr==0 behaves like no DSV while
+		// PSDesc would still pick D32 — D3D12 ERROR #615 (DEPTH_STENCIL_FORMAT_MISMATCH_PIPELINE_STATE).
+		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, bBindDepth ? &DSV : nullptr);
+		CurrentStateCache->SetRenderTargetFormats(Targets, bBindDepth ? Depth : nullptr);
 		++otherWorkCounter;
 	}
 
@@ -112,12 +117,12 @@ namespace RenderCore
 		if (RenderTargetRHI && RenderTargetRHI->GetMipRTV(IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			TransitionSubResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, IndexMip, false);
-			if(RenderTargetRHI->GetDepthResource())
+			const bool bBindDsv = RenderTargetRHI->GetDepthResource() && RenderTargetRHI->GetDSV().ptr != 0u;
+			if (bBindDsv)
 				TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetMipRTV(IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
-			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
-													RenderTargetRHI->GetDepthResource() ? &DSV : nullptr);
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, bBindDsv ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
 			++otherWorkCounter;
 		}
@@ -138,12 +143,12 @@ namespace RenderCore
 				const uint32_t SubIdx = TextureCubeRHI->GetSubresourceIndex(IndexView, IndexMip);
 				TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, SubIdx, false);
 			}
-			if (TextureCubeRHI->GetDepthResource())
+			const bool bBindDsvCube = TextureCubeRHI->GetDepthResource() && TextureCubeRHI->GetDSV().ptr != 0u;
+			if (bBindDsvCube)
 				TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(IndexView, IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
-			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, 
-				TextureCubeRHI->GetDepthResource() ? &DSV : nullptr);
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, bBindDsvCube ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(TextureCubeRHI);
 			++otherWorkCounter;
 		}
@@ -164,8 +169,9 @@ namespace RenderCore
 			}
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCube->GetRTV(IndexView, IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCube->GetDSV();
+			const bool bBindDsvRaw = TextureCube->GetDepthResource() && TextureCube->GetDSV().ptr != 0u;
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE,
-				TextureCube->GetDepthResource() ? &DSV : nullptr);
+				bBindDsvRaw ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(TextureCube);
 			++otherWorkCounter;
 		}

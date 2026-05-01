@@ -173,21 +173,22 @@ namespace win32
 		pBlock->m_bAlignment = bAlignment;
 		pBlock->m_uiStackInfoNum = 0;
 		PVOID WinBackTrace[CALLSTACK_NUM];
-		short NumFrames = RtlCaptureStackBackTrace(0, CALLSTACK_NUM, WinBackTrace, NULL);
-
-#if _WIN64
-		NumFrames -= 6;
-#else
-		NumFrames -= 7;
-#endif
-
-		for (short i = 1; i < NumFrames; i++)
+		const USHORT Captured = RtlCaptureStackBackTrace(0, CALLSTACK_NUM, WinBackTrace, NULL);
+		int skip = sizeof(void*) == 8 ? 6 : 7;
+		int usable = static_cast<int>(Captured) - skip;
+		if (usable < 0)
+			usable = 0;
+		const int maxStore = static_cast<int>(CALLSTACK_NUM) - 1;
+		if (usable > maxStore)
+			usable = maxStore;
+		for (int i = 1; i <= usable; ++i)
 		{
 			pBlock->pAddr[i - 1] = WinBackTrace[i];
 			pBlock->m_uiStackInfoNum++;
 		}
 
 		InsertBlock(pBlock);
+		pBlock->m_Guard = Block::kGuardLive;
 
 		pcAddr += sizeof(Block);
 
@@ -235,23 +236,68 @@ namespace win32
 		if (!pcAddr)
 			return;
 		m_uiNumDeleteCalls++;
-		assert(pcAddr);
-		pcAddr -= sizeof(unsigned int);
 
-		unsigned int* pBeginMask = (unsigned int*)(pcAddr);
-		assert(*pBeginMask == BEGIN_MASK);
+		char* userPtr = pcAddr;
+		char* beginMaskPtr = userPtr - sizeof(unsigned int);
+		unsigned int* pBeginMask = reinterpret_cast<unsigned int*>(beginMaskPtr);
+		if (*pBeginMask != BEGIN_MASK)
+		{
+			core::outputDebugString(L"[debug_memory] delete: bad begin cookie ptr=%p (not our heap or heap corruption)\n", userPtr);
+			assert(false);
+			return;
+		}
 
-		pcAddr -= sizeof(Block);
+		char* blockBase = beginMaskPtr - sizeof(Block);
+		Block* pBlock = reinterpret_cast<Block*>(blockBase);
+		if (pBlock->m_Guard != Block::kGuardLive)
+		{
+			core::outputDebugString(L"[debug_memory] delete: bad block guard ptr=%p (double-free or stomped header)\n", userPtr);
+			assert(false);
+			return;
+		}
 
-		Block* pBlock = (Block*)pcAddr;
+		if (pBlock->m_bIsArray != bIsArray)
+		{
+			core::outputDebugString(L"[debug_memory] delete[]/delete mismatch ptr=%p\n", userPtr);
+			assert(false);
+			return;
+		}
+
+		const bool bAlignment = (uiAlignment > 0);
+		if (pBlock->m_bAlignment != bAlignment)
+		{
+			core::outputDebugString(L"[debug_memory] delete alignment flag mismatch ptr=%p\n", userPtr);
+			assert(false);
+			return;
+		}
+
+		if (m_uiNumBlocks == 0 || m_uiNumBytes < pBlock->m_uiSize)
+		{
+			core::outputDebugString(L"[debug_memory] delete: stats underflow ptr=%p\n", userPtr);
+			assert(false);
+			return;
+		}
+
+		unsigned int* pEndMask = reinterpret_cast<unsigned int*>(
+			blockBase + sizeof(Block) + sizeof(unsigned int) + pBlock->m_uiSize);
+		if (*pEndMask != END_MASK)
+		{
+			core::outputDebugString(L"[debug_memory] delete: bad end cookie ptr=%p (overflow or wrong size)\n", userPtr);
+			assert(false);
+			return;
+		}
+
+		if (!LiveListContains(pBlock))
+		{
+			core::outputDebugString(L"[debug_memory] delete: block not in live list ptr=%p (list smashed or double-free)\n", userPtr);
+			assert(false);
+			return;
+		}
+
 		RemoveBlock(pBlock);
-
-		assert(pBlock->m_bIsArray == bIsArray);
-		assert(m_uiNumBlocks > 0 && m_uiNumBytes >= pBlock->m_uiSize);
-		bool bAlignment = (uiAlignment > 0) ? true : false;
-		assert(pBlock->m_bAlignment == bAlignment);
-		unsigned int* pEndMask = (unsigned int*)(pcAddr + sizeof(Block) + sizeof(unsigned int) + pBlock->m_uiSize);
-		assert(*pEndMask == END_MASK);
+		pBlock->m_Guard = Block::kGuardDead;
+		*pBeginMask = 0;
+		*pEndMask = 0;
 
 		m_uiNumBlocks--;
 		m_uiNumBytes -= pBlock->m_uiSize;
@@ -280,22 +326,27 @@ namespace win32
 	void debug_memory::RemoveBlock(Block* pBlock)
 	{
 		if (pBlock->m_pPrev)
-		{
 			pBlock->m_pPrev->m_pNext = pBlock->m_pNext;
-		}
 		else
-		{
 			m_pHead = pBlock->m_pNext;
-		}
 
 		if (pBlock->m_pNext)
-		{
 			pBlock->m_pNext->m_pPrev = pBlock->m_pPrev;
-		}
 		else
-		{
 			m_pTail = pBlock->m_pPrev;
+
+		pBlock->m_pPrev = nullptr;
+		pBlock->m_pNext = nullptr;
+	}
+
+	bool debug_memory::LiveListContains(const Block* pBlock) const
+	{
+		for (const Block* w = m_pHead; w; w = w->m_pNext)
+		{
+			if (w == pBlock)
+				return true;
 		}
+		return false;
 	}
 
 	bool debug_memory::GetFileAndLine(const void* pAddress, wchar_t szFile[260], int& line)

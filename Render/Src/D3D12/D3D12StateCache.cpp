@@ -421,7 +421,8 @@ namespace RenderCore
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = (uint32_t)Targets.size();
 		D3D12Texture2D* DepthTex = Depth ? RHIResourceCast(Depth.get()) : nullptr;
-		PSDesc.DSVFormat = DepthTex ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
+		const bool bDepthBindable = DepthTex && DepthTex->GetDSV().ptr != 0u;
+		PSDesc.DSVFormat = bDepthBindable ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
 
@@ -455,7 +456,7 @@ namespace RenderCore
 		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = 1;
-		if (RenderTarget->GetDepthResource())
+		if (RenderTarget->GetDepthResource() && RenderTarget->GetDSV().ptr != 0u)
 			PSDesc.DSVFormat = RenderTarget->GetDepthResource()->GetDesc().Format;
 		else
 			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
@@ -478,11 +479,10 @@ namespace RenderCore
 		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
 			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
 		PSDesc.NumRenderTargets = 1;
-		if (RenderTarget->GetDepthResource())
+		if (RenderTarget->GetDepthResource() && RenderTarget->GetDSV().ptr != 0u)
 			PSDesc.DSVFormat = RenderTarget->GetDepthResource()->GetDesc().Format;
 		else
 			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
-		PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
 

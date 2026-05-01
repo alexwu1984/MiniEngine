@@ -86,8 +86,8 @@ namespace Engine
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 
-		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.SetRenderTarget(Targets, Depth);
+		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
 		int32_t w = GEngine->GetAppWindow()->GetWidth();

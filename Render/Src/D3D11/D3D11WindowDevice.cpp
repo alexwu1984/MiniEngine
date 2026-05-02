@@ -18,7 +18,7 @@ namespace RenderCore
 
 	bool D3D11RHI_ShouldAllowAsyncResourceCreation()
 	{
-		static bool bAllowAsyncResourceCreation = !core::CommandLine::Get().GetName("nod3dasync");
+		static bool bAllowAsyncResourceCreation = !core::CommandLine::Get().GetSwitch("nod3dasync");
 		return bAllowAsyncResourceCreation;
 	}
 

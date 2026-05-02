@@ -2,6 +2,7 @@
 #include "RHI/RHIShdader.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "D3D12/D3D12Limits.h"
+#include "core/commandline.h"
 #include "core/logger.h"
 #include <algorithm>
 #include <cstring>
@@ -10,6 +11,30 @@
 
 namespace RenderCore
 {
+	namespace
+	{
+		/** Debug builds default to optimized shaders (Release-like GPU cost). Pass shaderdebug=1 for PIX-friendly / steppable shaders. */
+		UINT GetD3DCompileFlagsForBuild()
+		{
+#if defined(DEBUG) || defined(_DEBUG)
+			static bool s_loggedOnce = false;
+			if (!s_loggedOnce)
+			{
+				s_loggedOnce = true;
+				if (core::CommandLine::Get().GetSwitch("shaderdebug"))
+					core::inf() << "Shader compile flags: DEBUG + SKIP_OPTIMIZATION (shaderdebug=1); GPU will be slower, better for PIX/shader breakpoints.";
+				else
+					core::inf() << "Shader compile flags: default optimized in Debug builds; pass shaderdebug=1 for PIX-friendly unoptimized shaders.";
+			}
+			if (core::CommandLine::Get().GetSwitch("shaderdebug"))
+				return D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+			return 0;
+#else
+			return 0;
+#endif
+		}
+	} // namespace
+
 	#define VERIFYHRESULT(expr) { HRESULT HR##__LINE__ = expr; if (FAILED(HR##__LINE__)) { /*UE_LOG(LogD3D11ShaderCompiler, Fatal, TEXT(#expr " failed: Result=%08x"), HR##__LINE__);*/ } }
 
 	#ifndef DXIL_FOURCC
@@ -31,18 +56,13 @@ namespace RenderCore
 		return DxcDllSupport;
 	}
 
-	win32::com_ptr<ID3DBlob> ShaderUtil::CreateShader(const std::wstring& ShaderFile, const std::string& EntryPoint, 
+	win32::com_ptr<ID3DBlob> ShaderUtil::CreateShader(const std::wstring& ShaderFile, const std::string& EntryPoint,
 		const std::string& TargetModel, const D3D_SHADER_MACRO* pDefines)
 	{
 		// Declare handles
 		win32::com_ptr<ID3DBlob> errors;
 
-#ifdef _DEBUG
-		// Enable better shader debugging with the graphics debugging tools.
-		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		UINT compileFlags = 0;
-#endif
+		const UINT compileFlags = GetD3DCompileFlagsForBuild();
 
 		win32::com_ptr<ID3DBlob> ShaderBlob;
 		HRESULT HR = D3DCompileFromFile(ShaderFile.c_str(), pDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(),
@@ -307,10 +327,7 @@ namespace RenderCore
 
 	std::vector<uint8_t> ShaderUtil::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
 	{
-		UINT compileFlags = 0;
-#if defined(DEBUG) || defined(_DEBUG)  
-		compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
+		const UINT compileFlags = GetD3DCompileFlagsForBuild();
 
 		HRESULT hr = S_OK;
 
@@ -333,10 +350,7 @@ namespace RenderCore
 
 	bool ShaderUtil::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target, ID3DBlob** ppShader)
 	{
-		UINT compileFlags = 0;
-#if defined(DEBUG) || defined(_DEBUG)  
-		compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
+		const UINT compileFlags = GetD3DCompileFlagsForBuild();
 
 		HRESULT hr = S_OK;
 		win32::com_ptr<ID3DBlob> errors;

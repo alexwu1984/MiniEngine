@@ -13,7 +13,7 @@ namespace core
 
 		void SetCommandLine(int argc, wchar_t** wargs);
 		bool GetName(const std::string& name);
-		/** Parsed switch: absent = false; name=0|false = false; bare -name / name=1 = true */
+		/** Parsed switch: key absent = off; value 0 = off; bare -name or non-zero integer = on */
 		bool GetSwitch(const std::string& name);
 		bool GetInteger(const std::string& name, int& value);
 		bool GetReal(const std::string& name, float& value);

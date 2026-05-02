@@ -138,6 +138,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 					ImGui::Text("d3ddebug=%s / dxdebug=%s",
 						core::CommandLine::Get().GetSwitch("d3ddebug") ? "on" : "off",
 						core::CommandLine::Get().GetSwitch("dxdebug") ? "on" : "off");
+#if defined(_DEBUG) || defined(DEBUG)
+					ImGui::Text("shaderdebug=%s (debug build: default optimized shaders)",
+						core::CommandLine::Get().GetSwitch("shaderdebug") ? "on (slow GPU)" : "off");
+#endif
 				}
 				ImGui::Separator();
 				demo->OnGui();

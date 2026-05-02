@@ -65,7 +65,7 @@ namespace RenderCore
 		for (;;)
 		{
 			win32::com_ptr<IDXGIOutput> Output;
-			HRESULT hr = Adapter->EnumOutputs(OutputCount, Output.getpp());
+			HRESULT hr = Adapter->EnumOutputs(OutputCount, Output.get_init_ref());
 			if (FAILED(hr))
 			{
 				break;
@@ -204,7 +204,7 @@ namespace RenderCore
 	{
 		C_P(D3D11DynamicRHI);
 		if (!d->DXGIFactory1)
-			SafeCreateDXGIFactory(&d->DXGIFactory1);
+			SafeCreateDXGIFactory(d->DXGIFactory1.get_init_ref());
 		win32::com_ptr<IDXGIFactory6> DXGIFactory6;
 		d->DXGIFactory1->QueryInterface(__uuidof(IDXGIFactory6), DXGIFactory6.getvv());
 
@@ -352,7 +352,7 @@ namespace RenderCore
 	{
 		C_P(D3D11DynamicRHI);
 		if(!d->DXGIFactory1)
-			SafeCreateDXGIFactory(d->DXGIFactory1.getpp());
+			SafeCreateDXGIFactory(d->DXGIFactory1.get_init_ref());
 
 		if (!d->ChosenAdapter.IsValid())
 		{

@@ -35,7 +35,7 @@ namespace RenderCore
 		UAVDesc.Texture2D.MipSlice = MipLevel;
 		UAVDesc.Format = FindShaderResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[Tex2D->GetPixelFormat()].PlatformFormat, false);
 		auto Device = d->D3D11RHI->GetDevice();
-		VERIFYD3DRESULT(Device->CreateUnorderedAccessView(D3D11Tex->GetNativeTex(), &UAVDesc, d->UnorderedAccessView.getpp()));
+		VERIFYD3DRESULT(Device->CreateUnorderedAccessView(D3D11Tex->GetNativeTex(), &UAVDesc, d->UnorderedAccessView.get_init_ref()));
 		return d->UnorderedAccessView.is_valid();
 	}
 

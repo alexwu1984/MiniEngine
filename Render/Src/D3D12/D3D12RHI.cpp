@@ -117,7 +117,7 @@ namespace RenderCore
 
 		// Try to create the DXGIFactory.  This will fail if we're not running Vista.
 		win32::com_ptr<IDXGIFactory4> DXGIFactory;
-		SafeCreateDXGIFactory(DXGIFactory.getpp());
+		SafeCreateDXGIFactory(DXGIFactory.get_init_ref());
 		if (!DXGIFactory)
 		{
 			return;

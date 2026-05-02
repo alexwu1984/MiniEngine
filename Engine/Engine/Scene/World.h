@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "core/inc.h"
-#include "core/event.h"
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowMap.h"
@@ -23,8 +22,8 @@ namespace Engine
 
 		/** Spawn actors/lights from scene JSON (game content). Full scene swap is SceneManager::ReloadSceneJson. */
 		void LoadScene(const std::wstring& ModelFile);
-		/** After LoadScene on a ReplaceWorld-style swap: invalidate primary camera temporal view state (pairs with FWorldSceneRender scene-transition GPU reset). */
-		void ApplySceneTransitionPrimaryCameraState();
+		/** After LoadScene when the world context changed: primary camera temporal / jitter / history (UE LocalPlayer ViewState analogue). */
+		void InvalidatePrimaryViewStateAfterSceneCut();
 		void AddActor(std::shared_ptr<Actor> actor);
 		void RemoveActor(std::shared_ptr<Actor> actor);
 		void RemoveAllActors();
@@ -79,9 +78,6 @@ namespace Engine
 
 		/** True if current scene JSON listed a RoamCamera entry (after last LoadScene). */
 		bool UsesRoamCameraScene() const;
-
-		/** Fired when actors are removed or lists cleared; rendering uses this to drop stale mesh-material caches (pointer keys). Not emitted from LoadScene. */
-		core::event<void()> sigSceneActorRenderResourcesInvalidated;
 
 	private:
 		WorldPrivate* d_ptr = nullptr;

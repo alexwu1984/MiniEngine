@@ -89,15 +89,6 @@ namespace Engine
 		if (!CommandContext)
 			return;
 
-		if (WorldSceneForFrame)
-		{
-			if (WorldSceneForFrame->ConsumeMeshMaterialCacheInvalidatePending())
-			{
-				if (FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame->GetMeshMaterialRenderCache())
-					MeshCache->Clear();
-			}
-		}
-
 		if (d->PreProcess)
 			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrOverrideForFrame));
 		SkyLightHdrOverrideForFrame.reset();

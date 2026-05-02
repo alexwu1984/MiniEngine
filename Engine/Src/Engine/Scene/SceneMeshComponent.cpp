@@ -15,6 +15,8 @@
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
 #include "Scene/World.h"
+#include "Scene/FScene.h"
+#include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
 #include "Engine/Engine.h"
@@ -36,6 +38,39 @@ namespace Engine
 		std::shared_ptr<SceneModelAsset> Asset;
 		bool bProjectShadow = false;
 	};
+
+	namespace
+	{
+		bool TryGetDrawableMeshAtOrdinal(SceneMeshComponentPrivate* D, uint32_t Ordinal, std::shared_ptr<MeshBase>& OutMesh)
+		{
+			if (!D)
+				return false;
+			if (const auto PM = std::get_if<ProceduralModel>(&D->Model))
+			{
+				if (Ordinal >= PM->Meshes.size())
+					return false;
+				OutMesh = PM->Meshes[static_cast<size_t>(Ordinal)];
+				return static_cast<bool>(OutMesh);
+			}
+			if (const auto GM = std::get_if<GltfModel>(&D->Model))
+			{
+				const auto& List = GM->GetModelMesh();
+				if (Ordinal >= List.size())
+					return false;
+				OutMesh = List[static_cast<size_t>(Ordinal)];
+				return static_cast<bool>(OutMesh);
+			}
+			if (const auto OM = std::get_if<AssimpModel>(&D->Model))
+			{
+				const auto& List = OM->GetModelMesh();
+				if (Ordinal >= List.size())
+					return false;
+				OutMesh = List[static_cast<size_t>(Ordinal)];
+				return static_cast<bool>(OutMesh);
+			}
+			return false;
+		}
+	} // namespace
 
 	SceneMeshComponent::SceneMeshComponent(std::weak_ptr<Actor> Owner)
 		:Component(Owner)
@@ -212,6 +247,95 @@ namespace Engine
 			}
 		}
 
+	}
+
+	std::vector<uint64_t> SceneMeshComponent::BuildMeshMaterialRenderCacheStableSlotKeys()
+	{
+		C_P(SceneMeshComponent);
+		std::vector<uint64_t> Out;
+		const std::shared_ptr<Actor> OwnerActor = GetOwner();
+		if (!OwnerActor)
+			return Out;
+		const uint64_t ActorStable = OwnerActor->GetStableInstanceId();
+		const uint64_t CompStable = GetStableComponentInstanceId();
+		for (uint32_t Ordinal = 0;; ++Ordinal)
+		{
+			std::shared_ptr<MeshBase> M;
+			if (!TryGetDrawableMeshAtOrdinal(d, Ordinal, M) || !M || !M->GetMaterial())
+				break;
+			Out.push_back(BuildMeshMaterialRenderCacheKey(ActorStable, CompStable, Ordinal, M->GetMaterial()->GetStableMaterialInstanceId()));
+		}
+		return Out;
+	}
+
+	void SceneMeshComponent::MarkMeshMaterialRenderResourcesDirty()
+	{
+		const std::shared_ptr<Actor> OwnerActor = GetOwner();
+		if (!OwnerActor)
+			return;
+		const std::shared_ptr<World> W = OwnerActor->GetWorld();
+		if (!W)
+			return;
+		const std::shared_ptr<FScene> ScenePtr = W->GetScene();
+		if (!ScenePtr)
+			return;
+		const std::vector<uint64_t> SlotKeys = BuildMeshMaterialRenderCacheStableSlotKeys();
+		if (SlotKeys.empty())
+			return;
+		std::weak_ptr<FScene> WeakScene = ScenePtr;
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[WeakScene, SlotKeys](RenderCore::DynamicRHI* RHI)
+			{
+				(void)RHI;
+				std::shared_ptr<FScene> S = WeakScene.lock();
+				if (!S)
+					return;
+				FMeshMaterialRenderCache* const Cache = S->GetMeshMaterialRenderCache();
+				if (!Cache)
+					return;
+				for (const uint64_t K : SlotKeys)
+				{
+					if (K != 0)
+						Cache->InvalidateByStableSlotKey(K);
+				}
+			},
+			false);
+		FlushRenderingCommands();
+	}
+
+	void SceneMeshComponent::MarkMeshMaterialRenderSlotDirty(uint32_t MeshOrdinalWithinComponent)
+	{
+		C_P(SceneMeshComponent);
+		std::shared_ptr<MeshBase> M;
+		if (!TryGetDrawableMeshAtOrdinal(d, MeshOrdinalWithinComponent, M) || !M || !M->GetMaterial())
+			return;
+		const std::shared_ptr<Actor> OwnerActor = GetOwner();
+		if (!OwnerActor)
+			return;
+		const uint64_t SlotKey = BuildMeshMaterialRenderCacheKey(
+			OwnerActor->GetStableInstanceId(),
+			GetStableComponentInstanceId(),
+			MeshOrdinalWithinComponent,
+			M->GetMaterial()->GetStableMaterialInstanceId());
+		const std::shared_ptr<World> W = OwnerActor->GetWorld();
+		if (!W)
+			return;
+		const std::shared_ptr<FScene> ScenePtr = W->GetScene();
+		if (!ScenePtr)
+			return;
+		std::weak_ptr<FScene> WeakScene = ScenePtr;
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[WeakScene, SlotKey](RenderCore::DynamicRHI* RHI)
+			{
+				(void)RHI;
+				std::shared_ptr<FScene> S = WeakScene.lock();
+				if (!S)
+					return;
+				if (FMeshMaterialRenderCache* Cache = S->GetMeshMaterialRenderCache())
+					Cache->InvalidateByStableSlotKey(SlotKey);
+			},
+			false);
+		FlushRenderingCommands();
 	}
 
 	bool SceneMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum)

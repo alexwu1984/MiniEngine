@@ -3,7 +3,6 @@
 #include "Render/RenderStableIds.h"
 #include <cstddef>
 #include <cstdint>
-#include <mutex>
 #include <unordered_map>
 
 namespace Engine
@@ -13,6 +12,7 @@ namespace Engine
 	/** Stable logical slot + GPU/resource identities — avoids lone-hash collisions; cache is owned per FScene (World lifetime). */
 	struct FMaterialRenderCacheLookupKey
 	{
+		/** BuildMeshMaterialRenderCacheKey: Actor + Component + mesh ordinal + Material instance (component is already in the mix). */
 		uint64_t StableSlotKey = 0;
 		uintptr_t MeshBuffer = 0;
 		uintptr_t Material = 0;
@@ -36,15 +36,18 @@ namespace Engine
 		}
 	};
 
-	/** Caches MaterialRender instances for deferred base passes. */
+	/**
+	 * Caches MaterialRender instances for deferred base passes.
+	 * Threading: render worker only (same thread as SceneRenderer::Render and ENQUEUE mesh-cache invalidates). No mutex.
+	 */
 	class FMeshMaterialRenderCache
 	{
 	public:
 		std::shared_ptr<MaterialRender> GetOrCreate(std::shared_ptr<MeshBase> Mesh, uint64_t StableMaterialRenderCacheKey);
+		void InvalidateByStableSlotKey(uint64_t StableSlotKey) noexcept;
 		void Clear() noexcept;
 
 	private:
-		std::mutex Mutex;
 		std::unordered_map<FMaterialRenderCacheLookupKey, std::shared_ptr<MaterialRender>, FMaterialRenderCacheLookupKeyHash> CachedRenders;
 	};
 }

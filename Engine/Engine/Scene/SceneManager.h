@@ -17,13 +17,10 @@ namespace Engine
 
 		std::shared_ptr<World> GetWorld() const { return World_; }
 
-		/** Called once engine wiring exists; OwnerEngine used as sig subscriber for unbind on shutdown/reload. */
+		/** Called once after engine wiring (weak_ptrs to viewport + scene render). */
 		void AttachClients(MainEngine* OwnerEngine,
 						   const std::shared_ptr<GameViewportClient>& ViewportClient,
 						   const std::shared_ptr<FWorldSceneRender>& SceneRender);
-
-		void BindInvalidateToCurrentWorld();
-		void UnbindInvalidateFromCurrentWorld();
 
 		void ReloadSceneJson(const std::wstring& JsonPath);
 

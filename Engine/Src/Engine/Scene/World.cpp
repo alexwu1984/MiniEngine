@@ -197,7 +197,6 @@ namespace Engine
 
 	World::~World()
 	{
-		sigSceneActorRenderResourcesInvalidated.unbindall();
 		delete d_ptr;
 		d_ptr = nullptr;
 	}
@@ -282,41 +281,31 @@ namespace Engine
 	void World::RemoveActor(std::shared_ptr<Actor> actor)
 	{
 		C_P(World);
-		bool bRemoved = false;
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
+		if (iter != d->PendingActors.end())
 		{
-			std::lock_guard<std::recursive_mutex> l(d->lock);
-			auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
-			if (iter != d->PendingActors.end())
-			{
-				std::iter_swap(iter, d->PendingActors.end() - 1);
-				d->PendingActors.pop_back();
-				bRemoved = true;
-			}
-
-			iter = std::find(d->Actors.begin(), d->Actors.end(), actor);
-			if (iter != d->Actors.end())
-			{
-				std::iter_swap(iter, d->Actors.end() - 1);
-				d->Actors.pop_back();
-				bRemoved = true;
-			}
-			RefreshShadowProjectorForActor(nullptr);
+			std::iter_swap(iter, d->PendingActors.end() - 1);
+			d->PendingActors.pop_back();
 		}
-		if (bRemoved)
-			sigSceneActorRenderResourcesInvalidated();
+
+		iter = std::find(d->Actors.begin(), d->Actors.end(), actor);
+		if (iter != d->Actors.end())
+		{
+			std::iter_swap(iter, d->Actors.end() - 1);
+			d->Actors.pop_back();
+		}
+		RefreshShadowProjectorForActor(nullptr);
 	}
 
 	void World::RemoveAllActors()
 	{
 		C_P(World);
-		{
-			std::lock_guard<std::recursive_mutex> l(d->lock);
-			d->Actors.clear();
-			d->PendingActors.clear();
-			d->MainCamera.reset();
-			RefreshShadowProjectorForActor(nullptr);
-		}
-		sigSceneActorRenderResourcesInvalidated();
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		d->Actors.clear();
+		d->PendingActors.clear();
+		d->MainCamera.reset();
+		RefreshShadowProjectorForActor(nullptr);
 	}
 
 	void World::DispatchInput(const InputDeviceState& InputState)
@@ -363,14 +352,12 @@ namespace Engine
 		d->MainCamera = Camera;
 	}
 
-	void World::ApplySceneTransitionPrimaryCameraState()
+	void World::InvalidatePrimaryViewStateAfterSceneCut()
 	{
-		// Temporal: camera-side invalidation (gen++, prev/jitter/frame counters). Pairs with PostProcessor::InvalidateTransientResources
-		// on the render path — see FWorldSceneRender::RequestRenderingResetAfterSceneTransition.
-		// - TemporalHistoryGeneration → FSceneViewData → TemporallAA::Draw / SSRProcessor mismatch branch (logical "new history").
-		// - bTemporalPrevMatricesValid=false → next Tick's EnsureTemporalPrevMatricesInitialized snaps prev view/proj/jitter
-		//   (MainEngine::Tick runs ViewportClient TickSimulation before SeRender::Render, so order is safe).
-		// TAACS.hlsl uses FrameIndex<=1 as bootstrap; TemporallAA sets that when First after a gen change.
+		// Camera-side temporal invalidation (generation, prev/jitter/frame counters). UE: FSceneViewState / view history invalidation.
+		// Pairs with FWorldSceneRender::NotifyWorldRenderingSceneChanged (renderer transients + PP temporal).
+		// - TemporalHistoryGeneration → FSceneViewData → TemporallAA / SSR bootstrap.
+		// - bTemporalPrevMatricesValid=false → next Tick's EnsureTemporalPrevMatricesInitialized (ViewportClient tick before Render).
 		if (const auto cam = GetMainCamera())
 			cam->MarkTemporalHistoryStaleAfterSceneCut();
 	}

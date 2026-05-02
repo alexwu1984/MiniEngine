@@ -33,10 +33,12 @@ namespace Engine
 		void ShutDown();
 		void LoadConfig(const std::wstring& FileName, const nlohmann::json& Root);
 		/**
-		 * Replace FWorldSceneRender (viewport pipelines, caches, scene gen) while keeping RHI viewport.
-		 * Call after SceneManager points at the new World, before LoadScene so LoadConfig hits the new renderer.
+		 * After SceneManager adopts a new World: call FWorldSceneRender::SetWorld only (non-owning bind).
+		 * FWorldSceneRender and GPU pipeline (targets, shadows, PP, RDG companions) stay alive; scene data comes from new World/shared_ptr<FScene>.
 		 */
-		void RecreateWorldSceneRenderForSceneSwap();
+		void RebindSceneRenderToCurrentWorld();
+		/** After LoadScene during a world swap: invalidate primary view temporal state + viewport renderer transients (UE ViewState + Renderer split). */
+		void FinalizeViewportRenderingAfterSceneCut();
 		/** Delegates to SceneManager::ReloadSceneJson (replace World + LoadScene). */
 		void ReloadSceneJson(const std::wstring& JsonPath);
 		std::shared_ptr<SceneManager> GetSceneManager() const;

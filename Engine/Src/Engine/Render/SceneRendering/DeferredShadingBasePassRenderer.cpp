@@ -32,7 +32,8 @@ namespace Engine
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
+				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
 			}
 		}
 		for (const auto& Key : SortedKeys)
@@ -40,7 +41,8 @@ namespace Engine
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
 			if (Mesh->GetMaterial()->IsTransparent())
 			{
-				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
+				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
 			}
 		}
 	}
@@ -58,7 +60,8 @@ namespace Engine
 				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
 				if (Mesh->GetMaterial()->IsTransparent())
 				{
-					FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
+					FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
 				}
 			}
 		}
@@ -71,7 +74,8 @@ namespace Engine
 				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
 				if (Mesh->GetMaterial()->IsTransparent())
 				{
-					FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
+					FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
 				}
 			}
 		}

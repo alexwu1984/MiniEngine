@@ -21,7 +21,8 @@ namespace Engine
 	class CubeBackground;
 
 	/**
-	 * World-scoped scene rendering entry: viewport, scene textures/post/shadow resources, and game-thread submission.
+	 * Long-lived viewport + render pipeline owner (textures, preprocess, shadows, deferred, postprocess).
+	 * Current World/FScene resolve each frame via a non-owning world ref; scene swap only rebinds that ref (UE-style SetWorld naming).
 	 * Paired with FSceneRenderer, which records exactly one submitted frame on the render thread.
 	 */
 	class FWorldSceneRender : public std::enable_shared_from_this<FWorldSceneRender>
@@ -30,7 +31,8 @@ namespace Engine
 		FWorldSceneRender(std::weak_ptr<World> Owner);
 		~FWorldSceneRender();
 		std::shared_ptr<World> GetWorld() const;
-		void SetWorldWeak(std::weak_ptr<World> Owner);
+		/** Non-owning association (std::weak_ptr); matches UE viewport “SetWorld(InWorld)” without spelling out storage. */
+		void SetWorld(std::weak_ptr<World> InWorld);
 
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 		void LoadConfig(const nlohmann::json& Root);
@@ -45,20 +47,16 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
 		/**
-		 * After ReplaceWorld + LoadScene: bump mesh-material scene gen, invalidate mesh cache flag, clear shadow caches;
-		 * render thread: InitDefaultSceneTargets + PostProcessor::InvalidateTransientResources (TAA/SSR/Bloom temporals); Flush.
-		 * Pair with ApplySceneTransitionPrimaryCameraState() (camera TemporalHistoryGeneration / prev matrices / jitter).
+		 * UE Renderer batch: shadow pass persistent caches + recycle viewport-sized scene targets + invalidate temporal post-process state.
+		 * Call from game thread after LoadScene when the logical world behind the viewport changed; pairs with World::InvalidatePrimaryViewStateAfterSceneCut.
 		 */
-		void RequestRenderingResetAfterSceneTransition();
+		void NotifyWorldRenderingSceneChanged();
 
 		/**
-		 * Game thread: enqueue mesh/material cache clear on the render thread and flush.
-		 * Call after GPU idle when replacing World — keys use raw pointers that allocators may recycle immediately after teardown.
+		 * UE426 analogue: flush mesh-material draw cache only when replacing World (ReloadSceneJson), before old FScene teardown.
+		 * Pointer-keyed caches are not cleared on RemoveActor; primitives are re-gathered each frame from FScene.
 		 */
 		void FlushClearMeshMaterialRenderCacheNow();
-
-		/** Request clearing the mesh draw cache on the next render (cache keys are raw pointers). Actor/resource churn uses this alone. */
-		void RequestMeshMaterialRenderCacheInvalidate();
 
 	private:
 		/** Game thread: gather views/primitives, Submit to FSceneRenderer, enqueue render-thread work. */

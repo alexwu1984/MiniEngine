@@ -53,6 +53,17 @@ namespace Engine
 			{
 			}
 		}
+
+		/** UE Renderer-side: recycle scene-target surfaces at WxH + drop temporal history in post (TAA/SSR/Bloom, etc.). Invoked from render-thread lambdas only. */
+		static void RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(FWorldSceneRenderPrivate* d, uint32_t W, uint32_t H)
+		{
+			if (!d || W == 0 || H == 0)
+				return;
+			if (d->TargetBuffer)
+				d->TargetBuffer->InitDefaultSceneTargets(W, H);
+			if (d->PostProcess)
+				d->PostProcess->InvalidateTransientResources();
+		}
 	} // namespace
 
 	FWorldSceneRender::FWorldSceneRender(std::weak_ptr<World> Owner)
@@ -73,10 +84,10 @@ namespace Engine
 		return d->Owner.lock();
 	}
 
-	void FWorldSceneRender::SetWorldWeak(std::weak_ptr<World> Owner)
+	void FWorldSceneRender::SetWorld(std::weak_ptr<World> InWorld)
 	{
 		FWorldSceneRenderPrivate* d = d_ptr.get();
-		d->Owner = std::move(Owner);
+		d->Owner = std::move(InWorld);
 	}
 
 	void FWorldSceneRender::InitResource(std::shared_ptr<RHIViewPort> ViewPort)
@@ -159,10 +170,7 @@ namespace Engine
 			[dLife = d_ptr, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI)
 			{
 				dLife->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
-				if (dLife->TargetBuffer)
-					dLife->TargetBuffer->InitDefaultSceneTargets(InSizeX, InSizeY);
-				if (dLife->PostProcess)
-					dLife->PostProcess->InvalidateTransientResources();
+				RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(dLife.get(), InSizeX, InSizeY);
 			});
 	}
 
@@ -208,70 +216,47 @@ namespace Engine
 		return d->MainViewPort;
 	}
 
-	void FWorldSceneRender::RequestMeshMaterialRenderCacheInvalidate()
+	void FWorldSceneRender::FlushClearMeshMaterialRenderCacheNow()
 	{
 		const std::shared_ptr<World> w = GetWorld();
 		if (!w)
 			return;
 		const std::shared_ptr<FScene> scene = w->GetScene();
-		if (scene)
-			scene->RequestMeshMaterialRenderCacheInvalidate();
-	}
-
-	void FWorldSceneRender::FlushClearMeshMaterialRenderCacheNow()
-	{
-		const std::shared_ptr<World> w = GetWorld();
-		const std::shared_ptr<FScene> scene = w ? w->GetScene() : nullptr;
 		if (!scene || !scene->GetMeshMaterialRenderCache())
 			return;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			[scene](RenderCore::DynamicRHI* RHI)
 			{
 				(void)RHI;
-				if (scene && scene->GetMeshMaterialRenderCache())
-					scene->GetMeshMaterialRenderCache()->Clear();
+				if (FMeshMaterialRenderCache* cache = scene->GetMeshMaterialRenderCache())
+					cache->Clear();
 			},
 			false);
 		FlushRenderingCommands();
-		scene->ClearMeshMaterialCacheInvalidatePending();
 	}
 
-	// Full reload sequence (typical: SceneManager::ReloadSceneJson):
-	//   (1) FlushRenderingCommands + RHI::Wait — drain render work; GPU idle before destroying old World GPU resources.
-	//   (2) Old FWorldSceneRender: FlushClearMeshMaterialRenderCacheNow (old World's FScene cache on RT). ~ShadowRenderPass clears shadow map.
-	//   (3) New World, RecreateWorldSceneRenderForSceneSwap, BindInvalidate, LoadScene Json.
-	//   (4) FlushRenderingCommands — drain LoadScene / IBL / preprocess enqueue from the new world.
-	//   (5) World::ApplySceneTransitionPrimaryCameraState — TAA/SSR *camera* path: TemporalHistoryGeneration, prev matrices, jitter, frame index.
-	//   (6) This API — TAA/SSR *GPU* path: PostProcessor::InvalidateTransientResources (pooled TAA/SSR/Bloom/FXAA); often no-op TAA UAVs right
-	//       after full Recreate (new TemporallAA, null histories); still needed for resize, partial transitions, SSR history content.
-	//   Shader/mesh issues: D3D11 macro cache, ShadowPS layout, D3D12 VB upload — elsewhere; RHIClearState was optional and removed.
-	void FWorldSceneRender::RequestRenderingResetAfterSceneTransition()
+	void FWorldSceneRender::NotifyWorldRenderingSceneChanged()
 	{
+		// UE analogue: batch renderer invalidation when the scene context behind the viewport changes (ReloadSceneJson tail).
+		// View/camera temporal state: World::InvalidatePrimaryViewStateAfterSceneCut (FSceneViewState-like) via MainEngine::FinalizeViewportRenderingAfterSceneCut.
 		std::shared_ptr<FWorldSceneRenderPrivate> dLife = d_ptr;
 		if (!dLife)
 			return;
 
-		// Fresh ShadowRenderPass after RecreateWorldSceneRenderForSceneSwap: shadow cache is already empty; only light cache matters.
-		if (dLife->ShadowRender)
-			dLife->ShadowRender->InvalidateCachedMainLightForShading();
+		core::vec2u Sz{};
+		if (dLife->MainViewPort)
+			Sz = dLife->MainViewPort->GetSize();
 
-		if (!dLife->MainViewPort)
-			return;
-		const auto Sz = dLife->MainViewPort->GetSize();
-		if (Sz.cx <= 0 || Sz.cy <= 0)
-			return;
-
-		// Render-thread leg: copy of d_ptr keeps FWorldSceneRenderPrivate alive until this command runs (no cycle: Private
-		// only holds weak_ptr<World> and raw back-refs via SceneRenderer). FlushRenderingCommands drains the queue, the lambda
-		// is destroyed, and the extra ref is released — same pattern as FlushClearMeshMaterialRenderCacheNow.
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			[dLife, Sz](RenderCore::DynamicRHI* RHI)
 			{
 				(void)RHI;
-				if (dLife->TargetBuffer)
-					dLife->TargetBuffer->InitDefaultSceneTargets(Sz.cx, Sz.cy);
-				if (dLife->PostProcess)
-					dLife->PostProcess->InvalidateTransientResources();
+				if (dLife->ShadowRender)
+				{
+					dLife->ShadowRender->InvalidateCachedMainLightForShading();
+					dLife->ShadowRender->ClearCachedMeshShadowPasses();
+				}
+				RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(dLife.get(), Sz.w, Sz.h);
 			},
 			false);
 		FlushRenderingCommands();

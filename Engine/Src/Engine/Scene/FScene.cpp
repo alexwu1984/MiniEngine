@@ -1,10 +1,11 @@
 ﻿#include "Scene/FScene.h"
-#include <algorithm>
 #include "Scene/SceneMeshComponent.h"
 #include "Scene/Actor.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
+#include "Thread/RenderThread.h"
+
 
 namespace Engine
 {
@@ -60,6 +61,28 @@ namespace Engine
 	{
 		if (!MeshComp)
 			return;
+		const std::vector<uint64_t> SlotKeys = MeshComp->BuildMeshMaterialRenderCacheStableSlotKeys();
+		if (!SlotKeys.empty())
+		{
+			std::weak_ptr<FScene> WeakLife = weak_from_this();
+			ENQUEUE_UNIQUE_RENDER_COMMAND(
+				[WeakLife, SlotKeys](RenderCore::DynamicRHI* RHI)
+				{
+					(void)RHI;
+					std::shared_ptr<FScene> S = WeakLife.lock();
+					if (!S)
+						return;
+					FMeshMaterialRenderCache* const Cache = S->GetMeshMaterialRenderCache();
+					if (!Cache)
+						return;
+					for (const uint64_t K : SlotKeys)
+					{
+						if (K != 0)
+							Cache->InvalidateByStableSlotKey(K);
+					}
+				},
+				false);
+		}
 		std::lock_guard<std::mutex> Lock(Mutex);
 		Primitives.erase(std::remove_if(Primitives.begin(), Primitives.end(),
 										 [&](const std::shared_ptr<FPrimitiveSceneProxy>& P) { return P->LockMesh() == MeshComp; }),
@@ -86,20 +109,5 @@ namespace Engine
 	const FMeshMaterialRenderCache* FScene::GetMeshMaterialRenderCache() const noexcept
 	{
 		return MeshMaterialRenderCache.get();
-	}
-
-	void FScene::RequestMeshMaterialRenderCacheInvalidate() noexcept
-	{
-		bMeshMaterialCacheInvalidatePending.store(true, std::memory_order_release);
-	}
-
-	bool FScene::ConsumeMeshMaterialCacheInvalidatePending() noexcept
-	{
-		return bMeshMaterialCacheInvalidatePending.exchange(false, std::memory_order_acq_rel);
-	}
-
-	void FScene::ClearMeshMaterialCacheInvalidatePending() noexcept
-	{
-		bMeshMaterialCacheInvalidatePending.store(false, std::memory_order_release);
 	}
 } // namespace Engine

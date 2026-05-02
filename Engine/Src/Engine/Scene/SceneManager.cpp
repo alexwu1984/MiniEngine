@@ -25,28 +25,6 @@ namespace Engine
 			SceneRender_ = SceneRender;
 	}
 
-	void SceneManager::BindInvalidateToCurrentWorld()
-	{
-		if (!OwnerEngine_ || !World_)
-			return;
-		const auto sr = SceneRender_.lock();
-		if (!sr)
-			return;
-		World_->sigSceneActorRenderResourcesInvalidated.bind(
-			std::function<void()>([wpSceneRender = std::weak_ptr<FWorldSceneRender>(sr)]() {
-				if (const auto s = wpSceneRender.lock())
-					s->RequestMeshMaterialRenderCacheInvalidate();
-			}),
-			OwnerEngine_);
-	}
-
-	void SceneManager::UnbindInvalidateFromCurrentWorld()
-	{
-		if (!OwnerEngine_ || !World_)
-			return;
-		World_->sigSceneActorRenderResourcesInvalidated.unbind(OwnerEngine_);
-	}
-
 	void SceneManager::ReloadSceneJson(const std::wstring& JsonPath)
 	{
 		if (!OwnerEngine_)
@@ -61,40 +39,31 @@ namespace Engine
 		FlushRenderingCommands();
 		OwnerEngine_->GetRHI()->Wait();
 
-		// 2) Old World's FScene: clear mesh-material cache on the render thread before ~World.
-		//    (Avoids many MaterialRender::~ each WaitForFinish on the game thread when the map is torn down.)
-		//    Shadow mesh→ShadowPS map lives on FWorldSceneRender and is released in ~ShadowRenderPass — no manual clear here.
-		if (const auto sr = SceneRender_.lock())
-			sr->FlushClearMeshMaterialRenderCacheNow();
+		// 2) UE426-style: flush mesh-material draw cache only when replacing World (pointer-keyed caches; before ~FScene).
+		//    Shadow/mesh caches on FWorldSceneRender: FinalizeViewportRenderingAfterSceneCut.
+		if (const auto srFlush = SceneRender_.lock())
+			srFlush->FlushClearMeshMaterialRenderCacheNow();
 
-		// 3) Old World's render-invalidate delegate.
-		UnbindInvalidateFromCurrentWorld();
-
-		// 4) New World; viewport weak ref + clear queued input (old roam must not move new camera).
+		// 3) New World; viewport weak ref + clear queued input (old roam must not move new camera).
 		auto newWorld = std::make_shared<World>();
-		vc->SetWorldWeak(std::weak_ptr<World>(newWorld));
+		vc->SetWorld(std::weak_ptr<World>(newWorld));
 		vc->ClearPendingInput();
 
 		std::shared_ptr<World> oldWorld = World_;
 		World_ = std::move(newWorld);
 		oldWorld.reset();
 
-		// 5) New FWorldSceneRender (new shadow pass / RDG targets path; mesh-material cache is on new World's FScene). Rebind invalidate.
-		OwnerEngine_->RecreateWorldSceneRenderForSceneSwap();
-		BindInvalidateToCurrentWorld();
+		// 4) Rebind long-lived FWorldSceneRender -> new World; FScene/primitive lifetimes belong to World.
+		OwnerEngine_->RebindSceneRenderToCurrentWorld();
 
-		// 6) Load Json (may enqueue IBL / pre / post on render thread).
+		// 5) Load Json (may enqueue IBL / pre / post on render thread).
 		if (World_)
 			World_->LoadScene(JsonPath);
 		FlushRenderingCommands();
 
-		// 7) Primary camera: mark temporal/history stale (pairs post-process reset in step 8).
-		if (World_)
-			World_->ApplySceneTransitionPrimaryCameraState();
-
-		// 8) InitDefaultSceneTargets + InvalidateTransientResources (TAA/SSR/Bloom temporals); see WorldSceneRender.cpp.
-		if (const auto newSr = OwnerEngine_->GetSceneRender())
-			newSr->RequestRenderingResetAfterSceneTransition();
+		// 6) UE split: ViewState + Renderer transient invalidation batch.
+		if (OwnerEngine_)
+			OwnerEngine_->FinalizeViewportRenderingAfterSceneCut();
 
 		OwnerEngine_->GetRHI()->Wait();
 	}

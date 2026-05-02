@@ -34,7 +34,7 @@ namespace Engine
 		delete d_ptr;
 	}
 
-	void GameViewportClient::SetWorldWeak(std::weak_ptr<World> InWorld)
+	void GameViewportClient::SetWorld(std::weak_ptr<World> InWorld)
 	{
 		C_P(GameViewportClient);
 		d->WorldRef = std::move(InWorld);

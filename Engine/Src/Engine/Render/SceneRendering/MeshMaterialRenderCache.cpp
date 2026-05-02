@@ -9,14 +9,48 @@
 
 namespace Engine
 {
+	namespace
+	{
+		/** All cache mutations must match render recording worker (nested ENQUEUE runs inlined on that worker). */
+		inline void VerifyMeshMaterialRenderCacheThread() noexcept
+		{
+#ifndef NDEBUG
+			if (!GRenderThread)
+			{
+				assert(false && "FMeshMaterialRenderCache requires GRenderThread (render worker not started)");
+				return;
+			}
+			assert(std::this_thread::get_id() == GRenderThread->GetWorkerThreadId()
+				   && "FMeshMaterialRenderCache is render-worker-only — queue ENQUEUE_UNIQUE_RENDER_COMMAND or call from SceneRenderer path");
+#else
+			(void)0;
+#endif
+		}
+	} // namespace
+
 	void FMeshMaterialRenderCache::Clear() noexcept
 	{
-		std::lock_guard<std::mutex> Lock(Mutex);
+		VerifyMeshMaterialRenderCacheThread();
 		CachedRenders.clear();
+	}
+
+	void FMeshMaterialRenderCache::InvalidateByStableSlotKey(uint64_t StableSlotKey) noexcept
+	{
+		VerifyMeshMaterialRenderCacheThread();
+		if (StableSlotKey == 0)
+			return;
+		for (auto It = CachedRenders.begin(); It != CachedRenders.end();)
+		{
+			if (It->first.StableSlotKey == StableSlotKey)
+				It = CachedRenders.erase(It);
+			else
+				++It;
+		}
 	}
 
 	std::shared_ptr<MaterialRender> FMeshMaterialRenderCache::GetOrCreate(std::shared_ptr<MeshBase> Mesh, uint64_t StableMaterialRenderCacheKey)
 	{
+		VerifyMeshMaterialRenderCacheThread();
 		FMaterialRenderCacheLookupKey Key{};
 		Key.StableSlotKey = StableMaterialRenderCacheKey;
 		Key.MeshBuffer = reinterpret_cast<uintptr_t>(Mesh->GetMeshBuffer().get());
@@ -24,7 +58,6 @@ namespace Engine
 		Key.DeclaredVtxFeat = Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures();
 
 		{
-			std::lock_guard<std::mutex> Lock(Mutex);
 			const auto Found = CachedRenders.find(Key);
 			if (Found != CachedRenders.end())
 				return Found->second;
@@ -52,11 +85,11 @@ namespace Engine
 		// (e.g. BS blend-shape scene → quick switch to Model3) to avoid use-after-free poisoning subsequent draws.
 		FlushRenderingCommands();
 
-		std::lock_guard<std::mutex> Lock(Mutex);
+		// Same render worker thread may have inserted this key via nested initialization / second GetOrCreate.
 		const auto FoundAgain = CachedRenders.find(Key);
 		if (FoundAgain != CachedRenders.end())
 			return FoundAgain->second;
 		CachedRenders.emplace(Key, PBRMaterial);
 		return PBRMaterial;
 	}
-}
+} // namespace Engine

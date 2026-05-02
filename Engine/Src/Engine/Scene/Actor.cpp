@@ -22,23 +22,19 @@ namespace Engine
 	}
 	Actor::~Actor()
 	{
-		if (d_ptr)
+		C_P(Actor);
+		if (const std::shared_ptr<World> world = d->WorldRef.lock())
 		{
-			C_P(Actor);
-			if (const std::shared_ptr<World> world = d->WorldRef.lock())
+			if (const std::shared_ptr<FScene> scene = world->GetScene())
 			{
-				if (const std::shared_ptr<FScene> scene = world->GetScene())
+				for (const auto& comp : d->Components)
 				{
-					for (const auto& comp : d->Components)
-					{
-						if (const auto sm = ComponentCast<SceneMeshComponent>(comp))
-							scene->RemoveScenePrimitive(sm);
-					}
+					if (const auto sm = ComponentCast<SceneMeshComponent>(comp))
+						scene->RemoveScenePrimitive(sm);
 				}
 			}
-			delete d_ptr;
-			d_ptr = nullptr;
 		}
+		delete d_ptr;
 	}
 
 	void Actor::InitResouce()

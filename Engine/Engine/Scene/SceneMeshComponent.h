@@ -3,6 +3,7 @@
 #include "math/frustum.h"
 #include "math/vector3.h"
 #include "Render/MaterialRender.h"
+#include <vector>
 
 namespace Engine
 {
@@ -39,6 +40,18 @@ namespace Engine
 
 		/** @param ViewCullFrustum If null, fills SceneMeshInfo without view-frustum rejection (for shadow casters outside the camera frustum). */
 		bool GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum);
+
+		/** Game thread: enqueue mesh/material cache eviction on render thread then flush — same pairing as FlushClearMeshMaterialRenderCacheNow. */
+		void MarkMeshMaterialRenderResourcesDirty();
+
+		/** Game thread: enqueue slot eviction on render thread then flush — see Flush note on MarkMeshMaterialRenderResourcesDirty. */
+		void MarkMeshMaterialRenderSlotDirty(uint32_t MeshOrdinalWithinComponent);
+
+		/**
+		 * Game thread: logical MaterialRender-cache slot keys in GatherMesh order (StableSlotKey = Mix(Actor, Comp, Ordinal, Material id)).
+		 * Used for component-wide eviction without embedding OwnerComp in cache map keys.
+		 */
+		std::vector<uint64_t> BuildMeshMaterialRenderCacheStableSlotKeys();
 
 		void SetProjectShadow(bool projShadow);
 		bool IsProjectShadow() const;

@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include <atomic>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -31,8 +30,9 @@ namespace Engine
 
 	/**
 	 * UE4 FScene subset: primitive proxies + scene-local mesh/material draw cache (lifetime = this World).
+	 * Created only via std::make_shared (World owns); enables weak_from_this for render-thread lifetime when enqueuing cache invalidates.
 	 */
-	class FScene
+	class FScene : public std::enable_shared_from_this<FScene>
 	{
 	public:
 		FScene();
@@ -48,17 +48,10 @@ namespace Engine
 		FMeshMaterialRenderCache* GetMeshMaterialRenderCache() noexcept;
 		const FMeshMaterialRenderCache* GetMeshMaterialRenderCache() const noexcept;
 
-		/** Game thread: next Render on a frame that captures this FScene clears the cache (raw pointer keys). */
-		void RequestMeshMaterialRenderCacheInvalidate() noexcept;
-		/** Render thread: if true, caller should Clear() then treat as consumed. */
-		bool ConsumeMeshMaterialCacheInvalidatePending() noexcept;
-		void ClearMeshMaterialCacheInvalidatePending() noexcept;
-
 	private:
 		mutable std::mutex Mutex;
 		std::vector<std::shared_ptr<FPrimitiveSceneProxy>> Primitives;
 
 		std::unique_ptr<FMeshMaterialRenderCache> MeshMaterialRenderCache;
-		std::atomic_bool bMeshMaterialCacheInvalidatePending{ false };
 	};
 } // namespace Engine

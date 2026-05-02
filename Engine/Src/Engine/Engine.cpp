@@ -72,8 +72,6 @@ namespace Engine
 			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
 			d->ViewportClient->Init(AppWin);
 			d->SeRender->InitResource(ViewPort);
-
-			d->SceneMgr->BindInvalidateToCurrentWorld();
 		}
 	}
 
@@ -99,8 +97,6 @@ namespace Engine
 	{
 		C_P(MainEngine);
 		d->EndFrameTickCallback = {};
-		if (d->SceneMgr)
-			d->SceneMgr->UnbindInvalidateFromCurrentWorld();
 		d->GameTick.SigTick.unbind(this);
 		if (d->AppWin)
 			d->AppWin->EvtSizeChanged.unbind(this);
@@ -143,21 +139,25 @@ namespace Engine
 		d->ModelPath = std::filesystem::path(FileName).parent_path();
 	}
 
-	void MainEngine::RecreateWorldSceneRenderForSceneSwap()
+	void MainEngine::RebindSceneRenderToCurrentWorld()
 	{
 		C_P(MainEngine);
-		if (!d->DynamicRHI || !d->SceneMgr || !d->ViewportClient)
+		if (!d->SeRender || !d->SceneMgr || !d->ViewportClient)
 			return;
-		std::shared_ptr<RenderCore::RHIViewPort> viewPort;
-		if (d->SeRender)
-			viewPort = d->SeRender->GetViewPort();
-		if (!viewPort)
-			return;
-		d->SceneMgr->UnbindInvalidateFromCurrentWorld();
-		d->SeRender.reset();
-		d->SeRender = std::make_shared<FWorldSceneRender>(std::weak_ptr<World>(d->SceneMgr->GetWorld()));
+		d->SeRender->SetWorld(std::weak_ptr<World>(d->SceneMgr->GetWorld()));
 		d->SceneMgr->AttachClients(this, d->ViewportClient, d->SeRender);
-		d->SeRender->InitResource(std::move(viewPort));
+	}
+
+	void MainEngine::FinalizeViewportRenderingAfterSceneCut()
+	{
+		C_P(MainEngine);
+		if (d->SceneMgr)
+		{
+			if (const auto w = d->SceneMgr->GetWorld())
+				w->InvalidatePrimaryViewStateAfterSceneCut();
+		}
+		if (d->SeRender)
+			d->SeRender->NotifyWorldRenderingSceneChanged();
 	}
 
 	void MainEngine::ReloadSceneJson(const std::wstring& JsonPath)

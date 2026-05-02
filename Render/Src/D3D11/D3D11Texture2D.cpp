@@ -399,12 +399,13 @@ namespace RenderCore
 		C_P(D3D11Texture2D);
 		d->Size.cx = static_cast<int32_t>(image.GetImages()->width);
 		d->Size.cy = static_cast<int32_t>(image.GetImages()->height);
-		hr = DirectX::CreateTexture(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), reinterpret_cast<ID3D11Resource**>(d->Tex2D.getpp()));
+		hr = DirectX::CreateTexture(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(),
+			reinterpret_cast<ID3D11Resource**>(d->Tex2D.get_init_ref()));
 		if (FAILED(hr))
 		{
 			return false;
 		}
-		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.getpp());
+		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.get_init_ref());
 		D3D11_TEXTURE2D_DESC desc{};
 		d->Tex2D->GetDesc(&desc);
 
@@ -441,12 +442,13 @@ namespace RenderCore
 		C_P(D3D11Texture2D);
 		d->Size.cx = static_cast<int32_t>(image.GetImages()->width);
 		d->Size.cy = static_cast<int32_t>(image.GetImages()->height);
-		hr = DirectX::CreateTexture(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), reinterpret_cast<ID3D11Resource**>(d->Tex2D.getpp()));
+		hr = DirectX::CreateTexture(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(),
+			reinterpret_cast<ID3D11Resource**>(d->Tex2D.get_init_ref()));
 		if (FAILED(hr))
 		{
 			return false;
 		}
-		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.getpp());
+		hr = DirectX::CreateShaderResourceView(d->D3D11RHI->GetDevice(), image.GetImages(), image.GetImageCount(), image.GetMetadata(), d->TexSRV.get_init_ref());
 		return SUCCEEDED(hr);
 	}
 

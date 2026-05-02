@@ -39,9 +39,12 @@ namespace Engine
 		FSceneRenderer SceneRenderer;
 		std::mutex RenderFrameMutex;
 
+		/** Game-thread-only monotonic ordinal for queued full-frame ExecuteFrame submits (≠ GPU completion — see RHI present / gpuwait). Tools / overlap sizing. */
+		std::atomic<uint64_t> SubmissionSequence{ 0 };
+
 		/** Pending full scene ExecuteFrame jobs not yet finished on render thread (decrement when lambda returns). maxrenderframes throttles on game thread before enqueue. */
 		std::atomic<uint32_t> PendingSceneFrames{ 0 };
-		/** Upper bound on concurrent PendingSceneFrames before game thread waits (Flush). 0 = unlimited. Default set from MainEngine (command line). */
+		/** Upper bound on concurrent PendingSceneFrames before game thread waits (recording-queue drain). 0 = unlimited. Prefer aligning with DynamicRHI::RHIRecommendedParallelFrameResourceSlots for transient rings. Default from MainEngine (CLI or RHI). */
 		std::atomic<uint32_t> MaxSceneFramesInFlight{ 2 };
 	};
 } // namespace Engine

@@ -9,6 +9,7 @@
 #include "App/AppWindow.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/MaterialPreFrame.h"
+#include "RHI/DynamicRHI.h"
 #include "Imgui/imgui.h"
 #include "core/commandline.h"
 #include "core/strings.h"
@@ -149,6 +150,30 @@ void GltfViewApp::BindImGuiToSceneRender()
 				}
 			}
 
+			ImGui::End();
+
+			ImGui::SetNextWindowPos(ImVec2(1, 260), ImGuiCond_FirstUseEver);
+			if (ImGui::Begin("Perf", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				const ImGuiIO& io = ImGui::GetIO();
+				ImGui::Text("%.1f FPS   %.3f ms/frame", io.Framerate, static_cast<double>(io.DeltaTime * 1000.0f));
+				if (auto srPerf = Engine::GEngine->GetSceneRender())
+				{
+					ImGui::Separator();
+					ImGui::Text("SubmitSeq (CPU): %llu",
+								static_cast<unsigned long long>(srPerf->GetSubmissionSequence()));
+					ImGui::Text("Pending ExecFrame: %u", srPerf->GetPendingSceneFramesCount());
+					const uint32_t cap = srPerf->GetMaxSceneFramesInFlight();
+					if (cap == 0u)
+						ImGui::TextUnformatted("maxrenderframes cap: unlimited");
+					else
+						ImGui::Text("maxrenderframes cap: %u", cap);
+				}
+				if (Engine::GEngine)
+					if (auto rh = Engine::GEngine->GetRHI())
+						ImGui::Text("RHI slot hint: %u", rh->RHIRecommendedParallelFrameResourceSlots());
+				ImGui::TextDisabled("SubmitSeq is enqueue ordinal, not GPU completion.");
+			}
 			ImGui::End();
 		},
 		this);

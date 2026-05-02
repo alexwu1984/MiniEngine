@@ -45,7 +45,21 @@ namespace RenderCore
 
 		/** Initializes the RHI; separate from IDynamicRHIModule::CreateRHI so that GDynamicRHI is set when it is called. */
 		virtual void Init() = 0;
-		virtual void Wait() {};
+
+		/**
+		 * RHI synchronization contract — engine / scene code should use these names only (avoid API-specific primitives in callers).
+		 * Caller must drain the game-thread render-queue (e.g. FlushRenderingCommands) before these when flushing recorded work matters.
+		 */
+		/** Ensures deferred RHI work reaches the scheduler (recording→submission path flushed; GPU may still be busy). Each backend interprets appropriately. */
+		virtual void RHIFlushSubmissionPipeline() {}
+		/** Block until GPU work submitted through this RHI is idle (normally implies RHIFlushSubmissionPipeline internally). Default is no-op. */
+		virtual void RHIWaitForGpuIdle() {}
+		/** Suggested parallel frame-slot count for transient per-frame GPU resources vs pipeline overlap (swap-chain / buffering heuristic); 0 reserved = invalid, treat as≥1 externally. */
+		virtual uint32_t RHIRecommendedParallelFrameResourceSlots() const { return 2u; }
+
+		/** Back-compat: same as RHIWaitForGpuIdle(). */
+		virtual void Wait() { RHIWaitForGpuIdle(); }
+
 		/** Shutdown the RHI; handle shutdown and resource destruction before the RHI's actual destructor is called (so that all resources of the RHI are still available for shutdown). */
 		virtual void Shutdown() = 0;
 

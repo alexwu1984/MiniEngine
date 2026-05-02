@@ -49,6 +49,8 @@ namespace Engine
 		if (!RHI || !Packet.SceneResources || !Packet.ViewData)
 			return;
 
+		[[maybe_unused]] const uint64_t SubmissionSequenceForProfiling = Packet.SubmissionSequence;
+
 		FWorldSceneRender* const Self = Packet.WorldSceneRenderOwner;
 		FWorldSceneRenderPrivate* const d = Packet.SceneResources;
 		std::shared_ptr<const FSceneViewData> ViewConst = std::move(Packet.ViewData);

@@ -64,10 +64,19 @@ namespace Engine
 			if (d->PostProcess)
 				d->PostProcess->InvalidateTransientResources();
 		}
+
+		/** Render thread: swapchain / viewport resolution + scene targets. */
+		static void ApplyViewportResizeOnRenderThread(FWorldSceneRenderPrivate* Resources, uint32_t W, uint32_t H, bool bFullscreen)
+		{
+			if (!Resources || !Resources->MainViewPort || W == 0 || H == 0)
+				return;
+			Resources->MainViewPort->Resize(W, H, bFullscreen);
+			RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(Resources, W, H);
+		}
 	} // namespace
 
 	FWorldSceneRender::FWorldSceneRender(std::weak_ptr<World> Owner)
-		: d_ptr(std::make_shared<FWorldSceneRenderPrivate>())
+		: d_ptr(std::make_unique<FWorldSceneRenderPrivate>())
 	{
 		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->Owner = std::move(Owner);
@@ -75,7 +84,7 @@ namespace Engine
 
 	FWorldSceneRender::~FWorldSceneRender()
 	{
-		FlushRenderingCommands();
+		FlushRenderingCommands(ERenderQueueFlushCategory::LifetimeOrShutdown);
 	}
 
 	std::shared_ptr<World> FWorldSceneRender::GetWorld() const
@@ -95,9 +104,13 @@ namespace Engine
 		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->MainViewPort = ViewPort;
 
+		auto SelfPin = shared_from_this();
+		FWorldSceneRenderPrivate* const Resources = d;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife = d_ptr](RenderCore::DynamicRHI* RHI)
+			[SelfPin = std::move(SelfPin), Resources](RenderCore::DynamicRHI* RHI)
 			{
+				(void)SelfPin;
+				FWorldSceneRenderPrivate* dLife = Resources;
 				if (!dLife->PreProcess)
 					dLife->PreProcess = std::make_shared<PreProcessor>(RHI);
 				dLife->PreProcess->InitResource();
@@ -143,9 +156,13 @@ namespace Engine
 		catch (const std::exception&)
 		{
 		}
+		auto SelfPin = shared_from_this();
+		FWorldSceneRenderPrivate* const Resources = d;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife = d_ptr, Root](RenderCore::DynamicRHI* RHI)
+			[SelfPin = std::move(SelfPin), Resources, Root](RenderCore::DynamicRHI* RHI)
 			{
+				(void)SelfPin;
+				FWorldSceneRenderPrivate* dLife = Resources;
 				if (dLife->PreProcess)
 					dLife->PreProcess->LoadConfig(Root);
 				if (dLife->PostProcess)
@@ -165,12 +182,16 @@ namespace Engine
 		{
 			return;
 		}
-		FWorldSceneRenderPrivate* d = d_ptr.get();
+		auto SelfPin = shared_from_this();
+		FWorldSceneRenderPrivate* Resources = d_ptr.get();
+		uint32_t W = InSizeX, H = InSizeY;
+		bool bFs = bInIsFullscreen;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife = d_ptr, InSizeX, InSizeY, bInIsFullscreen](RenderCore::DynamicRHI* RHI)
+			[SelfPin = std::move(SelfPin), Resources, W, H, bFs](RenderCore::DynamicRHI* RHI)
 			{
-				dLife->MainViewPort->Resize(InSizeX, InSizeY, bInIsFullscreen);
-				RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(dLife.get(), InSizeX, InSizeY);
+				(void)SelfPin;
+				(void)RHI;
+				ApplyViewportResizeOnRenderThread(Resources, W, H, bFs);
 			});
 	}
 
@@ -181,7 +202,6 @@ namespace Engine
 
 	void FWorldSceneRender::SetIBLRotate(float x, float y)
 	{
-		FWorldSceneRenderPrivate* d = d_ptr.get();
 		const std::shared_ptr<World> w = GetWorld();
 		if (!w)
 			return;
@@ -194,26 +214,22 @@ namespace Engine
 
 	std::shared_ptr<PreProcessor> FWorldSceneRender::GetPreProcessor() const
 	{
-		const FWorldSceneRenderPrivate* d = d_ptr.get();
-		return d->PreProcess;
+		return d_ptr->PreProcess;
 	}
 
 	std::shared_ptr<PostProcessor> FWorldSceneRender::GetPostProcessor() const
 	{
-		const FWorldSceneRenderPrivate* d = d_ptr.get();
-		return d->PostProcess;
+		return d_ptr->PostProcess;
 	}
 
 	std::shared_ptr<ShadowRenderPass> FWorldSceneRender::GetShadowRenderPass() const
 	{
-		const FWorldSceneRenderPrivate* d = d_ptr.get();
-		return d->ShadowRender;
+		return d_ptr->ShadowRender;
 	}
 
 	std::shared_ptr<RHIViewPort> FWorldSceneRender::GetViewPort() const
 	{
-		const FWorldSceneRenderPrivate* d = d_ptr.get();
-		return d->MainViewPort;
+		return d_ptr->MainViewPort;
 	}
 
 	void FWorldSceneRender::FlushClearMeshMaterialRenderCacheNow()
@@ -232,14 +248,14 @@ namespace Engine
 					cache->Clear();
 			},
 			false);
-		FlushRenderingCommands();
+		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);
 	}
 
 	void FWorldSceneRender::NotifyWorldRenderingSceneChanged()
 	{
 		// UE analogue: batch renderer invalidation when the scene context behind the viewport changes (ReloadSceneJson tail).
 		// View/camera temporal state: World::InvalidatePrimaryViewStateAfterSceneCut (FSceneViewState-like) via MainEngine::FinalizeViewportRenderingAfterSceneCut.
-		std::shared_ptr<FWorldSceneRenderPrivate> dLife = d_ptr;
+		FWorldSceneRenderPrivate* dLife = d_ptr.get();
 		if (!dLife)
 			return;
 
@@ -247,19 +263,22 @@ namespace Engine
 		if (dLife->MainViewPort)
 			Sz = dLife->MainViewPort->GetSize();
 
+		auto SelfPin = shared_from_this();
+		FWorldSceneRenderPrivate* Resources = dLife;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife, Sz](RenderCore::DynamicRHI* RHI)
+			[SelfPin = std::move(SelfPin), Resources, Sz](RenderCore::DynamicRHI* RHI)
 			{
+				(void)SelfPin;
 				(void)RHI;
-				if (dLife->ShadowRender)
+				if (Resources->ShadowRender)
 				{
-					dLife->ShadowRender->InvalidateCachedMainLightForShading();
-					dLife->ShadowRender->ClearCachedMeshShadowPasses();
+					Resources->ShadowRender->InvalidateCachedMainLightForShading();
+					Resources->ShadowRender->ClearCachedMeshShadowPasses();
 				}
-				RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(dLife.get(), Sz.w, Sz.h);
+				RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(Resources, Sz.w, Sz.h);
 			},
 			false);
-		FlushRenderingCommands();
+		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);
 	}
 
 	void FWorldSceneRender::SetMaxSceneFramesInFlight(uint32_t MaxConcurrent) noexcept
@@ -267,15 +286,30 @@ namespace Engine
 		d_ptr->MaxSceneFramesInFlight.store(MaxConcurrent, std::memory_order_relaxed);
 	}
 
+	uint64_t FWorldSceneRender::GetSubmissionSequence() const noexcept
+	{
+		return d_ptr ? d_ptr->SubmissionSequence.load(std::memory_order_relaxed) : 0ull;
+	}
+
+	uint32_t FWorldSceneRender::GetPendingSceneFramesCount() const noexcept
+	{
+		return d_ptr ? d_ptr->PendingSceneFrames.load(std::memory_order_relaxed) : 0u;
+	}
+
+	uint32_t FWorldSceneRender::GetMaxSceneFramesInFlight() const noexcept
+	{
+		return d_ptr ? d_ptr->MaxSceneFramesInFlight.load(std::memory_order_relaxed) : 0u;
+	}
+
 	void FWorldSceneRender::EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait)
 	{
 		if (bFlushRenderQueue)
-			FlushRenderingCommands();
+			FlushRenderingCommands(ERenderQueueFlushCategory::PolicyEndOfTickRendersync);
 		if (bGpuIdleWait)
 		{
 			if (GEngine)
 				if (const auto Rhi = GEngine->GetRHI())
-					Rhi->Wait();
+					Rhi->RHIWaitForGpuIdle();
 		}
 	}
 
@@ -331,7 +365,7 @@ namespace Engine
 				const uint32_t pending = d->PendingSceneFrames.load(std::memory_order_relaxed);
 				if (pending < cap)
 					break;
-				FlushRenderingCommands();
+				FlushRenderingCommands(ERenderQueueFlushCategory::ThrottleQueuedSceneFrames);
 			}
 
 			std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
@@ -346,6 +380,8 @@ namespace Engine
 			Packet.LightsForShadow = std::move(shadowLights);
 			Packet.ShadowProjectorScene = shadowProjectorScene;
 			Packet.SkyLightHdrFullPathOverride = std::move(skyLightHdrOverride);
+			Packet.SubmissionSequence =
+				static_cast<uint64_t>(d->SubmissionSequence.fetch_add(1u, std::memory_order_relaxed)) + 1ull;
 
 			const std::shared_ptr<FSceneRenderPacket> Job = std::make_shared<FSceneRenderPacket>(std::move(Packet));
 			d->PendingSceneFrames.fetch_add(1u, std::memory_order_relaxed);

@@ -61,8 +61,15 @@ namespace Engine
 		/** 0 = do not throttle; otherwise block game thread via Flush until pending ExecuteFrame jobs drop below Max. Parsed from MainEngine / command line. */
 		void SetMaxSceneFramesInFlight(uint32_t MaxConcurrent) noexcept;
 
-		/** End-of-tick coupling: optionally drain render-queue and/or GPU (see rendersync / gpuwait switches). Game thread only. */
+		/** End-of-tick coupling: rendersync drains the game-thread render-queue; gpuwait additionally blocks on RHI GPU-idle (DynamicRHI::RHIWaitForGpuIdle). Game thread only. */
 		void EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait);
+
+		/** Ordinal of full-frame submits enqueued from the game thread (0 = none yet). GPU completion is expressed by RHI, not by this counter. */
+		uint64_t GetSubmissionSequence() const noexcept;
+		/** ExecuteFrame jobs queued on the recording thread but not finished (lambda still running). Paired with maxrenderframes / GetMaxSceneFramesInFlight. */
+		uint32_t GetPendingSceneFramesCount() const noexcept;
+		/** Current maxrenderframes cap (GetMaxSceneFramesInFlight / SetMaxSceneFramesInFlight); 0 = unlimited. */
+		uint32_t GetMaxSceneFramesInFlight() const noexcept;
 
 	private:
 		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */
@@ -72,6 +79,7 @@ namespace Engine
 		core::event<void()> sigGuiEvent;
 
 	private:
-		std::shared_ptr<FWorldSceneRenderPrivate> d_ptr;
+		/** Owned by `FWorldSceneRender`; render-queue lambdas that need async lifetime pin `shared_from_this()`, not shared ownership of impl. */
+		std::unique_ptr<FWorldSceneRenderPrivate> d_ptr;
 	};
 } // namespace Engine

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "win/com_ptr.h"
 #include <d3d11.h>
+#include <d3d11_4.h>
 #include <d3d11_2.h>
 #include <dxgi1_3.h>
 #include <dxgi1_4.h>
@@ -71,6 +72,13 @@ namespace RenderCore
 		D3D11StateCacheBase StateCache;
 
 		std::shared_ptr< D3D11CommandContext> CommandContext;
+
+		/** Optional path for RHIWaitForGpuIdle (Win10+ / recent runtime); lazy-init. */
+		win32::com_ptr<ID3D11Fence> GpuIdleFence;
+		win32::com_ptr<ID3D11DeviceContext4> GpuIdleContext4;
+		UINT64 GpuIdleFenceValue = 0;
+		bool bGpuIdleFenceInitAttempted = false;
+		bool bGpuIdleFenceUsable = false;
 
 		RHIShaderCache ShaderCache;
 

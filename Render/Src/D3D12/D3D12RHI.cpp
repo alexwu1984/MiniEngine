@@ -346,11 +346,23 @@ namespace RenderCore
 		RHICachedStates::Initialize(this);
 	}
 
-	void D3D12DynamicRHI::Wait()
+	void D3D12DynamicRHI::RHIFlushSubmissionPipeline()
 	{
 		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_FlushDeferredCommands();
+	}
+
+	void D3D12DynamicRHI::RHIWaitForGpuIdle()
+	{
+		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_FlushDeferredCommands();
 		if (D3D12Adapter)
 			D3D12Adapter->BlockUntilIdle();
+	}
+
+	uint32_t D3D12DynamicRHI::RHIRecommendedParallelFrameResourceSlots() const
+	{
+		return 3u;
 	}
 
 	void D3D12DynamicRHI::RHIBeginFrame()

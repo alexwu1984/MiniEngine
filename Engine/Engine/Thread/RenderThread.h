@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Engine/Thread/EngineThread.h"
+#include "Render/RenderQueueSynchronization.h"
 
 namespace RenderCore
 {
@@ -38,18 +39,15 @@ namespace Engine
 	extern RenderThread* GRenderThread;
 
 	/**
-	 * Blocks until the render worker drains queued lambdas through its current batch boundary (does not imply GPU idle if submit is deferred).
-	 * UE analogue: the narrow subset of FlushRenderingCommands() that maps to our single render-queue fence.
+	 * Drains the FIFO on the recording worker (RenderThread) through a batch boundary — not RHI GPU idle.
+	 * Prefer the ERenderQueueFlushCategory overload for new code; see RenderQueueSynchronization.h.
 	 */
-	inline void FlushRenderingCommands()
-	{
-		if (GRenderThread)
-			GRenderThread->WaitForFinish();
-	}
+	void FlushRenderingCommands();
+	void FlushRenderingCommands(ERenderQueueFlushCategory Category);
 
 	/**
-	 * Enqueue work on the render thread. Prefer enqueue + FlushRenderingCommands() over wait=true when you want UE-like separation
-	 * between recording (lambda) and the fence (flush). wait=true is equivalent to enqueue followed immediately by FlushRenderingCommands().
+	 * Enqueue work on the render thread. Prefer enqueue + categorized FlushRenderingCommands over wait=true when you want UE-like separation
+	 * between recording (lambda) and draining the queue. wait=true is equivalent to enqueue followed immediately by WaitForFinish().
 	 */
 	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun, bool wait = false);
 }

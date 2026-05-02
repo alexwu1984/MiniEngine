@@ -300,7 +300,7 @@ namespace Engine
 				}
 			},
 			false);
-		FlushRenderingCommands();
+		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);
 	}
 
 	void SceneMeshComponent::MarkMeshMaterialRenderSlotDirty(uint32_t MeshOrdinalWithinComponent)
@@ -335,7 +335,7 @@ namespace Engine
 					Cache->InvalidateByStableSlotKey(SlotKey);
 			},
 			false);
-		FlushRenderingCommands();
+		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);
 	}
 
 	bool SceneMeshComponent::GatherMesh(GltfSceneMeshInfo& SceneMeshInfo, const math::Frustum* ViewCullFrustum)

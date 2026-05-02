@@ -36,8 +36,8 @@ namespace Engine
 
 		// --- ReplaceWorld + new Json ---
 		// 1) Drain + GPU idle: safe to destroy old World's GPU resources (D3D12 UAF → garbage rectangles).
-		FlushRenderingCommands();
-		OwnerEngine_->GetRHI()->Wait();
+		FlushRenderingCommands(ERenderQueueFlushCategory::ReloadOrWorldSwap);
+		OwnerEngine_->GetRHI()->RHIWaitForGpuIdle();
 
 		// 2) UE426-style: flush mesh-material draw cache only when replacing World (pointer-keyed caches; before ~FScene).
 		//    Shadow/mesh caches on FWorldSceneRender: FinalizeViewportRenderingAfterSceneCut.
@@ -59,12 +59,12 @@ namespace Engine
 		// 5) Load Json (may enqueue IBL / pre / post on render thread).
 		if (World_)
 			World_->LoadScene(JsonPath);
-		FlushRenderingCommands();
+		FlushRenderingCommands(ERenderQueueFlushCategory::ReloadOrWorldSwap);
 
 		// 6) UE split: ViewState + Renderer transient invalidation batch.
 		if (OwnerEngine_)
 			OwnerEngine_->FinalizeViewportRenderingAfterSceneCut();
 
-		OwnerEngine_->GetRHI()->Wait();
+		OwnerEngine_->GetRHI()->RHIWaitForGpuIdle();
 	}
 }

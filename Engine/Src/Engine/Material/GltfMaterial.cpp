@@ -78,7 +78,7 @@ namespace Engine
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
-			FlushRenderingCommands();
+			FlushRenderingCommands(ERenderQueueFlushCategory::LoadOrResourceCreationSync);
 		}
 		else
 		{
@@ -113,7 +113,7 @@ namespace Engine
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
-			FlushRenderingCommands();
+			FlushRenderingCommands(ERenderQueueFlushCategory::LoadOrResourceCreationSync);
 		}
 
 	}

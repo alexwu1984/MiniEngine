@@ -94,10 +94,11 @@ namespace Engine
 		}
 		d->RThread->Start();
 
-		// rendersync gpuwait maxrenderframes: see FWorldSceneRender::EndGameThreadFrameSync / SetMaxSceneFramesInFlight
+		// rendersync gpuwait maxrenderframes: RenderQueueSynchronization.h; default cap tracks RHIRecommendedParallelFrameResourceSlots
 		if (d->SeRender)
 		{
-			uint32_t maxInflight = 2;
+			uint32_t maxInflight =
+				d->DynamicRHI ? d->DynamicRHI->RHIRecommendedParallelFrameResourceSlots() : 2u;
 			int mfParsed = 0;
 			if (core::CommandLine::Get().GetInteger("maxrenderframes", mfParsed))
 				maxInflight = mfParsed <= 0 ? 0u : static_cast<uint32_t>(mfParsed);

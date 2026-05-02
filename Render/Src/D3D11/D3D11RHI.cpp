@@ -1,5 +1,6 @@
 ﻿#include "D3D11/D3D11RHI.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
+#include "core/logger.h"
 #include "RHI/RHI.h"
 #include "D3D11/D3D11ViewPort.h"
 #include "D3D11/D3D11ReourceTraits.h"
@@ -14,6 +15,28 @@ namespace RenderCore
 {
 	namespace
 	{
+		void D3D11_TryInitGpuIdleFence(D3D11DynamicRHIPrivate* d)
+		{
+			if (!d || !d->Direct3DDevice || !d->Direct3DDeviceIMContext)
+				return;
+			d->bGpuIdleFenceInitAttempted = true;
+			win32::com_ptr<ID3D11Device5> Dev5;
+			const HRESULT qiDev = d->Direct3DDevice->QueryInterface(__uuidof(ID3D11Device5), (void**)Dev5.get_init_ref());
+			if (FAILED(qiDev) || !Dev5)
+				return;
+			win32::com_ptr<ID3D11Fence> Fence;
+			const HRESULT hrFence = Dev5->CreateFence(0, D3D11_FENCE_FLAG_NONE, __uuidof(ID3D11Fence), (void**)Fence.get_init_ref());
+			if (FAILED(hrFence) || !Fence)
+				return;
+			win32::com_ptr<ID3D11DeviceContext4> Ctx4;
+			const HRESULT hrCtx = d->Direct3DDeviceIMContext->QueryInterface(__uuidof(ID3D11DeviceContext4), (void**)Ctx4.get_init_ref());
+			if (FAILED(hrCtx) || !Ctx4)
+				return;
+			d->GpuIdleFence = Fence;
+			d->GpuIdleContext4 = Ctx4;
+			d->bGpuIdleFenceUsable = true;
+		}
+
 		size_t HashShaderMacros(const std::vector<RHIShaderMacro>& MacroDefines, size_t Hash)
 		{
 			for (const RHIShaderMacro& Macro : MacroDefines)
@@ -526,6 +549,46 @@ namespace RenderCore
 	{
 		C_P(const D3D11DynamicRHI);
 		return d->Direct3DDeviceIMContext2.get();
+	}
+
+	void D3D11DynamicRHI::RHIFlushSubmissionPipeline()
+	{
+		C_P(D3D11DynamicRHI);
+		if (d->Direct3DDeviceIMContext)
+			d->Direct3DDeviceIMContext->Flush();
+	}
+
+	uint32_t D3D11DynamicRHI::RHIRecommendedParallelFrameResourceSlots() const
+	{
+		return 2u;
+	}
+
+	void D3D11DynamicRHI::RHIWaitForGpuIdle()
+	{
+		C_P(D3D11DynamicRHI);
+		RHIFlushSubmissionPipeline();
+		if (!d->bGpuIdleFenceInitAttempted)
+			D3D11_TryInitGpuIdleFence(d);
+		if (d->bGpuIdleFenceUsable && d->GpuIdleFence && d->GpuIdleContext4)
+		{
+			const UINT64 FenceValueTarget = ++d->GpuIdleFenceValue;
+			if (SUCCEEDED(d->GpuIdleContext4->Signal(d->GpuIdleFence.get(), FenceValueTarget)))
+			{
+				ID3D11Fence* const F = d->GpuIdleFence.get();
+				while (F->GetCompletedValue() < FenceValueTarget)
+					::SwitchToThread();
+				return;
+			}
+			d->bGpuIdleFenceUsable = false;
+			d->GpuIdleFence.reset();
+			d->GpuIdleContext4.reset();
+		}
+		static bool sLoggedWeakGpuWait = false;
+		if (!sLoggedWeakGpuWait)
+		{
+			sLoggedWeakGpuWait = true;
+			core::war() << "D3D11: RHIWaitForGpuIdle — ID3D11Fence / ID3D11DeviceContext4 unavailable or failed; using immediate-context Flush only (weaker than full GPU idle).";
+		}
 	}
 
 	bool D3D11DynamicRHIModule::IsSupported()

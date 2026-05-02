@@ -1,4 +1,5 @@
 ﻿#include "Engine/Thread/RenderThread.h"
+#include "Render/RenderQueueSynchronization.h"
 #include "win/sync.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIThreadPolicy.h"
@@ -7,6 +8,35 @@
 
 namespace Engine
 {
+	namespace
+	{
+#if defined(MINIENGINE_RENDER_QUEUE_FLUSH_AUDIT)
+		void AuditRenderQueueFlush(ERenderQueueFlushCategory Category)
+		{
+			core::inf() << "RenderFlush category=" << static_cast<unsigned>(Category);
+		}
+#else
+		void AuditRenderQueueFlush(ERenderQueueFlushCategory) {}
+#endif
+
+		void FlushRecordingWorkerDrain()
+		{
+			if (GRenderThread)
+				GRenderThread->WaitForFinish();
+		}
+	} // namespace
+
+	void FlushRenderingCommands()
+	{
+		FlushRecordingWorkerDrain();
+	}
+
+	void FlushRenderingCommands(ERenderQueueFlushCategory Category)
+	{
+		AuditRenderQueueFlush(Category);
+		FlushRecordingWorkerDrain();
+	}
+
 	RenderThread* GRenderThread = nullptr;
 
 	struct RenderThreadPrivate
@@ -61,7 +91,7 @@ namespace Engine
 			// Otherwise, commands captured by value (e.g. shared_ptr textures/gbuffer)
 			// can keep GPU resources alive until process exit.
 			AppendCommand([](RenderCore::DynamicRHI*) {});
-			WaitForFinish();
+			FlushRenderingCommands(ERenderQueueFlushCategory::LifetimeOrShutdown);
 
 			// Drop any remaining queued commands to release captured resources.
 			{

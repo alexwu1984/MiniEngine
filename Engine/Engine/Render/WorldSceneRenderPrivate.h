@@ -3,7 +3,6 @@
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
 #include <atomic>
-#include <memory>
 #include <mutex>
 
 namespace RenderCore
@@ -39,5 +38,10 @@ namespace Engine
 
 		FSceneRenderer SceneRenderer;
 		std::mutex RenderFrameMutex;
+
+		/** Pending full scene ExecuteFrame jobs not yet finished on render thread (decrement when lambda returns). maxrenderframes throttles on game thread before enqueue. */
+		std::atomic<uint32_t> PendingSceneFrames{ 0 };
+		/** Upper bound on concurrent PendingSceneFrames before game thread waits (Flush). 0 = unlimited. Default set from MainEngine (command line). */
+		std::atomic<uint32_t> MaxSceneFramesInFlight{ 2 };
 	};
 } // namespace Engine

@@ -262,6 +262,23 @@ namespace Engine
 		FlushRenderingCommands();
 	}
 
+	void FWorldSceneRender::SetMaxSceneFramesInFlight(uint32_t MaxConcurrent) noexcept
+	{
+		d_ptr->MaxSceneFramesInFlight.store(MaxConcurrent, std::memory_order_relaxed);
+	}
+
+	void FWorldSceneRender::EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait)
+	{
+		if (bFlushRenderQueue)
+			FlushRenderingCommands();
+		if (bGpuIdleWait)
+		{
+			if (GEngine)
+				if (const auto Rhi = GEngine->GetRHI())
+					Rhi->Wait();
+		}
+	}
+
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
 	{
 		auto RHI = GEngine->GetRHI();
@@ -308,18 +325,51 @@ namespace Engine
 		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
 
 		{
+			const uint32_t cap = d->MaxSceneFramesInFlight.load(std::memory_order_relaxed);
+			while (cap > 0u)
+			{
+				const uint32_t pending = d->PendingSceneFrames.load(std::memory_order_relaxed);
+				if (pending < cap)
+					break;
+				FlushRenderingCommands();
+			}
+
 			std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
-			d->SceneRenderer.Submit(this, d, WorldScene, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
-											std::move(shadowLights), shadowProjectorScene, std::move(skyLightHdrOverride));
+			FSceneRenderPacket Packet{};
+			Packet.WorldSceneRenderOwner = this;
+			Packet.SceneResources = d;
+			Packet.WorldScene = WorldScene;
+			Packet.ViewData = ViewConst;
+			Packet.MeshesInfo = std::move(MeshesInfoCopy);
+			Packet.ShadowCasters = std::move(shadowCasters);
+			Packet.ShadowFrustumBounds = std::move(shadowFrustumBounds);
+			Packet.LightsForShadow = std::move(shadowLights);
+			Packet.ShadowProjectorScene = shadowProjectorScene;
+			Packet.SkyLightHdrFullPathOverride = std::move(skyLightHdrOverride);
+
+			const std::shared_ptr<FSceneRenderPacket> Job = std::make_shared<FSceneRenderPacket>(std::move(Packet));
+			d->PendingSceneFrames.fetch_add(1u, std::memory_order_relaxed);
+			std::atomic<uint32_t>* const pendingPtr = &d->PendingSceneFrames;
+			ENQUEUE_UNIQUE_RENDER_COMMAND(
+				[Job, pendingPtr](DynamicRHI* RHIIn)
+				{
+					struct PendingDecrement
+					{
+						std::atomic<uint32_t>* P = nullptr;
+						~PendingDecrement()
+						{
+							if (P)
+								P->fetch_sub(1u, std::memory_order_relaxed);
+						}
+					} dec{ pendingPtr };
+					if (!Job || !Job->SceneResources)
+						return;
+					Job->SceneResources->SceneRenderer.ExecuteFrame(RHIIn, std::move(*Job));
+				},
+				false);
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife = d_ptr](DynamicRHI* RHIIn)
-			{
-				dLife->SceneRenderer.Render(RHIIn);
-			},
-			false);
-		FlushRenderingCommands();
+		// Default: no per-tick Flush — maxrenderframes throttles via Flush; rendersync/gpuwait at end of MainEngine::Tick.
 	}
 
 } // namespace Engine

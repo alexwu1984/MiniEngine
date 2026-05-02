@@ -1,0 +1,12 @@
+﻿# CMake / IDE build trees (out-of-source)
+/build/
+/bin/
+out/
+
+# Visual Studio / MSBuild
+.vs/
+*.suo
+*.user
+*.VC.db*
+*.opendb
+ipch/

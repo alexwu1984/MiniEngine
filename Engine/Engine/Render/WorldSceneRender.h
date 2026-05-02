@@ -23,7 +23,7 @@ namespace Engine
 	/**
 	 * Long-lived viewport + render pipeline owner (textures, preprocess, shadows, deferred, postprocess).
 	 * Current World/FScene resolve each frame via a non-owning world ref; scene swap only rebinds that ref (UE-style SetWorld naming).
-	 * Paired with FSceneRenderer, which records exactly one submitted frame on the render thread.
+	 * Paired with FSceneRenderer: each tick enqueues an FSceneRenderPacket (FIFO) without Flush — simulation can overlap recording.
 	 */
 	class FWorldSceneRender : public std::enable_shared_from_this<FWorldSceneRender>
 	{
@@ -58,8 +58,14 @@ namespace Engine
 		 */
 		void FlushClearMeshMaterialRenderCacheNow();
 
+		/** 0 = do not throttle; otherwise block game thread via Flush until pending ExecuteFrame jobs drop below Max. Parsed from MainEngine / command line. */
+		void SetMaxSceneFramesInFlight(uint32_t MaxConcurrent) noexcept;
+
+		/** End-of-tick coupling: optionally drain render-queue and/or GPU (see rendersync / gpuwait switches). Game thread only. */
+		void EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait);
+
 	private:
-		/** Game thread: gather views/primitives, Submit to FSceneRenderer, enqueue render-thread work. */
+		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */
 		void SubmitSceneForRendering(float DeltaTime);
 
 	public:

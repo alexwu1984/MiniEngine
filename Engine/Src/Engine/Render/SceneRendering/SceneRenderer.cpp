@@ -44,54 +44,28 @@ namespace Engine
 		}
 	} // namespace
 
-	void FSceneRenderer::Submit(FWorldSceneRender* InWorldSceneRenderOwner, FWorldSceneRenderPrivate* InSceneResources, std::shared_ptr<FScene> InWorldScene,
-										const FSceneViewFamily& InViewFamily, std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
-										std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
-										std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene,
-										std::optional<std::wstring> SkyLightHdrFullPathOverride)
+	void FSceneRenderer::ExecuteFrame(DynamicRHI* RHI, FSceneRenderPacket&& Packet)
 	{
-		WorldSceneRenderOwner = InWorldSceneRenderOwner;
-		SubmittedWorldScene = std::move(InWorldScene);
-		SceneResources = InSceneResources;
-		ViewFamily = InViewFamily;
-		ViewData = std::move(InViewData);
-		MeshesInfo = std::move(MeshesInfoCopy);
-		ShadowCasters = std::move(shadowCasters);
-		ShadowFrustumBounds = std::move(shadowFrustumBounds);
-		LightsForShadow = std::move(ShadowPassLights);
-		ShadowProjectorScene = InShadowProjectorScene;
-		SkyLightHdrOverrideForFrame = std::move(SkyLightHdrFullPathOverride);
-		bHasFrame = (WorldSceneRenderOwner != nullptr) && (SceneResources != nullptr) && (ViewData != nullptr) && (SubmittedWorldScene != nullptr);
-	}
-
-	void FSceneRenderer::Render(DynamicRHI* RHI)
-	{
-		if (!bHasFrame || !RHI || !SceneResources || !ViewData)
+		if (!RHI || !Packet.SceneResources || !Packet.ViewData)
 			return;
 
-		bHasFrame = false;
-
-		FWorldSceneRender* const Self = WorldSceneRenderOwner;
-		FWorldSceneRenderPrivate* const d = SceneResources;
-		std::shared_ptr<const FSceneViewData> ViewConst = ViewData;
-		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(MeshesInfo);
-		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(ShadowCasters);
-		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(ShadowFrustumBounds);
-		std::vector<Light> ShadowPassLights = std::move(LightsForShadow);
-		FShadowProjectorSceneData ShadowProjectorSceneMoved = ShadowProjectorScene;
-		std::shared_ptr<FScene> WorldSceneForFrame = std::move(SubmittedWorldScene);
-
-		ViewData.reset();
-		WorldSceneRenderOwner = nullptr;
-		SceneResources = nullptr;
+		FWorldSceneRender* const Self = Packet.WorldSceneRenderOwner;
+		FWorldSceneRenderPrivate* const d = Packet.SceneResources;
+		std::shared_ptr<const FSceneViewData> ViewConst = std::move(Packet.ViewData);
+		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(Packet.MeshesInfo);
+		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(Packet.ShadowCasters);
+		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(Packet.ShadowFrustumBounds);
+		std::vector<Light> ShadowPassLights = std::move(Packet.LightsForShadow);
+		FShadowProjectorSceneData ShadowProjectorSceneMoved = std::move(Packet.ShadowProjectorScene);
+		std::shared_ptr<FScene> WorldSceneForFrame = std::move(Packet.WorldScene);
+		std::optional<std::wstring> SkyLightHdrMove = std::move(Packet.SkyLightHdrFullPathOverride);
 
 		std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
 		if (!CommandContext)
 			return;
 
 		if (d->PreProcess)
-			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrOverrideForFrame));
-		SkyLightHdrOverrideForFrame.reset();
+			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrMove));
 
 		auto MeshesForDraw = std::make_shared<std::vector<GltfSceneMeshInfo>>(std::move(MeshesInfoCopy));
 
@@ -284,7 +258,6 @@ namespace Engine
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
 		}
 
-		(void)ViewFamily;
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))

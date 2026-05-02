@@ -40,6 +40,9 @@ namespace Engine
 		std::atomic_bool NeedResize = false;
 		core::vec2i NewSize;
 		std::function<void()> EndFrameTickCallback;
+
+		bool bFlushRenderQueueEndOfTick = false;
+		bool bGpuIdleWaitEndOfTick = false;
 	};
 
 	MainEngine::MainEngine()
@@ -90,6 +93,19 @@ namespace Engine
 			});
 		}
 		d->RThread->Start();
+
+		// rendersync gpuwait maxrenderframes: see FWorldSceneRender::EndGameThreadFrameSync / SetMaxSceneFramesInFlight
+		if (d->SeRender)
+		{
+			uint32_t maxInflight = 2;
+			int mfParsed = 0;
+			if (core::CommandLine::Get().GetInteger("maxrenderframes", mfParsed))
+				maxInflight = mfParsed <= 0 ? 0u : static_cast<uint32_t>(mfParsed);
+			d->SeRender->SetMaxSceneFramesInFlight(maxInflight);
+			d->bFlushRenderQueueEndOfTick = core::CommandLine::Get().GetSwitch("rendersync");
+			d->bGpuIdleWaitEndOfTick = core::CommandLine::Get().GetSwitch("gpuwait");
+		}
+
 		d->GameTick.Start("GameThread", 120, win32::HighPrecisionTick::ThreadPriority::Highest);
 	}
 
@@ -230,6 +246,8 @@ namespace Engine
 		}
 		if (d->EndFrameTickCallback)
 			d->EndFrameTickCallback();
+		if (d->SeRender && (d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick))
+			d->SeRender->EndGameThreadFrameSync(d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick, d->bGpuIdleWaitEndOfTick);
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)

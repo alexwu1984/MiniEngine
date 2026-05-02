@@ -193,7 +193,7 @@ void GltfViewApp::BindImGuiToSceneRender()
 					const auto& pl = pts[(size_t)i];
 					const auto Owner = pl ? pl->GetOwner() : nullptr;
 					ImGui::PushID(200000 + i);
-					const std::string titlePt = std::string("Point · ") + ActorNameOrFallbackUtf8(Owner, "PointLight", i);
+					const std::string titlePt = std::string("Point: ") + ActorNameOrFallbackUtf8(Owner, "PointLight", i);
 					if (ImGui::TreeNodeEx(titlePt.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 					{
 						const bool bOnMeshActor = ActorHostsSceneMesh(Owner);

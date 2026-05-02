@@ -5,28 +5,9 @@
 #include "RHI/RHIThreadPolicy.h"
 #include "core/logger.h"
 #include <atomic>
-#include <objbase.h>
 
 namespace Engine
 {
-	namespace detail
-	{
-		/** WIC / metadata codecs expect per-thread COM init; main thread does this in wWinMain, not the recording worker. */
-		struct ScopedCOM_MTAThread
-		{
-			HRESULT Hr = E_FAIL;
-			ScopedCOM_MTAThread()
-			{
-				Hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-			}
-			~ScopedCOM_MTAThread()
-			{
-				if (Hr == S_OK || Hr == S_FALSE)
-					::CoUninitialize();
-			}
-		};
-	} // namespace detail
-
 	namespace
 	{
 #if defined(MINIENGINE_RENDER_QUEUE_FLUSH_AUDIT)
@@ -180,7 +161,6 @@ namespace Engine
 
 	void RenderThread::Run()
 	{
-		detail::ScopedCOM_MTAThread ComOnWorker;
 		C_P(RenderThread);
 		d->RecordingThreadId = std::this_thread::get_id();
 		RenderCore::RHI_RegisterRHIRecordingThread(d->RecordingThreadId);

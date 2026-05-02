@@ -2,28 +2,9 @@
 #include "D3D12/D3D12RHIRecording.h"
 #include "RHI/RHIThreadPolicy.h"
 #include <future>
-#include <objbase.h>
 
 namespace Engine
 {
-	namespace detail
-	{
-		/** Per-thread COM for WIC/metadata on worker threads (matches MTA in GLFFViewer wWinMain). */
-		struct ScopedCOM_MTAThread
-		{
-			HRESULT Hr = E_FAIL;
-			ScopedCOM_MTAThread()
-			{
-				Hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-			}
-			~ScopedCOM_MTAThread()
-			{
-				if (Hr == S_OK || Hr == S_FALSE)
-					::CoUninitialize();
-			}
-		};
-	} // namespace detail
-
 	RHISubmissionThread::RHISubmissionThread() = default;
 
 	RHISubmissionThread::~RHISubmissionThread()
@@ -71,7 +52,6 @@ namespace Engine
 
 	void RHISubmissionThread::RunLoop()
 	{
-		detail::ScopedCOM_MTAThread ComOnWorker;
 		RenderCore::RHI_RegisterRHIExecutionThread(std::this_thread::get_id());
 		struct UnregisterOnExit
 		{

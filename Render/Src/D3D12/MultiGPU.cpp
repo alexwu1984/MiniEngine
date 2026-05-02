@@ -1,4 +1,4 @@
-#include "D3D12/MultiGPU.h"
+﻿#include "D3D12/MultiGPU.h"
 
 namespace RenderCore
 {

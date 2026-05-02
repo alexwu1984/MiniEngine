@@ -16,6 +16,9 @@
 //#endif
 //};
 
+// ATTRIBUTE indices must match PBRMaterialRender / ShadowPS InitShader IL:
+// slots 0–2 = position, normal, UV; optional tangent at next slot;
+// skin weights + joint indices follow immediately (dense packing — no hole when tangent is omitted).
 struct VS_INPUT_SCENE
 {
     float3 Position : ATTRIBUTE0; // vertex position
@@ -25,8 +28,13 @@ struct VS_INPUT_SCENE
     float4 Tangent: ATTRIBUTE3; // this normal comes in per-vertex
 #endif
 #ifdef HAS_WEIGHTS_0
-    float4 JointsWeights0  : ATTRIBUTE4; //joints weights
+#ifdef HAS_TANGENT
+    float4 JointsWeights0  : ATTRIBUTE4; // joints weights
     float4 JointsIndices0  : ATTRIBUTE5; // joints indices
+#else
+    float4 JointsWeights0  : ATTRIBUTE3;
+    float4 JointsIndices0  : ATTRIBUTE4;
+#endif
 #endif
 };
 //--------------------------------------------------------------------------------------

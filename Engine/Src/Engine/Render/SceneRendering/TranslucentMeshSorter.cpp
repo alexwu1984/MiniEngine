@@ -1,5 +1,7 @@
 ﻿#include "Render/SceneRendering/TranslucentMeshSorter.h"
 #include "GltfModel/GltfMesh.h"
+#include "Material/MaterialBase.h"
+#include "Render/RenderStableIds.h"
 
 namespace Engine
 {
@@ -11,6 +13,8 @@ namespace Engine
 		{
 			FTranslucentMeshSortKey Key;
 			std::shared_ptr<MeshBase> Mesh = SceneMeshInfo.Meshes[MeshIndex];
+			if (!Mesh)
+				continue;
 
 			math::Vector3 BoxPoint[8]{};
 			Mesh->GetBoundingBox().GetPoint(BoxPoint);
@@ -20,6 +24,11 @@ namespace Engine
 			Key.WorldTransform = SceneMeshInfo.WorldTransform;
 			Key.PrevWorldTransform = SceneMeshInfo.PrevWorldTransform;
 			Key.Mesh = Mesh;
+			if (MeshIndex < static_cast<int32_t>(SceneMeshInfo.MeshMaterialRenderCacheKeys.size()))
+				Key.MaterialRenderCacheKey = SceneMeshInfo.MeshMaterialRenderCacheKeys[(size_t)MeshIndex];
+			else if (Mesh)
+				Key.MaterialRenderCacheKey = BuildMeshMaterialRenderCacheKey(
+					0, 0, static_cast<uint32_t>(MeshIndex), Mesh->GetMaterial()->GetStableMaterialInstanceId());
 
 			for (int32_t PointIndex = 0; PointIndex < 8; PointIndex++)
 			{

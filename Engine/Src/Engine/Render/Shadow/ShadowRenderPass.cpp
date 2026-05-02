@@ -1,4 +1,5 @@
 ﻿#include "Render/Shadow/ShadowRenderPass.h"
+#include "Render/MaterialPreFrame.h"
 #include "GltfModel/GltfMesh.h"
 #include "Scene/SceneMeshComponent.h"
 #include "RHI/DynamicRHI.h"
@@ -170,6 +171,12 @@ namespace Engine
 		return true;
 	}
 
+	void ShadowRenderPass::ClearCachedMeshShadowPasses()
+	{
+		C_P(ShadowRenderPass);
+		d->ShadowRenders.clear();
+	}
+
 	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
 								  RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, const FShadowProjectorSceneData& ShadowProjectorScene)
 	{
@@ -303,13 +310,20 @@ namespace Engine
 					shadowRender = std::make_shared<ShadowPS>(d->RHI, Mesh);
 					shadowRender->InitResource();
 				}
-				if (Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
+				if (Mesh->HasSkin())
 				{
-					auto& Bone = Mesh->GetBoneNodeArray()[Mesh->GetSkinId()];
-					for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+					const bool bResolvedPalette = Mesh->GetSkinId() > -1 && !Mesh->GetBoneNodeArray().empty()
+						&& Mesh->GetSkinId() < static_cast<int>(Mesh->GetBoneNodeArray().size());
+					if (bResolvedPalette)
 					{
-						shadowRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+						auto& Bone = Mesh->GetBoneNodeArray()[static_cast<size_t>(Mesh->GetSkinId())];
+						const uint32_t MaxSkin = static_cast<uint32_t>(CBPerSkeleton::kPaletteMatrixCount);
+						const uint32_t NumBones = static_cast<uint32_t>(Bone.size());
+						for (uint32_t BoneIndex = 0; BoneIndex < NumBones && BoneIndex < MaxSkin; ++BoneIndex)
+							shadowRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
 					}
+					else
+						shadowRender->ResetSkeletonPaletteIdentity();
 				}
 
 				shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight, d->DepthRenderBuffer);

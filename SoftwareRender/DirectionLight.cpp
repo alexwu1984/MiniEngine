@@ -1,4 +1,4 @@
-#include "DirectionLight.h"
+﻿#include "DirectionLight.h"
 
 math::Vector3 DirectionalLight::illuminate(const math::Vector3& lightDir, const math::Vector3& N, bool inShadow) const
 {

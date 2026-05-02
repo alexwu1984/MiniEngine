@@ -1,4 +1,4 @@
-#include "math/quaternion.h"
+﻿#include "math/quaternion.h"
 #include "math/math.h"
 
 namespace math 

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "math/vector4.h"
 
 namespace math
@@ -119,7 +119,7 @@ namespace math
 		Vector3 TranslateVectorWithPrespDiv(const Vector3& vector)const;
 		Vector3 TransformPosition(const Vector3& position)const;
 
-		//Æ½ÒÆ¾ØÕó
+		//å¹³ç§»çŸ©é˜µ
 		static Matrix4x4 CreateFromTranslate(float dx, float dy, float dz);
 		static Matrix4x4 CreateFromTranslate(const Vector3& V);
 		static Matrix4x4 ScaleMatrix(float s);

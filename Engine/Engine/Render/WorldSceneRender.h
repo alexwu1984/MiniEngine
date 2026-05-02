@@ -31,6 +31,7 @@ namespace Engine
 		FWorldSceneRender(std::weak_ptr<World> Owner);
 		~FWorldSceneRender();
 		std::shared_ptr<World> GetWorld() const;
+		void SetWorldWeak(std::weak_ptr<World> Owner);
 
 		void InitResource(std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 		void LoadConfig(const nlohmann::json& Root);
@@ -44,8 +45,24 @@ namespace Engine
 		std::shared_ptr<ShadowRenderPass> GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
-		/** Request clearing the mesh draw cache on the next render (cache keys are raw pointers). */
+		/**
+		 * Full scene transition (ReplaceWorld + LoadScene): mesh draw cache + scene targets + pooled post-process temporals.
+		 * Enqueues GPU/resource work then FlushRenderingCommands() (single fence); UE-style enqueue+fence vs embedding wait in the macro.
+		 * Pair with World::ApplySceneTransitionPrimaryCameraState() on the game thread (ViewState vs RHI flush).
+		 */
+		void RequestRenderingResetAfterSceneTransition();
+
+		/**
+		 * Game thread: enqueue mesh/material cache clear on the render thread and flush.
+		 * Call after GPU idle when replacing World — keys use raw pointers that allocators may recycle immediately after teardown.
+		 */
+		void FlushClearMeshMaterialRenderCacheNow();
+
+		/** Request clearing the mesh draw cache on the next render (cache keys are raw pointers). Actor/resource churn uses this alone. */
 		void RequestMeshMaterialRenderCacheInvalidate();
+
+		/** Monotonic per full scene swap; folded into FMeshMaterialRenderCache keys (BS → Model3 pointer reuse safety). */
+		uint64_t GetMeshMaterialCacheSceneGeneration() const noexcept;
 
 	private:
 		/** Game thread: gather views/primitives, Submit to FSceneRenderer, enqueue render-thread work. */

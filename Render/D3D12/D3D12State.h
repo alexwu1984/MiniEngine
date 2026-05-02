@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIState.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 

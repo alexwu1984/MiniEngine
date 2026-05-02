@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "Render/MaterialPreFrame.h"
 #include <memory>
 
 namespace RenderCore
@@ -39,6 +40,8 @@ namespace Engine
 
 	private:
 		RenderCore::DynamicRHI* RHI = nullptr;
+		/** Created once in InitResource; avoids per-frame RHICreateUniformBuffer (failures left cb_ null → D3D11 AV). */
+		mutable std::unique_ptr<CBPerFrameWrap> PerFrameUniform;
 		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
 		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
 		/** Bound to t5/t7 when IBL cubemaps are missing so PS never samples stale 2D PBR textures as cubes. */

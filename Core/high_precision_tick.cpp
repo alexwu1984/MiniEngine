@@ -1,4 +1,4 @@
-#include "win/high_precision_tick.h"
+﻿#include "win/high_precision_tick.h"
 #include "win/cpu_clock.h"
 #include "core/logger.h"
 

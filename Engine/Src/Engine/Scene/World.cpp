@@ -192,8 +192,9 @@ namespace Engine
 
 	World::~World()
 	{
-		sigSceneActorRenderResourcesInvalidated.unbindall(); // release render-side subscriptions
+		sigSceneActorRenderResourcesInvalidated.unbindall();
 		delete d_ptr;
+		d_ptr = nullptr;
 	}
 
 	void World::LoadScene(const std::wstring& ModelFile)
@@ -202,7 +203,6 @@ namespace Engine
 		nlohmann::json Root;
 		if (!LoadJsonFile(ModelFile, Root))
 			return;
-		sigSceneActorRenderResourcesInvalidated();
 		Engine::GEngine->LoadConfig(ModelFile, Root);
 
 		try
@@ -277,24 +277,26 @@ namespace Engine
 	void World::RemoveActor(std::shared_ptr<Actor> actor)
 	{
 		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
 		bool bRemoved = false;
-		auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
-		if (iter != d->PendingActors.end())
 		{
-			std::iter_swap(iter, d->PendingActors.end() - 1);
-			d->PendingActors.pop_back();
-			bRemoved = true;
-		}
+			std::lock_guard<std::recursive_mutex> l(d->lock);
+			auto iter = std::find(d->PendingActors.begin(), d->PendingActors.end(), actor);
+			if (iter != d->PendingActors.end())
+			{
+				std::iter_swap(iter, d->PendingActors.end() - 1);
+				d->PendingActors.pop_back();
+				bRemoved = true;
+			}
 
-		iter = std::find(d->Actors.begin(), d->Actors.end(), actor);
-		if (iter != d->Actors.end())
-		{
-			std::iter_swap(iter, d->Actors.end() - 1);
-			d->Actors.pop_back();
-			bRemoved = true;
+			iter = std::find(d->Actors.begin(), d->Actors.end(), actor);
+			if (iter != d->Actors.end())
+			{
+				std::iter_swap(iter, d->Actors.end() - 1);
+				d->Actors.pop_back();
+				bRemoved = true;
+			}
+			RefreshShadowProjectorForActor(nullptr);
 		}
-		RefreshShadowProjectorForActor(nullptr);
 		if (bRemoved)
 			sigSceneActorRenderResourcesInvalidated();
 	}
@@ -302,12 +304,13 @@ namespace Engine
 	void World::RemoveAllActors()
 	{
 		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		for (auto ItActor = d->Actors.begin(); ItActor != d->Actors.end(); ++ItActor)
 		{
-			(*ItActor)->SetState(Actor::EDead);
+			std::lock_guard<std::recursive_mutex> l(d->lock);
+			d->Actors.clear();
+			d->PendingActors.clear();
+			d->MainCamera.reset();
+			RefreshShadowProjectorForActor(nullptr);
 		}
-		RefreshShadowProjectorForActor(nullptr);
 		sigSceneActorRenderResourcesInvalidated();
 	}
 
@@ -353,6 +356,12 @@ namespace Engine
 	{
 		C_P(World);
 		d->MainCamera = Camera;
+	}
+
+	void World::ApplySceneTransitionPrimaryCameraState()
+	{
+		if (const auto cam = GetMainCamera())
+			cam->MarkTemporalHistoryStaleAfterSceneCut();
 	}
 
 	std::shared_ptr<Engine::CameraComponent> World::GetMainCamera() const

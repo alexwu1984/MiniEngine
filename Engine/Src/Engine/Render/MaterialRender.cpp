@@ -7,10 +7,11 @@ namespace Engine
 
 	MaterialRender::~MaterialRender()
 	{
-		if (GRenderThread)
-		{
+		if (!GRenderThread)
+			return;
+		// FMeshMaterialRenderCache::Clear() runs on the render worker; never wait for that same thread here.
+		if (std::this_thread::get_id() != GRenderThread->GetWorkerThreadId())
 			GRenderThread->WaitForFinish();
-		}
 	}
 
 }

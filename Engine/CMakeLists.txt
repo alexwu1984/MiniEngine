@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -55,6 +55,7 @@ set(Engine_Scene_Source
 	Src/Engine/Scene/SceneModelAsset.cpp
 	Src/Engine/Scene/FreeRoamCameraComponent.cpp
 	Src/Engine/Scene/RoamCameraActor.cpp
+	Src/Engine/Scene/SceneManager.cpp
 	Src/Engine/Scene/SkyLightComponent.cpp
 	Src/Engine/Scene/World.cpp
 )

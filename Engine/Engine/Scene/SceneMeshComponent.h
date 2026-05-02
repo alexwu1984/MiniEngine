@@ -15,6 +15,8 @@ namespace Engine
 	struct GltfSceneMeshInfo
 	{
 		std::vector<std::shared_ptr<MeshBase>> Meshes;
+		/** Parallel to Meshes; stable logical slot for MaterialRender cache (Actor + Component + ordinal + Material id). */
+		std::vector<uint64_t> MeshMaterialRenderCacheKeys;
 		math::Matrix4x4 WorldTransform;
 		math::Matrix4x4 PrevWorldTransform;
 	};

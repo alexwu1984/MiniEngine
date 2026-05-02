@@ -1,4 +1,4 @@
-#include "D3D12/D3D12RootSignature.h"
+﻿#include "D3D12/D3D12RootSignature.h"
 #include "D3D12/D3D12RootSignatureDefinitions.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"

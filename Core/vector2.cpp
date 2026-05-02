@@ -1,4 +1,4 @@
-#include "math/vector2.h"
+﻿#include "math/vector2.h"
 
 void math::Vector2::Normalize()
 {

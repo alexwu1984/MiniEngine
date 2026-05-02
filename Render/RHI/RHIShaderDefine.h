@@ -22,7 +22,8 @@ namespace RenderCore
 
 		explicit TUniformBufferBinding(DynamicRHI* rhi) : rhi_(rhi)
 		{
-			cb_ = rhi->RHICreateUniformBuffer(&Data, sizeof(TData));
+			if (rhi)
+				cb_ = rhi->RHICreateUniformBuffer(&Data, sizeof(TData));
 		}
 
 		TUniformBufferBinding(const TUniformBufferBinding&) = delete;
@@ -31,10 +32,15 @@ namespace RenderCore
 		TUniformBufferBinding& operator=(TUniformBufferBinding&&) noexcept = default;
 		~TUniformBufferBinding() = default;
 
-		void UpdateUniformBuffer(RHICommandContext& ctx) { ctx.RHIUpdateUniformBuffer(cb_, &Data); }
+		void UpdateUniformBuffer(RHICommandContext& ctx)
+		{
+			if (cb_)
+				ctx.RHIUpdateUniformBuffer(cb_, &Data);
+		}
 		void SetShaderUniformBuffer(RHICommandContext& ctx, EShaderFrequency shaderType)
 		{
-			ctx.RHISetShaderUniformBuffer(shaderType, UniformRegisterIndex, cb_);
+			if (cb_)
+				ctx.RHISetShaderUniformBuffer(shaderType, UniformRegisterIndex, cb_);
 		}
 
 		void UpdateUniformBuffer()

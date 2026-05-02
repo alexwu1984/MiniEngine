@@ -12,6 +12,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIIndexBuffer> IndexBuffer;
 
 		int AtrributeCount = 3;
+		uint32_t DeclaredVertexFeatures = 0;
 	};
 
 	GltfMeshBuffer::GltfMeshBuffer()
@@ -27,6 +28,16 @@ namespace Engine
 
 	void GltfMeshBuffer::InitMesh(std::shared_ptr< GltfMeshInfo> MeshInfo)
 	{
+		{
+			C_P(GltfMeshBuffer);
+			uint32_t Feat = 0;
+			if (MeshInfo && MeshInfo->Tangents)
+				Feat |= MeshBufferVertexFeatures::Tangent;
+			if (MeshInfo && MeshInfo->BoneIDs && MeshInfo->BoneWeights)
+				Feat |= MeshBufferVertexFeatures::Skinning;
+			d->DeclaredVertexFeatures = Feat;
+		}
+
 		// If UVs are missing, feed a zero UV stream (do NOT alias normals with a smaller stride).
 		std::shared_ptr<std::vector<math::Vector2>> FallbackUVs;
 		if (!MeshInfo->TextureCoords && MeshInfo->nNumVertices > 0)
@@ -136,6 +147,12 @@ namespace Engine
 	{
 		C_P(GltfMeshBuffer);
 		return d->IndexBuffer;
+	}
+
+	uint32_t GltfMeshBuffer::GetDeclaredVertexFeatures() const noexcept
+	{
+		C_P(const GltfMeshBuffer);
+		return d->DeclaredVertexFeatures;
 	}
 
 }

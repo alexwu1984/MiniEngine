@@ -1,4 +1,4 @@
-#include "RHIPrivate/ShaderCore.h"
+﻿#include "RHIPrivate/ShaderCore.h"
 
 namespace RenderCore
 {

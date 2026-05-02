@@ -19,6 +19,7 @@ namespace Engine
 		~GameViewportClient();
 
 		void Init(std::shared_ptr<AppWindow> AppWindow);
+		void SetWorldWeak(std::weak_ptr<World> InWorld);
 		void Tick(float DeltaTime);
 
 	private:

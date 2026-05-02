@@ -1,4 +1,4 @@
-#include "win/win32.h"
+﻿#include "win/win32.h"
 #include "math/vector2.h"
 #include "core/commandline.h"
 #include "GltfViewerApp.h"

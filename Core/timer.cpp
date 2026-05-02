@@ -1,4 +1,4 @@
-#include "core/timer.h"
+﻿#include "core/timer.h"
 #include "win/win32.h"
 
 namespace core

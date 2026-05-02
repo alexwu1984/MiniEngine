@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "Engine/JsonConfig.h"
 #include "Render/WorldSceneRender.h"
+#include "Render/RenderStableIds.h"
 #include <variant>
 
 namespace Engine
@@ -45,10 +46,8 @@ namespace Engine
 
 	SceneMeshComponent::~SceneMeshComponent()
 	{
-		if (GRenderThread)
-		{
+		if (GRenderThread && std::this_thread::get_id() != GRenderThread->GetWorkerThreadId())
 			GRenderThread->WaitForFinish();
-		}
 		delete d_ptr;
 	}
 
@@ -220,6 +219,20 @@ namespace Engine
 		C_P(SceneMeshComponent);
 		SceneMeshInfo.WorldTransform = GetOwner()->GetWorldTransform();
 		SceneMeshInfo.PrevWorldTransform = GetOwner()->GetPrevWorldTransform();
+		const std::shared_ptr<Actor> OwnerActor = GetOwner();
+		const uint64_t ActorStable = OwnerActor ? OwnerActor->GetStableInstanceId() : 0u;
+		const uint64_t CompStable = GetStableComponentInstanceId();
+
+		auto PushDrawableMesh = [&](const std::shared_ptr<MeshBase>& M)
+		{
+			if (!M)
+				return;
+			const uint32_t Ordinal = static_cast<uint32_t>(SceneMeshInfo.Meshes.size());
+			SceneMeshInfo.Meshes.push_back(M);
+			SceneMeshInfo.MeshMaterialRenderCacheKeys.push_back(
+				BuildMeshMaterialRenderCacheKey(ActorStable, CompStable, Ordinal, M->GetMaterial()->GetStableMaterialInstanceId()));
+		};
+
 		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
 		{
 			math::AABB3 Box = PM->Box.Transform(SceneMeshInfo.WorldTransform);
@@ -227,10 +240,7 @@ namespace Engine
 			if (Render)
 			{
 				for (auto& Mesh : PM->Meshes)
-				{
-					if (Mesh)
-						SceneMeshInfo.Meshes.push_back(Mesh);
-				}
+					PushDrawableMesh(Mesh);
 			}
 			return Render;
 		}
@@ -256,11 +266,8 @@ namespace Engine
 			const bool Render = (ViewCullFrustum == nullptr) || ViewCullFrustum->Intersects(mergedWorldAabb);
 			if (Render)
 			{
-				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<GltfMesh> Item) {
-					if (Item)
-						SceneMeshInfo.Meshes.push_back(Item);
-					});
-
+				for (const auto& Item : TmpMeshs)
+					PushDrawableMesh(Item);
 			}
 			return Render;
 		}
@@ -282,11 +289,8 @@ namespace Engine
 			const bool Render = (ViewCullFrustum == nullptr) || ViewCullFrustum->Intersects(mergedWorldAabb);
 			if (Render)
 			{
-				std::for_each(TmpMeshs.begin(), TmpMeshs.end(), [&SceneMeshInfo](std::shared_ptr<AssimpMesh> Item) {
-					if (Item)
-						SceneMeshInfo.Meshes.push_back(Item);
-					});
-
+				for (const auto& Item : TmpMeshs)
+					PushDrawableMesh(Item);
 			}
 			return Render;
 		}

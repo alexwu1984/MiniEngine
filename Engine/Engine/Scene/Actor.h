@@ -83,6 +83,8 @@ namespace Engine
 		void SetActorName(const std::wstring& name);
 		std::wstring GetActorName() const;
 
+		uint64_t GetStableInstanceId() const noexcept;
+
 	public:
 		virtual void ProcessInput(const InputDeviceState& State);
 

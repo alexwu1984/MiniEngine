@@ -1,4 +1,5 @@
 ﻿#include "Engine/Scene/Component.h"
+#include "Render/RenderStableIds.h"
 
 namespace Engine
 {
@@ -7,6 +8,7 @@ namespace Engine
 
 	struct ComponentPrivate
 	{
+		uint64_t StableInstanceId = 0;
 		std::weak_ptr<Actor> Owner;
 	};
 
@@ -14,6 +16,7 @@ namespace Engine
 		:ImplComponentP(std::make_shared<ComponentPrivate>())
 	{
 		ImplComponentP->Owner = Owner;
+		ImplComponentP->StableInstanceId = AllocateComponentStableInstanceId();
 	}
 
 	Component::~Component()
@@ -24,6 +27,11 @@ namespace Engine
 	std::shared_ptr<Actor> Component::GetOwner() const
 	{
 		return ImplComponentP->Owner.lock();
+	}
+
+	uint64_t Component::GetStableComponentInstanceId() const noexcept
+	{
+		return ImplComponentP->StableInstanceId;
 	}
 
 }

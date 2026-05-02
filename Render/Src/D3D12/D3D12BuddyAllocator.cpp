@@ -1,4 +1,4 @@
-#include "D3D12/D3D12BuddyAllocator.h"
+﻿#include "D3D12/D3D12BuddyAllocator.h"
 #include "D3D12/D3D12UploadWCDiagnostics.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"

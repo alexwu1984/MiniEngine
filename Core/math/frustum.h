@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/plane3.h"
 #include "math/aabb3.h"
 

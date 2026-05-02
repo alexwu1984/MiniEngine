@@ -34,7 +34,9 @@ static const int LightType_Spot = 2;
 struct MaterialPerFrame
 {
     float Metallic;
-    int3 Padding;
+    float AlphaCutoff;
+    uint AlphaMask;
+    uint Padding;
 };
 
 struct PerFrame

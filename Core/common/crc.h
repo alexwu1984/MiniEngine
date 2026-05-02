@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "common/bytes_swap.h"
 
 namespace core

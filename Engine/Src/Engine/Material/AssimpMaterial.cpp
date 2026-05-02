@@ -299,6 +299,7 @@ namespace Engine
 			};
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
+		FlushRenderingCommands();
 	}
 
 	std::string AssimpMaterial::GetMaterialName() const

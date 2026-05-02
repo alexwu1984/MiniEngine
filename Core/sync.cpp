@@ -1,4 +1,4 @@
-#include "win/sync.h"
+﻿#include "win/sync.h"
 #include "win/win32.h"
 
 namespace win32

@@ -1,4 +1,4 @@
-#include "win/pipe.h"
+﻿#include "win/pipe.h"
 #include "win/win32.h"
 #include "core/strings.h"
 #include "core/logger.h"

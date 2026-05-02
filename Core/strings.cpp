@@ -1,4 +1,4 @@
-#include "core/strings.h"
+﻿#include "core/strings.h"
 #include "win/win32.h"
 
 namespace core

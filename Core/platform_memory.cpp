@@ -1,4 +1,4 @@
-#include "win/platform_memory.h"
+﻿#include "win/platform_memory.h"
 
 namespace win32
 {

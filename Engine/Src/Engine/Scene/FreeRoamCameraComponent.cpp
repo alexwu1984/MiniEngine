@@ -95,11 +95,15 @@ namespace Engine
 	{
 		if (WheelNotches == 0)
 			return;
+		// Win32 WM_MOUSEWHEEL reports delta in multiples of 120 (WHEEL_DELTA), not ±1 per detent.
+		static constexpr float kWheelDelta = 120.f;
+		static constexpr float kZoomWorldUnitsPerDetent = 0.12f;
+		const float detents = static_cast<float>(WheelNotches) / kWheelDelta;
 		const float yawRad = Radians(YawDegrees);
 		const float pitchRad = Radians(PitchDegrees);
 		Vector3 forward(cosf(pitchRad) * sinf(yawRad), sinf(pitchRad), cosf(pitchRad) * cosf(yawRad));
 		forward = forward.Normalize();
-		Vector3 eye = GetCameraPos() + forward * (0.28f * static_cast<float>(WheelNotches));
+		Vector3 eye = GetCameraPos() + forward * (kZoomWorldUnitsPerDetent * detents);
 		SetCameraPos(eye);
 		if (const auto owner = GetOwner())
 			owner->SetPosition(eye);
@@ -124,8 +128,8 @@ namespace Engine
 		auto AppWin = GEngine->GetAppWindow();
 		const uint32_t Width = AppWin->GetWidth();
 		const uint32_t Height = AppWin->GetHeight();
-		static uint32_t Seed = 0;
-		SetProjectionJitter(Width, Height, Seed);
+		uint32_t UnusedProjectionJitterSampleArg = 0;
+		SetProjectionJitter(Width, Height, UnusedProjectionJitterSampleArg);
 
 		static constexpr float kTemporalAATeleportMeters = 30.f;
 		const float kSq = kTemporalAATeleportMeters * kTemporalAATeleportMeters;
@@ -140,6 +144,8 @@ namespace Engine
 		}
 		d->TemporalHistoryLastPos = CameraPosAfter;
 		d->TemporalHistoryHasLastPos = true;
+
+		EnsureTemporalPrevMatricesInitialized();
 	}
 
 } // namespace Engine

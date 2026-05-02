@@ -1,6 +1,7 @@
 ﻿#include "Render/SceneRendering/DeferredBasePassMeshDispatch.h"
 #include "Render/SceneRendering/SceneMaterialShaderParameters.h"
 #include "Render/SceneRendering/SceneViewData.h"
+#include "Render/MaterialPreFrame.h"
 #include "RHI/DynamicRHI.h"
 #include "GltfModel/GltfMesh.h"
 
@@ -14,13 +15,21 @@ namespace Engine
 		MaterialRenderParam Params = FSceneMaterialShaderParameters::BuildForDeferredBasePass(DrawContext.WorldSceneRender, ViewData, Mesh.get(), WorldTransform, PrevWorldTransform,
 																							   DrawContext.TargetBuffer);
 
-		if (!bIsPrePass && Mesh->GetSkinId() > -1 && Mesh->GetBoneNodeArray().size() > 0)
+		// Skinning VS reads cbPerSkeleton whenever the mesh has weights. PrePass used to skip uploads and left stale / zero matrices (garbage verts).
+		if (Mesh->HasSkin())
 		{
-			auto& Bone = Mesh->GetBoneNodeArray()[Mesh->GetSkinId()];
-			for (uint32_t BoneIndex = 0; BoneIndex < Bone.size(); BoneIndex++)
+			const bool bResolvedPalette = Mesh->GetSkinId() > -1 && !Mesh->GetBoneNodeArray().empty()
+				&& Mesh->GetSkinId() < static_cast<int>(Mesh->GetBoneNodeArray().size());
+			if (bResolvedPalette)
 			{
-				Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, BoneIndex);
+				auto& Bone = Mesh->GetBoneNodeArray()[static_cast<size_t>(Mesh->GetSkinId())];
+				const uint32_t MaxSkin = static_cast<uint32_t>(CBPerSkeleton::kPaletteMatrixCount);
+				const uint32_t NumBones = static_cast<uint32_t>(Bone.size());
+				for (uint32_t BoneIndex = 0; BoneIndex < NumBones && BoneIndex < MaxSkin; ++BoneIndex)
+					Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
 			}
+			else
+				Material->ResetSkeletonPaletteIdentity();
 		}
 
 		RenderCore::RHICommandContext* CmdList = DrawContext.RHICmdList;

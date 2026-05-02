@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "math/vector3.h"
 
 namespace math
@@ -68,12 +68,12 @@ namespace math
 
 		Vector4 operator*(const Matrix4x4& mat) const;
 
-		float GetLength(void)const                  // ³¤¶È
+		float GetLength(void)const                  // é•¿åº¦
 		{
 			return std::sqrt(x * x + y * y + z * z + w*w);
 		}
 
-		float GetSqrLength(void) const         // ³¤¶ÈÆ½·½
+		float GetSqrLength(void) const         // é•¿åº¦å¹³æ–¹
 		{
 			return (x * x + y * y + z * z + w*w);
 		}

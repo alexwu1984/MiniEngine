@@ -1,4 +1,4 @@
-#include "D3D12/D3D12State.h"
+﻿#include "D3D12/D3D12State.h"
 
 namespace RenderCore
 {

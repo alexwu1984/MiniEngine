@@ -64,17 +64,19 @@ namespace Engine
 
 	FWorldSceneRender::~FWorldSceneRender()
 	{
-		if (GRenderThread)
-		{
-			if (std::this_thread::get_id() != GRenderThread->GetWorkerThreadId())
-				GRenderThread->WaitForFinish();
-		}
+		FlushRenderingCommands();
 	}
 
 	std::shared_ptr<World> FWorldSceneRender::GetWorld() const
 	{
 		const FWorldSceneRenderPrivate* d = d_ptr.get();
 		return d->Owner.lock();
+	}
+
+	void FWorldSceneRender::SetWorldWeak(std::weak_ptr<World> Owner)
+	{
+		FWorldSceneRenderPrivate* d = d_ptr.get();
+		d->Owner = std::move(Owner);
 	}
 
 	void FWorldSceneRender::InitResource(std::shared_ptr<RHIViewPort> ViewPort)
@@ -207,12 +209,64 @@ namespace Engine
 		return d->MainViewPort;
 	}
 
+	uint64_t FWorldSceneRender::GetMeshMaterialCacheSceneGeneration() const noexcept
+	{
+		const FWorldSceneRenderPrivate* d = d_ptr.get();
+		return d ? d->MeshMaterialCacheSceneGeneration.load(std::memory_order_relaxed) : 0u;
+	}
+
 	void FWorldSceneRender::RequestMeshMaterialRenderCacheInvalidate()
 	{
 		// Game thread sets flag; render thread clears FMeshMaterialRenderCache on next Render.
 		FWorldSceneRenderPrivate* d = d_ptr.get();
 		if (d)
 			d->bMeshMaterialCacheInvalidatePending.store(true, std::memory_order_release);
+	}
+
+	void FWorldSceneRender::FlushClearMeshMaterialRenderCacheNow()
+	{
+		FWorldSceneRenderPrivate* d = d_ptr.get();
+		if (!d || !d->MeshMaterialRenderCache)
+			return;
+		FMeshMaterialRenderCache* CachePtr = d->MeshMaterialRenderCache.get();
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[CachePtr](RenderCore::DynamicRHI* RHI)
+			{
+				(void)RHI;
+				if (CachePtr)
+					CachePtr->Clear();
+			},
+			false);
+		FlushRenderingCommands();
+		d->bMeshMaterialCacheInvalidatePending.store(false, std::memory_order_release);
+	}
+
+	void FWorldSceneRender::RequestRenderingResetAfterSceneTransition()
+	{
+		FWorldSceneRenderPrivate* d = d_ptr.get();
+		if (d)
+			d->MeshMaterialCacheSceneGeneration.fetch_add(1, std::memory_order_relaxed);
+
+		RequestMeshMaterialRenderCacheInvalidate();
+
+		if (d && d->ShadowRender)
+			d->ShadowRender->ClearCachedMeshShadowPasses();
+
+		if (!d || !d->MainViewPort)
+			return;
+		const auto Sz = d->MainViewPort->GetSize();
+		if (Sz.cx <= 0 || Sz.cy <= 0)
+			return;
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[dLife = d_ptr, Sz](RenderCore::DynamicRHI* RHI)
+			{
+				if (dLife->TargetBuffer)
+					dLife->TargetBuffer->InitDefaultSceneTargets(Sz.cx, Sz.cy);
+				if (dLife->PostProcess)
+					dLife->PostProcess->InvalidateTransientResources();
+			},
+			false);
+		FlushRenderingCommands();
 	}
 
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
@@ -271,7 +325,8 @@ namespace Engine
 			{
 				dLife->SceneRenderer.Render(RHIIn);
 			},
-			true);
+			false);
+		FlushRenderingCommands();
 	}
 
 } // namespace Engine

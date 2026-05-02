@@ -46,6 +46,8 @@ namespace Engine
 		virtual void OnUpdateWorldTransform(float deltaTime) { }
 
 		std::shared_ptr<Actor> GetOwner() const;
+		uint64_t GetStableComponentInstanceId() const noexcept;
+
 	private:
 		std::shared_ptr< ComponentPrivate> ImplComponentP;
 	};

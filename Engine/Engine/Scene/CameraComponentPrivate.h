@@ -27,5 +27,7 @@ namespace Engine
 		uint32_t TemporalHistoryGeneration = 0;
 		math::Vector3 TemporalHistoryLastPos{ 0.f, 0.f, 0.f };
 		bool TemporalHistoryHasLastPos = false;
+		/** Until first Tick finishes jitter: avoids PrevView=id vs CurrView=lookAt → bogus motion/TAA after scene reload. */
+		bool bTemporalPrevMatricesValid = false;
 	};
 }

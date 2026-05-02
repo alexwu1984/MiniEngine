@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 /**
  * D3D12 RHI utilities: sync point, resource state, barriers, thread-safe queue,
  * heap helpers, shader quantize types, resource desc helpers, queue mapping.

@@ -34,6 +34,12 @@ namespace Engine
 		delete d_ptr;
 	}
 
+	void GameViewportClient::SetWorldWeak(std::weak_ptr<World> InWorld)
+	{
+		C_P(GameViewportClient);
+		d->WorldRef = std::move(InWorld);
+	}
+
 	void GameViewportClient::Init(std::shared_ptr<AppWindow> AppWindow)
 	{
 		AppWindow->EvtMouseButtonDown.bind(std::bind(&GameViewportClient::OnMouseButtonDown, this, std::placeholders::_1, std::placeholders::_2), this);

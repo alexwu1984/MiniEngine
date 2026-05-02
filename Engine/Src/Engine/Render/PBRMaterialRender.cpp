@@ -60,9 +60,24 @@ namespace Engine
 	void PBRMaterialRender::SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index)
 	{
 		C_P(PBRMaterialRender);
+		if (Index < 0 || Index >= CBPerSkeleton::kPaletteMatrixCount)
+			return;
 		auto const& PreviousMatrix = d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current;
 		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Previous = PreviousMatrix;
 		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
+	}
+
+	void PBRMaterialRender::ResetSkeletonPaletteIdentity()
+	{
+		C_P(PBRMaterialRender);
+		math::Matrix4x4 I;
+		I.Identity();
+		auto& Data = d->GET_UNIFORMDATA(CBPerSkeleton);
+		for (int i = 0; i < CBPerSkeleton::kPaletteMatrixCount; ++i)
+		{
+			Data.PerSkeleton_u_ModelMatrix[i].Current = I;
+			Data.PerSkeleton_u_ModelMatrix[i].Previous = I;
+		}
 	}
 
 	std::wstring PBRMaterialRender::GetShaderFileName() const
@@ -81,25 +96,25 @@ namespace Engine
 			C_P(PBRMaterialRender);
 			std::wstring ShaderPath = Path + GetShaderFileName();
 
-			const auto& VerticesBuffer = d->MeshBuffer->GetVerticesBuffer();
+			const uint32_t VtxFeat = d->MeshBuffer->GetDeclaredVertexFeatures();
 			RHIVertexDeclare VertexDeclareRHI;
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
 
 			std::vector< RHIShaderMacro> ShaderMacros;
-			if (VerticesBuffer[RenderCore::VT_JointsWeights0])
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 			{
 				ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
 			}
 			int32_t Index = 2;
-			if (VerticesBuffer[RenderCore::VT_Tangent])
+			if (VtxFeat & MeshBufferVertexFeatures::Tangent)
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 				ShaderMacros.push_back({ "HAS_TANGENT","1" });
 			}
 
-			if (VerticesBuffer[RenderCore::VT_JointsWeights0])
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 				ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
@@ -107,12 +122,15 @@ namespace Engine
 
 			//ShaderMacros.push_back({"MATERIAL_UNLIT","0"});
 
-			if (VerticesBuffer[RenderCore::VT_JointsIndices0])
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 			}
 
 			AddShaderMacro(ShaderMacros);
+
+			if (d->MeshMaterial->IsTransparent())
+				ShaderMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
 
 			// D3D12: batch first five material SRVs as one ps_5_1 texture array (see RHI_BINDLESS in PBRMaterial.hlsl).
 			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0)
@@ -171,6 +189,9 @@ namespace Engine
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = d->RenderParam.lightInfos[index];
 		}
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.AlphaCutoff = d->MeshMaterial->GetMaterialAlphaCutoff();
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.AlphaMask = d->MeshMaterial->UsesMaterialAlphaMask() ? 1u : 0u;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Padding = 0u;
 
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 

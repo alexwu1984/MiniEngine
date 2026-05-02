@@ -1,4 +1,4 @@
-#include "math/ray3.h"
+ï»¿#include "math/ray3.h"
 #include "math/aabb3.h"
 #include "math/plane3.h"
 
@@ -27,10 +27,10 @@ namespace math
 
 	float Ray3::SquaredDistance(const Vector3& Point, float& fRayParameter) const
 	{
-		//Ê¹ÓÃÏòÁ¿Í¶Ó°½øĞĞ¼ÆËã
+		//ä½¿ç”¨å‘é‡æŠ•å½±è¿›è¡Œè®¡ç®—
 		Vector3 Diff = Point - _Orig;
-		fRayParameter = _Dir.Dot(Diff); //diffÔÚ m_dirÖ±Ïß·½ÏòµÄÍ¶Ó°±êÁ¿
-		Diff -= _Dir * fRayParameter; //m_dir·½ÏòµÄÏòÁ¿£¬ÓÃdiff ¸úÏòÁ¿Ïà¼õ£¬µÃµ½ µãµ½Ö±ÏßµÄ´¹Ö±ÏòÁ¿
+		fRayParameter = _Dir.Dot(Diff); //diffåœ¨ m_dirç›´çº¿æ–¹å‘çš„æŠ•å½±æ ‡é‡
+		Diff -= _Dir * fRayParameter; //m_diræ–¹å‘çš„å‘é‡ï¼Œç”¨diff è·Ÿå‘é‡ç›¸å‡ï¼Œå¾—åˆ° ç‚¹åˆ°ç›´çº¿çš„å‚ç›´å‘é‡
 		return Diff.GetSqrLength();
 	}
 
@@ -88,42 +88,42 @@ namespace math
 	HitResult RayTriangleIntersect(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Ray3& ray)
 	{
 		HitResult hitResult{};
-		// ¼ÆËã±ßÏòÁ¿
+		// è®¡ç®—è¾¹å‘é‡
 		Vector3 edge1 = v1 - v0;
 		Vector3 edge2 = v2 - v0;
 
-		// ¼ÆËã²æ³Ë s1 = dir ¡Á edge2
+		// è®¡ç®—å‰ä¹˜ s1 = dir Ã— edge2
 		Vector3 s1 = Vector3::Cross(ray.GetDir(), edge2);
-		// ¼ÆËãĞĞÁĞÊ½ det = s1 ¡¤ edge1
+		// è®¡ç®—è¡Œåˆ—å¼ det = s1 Â· edge1
 		float det = Vector3::Dot(s1, edge1);
 
-		// ´¦ÀíĞĞÁĞÊ½½Ó½ü0µÄÇé¿ö£¨¹âÏßÓëÈı½ÇĞÎÆ½ÃæÆ½ĞĞ»ò·´Ïò£©
+		// å¤„ç†è¡Œåˆ—å¼æ¥è¿‘0çš„æƒ…å†µï¼ˆå…‰çº¿ä¸ä¸‰è§’å½¢å¹³é¢å¹³è¡Œæˆ–åå‘ï¼‰
 		if (det > -KINDA_SMALL_NUMBER && det < KINDA_SMALL_NUMBER)
 			return hitResult;
 
-		// ¼ÆËãĞĞÁĞÊ½µÄµ¹Êı£¬±ÜÃâÖØ¸´³ı·¨
+		// è®¡ç®—è¡Œåˆ—å¼çš„å€’æ•°ï¼Œé¿å…é‡å¤é™¤æ³•
 		float invDet = 1 / det;
 
-		// ¼ÆËã´Ó v0 µ½¹âÏßÔ­µãµÄÏòÁ¿
+		// è®¡ç®—ä» v0 åˆ°å…‰çº¿åŸç‚¹çš„å‘é‡
 		Vector3 s = ray.GetOrig() - v0;
-		// ¼ÆËã u ²¢ÅĞ¶Ï·¶Î§
+		// è®¡ç®— u å¹¶åˆ¤æ–­èŒƒå›´
 		hitResult.u = Vector3::Dot(s, s1) * invDet;
 		if (hitResult.u < 0 || hitResult.u > 1)
 			return hitResult;
 
-		// ¼ÆËã²æ³Ë s2 = s ¡Á edge1
+		// è®¡ç®—å‰ä¹˜ s2 = s Ã— edge1
 		Vector3 s2 = Vector3::Cross(s, edge1);
-		// ¼ÆËã v ²¢ÅĞ¶Ï·¶Î§
+		// è®¡ç®— v å¹¶åˆ¤æ–­èŒƒå›´
 		hitResult.v = Vector3::Dot(ray.GetDir(), s2) * invDet;
 		if (hitResult.v < 0 || hitResult.u + hitResult.v > 1)
 			return hitResult;
 
-		// ¼ÆËã t£¨½»µã¾àÀë£©²¢ÅĞ¶Ï·¶Î§
+		// è®¡ç®— tï¼ˆäº¤ç‚¹è·ç¦»ï¼‰å¹¶åˆ¤æ–­èŒƒå›´
 		hitResult.tNear = Vector3::Dot(edge2, s2) * invDet;
 		if (hitResult.tNear < 0)
 			return hitResult;
 
-		// ËùÓĞÌõ¼şÂú×ã£¬¹âÏßÓëÈı½ÇĞÎÏà½»
+		// æ‰€æœ‰æ¡ä»¶æ»¡è¶³ï¼Œå…‰çº¿ä¸ä¸‰è§’å½¢ç›¸äº¤
 		hitResult.Hit = true;
 		return hitResult;
 

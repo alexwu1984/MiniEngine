@@ -1,4 +1,4 @@
-#include "common/crc.h"
+﻿#include "common/crc.h"
 #include "math/math.h"
 
 namespace core

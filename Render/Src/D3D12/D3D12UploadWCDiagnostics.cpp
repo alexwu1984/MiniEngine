@@ -1,4 +1,4 @@
-#include "D3D12/D3D12UploadWCDiagnostics.h"
+﻿#include "D3D12/D3D12UploadWCDiagnostics.h"
 
 #include "RHI/RHI.h"
 #include "core/commandline.h"

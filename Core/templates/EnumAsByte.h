@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "core/inc.h"
 #include "templates/IsPODType.h"

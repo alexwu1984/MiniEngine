@@ -36,6 +36,9 @@ namespace Engine
 		/** Last frame's main directional light after shadow pass (LightViewProj + ShadowMapIndex); for base pass CB. */
 		bool TryGetCachedMainLightForShading(Light& OutLight);
 
+		/** Drop per-mesh ShadowPS instances (VS/IL tied to vertex layout). Call after full scene swaps so layouts cannot alias recycled meshes. */
+		void ClearCachedMeshShadowPasses();
+
 	private:
 		ShadowRenderPassPrivate* d_ptr = nullptr;
 	};

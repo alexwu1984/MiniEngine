@@ -212,10 +212,7 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, BloomTexture());
 
 		if (BloomConstants)
-		{
-			BloomConstants->Data.BloomIntensity = 1.0f;
 			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, *BloomConstants, RenderCore::SF_Pixel);
-		}
 
 		RHIContext.Draw(3);
 	}

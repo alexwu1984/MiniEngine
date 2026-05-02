@@ -3,6 +3,7 @@
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"
 #include "Scene/World.h"
+#include "Render/RenderStableIds.h"
 
 namespace Engine
 {
@@ -15,6 +16,7 @@ namespace Engine
 	{
 		C_P(Actor);
 		d->WorldRef = std::move(InWorld);
+		d->StableInstanceId = AllocateActorStableInstanceId();
 	}
 	Actor::~Actor()
 	{
@@ -246,6 +248,12 @@ namespace Engine
 	{
 		C_P(Actor);
 		return d->ActorName;
+	}
+
+	uint64_t Actor::GetStableInstanceId() const noexcept
+	{
+		C_P(const Actor);
+		return d->StableInstanceId;
 	}
 
 	void Actor::ProcessInput(const InputDeviceState& State)

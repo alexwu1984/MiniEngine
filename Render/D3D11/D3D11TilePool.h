@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHITilePool.h"
 
 namespace RenderCore

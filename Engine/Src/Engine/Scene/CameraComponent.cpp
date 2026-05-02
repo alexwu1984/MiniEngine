@@ -7,6 +7,17 @@
 
 namespace Engine
 {
+	namespace
+	{
+		void SnapTemporalPrevToCurrent(CameraComponentPrivate* d)
+		{
+			d->PreviousView = d->View;
+			d->PrevProjMatrix = d->ProjMatrix;
+			d->PrevjitterX = d->jitterX;
+			d->PrevjitterY = d->jitterY;
+		}
+	} // namespace
+
 	IMP_COMPONENT_CLASS_NAME(CameraComponent)
 	IMP_COMPONENT_TRAITS_CLASS_NAME(CameraComponent)
 
@@ -44,8 +55,8 @@ namespace Engine
 		auto AppWin = GEngine->GetAppWindow();
 		auto Width = AppWin->GetWidth();
 		auto Height = AppWin->GetHeight();
-		static uint32_t Seed = 0;
-		SetProjectionJitter(Width, Height, Seed);
+		uint32_t UnusedProjectionJitterSampleArg = 0;
+		SetProjectionJitter(Width, Height, UnusedProjectionJitterSampleArg);
 
 		// Heuristic camera cut: large world-space jump in one tick (gameplay teleport / scene swap).
 		static constexpr float kTemporalAATeleportMeters = 30.f;
@@ -61,12 +72,32 @@ namespace Engine
 		}
 		d->TemporalHistoryLastPos = CameraPosAfter;
 		d->TemporalHistoryHasLastPos = true;
+
+		EnsureTemporalPrevMatricesInitialized();
+	}
+
+	void CameraComponent::EnsureTemporalPrevMatricesInitialized()
+	{
+		C_P(CameraComponent);
+		if (!d->bTemporalPrevMatricesValid)
+		{
+			SnapTemporalPrevToCurrent(d);
+			d->bTemporalPrevMatricesValid = true;
+		}
 	}
 
 	void CameraComponent::NotifyTemporalHistoryInvalidate()
 	{
 		C_P(CameraComponent);
 		++d->TemporalHistoryGeneration;
+		SnapTemporalPrevToCurrent(d);
+	}
+
+	void CameraComponent::MarkTemporalHistoryStaleAfterSceneCut()
+	{
+		C_P(CameraComponent);
+		++d->TemporalHistoryGeneration;
+		d->bTemporalPrevMatricesValid = false;
 	}
 
 	uint32_t CameraComponent::GetTemporalHistoryGeneration() const

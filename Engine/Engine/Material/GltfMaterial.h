@@ -23,6 +23,8 @@ namespace Engine
 
 		std::string GetMaterialName() const override;
 		bool IsTransparent() const override;
+		bool UsesMaterialAlphaMask() const override;
+		float GetMaterialAlphaCutoff() const override;
 		void SetTransparent(bool Transparent);
 
 		MaterialType GetMaterialType() const override;

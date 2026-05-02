@@ -31,9 +31,11 @@ struct PS_OUTPUT_SCENE
 
 float3 getNormalTexture(VS_OUTPUT_SCENE Input)
 {
-    float2 xy = 2.0 * NormalMap.SampleBias(SampleLinear, Input.UV0, myPerFrame.LodBias).rg - 1.0;
-    float z = sqrt(1.0f - dot(xy, xy));
-    return float3(xy, z);
+	float2 xy = 2.0 * NormalMap.SampleBias(SampleLinear, Input.UV0, myPerFrame.LodBias).rg - 1.0;
+	float lenSq = dot(xy, xy);
+	lenSq = min(lenSq, 1.0 - 1e-6);
+	float z = sqrt(max(1.0 - lenSq, 0.0));
+	return float3(xy, z);
 }
 
 // Find the normal for this fragment, pulling either from a predefined normal map
@@ -44,13 +46,22 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 #ifndef HAS_TANGENT
     float2 UV = Input.UV0;
     float3 pos_dx = ddx(Input.WorldPos);
-    float3 pos_dy = ddy(Input.WorldPos);
-    float3 tex_dx = ddx(float3(UV, 0.0));
-    float3 tex_dy = ddy(float3(UV, 0.0));
-    float3 t = (tex_dy.y * pos_dx - tex_dx.y * pos_dy) / (tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y);
-    float3 ng = normalize(Input.Normal);
+	float3 pos_dy = ddy(Input.WorldPos);
+	float3 tex_dx = ddx(float3(UV, 0.0));
+	float3 tex_dy = ddy(float3(UV, 0.0));
+	float denom = tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y;
+	float3 tUnnorm = tex_dy.y * pos_dx - tex_dx.y * pos_dy;
+	float3 ng = normalize(Input.Normal);
+	float3 t;
+	if (abs(denom) > 1e-7)
+		t = tUnnorm / denom;
+	else
+	{
+		float3 up = abs(ng.y) < 0.99 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
+		t = normalize(cross(up, ng));
+	}
 
-    t = normalize(t - ng * dot(ng, t));
+	t = normalize(t - ng * dot(ng, t));
     float3 b = normalize(cross(ng, t));
     float3x3 tbn = float3x3(t, b, ng);
 #else // HAS_TANGENTS
@@ -95,11 +106,13 @@ void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 spec
 float3 Calculate3DVelocity(float4 CurrentVelocity, float4 PreVelocity)
 {
 	// minus jitter
-    float2 ScreenPos = CurrentVelocity.xy / CurrentVelocity.w - myPerFrame.TemporalAAJitter.xy;
-    float2 PrevScreenPos = PreVelocity.xy / PreVelocity.w - myPerFrame.TemporalAAJitter.zw;
+	float Wc = CurrentVelocity.w != 0.0 ? CurrentVelocity.w : 1e-8;
+	float Wp = PreVelocity.w != 0.0 ? PreVelocity.w : 1e-8;
+    float2 ScreenPos = CurrentVelocity.xy / Wc - myPerFrame.TemporalAAJitter.xy;
+    float2 PrevScreenPos = PreVelocity.xy / Wp - myPerFrame.TemporalAAJitter.zw;
 
-    float DeviceZ = CurrentVelocity.z / CurrentVelocity.w;
-    float PrevDeviceZ = PreVelocity.z / PreVelocity.w;
+    float DeviceZ = CurrentVelocity.z / Wc;
+    float PrevDeviceZ = PreVelocity.z / Wp;
 
 	// 3d velocity, includes camera an object motion
     float3 Velocity = float3(ScreenPos - PrevScreenPos, DeviceZ - PrevDeviceZ);
@@ -126,6 +139,10 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     float3 specularColor;
     float metallic;
     GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, metallic, alpha);
+
+    if (myPerFrame.Material.AlphaMask != 0)
+        clip(alpha - myPerFrame.Material.AlphaCutoff);
+
     // AO may live in any channel depending on source asset; take max so wrong swizzle / packed maps do not zero IBL.
     float4 aoSamp = AoMap.Sample(SampleLinear, Input.UV0);
     float ao = max(max(aoSamp.r, aoSamp.g), aoSamp.b);
@@ -141,12 +158,20 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
         float4 bc = AlbedoMap.Sample(SampleLinear, Input.UV0);
         float3 albedoLin = sRGBToLinear(bc.rgb);
         float3 emLin = sRGBToLinear(EmissMap.Sample(SampleLinear, Input.UV0).rgb);
+#if defined(WRITE_BASECOLOR_ALPHA_TO_GBUFFER)
         Output.Target0 = float4(albedoLin + emLin, bc.a);
+#else
+        Output.Target0 = float4(albedoLin + emLin, 1.0);
+#endif
         return Output;
     }
 
     // Lit: G-buffer only; analytic + IBL lighting in DeferredLighting.hlsl (Target0 = linear base albedo, not shaded HDR).
     float4 baseTex = AlbedoMap.Sample(SampleLinear, Input.UV0);
+#if defined(WRITE_BASECOLOR_ALPHA_TO_GBUFFER)
     Output.Target0 = float4(sRGBToLinear(baseTex.rgb), alpha);
+#else
+    Output.Target0 = float4(sRGBToLinear(baseTex.rgb), 1.0);
+#endif
     return Output;
 }

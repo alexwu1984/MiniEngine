@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D12/D3D12RHICommon.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12Allocation.h"

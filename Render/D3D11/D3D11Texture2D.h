@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHITexture2D.h"
 #include "RHIPrivate/D3D11RHIDeclare.h"
 #include "win/com_ptr.h"

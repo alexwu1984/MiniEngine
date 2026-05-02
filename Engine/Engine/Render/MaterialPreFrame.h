@@ -37,9 +37,9 @@ namespace Engine
 	struct MaterialPerFrame
 	{
 		float Metallic{ 0.f };
-		int padding0{ 0 };
-		int padding1{ 0 };
-		int padding2{ 0 };
+		float AlphaCutoff{ 0.5f };
+		uint32_t AlphaMask{ 0 };
+		uint32_t Padding{ 0 };
 	};
 
 	struct PerFrame
@@ -71,6 +71,8 @@ namespace Engine
 	{
 		PerFrame myPerFrame;
 	};
+	static_assert(sizeof(CBPerFrame) % 16u == 0u, "D3D constant buffer size must be 16-byte aligned");
+	static_assert(sizeof(CBPerFrame) <= 65536u, "D3D11/D3D12 cbuffer max size is 64KB");
 	using CBPerFrameWrap = RenderCore::TUniformBufferBinding<CBPerFrame, 0u>;
 
 	struct CBPerObject
@@ -88,8 +90,12 @@ namespace Engine
 
 	struct CBPerSkeleton
 	{
-		Matrix2 PerSkeleton_u_ModelMatrix[200];
+		// D3D11/D3D12 cbuffer limit 64KB; Matrix2 (curr+prev 4x4) = 128 bytes/bone → max 512 slots.
+		static constexpr int kPaletteMatrixCount = 512;
+		Matrix2 PerSkeleton_u_ModelMatrix[kPaletteMatrixCount];
 	};
+	static_assert(sizeof(CBPerSkeleton) % 16u == 0u, "D3D constant buffer size must be 16-byte aligned");
+	static_assert(sizeof(CBPerSkeleton) <= 65536u, "D3D11/D3D12 cbuffer max size is 64KB");
 	using CBPerSkeletonWrap = RenderCore::TUniformBufferBinding<CBPerSkeleton, 2u>;
 
 	struct CBPerFur

@@ -42,6 +42,8 @@ namespace Engine
 		
 		virtual void InitRenderResource() = 0;
 		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index) = 0;
+		/** When skinned shaders bind cbPerSkeleton but no valid palette was uploaded this frame, fill identity to avoid stale CB garbage. */
+		virtual void ResetSkeletonPaletteIdentity() {}
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext,const MaterialRenderParam& RenderParam) = 0;
 		virtual void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) = 0;
 	};

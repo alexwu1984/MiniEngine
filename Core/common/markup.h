@@ -1,4 +1,4 @@
-// Markup.h: interface for the CMarkup class.
+﻿// Markup.h: interface for the CMarkup class.
 //
 // Markup Release 9.0
 // Copyright (C) 1999-2007 First Objective Software, Inc. All rights reserved

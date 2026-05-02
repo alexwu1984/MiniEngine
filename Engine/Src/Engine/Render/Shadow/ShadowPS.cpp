@@ -56,32 +56,31 @@ namespace Engine
 		std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/";
 		std::wstring VSPath = ShaderPath + L"ShadowPass-VS.hlsl";
 
-		const auto& VerticesBuffer = d->Mesh->GetMeshBuffer()->GetVerticesBuffer();
+		const uint32_t VtxFeat = d->Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures();
 		RHIVertexDeclare VertexDeclareRHI;
 		VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
 		VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
 		VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
 
 		std::vector< RHIShaderMacro> ShaderMacros;
-		if (VerticesBuffer[RenderCore::VT_JointsWeights0])
-		{
+		d->HasSkin = (VtxFeat & MeshBufferVertexFeatures::Skinning) != 0;
+		if (d->HasSkin)
 			ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
-			d->HasSkin = true;
-		}
+
 		int32_t Index = 2;
-		if (VerticesBuffer[RenderCore::VT_Tangent])
+		if (VtxFeat & MeshBufferVertexFeatures::Tangent)
 		{
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 			ShaderMacros.push_back({ "HAS_TANGENT","1" });
 		}
 
-		if (VerticesBuffer[RenderCore::VT_JointsWeights0])
+		if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 		{
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 			ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
 		}
 
-		if (VerticesBuffer[RenderCore::VT_JointsIndices0])
+		if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 		{
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 		}
@@ -123,9 +122,24 @@ namespace Engine
 	void ShadowPS::SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index)
 	{
 		C_P(ShadowPS);
+		if (Index < 0 || Index >= CBPerSkeleton::kPaletteMatrixCount)
+			return;
 		auto const& PreviousMatrix = d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current;
 		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Previous = PreviousMatrix;
 		d->GET_UNIFORMDATA(CBPerSkeleton).PerSkeleton_u_ModelMatrix[Index].Current = Mat;
+	}
+
+	void ShadowPS::ResetSkeletonPaletteIdentity()
+	{
+		C_P(ShadowPS);
+		math::Matrix4x4 I;
+		I.Identity();
+		auto& Data = d->GET_UNIFORMDATA(CBPerSkeleton);
+		for (int i = 0; i < CBPerSkeleton::kPaletteMatrixCount; ++i)
+		{
+			Data.PerSkeleton_u_ModelMatrix[i].Current = I;
+			Data.PerSkeleton_u_ModelMatrix[i].Previous = I;
+		}
 	}
 
 }

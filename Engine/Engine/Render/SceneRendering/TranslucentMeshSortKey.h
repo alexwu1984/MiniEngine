@@ -11,6 +11,7 @@ namespace Engine
 	{
 		float SortDistance = 0.f;
 		std::shared_ptr<MeshBase> Mesh;
+		uint64_t MaterialRenderCacheKey = 0;
 		math::Matrix4x4 WorldTransform;
 		math::Matrix4x4 PrevWorldTransform;
 

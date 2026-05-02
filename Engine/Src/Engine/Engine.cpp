@@ -5,12 +5,14 @@
 #include "Thread/RenderThread.h"
 #include "Engine/Thread/RHISubmissionThread.h"
 #include "RHI/RHIThreadPolicy.h"
+#include "Scene/SceneManager.h"
 #include "Scene/World.h"
 #include "Scene/GameViewportClient.h"
 #include "Render/WorldSceneRender.h"
 #include "win/high_precision_tick.h"
 #include "Engine/Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
+#include <functional>
 
 namespace Engine
 {
@@ -18,28 +20,30 @@ namespace Engine
 
 	struct MainEnginePrivate
 	{
-		MainEnginePrivate()
+		explicit MainEnginePrivate(MainEngine* Owner)
 		{
-			GameWorld = std::make_shared<Engine::World>();
-			ViewportClient = std::make_shared<GameViewportClient>(std::weak_ptr<World>(GameWorld));
-			SeRender = std::make_shared<FWorldSceneRender>(std::weak_ptr<World>(GameWorld));
+			SceneMgr = std::make_shared<SceneManager>();
+			ViewportClient = std::make_shared<GameViewportClient>(std::weak_ptr<World>(SceneMgr->GetWorld()));
+			SeRender = std::make_shared<FWorldSceneRender>(std::weak_ptr<World>(SceneMgr->GetWorld()));
+			SceneMgr->AttachClients(Owner, ViewportClient, SeRender);
 		}
 		std::shared_ptr<AppWindow> AppWin;
 		std::shared_ptr<RenderCore::DynamicRHI> DynamicRHI;
 		std::unique_ptr<RenderThread> RThread;
 		std::unique_ptr<RHISubmissionThread> RHISubmitThread;
 		RenderCore::RHIAPIType InitApiType = RenderCore::RHIAPIType::E_D3D12;
-		std::shared_ptr<World> GameWorld;
+		std::shared_ptr<SceneManager> SceneMgr;
 		std::shared_ptr<GameViewportClient> ViewportClient;
 		std::shared_ptr<FWorldSceneRender> SeRender;
 		win32::HighPrecisionTick GameTick;
 		std::wstring ModelPath;
 		std::atomic_bool NeedResize = false;
 		core::vec2i NewSize;
+		std::function<void()> EndFrameTickCallback;
 	};
 
 	MainEngine::MainEngine()
-		: d_ptr(new MainEnginePrivate())
+		: d_ptr(new MainEnginePrivate(this))
 	{
 		GEngine = this;
 	}
@@ -69,13 +73,7 @@ namespace Engine
 			d->ViewportClient->Init(AppWin);
 			d->SeRender->InitResource(ViewPort);
 
-			// World notifies scene changes; flush mesh draw cache on scene render (weak_ptr avoids lifetime issues).
-			d->GameWorld->sigSceneActorRenderResourcesInvalidated.bind(
-				std::function<void()>([wpSceneRender = std::weak_ptr<FWorldSceneRender>(d->SeRender)]() {
-					if (const auto sr = wpSceneRender.lock())
-						sr->RequestMeshMaterialRenderCacheInvalidate();
-				}),
-				this);
+			d->SceneMgr->BindInvalidateToCurrentWorld();
 		}
 	}
 
@@ -100,8 +98,9 @@ namespace Engine
 	void MainEngine::ShutDown()
 	{
 		C_P(MainEngine);
-		if (d->GameWorld)
-			d->GameWorld->sigSceneActorRenderResourcesInvalidated.unbind(this); // paired with Init bind
+		d->EndFrameTickCallback = {};
+		if (d->SceneMgr)
+			d->SceneMgr->UnbindInvalidateFromCurrentWorld();
 		d->GameTick.SigTick.unbind(this);
 		if (d->AppWin)
 			d->AppWin->EvtSizeChanged.unbind(this);
@@ -123,7 +122,7 @@ namespace Engine
 
 		d->SeRender = {};
 		d->ViewportClient = {};
-		d->GameWorld = {};
+		d->SceneMgr.reset();
 		Engine::RenderTexturePool::Get().Clear();
 		d->RThread = {};
 		if (d->DynamicRHI)
@@ -142,6 +141,20 @@ namespace Engine
 			d->SeRender->LoadConfig(Root);
 		}
 		d->ModelPath = std::filesystem::path(FileName).parent_path();
+	}
+
+	void MainEngine::ReloadSceneJson(const std::wstring& JsonPath)
+	{
+		C_P(MainEngine);
+		if (!d->SceneMgr)
+			return;
+		d->SceneMgr->ReloadSceneJson(JsonPath);
+	}
+
+	std::shared_ptr<SceneManager> MainEngine::GetSceneManager() const
+	{
+		C_P(const MainEngine);
+		return d->SceneMgr;
 	}
 
 	std::wstring MainEngine::GetModelPath() const
@@ -165,7 +178,7 @@ namespace Engine
 	std::shared_ptr<World> MainEngine::GetWorld() const
 	{
 		C_P(const MainEngine);
-		return d->GameWorld;
+		return d->SceneMgr ? d->SceneMgr->GetWorld() : nullptr;
 	}
 
 	std::shared_ptr<GameViewportClient> MainEngine::GetViewportClient() const
@@ -180,6 +193,12 @@ namespace Engine
 		return d->SeRender;
 	}
 
+	void MainEngine::SetEndFrameTickCallback(std::function<void()> Callback)
+	{
+		C_P(MainEngine);
+		d->EndFrameTickCallback = std::move(Callback);
+	}
+
 	void MainEngine::Tick(float DeltaTime)
 	{
 		C_P(MainEngine);
@@ -192,6 +211,8 @@ namespace Engine
 			d->NewSize = {};
 			d->NeedResize = false;
 		}
+		if (d->EndFrameTickCallback)
+			d->EndFrameTickCallback();
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)

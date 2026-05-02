@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "core/inc.h"
 
 namespace math
@@ -31,12 +31,12 @@ namespace math
 		{
 			x = _x; y = _y; z = _z;
 		}
-		float GetLength(void)const                  // ³¤¶È
+		float GetLength(void)const                  // é•¿åº¦
 		{
 			return std::sqrt(x * x + y * y + z * z);
 		}
 
-		float GetSqrLength(void) const         // ³¤¶ÈÆ½·½
+		float GetSqrLength(void) const         // é•¿åº¦å¹³æ–¹
 		{
 			return (x * x + y * y + z * z);
 		}
@@ -86,11 +86,11 @@ namespace math
 		}
 
 		// a.b = |a|*|b|*cos(x)
-		float AngleWith(const Vector3& v)          // Á½¸öÏòÁ¿µÄ¼Ğ½Ç(»¡¶È)
+		float AngleWith(const Vector3& v)          // ä¸¤ä¸ªå‘é‡çš„å¤¹è§’(å¼§åº¦)
 		{
 			return std::acos(((*this).Dot(v)) / (this->GetLength() * v.GetLength()));
 		}
-		void  Create(const Vector3& v1,			// ¹¹ÔìÏòÁ¿´Óµãv1µ½v2
+		void  Create(const Vector3& v1,			// æ„é€ å‘é‡ä»ç‚¹v1åˆ°v2
 			const Vector3& v2)
 		{
 			x = v2.x - v1.x;
@@ -194,9 +194,9 @@ namespace math
 
 		bool IsParallel(const Vector3& Vector)const;
 
-		//µãºÍµã¾àÀë
+		//ç‚¹å’Œç‚¹è·ç¦»
 		float SquaredDistance(const Vector3& Point)const;
-		//µãºÍÉäÏß¾àÀë
+		//ç‚¹å’Œå°„çº¿è·ç¦»
 		float SquaredDistance(const Ray3& Ray, float& fRayParameter)const;
 
 		//VSIN VSOUT VSON

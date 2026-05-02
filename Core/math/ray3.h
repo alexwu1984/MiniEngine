@@ -1,4 +1,4 @@
-#include "math/vector3.h"
+Ôªø#include "math/vector3.h"
 
 
 namespace math
@@ -37,15 +37,15 @@ namespace math
 			return  (_Orig + _Dir * fRayParameter);
 		}
 
-		//µ„µΩ÷±œﬂæ‡¿Î
+		//ÁÇπÂà∞Áõ¥Á∫øË∑ùÁ¶ª
 		float SquaredDistance(const Vector3& Point, float& fRayParameter) const;
 
 		Intersect RelationWith(const AABB3& AABB, float& tNear, float& tFar) const;
 		Intersect RelationWith(const Plane3& Plane, bool bCull, float& fRayParameter) const;
 
 	protected:
-		Vector3	_Orig;  // ‘¥µ„
-		Vector3	_Dir;   // ∑ΩœÚ
+		Vector3	_Orig;  // Ê∫êÁÇπ
+		Vector3	_Dir;   // ÊñπÂêë
 	};
 
 	struct HitResult

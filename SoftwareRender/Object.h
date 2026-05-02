@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/vector2.h"
 #include "math/vector3.h"
 #include "global.h"

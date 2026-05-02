@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D12/D3D12Limits.h"
 #include "RHI/RHI.h"
 #include <cstring>

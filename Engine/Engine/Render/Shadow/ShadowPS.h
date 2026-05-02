@@ -27,6 +27,7 @@ namespace Engine
 		void Draw(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,
 			const Light& mainLight, std::shared_ptr<RenderCore::RHIRenderTarget> renderTarget);
 		void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index);
+		void ResetSkeletonPaletteIdentity();
 	private:
 		ShadowPSPrivate* d_ptr = nullptr;
 	};

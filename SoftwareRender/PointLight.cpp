@@ -1,4 +1,4 @@
-#include "PointLight.h"
+﻿#include "PointLight.h"
 
 
 math::Vector3 PointPoint::illuminate(const math::Vector3& lightDir, const math::Vector3& N, bool inShadow) const

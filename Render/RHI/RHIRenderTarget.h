@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "RHI/RHIDefinitions.h"
 #include "math/vector4.h"

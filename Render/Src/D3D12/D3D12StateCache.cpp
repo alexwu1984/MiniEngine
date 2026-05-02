@@ -302,9 +302,14 @@ namespace RenderCore
 	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D)
 	{
 		Assert(TextureIndex < MAX_SRVS);
-		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != Texture2D->GetSRV().ptr)
+		D3D12_CPU_DESCRIPTOR_HANDLE Stored{};
+		if (Texture2D)
+			Stored = Texture2D->GetSRV();
+		else
+			Stored.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != Stored.ptr)
 		{
-			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Texture2D->GetSRV();
+			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Stored;
 			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
 		}
 	}

@@ -431,6 +431,8 @@ namespace RenderCore
 
 	void D3D11CommandContext::RHIUpdateUniformBuffer(std::shared_ptr<RHIUniformBuffer> UniformBufferRHI, const void* Contents)
 	{
+		if (!UniformBufferRHI || !Contents)
+			return;
 		// Update the contents of the uniform buffer.
 		uint32_t ConstantBufferSize = UniformBufferRHI->GetConstantBufferSize();
 
@@ -451,11 +453,26 @@ namespace RenderCore
 	void D3D11CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITexture2D> Texture2DRHI)
 	{
 		D3D11Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		if (!Texture2D)
 		{
+			ID3D11ShaderResourceView* NullSrv = nullptr;
+			switch (ShaderType)
+			{
+			case SF_Vertex:
+				StateCache.SetShaderResourceView<SF_Vertex>(NullSrv, TextureIndex);
+				break;
+			case SF_Compute:
+				StateCache.SetShaderResourceView<SF_Compute>(NullSrv, TextureIndex);
+				break;
+			case SF_Pixel:
+				StateCache.SetShaderResourceView<SF_Pixel>(NullSrv, TextureIndex);
+				break;
+			default:
+				break;
+			}
 			return;
 		}
-		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		switch (ShaderType)
 		{
 		case SF_Vertex:
@@ -597,6 +614,8 @@ namespace RenderCore
 		{
 			return;
 		}
+		for (uint32_t ClearSlot = static_cast<uint32_t>(StreamIndex); ClearSlot < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; ++ClearSlot)
+			StateCache.SetStreamSource(nullptr, ClearSlot, 0, 0);
 		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
 		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
 	}

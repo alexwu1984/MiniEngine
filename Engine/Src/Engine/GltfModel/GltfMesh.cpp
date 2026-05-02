@@ -7,6 +7,7 @@
 #include "math/matrix4x4.h"
 #include "tinygltf/tiny_gltf.h"
 #include <algorithm>
+#include <vector>
 
 namespace Engine
 {
@@ -64,6 +65,8 @@ namespace Engine
 		std::shared_ptr<Vector4> BlendTangents;
 		/** When JOINTS_0 is u8/u32, we store a converted copy (GPU path expects u16 indices). */
 		std::shared_ptr<VertexBoneID> OwnedConvertedJointIds;
+		/** When TEXCOORD_* is vec3/vec4 in glTF, GPU stream must be vec2 — owned XY copy (do not alias vec3 buffer as Vector2*). */
+		std::shared_ptr<std::vector<Vector2>> OwnedTexCoords0;
 	};
 
 	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
@@ -129,9 +132,39 @@ namespace Engine
 			{
 				d->Mesh->Normals = (Vector3*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
 			}
-			else if (attribute.first == "TEXCOORD_0")
+			else if (attribute.first == "TEXCOORD_0" || attribute.first == "TEXCOORD_1")
 			{
-				d->Mesh->TextureCoords = (Vector2*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+				if (attribute.first == "TEXCOORD_1" && d->Mesh->TextureCoords)
+					continue;
+
+				const int accIx = attribute.second;
+				const auto& acc = d->Model->accessors[accIx];
+				void* raw = Getdata(accIx, d->Mesh->nNumVertices, type);
+				if (!raw)
+					continue;
+
+				const uint32_t nv = d->Mesh->nNumVertices;
+
+				if (acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && acc.type == TINYGLTF_TYPE_VEC2)
+				{
+					d->Mesh->TextureCoords = static_cast<Vector2*>(raw);
+					continue;
+				}
+
+				if (acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT
+					&& (acc.type == TINYGLTF_TYPE_VEC3 || acc.type == TINYGLTF_TYPE_VEC4))
+				{
+					const int comps = acc.type == TINYGLTF_TYPE_VEC3 ? 3 : 4;
+					auto uvOwned = std::make_shared<std::vector<Vector2>>(nv);
+					const float* p = static_cast<const float*>(raw);
+					for (uint32_t i = 0; i < nv; ++i)
+						(*uvOwned)[i] = Vector2(p[i * comps], p[i * comps + 1]);
+					d->OwnedTexCoords0 = uvOwned;
+					d->Mesh->TextureCoords = uvOwned->data();
+					continue;
+				}
+
+				d->Mesh->TextureCoords = static_cast<Vector2*>(raw);
 			}
 			else if (attribute.first == "TANGENT")
 			{
@@ -284,7 +317,7 @@ namespace Engine
 	bool GltfMesh::HasSkin() const
 	{
 		C_P(GltfMesh);
-		return d->Mesh->BoneWeights != nullptr;
+		return d->Mesh->BoneIDs != nullptr && d->Mesh->BoneWeights != nullptr;
 	}
 
 	const math::AABB3& GltfMesh::GetBoundingBox() const

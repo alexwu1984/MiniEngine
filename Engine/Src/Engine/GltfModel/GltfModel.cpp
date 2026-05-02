@@ -238,7 +238,8 @@ namespace Engine
 
 		if (d->GltfMode.materials.empty())
 		{
-			std::shared_ptr< GltfMaterial> PBRMaterial = std::make_shared<FurMaterial>(this, &d->GltfMode);
+			// Default primitive material: use plain PBR. FurMaterial is only for assets whose named material matches FurConfig.Name.
+			std::shared_ptr<GltfMaterial> PBRMaterial = std::make_shared<GltfMaterial>(this, &d->GltfMode);
 			PBRMaterial->InitMaterial(0);
 			ModelMaterial.push_back(PBRMaterial);
 		}

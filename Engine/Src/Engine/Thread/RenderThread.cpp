@@ -3,6 +3,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIThreadPolicy.h"
 #include "core/logger.h"
+#include <atomic>
 
 namespace Engine
 {
@@ -16,6 +17,7 @@ namespace Engine
 		std::thread WorkerThread;
 		win32::signal DrainWait;
 		bool bStopRequested = false;
+		std::atomic<bool> bExecutingBatch{false};
 		std::thread::id RecordingThreadId = {};
 		RenderCore::DynamicRHI* OwnerRHI = nullptr;
 	};
@@ -103,6 +105,19 @@ namespace Engine
 		// (e.g. FWorldSceneRender dtor runs after Engine::ShutDown already stopped the render thread).
 		if (!d->WorkerThread.joinable())
 			return;
+		// Nested ENQUEUE(..., wait=true) executes lambdas inline on the worker; waiting here would block
+		// forever because this batch's DrainWait.set() runs only after the outer cmd returns.
+		if (std::this_thread::get_id() == d->RecordingThreadId)
+			return;
+		// DrainWait is auto-reset: the first WaitForFinish() consumes the signal while the worker is idle
+		// on QueueWakeup (no further DrainWait.set() until another batch runs). A second WaitForFinish()
+		// on the same idle state — e.g. ReloadSceneJson then SceneMeshComponent::~SceneMeshComponent —
+		// would hang forever without this fast-path.
+		{
+			std::unique_lock<std::mutex> lock(d->QueueMutex);
+			if (!d->bExecutingBatch.load(std::memory_order_acquire) && d->CommandQueue.empty())
+				return;
+		}
 		d->DrainWait.wait();
 	}
 
@@ -136,15 +151,21 @@ namespace Engine
 					return d_ptr->bStopRequested || !d_ptr->CommandQueue.empty();
 				});
 				d->CommandQueue.swap(swapQueue);
+				// Reset while still holding QueueMutex so a concurrent WaitForFinish() cannot observe the
+				// previous batch's signaled event after we've dequeued work but before reset() runs.
+				if (!swapQueue.empty() && !d->bStopRequested)
+				{
+					d->DrainWait.reset();
+					d->bExecutingBatch.store(true, std::memory_order_release);
+				}
 			}
 
 			if (d->bStopRequested)
 			{
+				d->bExecutingBatch.store(false, std::memory_order_release);
 				d->DrainWait.set();
 				break;
 			}
-
-			d->DrainWait.reset();
 
 			while (!swapQueue.empty())
 			{
@@ -156,6 +177,7 @@ namespace Engine
 				swapQueue.pop();
 			}
 
+			d->bExecutingBatch.store(false, std::memory_order_release);
 			d->DrainWait.set();
 		}
 	}

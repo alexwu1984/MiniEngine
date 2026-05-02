@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 /** D3D12 root / descriptor table limits (shared by Util and RHIPrivate). */
 

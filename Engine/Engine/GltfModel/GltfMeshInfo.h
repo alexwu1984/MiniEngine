@@ -5,7 +5,7 @@
 
 namespace Engine
 {
-	static const int MAX_MATRICES = 200;
+	static const int MAX_MATRICES = 512;
 	// max bones referenced by a single skinned model
 #define max_NUM_MODEL_BONE 100
 

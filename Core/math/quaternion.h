@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/vector4.h"
 
 namespace math

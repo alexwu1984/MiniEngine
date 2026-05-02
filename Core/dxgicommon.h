@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "core/vec2.h"
 #include <dxgi.h>

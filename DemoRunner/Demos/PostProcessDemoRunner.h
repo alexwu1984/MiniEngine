@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "DemoRunner/Demos/IDemo.h"
 

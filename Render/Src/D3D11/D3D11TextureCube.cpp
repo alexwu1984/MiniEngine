@@ -1,4 +1,4 @@
-#include "D3D11/D3D11TextureCube.h"
+﻿#include "D3D11/D3D11TextureCube.h"
 #include "D3D11/D3D11Texture2D.h"
 
 namespace RenderCore

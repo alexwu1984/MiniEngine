@@ -1,8 +1,8 @@
 ﻿#include "Material/GltfMaterial.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
-#include "RHI/RHITexture2D.h"
 #include "Thread/RenderThread.h"
+#include "RHI/RHITexture2D.h"
 #include "core/color.h"
 #include "GltfModel/GltfModel.h"
 #include "Scene/SceneModelAsset.h"
@@ -17,8 +17,10 @@ namespace Engine
 		GltfModel* Owner = nullptr;
 		tinygltf::Model* Model = nullptr;
 		std::string MaterialName;
-		bool DoubleSided = false;                
+		bool DoubleSided = false;
 		bool IsTransParent = false;
+		bool UsesAlphaMask = false;
+		float AlphaCutoff = 0.5f;
 
 		std::shared_ptr<RHITexture2D> BaseColorTexture;
 		std::shared_ptr<RHITexture2D> MetallicRoughnessTexture;
@@ -37,10 +39,7 @@ namespace Engine
 
 	GltfMaterial::~GltfMaterial()
 	{
-		if (GRenderThread)
-		{
-			GRenderThread->WaitForFinish();
-		}
+		// Drain is handled once per bulk actor purge (World) or per SceneMeshComponent destroy — not here (N× stall).
 		delete d_ptr;
 	}
 
@@ -79,6 +78,7 @@ namespace Engine
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
+			FlushRenderingCommands();
 		}
 		else
 		{
@@ -87,9 +87,10 @@ namespace Engine
 			d->MaterialName = Material.name;
 			d->DoubleSided = Material.doubleSided;
 
-			d->IsTransParent = (Material.alphaMode != "OPAQUE");
-
-
+			// glTF: only BLEND uses order-dependent transparency; MASK is a binary test (clip), not blending.
+			d->IsTransParent = (Material.alphaMode == "BLEND");
+			d->UsesAlphaMask = (Material.alphaMode == "MASK");
+			d->AlphaCutoff = static_cast<float>(Material.alphaCutoff);
 
 			auto CreateTexCommand = [this, Material, CreateTexture](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
@@ -112,6 +113,7 @@ namespace Engine
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
+			FlushRenderingCommands();
 		}
 
 	}
@@ -126,6 +128,18 @@ namespace Engine
 	{
 		C_P(const GltfMaterial);
 		return d->IsTransParent;
+	}
+
+	bool GltfMaterial::UsesMaterialAlphaMask() const
+	{
+		C_P(const GltfMaterial);
+		return d->UsesAlphaMask;
+	}
+
+	float GltfMaterial::GetMaterialAlphaCutoff() const
+	{
+		C_P(const GltfMaterial);
+		return d->AlphaCutoff;
 	}
 
 	void GltfMaterial::SetTransparent(bool Transparent)

@@ -1,4 +1,4 @@
-#include "core/strings.h"
+﻿#include "core/strings.h"
 #include "core/error.h"
 
 #define ERROR_TAG(tag) tag, #tag

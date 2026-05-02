@@ -1,8 +1,8 @@
-#pragma once
+ï»¿#pragma once
 
 #include "core/inc.h"
 
-//Òì²½µ÷ÓÃ£¬ÔÚÖ÷Ïß³Ì´¥·¢£¨Ö÷Ïß³ÌÏûÏ¢Ñ­»·µ÷ÓÃ MsgWaitForMultipleObjectsEx£©
+//å¼‚æ­¥è°ƒç”¨ï¼Œåœ¨ä¸»çº¿ç¨‹è§¦å‘ï¼ˆä¸»çº¿ç¨‹æ¶ˆæ¯å¾ªç¯è°ƒç”¨ MsgWaitForMultipleObjectsExï¼‰
 namespace core
 {
     class object;

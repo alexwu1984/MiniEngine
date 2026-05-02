@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "templates/EnableIf.h"
 #include "templates/IsEnum.h"

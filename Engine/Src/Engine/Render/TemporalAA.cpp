@@ -75,6 +75,7 @@ namespace Engine
 			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(U));
 		}
 		d->First = true;
+		d->LastTemporalHistoryGeneration = ~0u;
 	}
 
 	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData)

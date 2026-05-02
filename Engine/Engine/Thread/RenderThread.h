@@ -37,7 +37,19 @@ namespace Engine
 
 	extern RenderThread* GRenderThread;
 
+	/**
+	 * Blocks until the render worker drains queued lambdas through its current batch boundary (does not imply GPU idle if submit is deferred).
+	 * UE analogue: the narrow subset of FlushRenderingCommands() that maps to our single render-queue fence.
+	 */
+	inline void FlushRenderingCommands()
+	{
+		if (GRenderThread)
+			GRenderThread->WaitForFinish();
+	}
 
-	/** If the lambda reads mutable state filled on the calling thread just before enqueueing, pass wait=true so that state is not overwritten until the lambda runs. */
+	/**
+	 * Enqueue work on the render thread. Prefer enqueue + FlushRenderingCommands() over wait=true when you want UE-like separation
+	 * between recording (lambda) and the fence (flush). wait=true is equivalent to enqueue followed immediately by FlushRenderingCommands().
+	 */
 	void ENQUEUE_UNIQUE_RENDER_COMMAND(std::function<void(RenderCore::DynamicRHI*)> fun, bool wait = false);
 }

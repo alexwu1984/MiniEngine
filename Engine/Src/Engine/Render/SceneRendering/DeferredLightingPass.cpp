@@ -89,9 +89,9 @@ namespace Engine
 				}
 			}
 			Out.Data.myPerFrame.Material.Metallic = 0.f;
-			Out.Data.myPerFrame.Material.padding0 = 0;
-			Out.Data.myPerFrame.Material.padding1 = 0;
-			Out.Data.myPerFrame.Material.padding2 = 0;
+			Out.Data.myPerFrame.Material.AlphaCutoff = 0.5f;
+			Out.Data.myPerFrame.Material.AlphaMask = 0;
+			Out.Data.myPerFrame.Material.Padding = 0;
 			if (Pre)
 			{
 				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
@@ -126,6 +126,12 @@ namespace Engine
 			float brdfRg[4] = { 0.f, 0.f, 0.f, 1.f };
 			FallbackBrdfLut = RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, static_cast<int32_t>(ETextureCreateFlags::TexCreate_ShaderResource), 1, 1, 1, brdfRg, 16);
 		}
+		if (RHI)
+		{
+			PerFrameUniform = std::make_unique<CBPerFrameWrap>(RHI);
+			if (!PerFrameUniform->GetRHIBuffer())
+				PerFrameUniform.reset();
+		}
 	}
 
 	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer) const
@@ -147,6 +153,8 @@ namespace Engine
 	{
 		if (!RHI || !VertexShader || !PixelShader || !TargetBuffer || !ViewData || !ViewPort)
 			return;
+		if (!PerFrameUniform || !PerFrameUniform->GetRHIBuffer())
+			return;
 		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = TargetBuffer->GetSceneColorPreLighting();
 		const std::shared_ptr<RHITexture2D> SceneColor = TargetBuffer->GetSceneColor();
 		if (!SceneColorPreLighting || !SceneColor)
@@ -158,14 +166,13 @@ namespace Engine
 		if (WorldSceneRender)
 			Pre = WorldSceneRender->GetPreProcessor().get();
 
-		CBPerFrameWrap PerFrameCB(RHI);
-		FillPerFrameFromView(PerFrameCB, *ViewData, Pre, WorldSceneRender);
+		FillPerFrameFromView(*PerFrameUniform, *ViewData, Pre, WorldSceneRender);
 
 		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
 		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
 
-		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, PerFrameCB);
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PerFrameUniform);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
@@ -196,8 +203,8 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
 		// Must match CB filled above: view lights keep ShadowMapIndex == -1 (e.g. DirectionalLightComponent); shadow pass patches CB via TryGetCachedMainLightForShading.
-		const bool bDeferredShadow = WorldSceneRender && PerFrameCB.Data.myPerFrame.LightCount > 0
-			&& PerFrameCB.Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
+		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform->Data.myPerFrame.LightCount > 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
 		// RHISetShaderTexture ignores nullptr; leaving t8 unstaged keeps whatever was bound last frame (validation / GPU faults).
 		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
 		if (bDeferredShadow)

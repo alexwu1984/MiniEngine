@@ -1,4 +1,4 @@
-#include "D3D12/D3D12RenderTarget.h"
+﻿#include "D3D12/D3D12RenderTarget.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Adapter.h"

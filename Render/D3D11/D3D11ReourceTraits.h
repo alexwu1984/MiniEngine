@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "D3D11/D3D11IndexBuffer.h"
 #include "D3D11/D3D11VertexBuffer.h"
 #include "D3D11/D3D11UniformBuffer.h"

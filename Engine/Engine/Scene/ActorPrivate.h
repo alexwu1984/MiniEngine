@@ -8,6 +8,8 @@ namespace Engine
 
 	struct ActorPrivate
 	{
+		uint64_t StableInstanceId = 0;
+
 		// Actor's state
 		Actor::AState State = Actor::AState::EActive;
 

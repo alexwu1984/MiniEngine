@@ -83,6 +83,7 @@ namespace Engine
 			RenderTexturePool::Get().ReleaseTexture2D(EPixelFormat::PF_FloatRGBA, Fl, Sz.x, Sz.y, 1, std::move(T));
 		}
 		d->First = true;
+		d->LastTemporalHistoryGeneration = ~0u;
 	}
 
 	namespace

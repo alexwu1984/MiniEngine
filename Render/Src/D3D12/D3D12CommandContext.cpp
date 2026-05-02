@@ -460,27 +460,30 @@ namespace RenderCore
 			return;
 
 		D3D12Texture2D* Texture2D = RHIResourceCast(Texture2DRHI.get());
-		if (Texture2D)
+		if (!Texture2D)
 		{
-			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
+			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::shared_ptr<D3D12Texture2D>{});
+			return;
+		}
+
+		if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
+		{
+			const bool bCompute = (ShaderType == SF_Compute);
+			const D3D12_RESOURCE_STATES TargetState = ShaderReadableStateForTexture2DSample(Texture2D, bCompute);
+			FD3D12Resource* const Res = Texture2D->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
 			{
-				const bool bCompute = (ShaderType == SF_Compute);
-				const D3D12_RESOURCE_STATES TargetState = ShaderReadableStateForTexture2DSample(Texture2D, bCompute);
-				FD3D12Resource* const Res = Texture2D->GetResource();
-				if (Res && Res->RequiresResourceStateTracking())
+				if (ShouldTransitionDepthPlaneOnlyForShaderSample(Texture2D, Res))
+					TransitionSubResource(Res, TargetState, 0, false);
+				else
 				{
-					if (ShouldTransitionDepthPlaneOnlyForShaderSample(Texture2D, Res))
-						TransitionSubResource(Res, TargetState, 0, false);
-					else
-					{
-						const uint32_t n = Res->GetSubresourceCount();
-						for (uint32_t sub = 0; sub < n; ++sub)
-							TransitionSubResource(Res, TargetState, sub, false);
-					}
+					const uint32_t n = Res->GetSubresourceCount();
+					for (uint32_t sub = 0; sub < n; ++sub)
+						TransitionSubResource(Res, TargetState, sub, false);
 				}
 			}
-			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 		}
+		CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 	}
 
 	void D3D12CommandContext::RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI)
@@ -626,6 +629,9 @@ namespace RenderCore
 				CurrentStateCache->SetVertexBuffer(CommandListHandle, StreamIndex++, VertexBuffer->VertexBufferView());
 			}
 		}
+		static constexpr D3D12_VERTEX_BUFFER_VIEW kNullVBV{};
+		for (uint32_t s = static_cast<uint32_t>(StreamIndex); s < 32u; ++s)
+			CurrentStateCache->SetVertexBuffer(CommandListHandle, s, kNullVBV);
 		D3D12IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
 		if (!IndexBuffer)
 			return;

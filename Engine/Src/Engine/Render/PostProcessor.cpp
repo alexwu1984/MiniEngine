@@ -77,6 +77,8 @@ namespace Engine
 		FRDGCompileParameters RDGCompileParams{};
 		/** EV-style exposure before tonemap / bloom threshold scaling (see Evn.ExposureStops in scene JSON). */
 		float ExposureStops = 0.f;
+		/** Scales blurred emissive stack blended in ApplyBloom (see Evn.BloomIntensity). */
+		float BloomIntensity = 1.f;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -118,6 +120,7 @@ namespace Engine
 			nlohmann::json EvnJson = Root["Evn"];
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
 			d->ExposureStops = EvnJson.value("ExposureStops", 0.f);
+			d->BloomIntensity = EvnJson.value("BloomIntensity", 1.f);
 
 			EPostProcessorAAType ConfigAAType = d->AAType;
 			if (EvnJson.find("AAType") != EvnJson.end())
@@ -235,6 +238,7 @@ namespace Engine
 		{
 			auto& BloomData = d->GET_UNIFORMDATA(BloomContants);
 			BloomData.PostExposureLinear = powf(2.f, d->ExposureStops);
+			BloomData.BloomIntensity = d->BloomIntensity;
 			d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer(RHIContext);
 		}
 

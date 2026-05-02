@@ -1,4 +1,4 @@
-#include "win/shared_memory.h"
+﻿#include "win/shared_memory.h"
 #include "win/win32.h"
 #include "core/logger.h"
 

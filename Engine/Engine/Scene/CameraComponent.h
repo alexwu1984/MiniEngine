@@ -43,8 +43,18 @@ namespace Engine
 		void NotifyTemporalHistoryInvalidate();
 		uint32_t GetTemporalHistoryGeneration() const;
 
+		/**
+		 * Full scene swap after LoadScene (game thread): bumps temporal generation and schedules first-frame prev-matrix sync.
+		 * UE analogue: marking the primary ViewState invalid / camera-cut without snapping matrices before Tick builds View.
+		 */
+		void MarkTemporalHistoryStaleAfterSceneCut();
+
 	protected:
 		CameraComponentPrivate* d_ptr;
+
+		/** Call at end of Tick after SetProjectionJitter: aligns prev view/proj/jitter for zero velocity on first frame (new camera / scene reload). */
+		void EnsureTemporalPrevMatricesInitialized();
+
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(CameraComponent);
 }

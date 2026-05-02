@@ -360,6 +360,12 @@ namespace Engine
 
 	void World::ApplySceneTransitionPrimaryCameraState()
 	{
+		// Temporal: camera-side invalidation (gen++, prev/jitter/frame counters). Pairs with PostProcessor::InvalidateTransientResources
+		// on the render path — see FWorldSceneRender::RequestRenderingResetAfterSceneTransition.
+		// - TemporalHistoryGeneration → FSceneViewData → TemporallAA::Draw / SSRProcessor mismatch branch (logical "new history").
+		// - bTemporalPrevMatricesValid=false → next Tick's EnsureTemporalPrevMatricesInitialized snaps prev view/proj/jitter
+		//   (MainEngine::Tick runs ViewportClient TickSimulation before SeRender::Render, so order is safe).
+		// TAACS.hlsl uses FrameIndex<=1 as bootstrap; TemporallAA sets that when First after a gen change.
 		if (const auto cam = GetMainCamera())
 			cam->MarkTemporalHistoryStaleAfterSceneCut();
 	}

@@ -3,6 +3,7 @@
 #include "RHI/RHIShdader.h"
 #include "win/com_ptr.h"
 #include "d3dx12.h"
+#include <mutex>
 
 namespace RenderCore
 {
@@ -93,6 +94,8 @@ namespace RenderCore
 
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;
+		/** FileName-keyed LDR/HDR caches: must serialize — concurrent insert/find from game + render/RHI threads corrupts the map and heaps (crash in unrelated std::wstring frees). */
+		mutable std::mutex TextureFileCacheMutex;
 		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;
 		RHIShaderCache ShaderCache;
 	};

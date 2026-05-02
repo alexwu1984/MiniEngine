@@ -35,6 +35,8 @@ namespace Engine
 {
 	namespace
 	{
+		std::atomic<uint64_t> GNextMeshMaterialCacheSceneGeneration{ 1 };
+
 		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FRDGCompileParameters& Out)
 		{
 			try
@@ -60,6 +62,8 @@ namespace Engine
 		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->Owner = std::move(Owner);
 		d->MeshMaterialRenderCache = std::make_unique<FMeshMaterialRenderCache>();
+		d->MeshMaterialCacheSceneGeneration.store(GNextMeshMaterialCacheSceneGeneration.fetch_add(1u, std::memory_order_relaxed),
+												  std::memory_order_relaxed);
 	}
 
 	FWorldSceneRender::~FWorldSceneRender()
@@ -225,41 +229,62 @@ namespace Engine
 
 	void FWorldSceneRender::FlushClearMeshMaterialRenderCacheNow()
 	{
-		FWorldSceneRenderPrivate* d = d_ptr.get();
-		if (!d || !d->MeshMaterialRenderCache)
+		std::shared_ptr<FWorldSceneRenderPrivate> dLife = d_ptr;
+		if (!dLife || !dLife->MeshMaterialRenderCache)
 			return;
-		FMeshMaterialRenderCache* CachePtr = d->MeshMaterialRenderCache.get();
+		// Capture shared ownership of private data — never raw cache pointers: RecreateWorldSceneRenderForSceneSwap can destroy
+		// FWorldSceneRender and release the unique_ptr before this lambda runs, otherwise clear() is UAF / heap corruption in STL.
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[CachePtr](RenderCore::DynamicRHI* RHI)
+			[dLife](RenderCore::DynamicRHI* RHI)
 			{
 				(void)RHI;
-				if (CachePtr)
-					CachePtr->Clear();
+				if (dLife && dLife->MeshMaterialRenderCache)
+					dLife->MeshMaterialRenderCache->Clear();
 			},
 			false);
 		FlushRenderingCommands();
-		d->bMeshMaterialCacheInvalidatePending.store(false, std::memory_order_release);
+		dLife->bMeshMaterialCacheInvalidatePending.store(false, std::memory_order_release);
 	}
 
+	// Full reload sequence (typical: SceneManager::ReloadSceneJson):
+	//   (1) FlushRenderingCommands + RHI::Wait — drain render work; GPU idle before destroying old World GPU resources.
+	//   (2) Old FWorldSceneRender: FlushClearMeshMaterialRenderCacheNow + ClearCachedMeshShadowPasses.
+	//   (3) New World, RecreateWorldSceneRenderForSceneSwap (new mesh-material cache + scene generation in ctor), BindInvalidate, LoadScene Json.
+	//   (4) FlushRenderingCommands — drain LoadScene / IBL / preprocess enqueue from the new world.
+	//   (5) World::ApplySceneTransitionPrimaryCameraState — TAA/SSR *camera* path: TemporalHistoryGeneration, prev matrices, jitter, frame index.
+	//   (6) This API — TAA/SSR *GPU* path: PostProcessor::InvalidateTransientResources (pooled TAA/SSR/Bloom/FXAA); often no-op TAA UAVs right
+	//       after full Recreate (new TemporallAA, null histories); still needed for resize, partial transitions, SSR history content.
+	//   Shader/mesh issues: D3D11 macro cache, ShadowPS layout, D3D12 VB upload — elsewhere; RHIClearState was optional and removed.
 	void FWorldSceneRender::RequestRenderingResetAfterSceneTransition()
 	{
-		FWorldSceneRenderPrivate* d = d_ptr.get();
-		if (d)
-			d->MeshMaterialCacheSceneGeneration.fetch_add(1, std::memory_order_relaxed);
-
-		RequestMeshMaterialRenderCacheInvalidate();
-
-		if (d && d->ShadowRender)
-			d->ShadowRender->ClearCachedMeshShadowPasses();
-
-		if (!d || !d->MainViewPort)
+		std::shared_ptr<FWorldSceneRenderPrivate> dLife = d_ptr;
+		if (!dLife)
 			return;
-		const auto Sz = d->MainViewPort->GetSize();
+
+		// Game-thread leg (SceneRenderer.Render on next submit sees gen + invalidate flag):
+		dLife->MeshMaterialCacheSceneGeneration.fetch_add(1, std::memory_order_relaxed);
+		// Same effect as RequestMeshMaterialRenderCacheInvalidate(); inline avoids a second d_ptr read.
+		dLife->bMeshMaterialCacheInvalidatePending.store(true, std::memory_order_release);
+
+		if (dLife->ShadowRender)
+		{
+			dLife->ShadowRender->ClearCachedMeshShadowPasses();
+			dLife->ShadowRender->InvalidateCachedMainLightForShading();
+		}
+
+		if (!dLife->MainViewPort)
+			return;
+		const auto Sz = dLife->MainViewPort->GetSize();
 		if (Sz.cx <= 0 || Sz.cy <= 0)
 			return;
+
+		// Render-thread leg: copy of d_ptr keeps FWorldSceneRenderPrivate alive until this command runs (no cycle: Private
+		// only holds weak_ptr<World> and raw back-refs via SceneRenderer). FlushRenderingCommands drains the queue, the lambda
+		// is destroyed, and the extra ref is released — same pattern as FlushClearMeshMaterialRenderCacheNow.
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife = d_ptr, Sz](RenderCore::DynamicRHI* RHI)
+			[dLife, Sz](RenderCore::DynamicRHI* RHI)
 			{
+				(void)RHI;
 				if (dLife->TargetBuffer)
 					dLife->TargetBuffer->InitDefaultSceneTargets(Sz.cx, Sz.cy);
 				if (dLife->PostProcess)

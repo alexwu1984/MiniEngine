@@ -23,6 +23,8 @@ namespace Engine
 
 		bool RecomputeWorldTransform = true;
 		bool visible = true;
+		/** First Tick: PrevWorldTransform was identity while WorldTransform becomes T → bogus motion/TAA after scene swap. Snap once after publish. */
+		bool bMotionPrevInitialized = false;
 
 		Matrix4x4 PrevWorldTransform;
 		Matrix4x4 WorldTransform;

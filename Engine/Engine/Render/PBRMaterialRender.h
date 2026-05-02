@@ -17,6 +17,7 @@ namespace Engine
 		virtual void InitRenderResource();
 		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index);
 		void ResetSkeletonPaletteIdentity() override;
+		void OnSkinnedPaletteUploaded(int32_t NumBones) override;
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) final;
 		virtual void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 	protected:

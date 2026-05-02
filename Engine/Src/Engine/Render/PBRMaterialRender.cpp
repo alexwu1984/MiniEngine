@@ -31,6 +31,7 @@ namespace Engine
 		std::shared_ptr<RHIVertexShader> VertexShader;
 		std::shared_ptr<RHIPixelShader> PixelShader;
 		MaterialRenderParam RenderParam;
+		bool bSkeletonMotionHistoryPrimed = false;
 
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
@@ -78,6 +79,19 @@ namespace Engine
 			Data.PerSkeleton_u_ModelMatrix[i].Current = I;
 			Data.PerSkeleton_u_ModelMatrix[i].Previous = I;
 		}
+		d->bSkeletonMotionHistoryPrimed = false;
+	}
+
+	void PBRMaterialRender::OnSkinnedPaletteUploaded(int32_t NumBones)
+	{
+		C_P(PBRMaterialRender);
+		if (d->bSkeletonMotionHistoryPrimed || NumBones <= 0)
+			return;
+		auto& Data = d->GET_UNIFORMDATA(CBPerSkeleton);
+		const int32_t N = (std::min)(NumBones, static_cast<int32_t>(CBPerSkeleton::kPaletteMatrixCount));
+		for (int32_t i = 0; i < N; ++i)
+			Data.PerSkeleton_u_ModelMatrix[i].Previous = Data.PerSkeleton_u_ModelMatrix[i].Current;
+		d->bSkeletonMotionHistoryPrimed = true;
 	}
 
 	std::wstring PBRMaterialRender::GetShaderFileName() const
@@ -251,7 +265,10 @@ namespace Engine
 	void PBRMaterialRender::DrawPrimitive(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(PBRMaterialRender);
-		RHIContext.DrawPrimitive(d->MeshBuffer->GetVerticesBuffer(), d->MeshBuffer->GetIndexBuffer());
+		// FMeshMaterialRenderCache pairs this instance with d->MeshBuffer; swapping in DrawMeshBuffer when only
+		// DeclaredVertexFeatures match could draw another submesh's positions with this material's maps.
+		if (d->MeshBuffer)
+			RHIContext.DrawPrimitive(d->MeshBuffer->GetVerticesBuffer(), d->MeshBuffer->GetIndexBuffer());
 	}
 
 	void PBRMaterialRender::DrawMesh(RenderCore::RHICommandContext& RHIContext)

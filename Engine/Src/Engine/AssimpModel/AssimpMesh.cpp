@@ -70,9 +70,9 @@ namespace Engine
 		return d->MeshMat;
 	}
 
-	std::shared_ptr<GltfMeshBuffer> AssimpMesh::GetMeshBuffer()
+	std::shared_ptr<GltfMeshBuffer> AssimpMesh::GetMeshBuffer() const
 	{
-		C_P(AssimpMesh);
+		C_P(const AssimpMesh);
 		return d->MeshBuffer;
 	}
 

@@ -33,6 +33,7 @@ namespace Engine
 		std::shared_ptr< BlurCS> Blur;
 		std::shared_ptr<MeshBase> Mesh;
 		bool HasSkin = false;
+		uint32_t CachedVtxFeat = 0;
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
@@ -89,6 +90,7 @@ namespace Engine
 
 		std::wstring PSPath = ShaderPath + L"ShadowPass-PS.hlsl";
 		d->PixelShader = d->RHI->RHICreatePixelShader(PSPath, "MainPS", ShaderMacros);
+		d->CachedVtxFeat = VtxFeat;
 	}
 
 
@@ -96,6 +98,11 @@ namespace Engine
 		const Light& mainLight, std::shared_ptr<RenderCore::RHIRenderTarget> renderTarget)
 	{
 		C_P(ShadowPS);
+		const uint32_t VtxFeatNow = d->Mesh && d->Mesh->GetMeshBuffer()
+			? d->Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures()
+			: 0u;
+		if (VtxFeatNow != d->CachedVtxFeat)
+			InitResource();
 		RenderCore::RHICommandMark Mark(RHIContext, "Shadow_Depth");
 
 		GraphicsPipelineStateInitializer Init;

@@ -14,7 +14,7 @@ namespace Engine
 	public:
 		MeshBase() {};
 		virtual ~MeshBase() {};
-		virtual std::shared_ptr<GltfMeshBuffer> GetMeshBuffer() = 0;
+		virtual std::shared_ptr<GltfMeshBuffer> GetMeshBuffer() const = 0;
 		virtual std::shared_ptr<MaterialBase> GetMaterial() = 0;
 		virtual const math::AABB3& GetBoundingBox() const = 0;
 		virtual const math::Matrix4x4& GetMeshMat() const = 0;

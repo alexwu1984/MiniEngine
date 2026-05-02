@@ -89,6 +89,7 @@ namespace Engine
 
 	void GltfAnimation::Play(float fSecond, GltfModel* Model)
 	{
+		_hasModelAnimate = false;
 		int nChannels = _ChannelInfo.size();
 		for (int i = 0; i < nChannels; i++)
 		{
@@ -158,8 +159,8 @@ namespace Engine
 					pNodeInfo->Translate = Translate;
 				}
 			}
+			_hasModelAnimate = true;
 		}
-		_hasModelAnimate = true;
 	}
 
 

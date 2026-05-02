@@ -107,13 +107,16 @@ namespace Engine
 	{
 		C_P(GltfModel);
 		if (d->AnimationMgr)
-		{
-			if(d->AnimationMgr->Play(TotalDeltaTime))
-				UpdateNode();
-		}
+			d->AnimationMgr->Play(TotalDeltaTime);
 
 		if (d->Skeleton)
 			d->Skeleton->UpdateBone();
+
+		// UpdateBone() calls UpdateNodeParent on skeleton parents and refreshes FinalMeshMat on the graph.
+		// MeshMat must be copied from nodes every frame; gating UpdateNode() on AnimationMgr::Play()'s return
+		// left stale CurrModelMatrix (BasePass / world position wrong while vertex fetch + UVs still look fine).
+		if (d->RootNode && !d->ModelMesh.empty())
+			UpdateNode();
 	}
 
 	std::shared_ptr<Engine::SceneModelAsset> GltfModel::GetAsset() const

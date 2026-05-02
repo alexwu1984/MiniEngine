@@ -27,6 +27,7 @@ namespace Engine
 				const uint32_t NumBones = static_cast<uint32_t>(Bone.size());
 				for (uint32_t BoneIndex = 0; BoneIndex < NumBones && BoneIndex < MaxSkin; ++BoneIndex)
 					Material->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
+				Material->OnSkinnedPaletteUploaded(static_cast<int32_t>(NumBones));
 			}
 			else
 				Material->ResetSkeletonPaletteIdentity();

@@ -7,7 +7,6 @@
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIShdader.h"
 #include "math/matrix4x4.h"
-#include <intrin.h>
 
 namespace Engine
 {
@@ -54,6 +53,8 @@ struct FSkyLightIBLPrecomputePrivate
 	bool bInitRender = false;
 	std::wstring ConfigHdrFullPath;
 	std::wstring LastAppliedHdrFullPath;
+	/** Serialize HDR path + HDRTex updates vs ResolveSkyLightForFrame / LoadConfig (different render-queue commands or future game-thread readers). */
+	mutable std::mutex HdrStateMutex;
 };
 
 } // namespace Engine

@@ -77,32 +77,14 @@ namespace RenderCore
 		const uint32_t NumBytes = (uint32_t)(nVertex * sizePerVertex);
 		if (NumBytes == 0)
 			return;
-
-		// Dynamic update path: stage into transient UPLOAD allocator and copy into DEFAULT VB.
-		// This prevents long-lived mapped committed UPLOAD buffers from growing VMemPrivate WC.
-		auto Ctx = GetParentDevice()->GetDefaultCommandContext();
-		if (!Ctx)
+		if (NumBytes > (uint32_t)d->BufferSize)
 			return;
 
-		D3D12CommandListHandle& CL = Ctx->GetCurrentCommandListHandle();
-		if (!CL)
-		{
-			// If no command list is open yet, fall back to the slower init path.
-			// (Should be rare; typical frame flow has an open CL.)
+		// UE4-style dynamic DEFAULT buffer update: never splice into the open frame command list.
+		// Transient upload list (staging + CopyBufferRegion + ExecuteAndClear), same as CreateVertexBuffer —
+		// valid any time via D3D12CommandContext::InitializeBuffer (ScopedUploadBypass + RHI submit).
+		if (std::shared_ptr<D3D12CommandContext> Ctx = GetParentDevice()->GetDefaultCommandContext())
 			Ctx->InitializeBuffer(d->Resource, InData, NumBytes, 0);
-			return;
-		}
-
-		FAllocation UploadAlloc = Ctx->GetLinearAllocator(UploadFastAllocator).Allocate(NumBytes, DEFAULT_ALIGN);
-		if (!UploadAlloc.CPU || !UploadAlloc.D3D12Resource)
-			return;
-		memcpy(UploadAlloc.CPU, InData, NumBytes);
-
-		// Transition VB to COPY_DEST, perform copy, then back to GENERIC_READ for binding.
-		Ctx->TransitionResource(d->Resource, D3D12_RESOURCE_STATE_COPY_DEST, true);
-		CL->CopyBufferRegion(d->Resource->GetResource(), 0, UploadAlloc.D3D12Resource, (UINT64)UploadAlloc.Offset, NumBytes);
-		++Ctx->numCopies;
-		Ctx->TransitionResource(d->Resource, D3D12_RESOURCE_STATE_GENERIC_READ, true);
 	}
 
 	int32_t D3D12VertexBffer::GetStride() const

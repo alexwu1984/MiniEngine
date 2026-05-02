@@ -98,6 +98,12 @@ namespace Engine
 		C_P(CameraComponent);
 		++d->TemporalHistoryGeneration;
 		d->bTemporalPrevMatricesValid = false;
+		// New scene: ignore roam/teleport heuristic until we have stable positions in this world (BS Roam -> fixed Model3).
+		d->TemporalHistoryHasLastPos = false;
+		d->TemporalHistoryLastPos = math::Vector3(0.f, 0.f, 0.f);
+		d->FrameIndex = 0u;
+		d->FrameIndexMod2 = 0u;
+		d->jitterX = d->jitterY = d->PrevjitterX = d->PrevjitterY = 0.f;
 	}
 
 	uint32_t CameraComponent::GetTemporalHistoryGeneration() const

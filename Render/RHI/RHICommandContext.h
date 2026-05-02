@@ -74,6 +74,13 @@ namespace RenderCore
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) {}
 		virtual void BeginUserMark(const char* name) {};
 		virtual void EndUserMark(){};
+
+		/**
+		 * Clear mirrored shader bindings / descriptor state on this context (D3D11: ID3D11DeviceContext::ClearState;
+		 * D3D12: FD3D12StateCache::ClearState). Call after full scene transitions when stale SRV/root tables could
+		 * make the base pass sample wrong textures while IA/VB still look correct in captures.
+		 */
+		virtual void RHIClearState() {}
 	};
 
 	class RHICommandMark

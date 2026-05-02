@@ -332,9 +332,9 @@ namespace Engine
 		return d->MeshMat;
 	}
 
-	std::shared_ptr<GltfMeshBuffer> GltfMesh::GetMeshBuffer()
+	std::shared_ptr<GltfMeshBuffer> GltfMesh::GetMeshBuffer() const
 	{
-		C_P(GltfMesh);
+		C_P(const GltfMesh);
 		return d->MeshBuffer;
 	}
 

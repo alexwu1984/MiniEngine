@@ -20,6 +20,7 @@ public:
 
 private:
 	void BuildModelList();
+	void BindImGuiToSceneRender();
 	void FlushPendingModelReload();
 	void ReloadScene(int32_t NewIndex);
 	void HideActor(const std::wstring& Name);

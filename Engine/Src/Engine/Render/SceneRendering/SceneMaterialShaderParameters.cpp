@@ -44,6 +44,7 @@ namespace Engine
 		Rotate *= math::Matrix4x4::RotateY(math::Radians(ViewData->EnvironmentRotateYawDegrees));
 		Out.RotateIBL = Rotate;
 		Out.TargetBuffer = TargetBuffer;
+		Out.DrawMeshBuffer = Mesh->GetMeshBuffer();
 		Out.bUnlit = ViewData->bUnlit;
 		Out.SkyLightIBLScale = ViewData->SkyLightIBLScale;
 		return Out;

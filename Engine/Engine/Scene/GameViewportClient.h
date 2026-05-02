@@ -20,6 +20,9 @@ namespace Engine
 
 		void Init(std::shared_ptr<AppWindow> AppWindow);
 		void SetWorldWeak(std::weak_ptr<World> InWorld);
+		/** Drop queued mouse/keyboard-edge events when replacing the world (avoids BS roam input applying to Model3). */
+		void ClearPendingInput();
+
 		void Tick(float DeltaTime);
 
 	private:

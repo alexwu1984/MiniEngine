@@ -57,42 +57,48 @@ namespace Engine
 		if (!OwnerEngine_->GetRHI() || !vc || !sr)
 			return;
 
-		// Drain render-thread recording, then GPU idle before tearing down old World's textures/buffers (D3D12: use-after-free shows as rectangular garbage).
+		// --- ReplaceWorld + new Json (FWorldSceneRender::RequestRenderingResetAfterSceneTransition = step 8 detail) ---
+		// 1) Drain + GPU idle: safe to destroy old World's GPU resources (D3D12 UAF → garbage rectangles).
 		FlushRenderingCommands();
 		OwnerEngine_->GetRHI()->Wait();
 
+		// 2) Old SceneRender: mesh-material cache + shadow mesh→ShadowPS map (else old meshes / layouts stay pinned).
 		if (const auto sr = SceneRender_.lock())
 		{
 			sr->FlushClearMeshMaterialRenderCacheNow();
-			// Shadow pass caches ShadowPS per Mesh shared_ptr; keeping entries pins old meshes across World reset (BS-only scenes → Model3 swap leaked skeleton/layout state).
 			if (const auto ShadowPass = sr->GetShadowRenderPass())
 				ShadowPass->ClearCachedMeshShadowPasses();
 		}
 
+		// 3) Old World's render-invalidate delegate.
 		UnbindInvalidateFromCurrentWorld();
 
+		// 4) New World; viewport weak ref + clear queued input (old roam must not move new camera).
 		auto newWorld = std::make_shared<World>();
 		vc->SetWorldWeak(std::weak_ptr<World>(newWorld));
-		sr->SetWorldWeak(std::weak_ptr<World>(newWorld));
+		vc->ClearPendingInput();
 
 		std::shared_ptr<World> oldWorld = World_;
 		World_ = std::move(newWorld);
-
-		BindInvalidateToCurrentWorld();
-
 		oldWorld.reset();
 
+		// 5) New FWorldSceneRender (new caches; ctor assigns scene generation). Rebind invalidate.
+		OwnerEngine_->RecreateWorldSceneRenderForSceneSwap();
+		BindInvalidateToCurrentWorld();
+
+		// 6) Load Json (may enqueue IBL / pre / post on render thread).
 		if (World_)
 			World_->LoadScene(JsonPath);
+		FlushRenderingCommands();
+
+		// 7) Primary camera: mark temporal/history stale (pairs post-process reset in step 8).
 		if (World_)
 			World_->ApplySceneTransitionPrimaryCameraState();
-		if (sr)
-			sr->RequestRenderingResetAfterSceneTransition();
 
-		// Blend-shape scenes enqueue UpdateVert every frame; after a swap, flushing the render-thread queue does not mean the GPU is done.
-		// RequestRenderingResetAfterSceneTransition already flushes; wait for idle so the first frame on the new scene cannot latch stale submits or unready VBs.
-		if (OwnerEngine_->GetRHI())
-			OwnerEngine_->GetRHI()->Wait();
+		// 8) Bump scene gen, shadow caches, InitDefaultSceneTargets + InvalidateTransientResources; Flush — see WorldSceneRender.cpp.
+		if (const auto newSr = OwnerEngine_->GetSceneRender())
+			newSr->RequestRenderingResetAfterSceneTransition();
+
+		OwnerEngine_->GetRHI()->Wait();
 	}
-
 }

@@ -31,6 +31,9 @@ namespace Engine
 		math::Vector3 Scale;
 		math::Vector3 Translate;
 
+		/** glTF `node.matrix` if present, else identity. Used to rebuild local transforms in UpdateNodeParent (must match InitNode order). */
+		math::Matrix4x4 BaseMatrixFromGltf;
+
 		int MeshID;
 		int SkinID;
 

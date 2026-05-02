@@ -12,6 +12,19 @@
 
 namespace RenderCore
 {
+	namespace
+	{
+		size_t HashShaderMacros(const std::vector<RHIShaderMacro>& MacroDefines, size_t Hash)
+		{
+			for (const RHIShaderMacro& Macro : MacroDefines)
+			{
+				Hash = core::HashString(Macro.Name, Hash);
+				Hash = core::HashString(Macro.Definition, Hash);
+			}
+			return Hash;
+		}
+	}
+
 	int64_t D3D11GlobalStats::GDedicatedVideoMemory{ 0 };
 	int64_t D3D11GlobalStats::GDedicatedSystemMemory{ 0 };
 	int64_t D3D11GlobalStats::GSharedSystemMemory{ 0 };
@@ -337,8 +350,9 @@ namespace RenderCore
 	{
 		C_P(D3D11DynamicRHI);
 		auto Key = core::ucs2_u8(FileName) + VSMain;
-		auto HashCode = core::Crc::MemCrc32(Key.c_str(), Key.length());
-		HashCode = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(),HashCode);
+		size_t HashCode = core::Crc::MemCrc32(Key.c_str(), static_cast<int32_t>(Key.length()));
+		HashCode = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), HashCode);
+		HashCode = HashShaderMacros(MacroDefines, HashCode);
 		auto It = d->ShaderCache.VertexShaderCache.find(HashCode);
 		if (It != d->ShaderCache.VertexShaderCache.end())
 		{
@@ -361,6 +375,7 @@ namespace RenderCore
 	{
 		C_P(D3D11DynamicRHI);
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + PSMain);
+		HashCode = HashShaderMacros(MacroDefines, HashCode);
 		auto It = d->ShaderCache.PixelShaderCache.find(HashCode);
 		if (It != d->ShaderCache.PixelShaderCache.end())
 		{
@@ -383,6 +398,7 @@ namespace RenderCore
 	{
 		C_P(D3D11DynamicRHI);
 		size_t HashCode = core::HashString(core::ucs2_u8(FileName) + CSMain);
+		HashCode = HashShaderMacros(MacroDefines, HashCode);
 		auto It = d->ShaderCache.ComputeShaderCache.find(HashCode);
 		if (It != d->ShaderCache.ComputeShaderCache.end())
 		{

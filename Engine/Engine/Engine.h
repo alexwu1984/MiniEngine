@@ -32,6 +32,11 @@ namespace Engine
 		void StartThread();
 		void ShutDown();
 		void LoadConfig(const std::wstring& FileName, const nlohmann::json& Root);
+		/**
+		 * Replace FWorldSceneRender (viewport pipelines, caches, scene gen) while keeping RHI viewport.
+		 * Call after SceneManager points at the new World, before LoadScene so LoadConfig hits the new renderer.
+		 */
+		void RecreateWorldSceneRenderForSceneSwap();
 		/** Delegates to SceneManager::ReloadSceneJson (replace World + LoadScene). */
 		void ReloadSceneJson(const std::wstring& JsonPath);
 		std::shared_ptr<SceneManager> GetSceneManager() const;

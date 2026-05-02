@@ -143,6 +143,23 @@ namespace Engine
 		d->ModelPath = std::filesystem::path(FileName).parent_path();
 	}
 
+	void MainEngine::RecreateWorldSceneRenderForSceneSwap()
+	{
+		C_P(MainEngine);
+		if (!d->DynamicRHI || !d->SceneMgr || !d->ViewportClient)
+			return;
+		std::shared_ptr<RenderCore::RHIViewPort> viewPort;
+		if (d->SeRender)
+			viewPort = d->SeRender->GetViewPort();
+		if (!viewPort)
+			return;
+		d->SceneMgr->UnbindInvalidateFromCurrentWorld();
+		d->SeRender.reset();
+		d->SeRender = std::make_shared<FWorldSceneRender>(std::weak_ptr<World>(d->SceneMgr->GetWorld()));
+		d->SceneMgr->AttachClients(this, d->ViewportClient, d->SeRender);
+		d->SeRender->InitResource(std::move(viewPort));
+	}
+
 	void MainEngine::ReloadSceneJson(const std::wstring& JsonPath)
 	{
 		C_P(MainEngine);

@@ -46,16 +46,18 @@ namespace Engine
 
 	void GltfNode::UpdateNodeParent(std::shared_ptr<GltfNodeInfo> NodeInfo)
 	{
-		Matrix4x4 mat4Scaling = Matrix4x4::ScaleMatrix(NodeInfo->Scale);
-		Matrix4x4 mat4Rotation = Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
-		Matrix4x4 mat4Translation = Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
-
-		Matrix4x4 NodeTransformation = mat4Scaling * mat4Rotation * mat4Translation;
+		// Must match InitNode(): base matrix (if any) then T, S, R — not S*R*T (that broke matrix-only nodes and static meshes once UpdateNode ran every frame).
+		Matrix4x4 NodeTransformation = NodeInfo->BaseMatrixFromGltf;
+		NodeTransformation *= Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
+		NodeTransformation *= Matrix4x4::ScaleMatrix(NodeInfo->Scale);
+		NodeTransformation *= Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
 		auto ParentNode = NodeInfo->ParentNode.lock();
 		if (ParentNode)
 		{
 			UpdateNodeParent(ParentNode);
-			NodeInfo->FinalMeshMat = ParentNode->FinalMeshMat * NodeTransformation;
+			// math::Vector4 * Matrix4x4 is row-vector p' = p * M (see vector4.cpp). Hierarchy: p_world = p * L * P.
+			// DFSNodeTree does the same with FinalMeshMat = local * ParentMatrix — do not use parent * local here.
+			NodeInfo->FinalMeshMat = NodeTransformation * ParentNode->FinalMeshMat;
 		}
 		else
 		{
@@ -94,6 +96,7 @@ namespace Engine
 					float(Node.matrix[8]), float(Node.matrix[9]), float(Node.matrix[10]), float(Node.matrix[11]),
 					float(Node.matrix[12]), float(Node.matrix[13]), float(Node.matrix[14]), float(Node.matrix[15]));
 			}
+			NodeInfo->BaseMatrixFromGltf = NodeMat;
 
 			if (Node.translation.size() == 3)
 			{

@@ -46,9 +46,9 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;
 
 		/**
-		 * Full scene transition (ReplaceWorld + LoadScene): mesh draw cache + scene targets + pooled post-process temporals.
-		 * Enqueues GPU/resource work then FlushRenderingCommands() (single fence); UE-style enqueue+fence vs embedding wait in the macro.
-		 * Pair with World::ApplySceneTransitionPrimaryCameraState() on the game thread (ViewState vs RHI flush).
+		 * After ReplaceWorld + LoadScene: bump mesh-material scene gen, invalidate mesh cache flag, clear shadow caches;
+		 * render thread: InitDefaultSceneTargets + PostProcessor::InvalidateTransientResources (TAA/SSR/Bloom temporals); Flush.
+		 * Pair with ApplySceneTransitionPrimaryCameraState() (camera TemporalHistoryGeneration / prev matrices / jitter).
 		 */
 		void RequestRenderingResetAfterSceneTransition();
 

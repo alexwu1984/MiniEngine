@@ -115,6 +115,11 @@ namespace Engine
 				comp->OnUpdateWorldTransform(deltaTime);
 			}
 		}
+		if (!d->bMotionPrevInitialized)
+		{
+			d->PrevWorldTransform = d->WorldTransform;
+			d->bMotionPrevInitialized = true;
+		}
 	}
 
 	const Matrix4x4& Actor::GetWorldTransform() const

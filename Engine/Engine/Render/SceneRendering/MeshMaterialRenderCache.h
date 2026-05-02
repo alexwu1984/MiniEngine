@@ -3,6 +3,7 @@
 #include "Render/RenderStableIds.h"
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <unordered_map>
 
 namespace Engine
@@ -44,9 +45,10 @@ namespace Engine
 	{
 	public:
 		std::shared_ptr<MaterialRender> GetOrCreate(std::shared_ptr<MeshBase> Mesh, uint64_t StableMaterialRenderCacheKey, uint64_t SceneMaterialCacheGeneration);
-		void Clear() noexcept { CachedRenders.clear(); }
+		void Clear() noexcept;
 
 	private:
+		std::mutex Mutex;
 		std::unordered_map<FMaterialRenderCacheLookupKey, std::shared_ptr<MaterialRender>, FMaterialRenderCacheLookupKeyHash> CachedRenders;
 	};
 }

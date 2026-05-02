@@ -9,6 +9,12 @@
 
 namespace Engine
 {
+	void FMeshMaterialRenderCache::Clear() noexcept
+	{
+		std::lock_guard<std::mutex> Lock(Mutex);
+		CachedRenders.clear();
+	}
+
 	std::shared_ptr<MaterialRender> FMeshMaterialRenderCache::GetOrCreate(std::shared_ptr<MeshBase> Mesh, uint64_t StableMaterialRenderCacheKey,
 																		   uint64_t SceneMaterialCacheGeneration)
 	{
@@ -19,9 +25,12 @@ namespace Engine
 		Key.DeclaredVtxFeat = Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures();
 		Key.SceneGeneration = SceneMaterialCacheGeneration;
 
-		const auto Found = CachedRenders.find(Key);
-		if (Found != CachedRenders.end())
-			return Found->second;
+		{
+			std::lock_guard<std::mutex> Lock(Mutex);
+			const auto Found = CachedRenders.find(Key);
+			if (Found != CachedRenders.end())
+				return Found->second;
+		}
 
 		std::shared_ptr<PBRMaterialRender> PBRMaterial;
 		switch (Mesh->GetMaterial()->GetMaterialType())
@@ -44,6 +53,11 @@ namespace Engine
 		// InitShader enqueues RHICreateVertexShader with a captured raw `this`; drain the render queue before the instance can be destroyed
 		// (e.g. BS blend-shape scene → quick switch to Model3) to avoid use-after-free poisoning subsequent draws.
 		FlushRenderingCommands();
+
+		std::lock_guard<std::mutex> Lock(Mutex);
+		const auto FoundAgain = CachedRenders.find(Key);
+		if (FoundAgain != CachedRenders.end())
+			return FoundAgain->second;
 		CachedRenders.emplace(Key, PBRMaterial);
 		return PBRMaterial;
 	}

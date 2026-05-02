@@ -15,10 +15,6 @@
 #include "D3D12/D3D12PresentStats.h"
 #include "D3D12/D3D12CallStats.h"
 #include "D3D12/D3D12RHICommon.h"
-#include <dxgi1_4.h>
-#include <mutex>
-#include <vector>
-#include <windows.h>
 #include "RHI/RHITexture2D.h"
 
 namespace RenderCore

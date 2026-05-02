@@ -40,6 +40,14 @@ namespace Engine
 		d->WorldRef = std::move(InWorld);
 	}
 
+	void GameViewportClient::ClearPendingInput()
+	{
+		C_P(GameViewportClient);
+		std::lock_guard Lock(d->DeviceLock);
+		std::queue<InputDeviceState> Empty;
+		d->InputStates.swap(Empty);
+	}
+
 	void GameViewportClient::Init(std::shared_ptr<AppWindow> AppWindow)
 	{
 		AppWindow->EvtMouseButtonDown.bind(std::bind(&GameViewportClient::OnMouseButtonDown, this, std::placeholders::_1, std::placeholders::_2), this);

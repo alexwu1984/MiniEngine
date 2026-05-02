@@ -82,6 +82,7 @@ namespace Engine
 
 	bool GltfAnimationManager::Play(float Second)
 	{
+		_hasModelAnimate = false;
 		if (_Animations.empty())
 		{
 			return false;
@@ -106,9 +107,7 @@ namespace Engine
 		{
 			_Animations[i]->Play(during, _Model);
 			if (_Animations[i]->HasModelAnimatie())
-			{
 				_hasModelAnimate = true;
-			}
 		}
 		return _hasModelAnimate;
 	}

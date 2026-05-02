@@ -11,6 +11,7 @@ namespace Engine
 {
 	class PreProcessor;
 	class SceneTextures;
+	class GltfMeshBuffer;
 
 	struct MaterialRenderParam
 	{
@@ -27,6 +28,8 @@ namespace Engine
 		std::weak_ptr<PreProcessor> preProcessor;
 		std::vector< Light> lightInfos;
 		std::shared_ptr<SceneTextures> TargetBuffer;
+		/** Buffers for this draw: must match the same MeshBase as bone/skin updates (see DeferredBasePassMeshDispatch). */
+		std::shared_ptr<GltfMeshBuffer> DrawMeshBuffer;
 		bool bUnlit = false;
 		/** Per-view skylight IBL scale (0 = off). */
 		float SkyLightIBLScale = 0.f;
@@ -44,6 +47,8 @@ namespace Engine
 		virtual void SetBoneMatrix(const math::Matrix4x4& Mat, int32_t Index) = 0;
 		/** When skinned shaders bind cbPerSkeleton but no valid palette was uploaded this frame, fill identity to avoid stale CB garbage. */
 		virtual void ResetSkeletonPaletteIdentity() {}
+		/** After uploading bone Current matrices: first draw with a new MaterialRender must snap Previous=Current (see GLTFVertexFactory GetPreviousSkinningMatrix). */
+		virtual void OnSkinnedPaletteUploaded(int32_t NumBones) { (void)NumBones; }
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext,const MaterialRenderParam& RenderParam) = 0;
 		virtual void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) = 0;
 	};

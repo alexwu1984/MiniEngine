@@ -22,8 +22,6 @@
 #include "core/logger.h"
 #include "win/high_precision_tick.h"
 #include "core/commandline.h"
-#include <windows.h>
-#include <heapapi.h>
 
 #include "DirectXTex/DXTexStats.h"
 
@@ -1144,6 +1142,11 @@ namespace RenderCore
 	{
 		if (CurrentStateCache)
 			CurrentStateCache->ClearState();
+	}
+
+	void D3D12CommandContext::RHIClearState()
+	{
+		ClearState();
 	}
 
 	void D3D12CommandContext::CleanupUsedHeaps(uint64_t FenceValue, ED3D12CommandQueueType QueueType)

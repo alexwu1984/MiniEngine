@@ -42,11 +42,12 @@ namespace Engine
 	void FSkyLightIBLPrecompute::Draw(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(FSkyLightIBLPrecompute);
-		if (!d->HDRTex || d->bInitRender)
 		{
-			return;
+			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
+			if (!d->HDRTex || d->bInitRender)
+				return;
+			d->bInitRender = true;
 		}
-		d->bInitRender = true;
 		CaptureSkyLightCubemap(RHIContext);
 		GenerateDiffuseIrradiance(RHIContext);
 		GenerateSpecularPrefilter(RHIContext);
@@ -55,30 +56,35 @@ namespace Engine
 	std::shared_ptr<RenderCore::RHITextureCube> FSkyLightIBLPrecompute::GetSkyLightCubemap()
 	{
 		C_P(FSkyLightIBLPrecompute);
+		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
 		return d->EvnCube;
 	}
 
 	std::shared_ptr<RenderCore::RHITextureCube> FSkyLightIBLPrecompute::GetDiffuseIrradianceCubemap()
 	{
 		C_P(FSkyLightIBLPrecompute);
+		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
 		return d->IrrCube;
 	}
 
 	std::shared_ptr<RenderCore::RHITextureCube> FSkyLightIBLPrecompute::GetSpecularReflectionCubemap()
 	{
 		C_P(FSkyLightIBLPrecompute);
+		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
 		return d->PreFilterCube;
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> FSkyLightIBLPrecompute::GetBRDFIntegrationLUT()
 	{
 		C_P(FSkyLightIBLPrecompute);
+		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
 		return d->PreBRDF;
 	}
 
 	std::shared_ptr<RenderCore::RHITexture2D> FSkyLightIBLPrecompute::GetSkyLightSourceHDR()
 	{
 		C_P(FSkyLightIBLPrecompute);
+		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
 		return d->HDRTex;
 	}
 

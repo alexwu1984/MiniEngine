@@ -50,10 +50,10 @@ namespace RenderCore
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) override;
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) override;
+		virtual void RHIClearState() override;
 	private:
 		void ClearAllShaderResources();
 		void ClearState();
-	private:
 		std::shared_ptr< D3D11CommandContextP> Impl;
 	};
 }

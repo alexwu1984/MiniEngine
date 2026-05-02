@@ -75,6 +75,7 @@ namespace RenderCore
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void BeginUserMark(const char* name) override;
 		virtual void EndUserMark() override;
+		virtual void RHIClearState() override;
 
 		uint32_t numDraws = 0;
 		uint32_t numDispatches = 0;

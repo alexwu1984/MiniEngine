@@ -731,4 +731,9 @@ namespace RenderCore
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 		StateCache.ClearState();
 	}
+
+	void D3D11CommandContext::RHIClearState()
+	{
+		ClearState();
+	}
 }

@@ -21,7 +21,7 @@ namespace Engine
 		void Init();
 		virtual const math::AABB3& GetBoundingBox() const override;
 		virtual const math::Matrix4x4& GetMeshMat() const override;
-		virtual std::shared_ptr<GltfMeshBuffer> GetMeshBuffer() override;
+		virtual std::shared_ptr<GltfMeshBuffer> GetMeshBuffer() const override;
 		virtual std::shared_ptr<MaterialBase> GetMaterial() override;
 		virtual std::string GetMeshName() const override;
 		virtual bool HasSkin() const override { return false; }

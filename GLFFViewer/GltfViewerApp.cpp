@@ -56,66 +56,7 @@ bool GltfViewApp::Init()
 
 	if (Engine::GEngine)
 	{
-		auto sr = Engine::GEngine->GetSceneRender();
-		if (sr)
-		{
-			sr->sigGuiEvent.unbind(this);
-			Engine::GEngine->SetEndFrameTickCallback([this]() { FlushPendingModelReload(); });
-			sr->sigGuiEvent.bind([this] {
-			if (core::CommandLine::Get().GetName("noimgui"))
-				return;
-
-			auto Scene = Engine::GEngine ? Engine::GEngine->GetWorld() : nullptr;
-			if (!Scene)
-				return;
-
-		ImGui::SetNextWindowPos(ImVec2(1, 1));
-		if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
-		{
-			if (!ModelLabelsUtf8.empty())
-			{
-				const char* preview = (SelIndex >= 0 && SelIndex < (int)ModelLabelsUtf8.size()) ? ModelLabelsUtf8[(size_t)SelIndex].c_str() : "";
-				if (ImGui::BeginCombo("Model", preview))
-				{
-					for (int i = 0; i < (int)ModelLabelsUtf8.size(); ++i)
-					{
-						const bool isSelected = (i == SelIndex);
-						if (ImGui::Selectable(ModelLabelsUtf8[(size_t)i].c_str(), isSelected))
-							PendingModelIndex.store(i, std::memory_order_release);
-						if (isSelected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndCombo();
-				}
-			}
-
-			if (const auto dir = Scene->GetPrimaryDirectionalLightForEditing())
-			{
-				ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
-				ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
-				ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
-
-				dir->SetUseActorForward(false);
-				dir->SetWorldDirection(static_cast<const math::Vector3&>(mDirectLight).Normalize());
-			}
-
-			if (const auto sl = Scene->FindPrimarySkyLightComponent())
-			{
-				ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
-				ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
-				sl->SetIBLRotationPitchDegrees(xHDRRotate);
-				sl->SetIBLRotationYawDegrees(yHDRRotate);
-			}
-			else
-			{
-				ImGui::TextUnformatted("No SkyLight (IBL rotation disabled)");
-			}
-		}
-
-		ImGui::End();
-
-			}, this);
-		}
+		Engine::GEngine->SetEndFrameTickCallback([this]() { FlushPendingModelReload(); });
 	}
 
 	return true;
@@ -148,6 +89,71 @@ void GltfViewApp::BuildModelList()
 	}
 }
 
+void GltfViewApp::BindImGuiToSceneRender()
+{
+	if (!Engine::GEngine)
+		return;
+	auto sr = Engine::GEngine->GetSceneRender();
+	if (!sr)
+		return;
+	sr->sigGuiEvent.unbind(this);
+	sr->sigGuiEvent.bind(
+		[this] {
+			if (core::CommandLine::Get().GetName("noimgui"))
+				return;
+
+			auto Scene = Engine::GEngine ? Engine::GEngine->GetWorld() : nullptr;
+			if (!Scene)
+				return;
+
+			ImGui::SetNextWindowPos(ImVec2(1, 1));
+			if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				if (!ModelLabelsUtf8.empty())
+				{
+					const char* preview = (SelIndex >= 0 && SelIndex < (int)ModelLabelsUtf8.size()) ? ModelLabelsUtf8[(size_t)SelIndex].c_str() : "";
+					if (ImGui::BeginCombo("Model", preview))
+					{
+						for (int i = 0; i < (int)ModelLabelsUtf8.size(); ++i)
+						{
+							const bool isSelected = (i == SelIndex);
+							if (ImGui::Selectable(ModelLabelsUtf8[(size_t)i].c_str(), isSelected))
+								PendingModelIndex.store(i, std::memory_order_release);
+							if (isSelected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+				}
+
+				if (const auto dir = Scene->GetPrimaryDirectionalLightForEditing())
+				{
+					ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
+					ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
+					ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
+
+					dir->SetUseActorForward(false);
+					dir->SetWorldDirection(static_cast<const math::Vector3&>(mDirectLight).Normalize());
+				}
+
+				if (const auto sl = Scene->FindPrimarySkyLightComponent())
+				{
+					ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
+					ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
+					sl->SetIBLRotationPitchDegrees(xHDRRotate);
+					sl->SetIBLRotationYawDegrees(yHDRRotate);
+				}
+				else
+				{
+					ImGui::TextUnformatted("No SkyLight (IBL rotation disabled)");
+				}
+			}
+
+			ImGui::End();
+		},
+		this);
+}
+
 void GltfViewApp::FlushPendingModelReload()
 {
 	const int32_t NewIndex = PendingModelIndex.exchange(-1, std::memory_order_acq_rel);
@@ -167,6 +173,7 @@ void GltfViewApp::ReloadScene(int32_t NewIndex)
 
 	SelIndex = NewIndex;
 	Engine::GEngine->ReloadSceneJson(ModelFiles[(size_t)SelIndex]);
+	BindImGuiToSceneRender();
 
 	auto Scene = Engine::GEngine->GetWorld();
 	if (!Scene)

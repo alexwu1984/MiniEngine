@@ -348,7 +348,7 @@ namespace Engine
 				MeshMat.Identity();
 			}
 
-			std::shared_ptr<GltfMeshBuffer> GetMeshBuffer() override { return Buffer; }
+			std::shared_ptr<GltfMeshBuffer> GetMeshBuffer() const override { return Buffer; }
 			std::shared_ptr<MaterialBase> GetMaterial() override { return Material; }
 			const math::AABB3& GetBoundingBox() const override { return Box; }
 			const math::Matrix4x4& GetMeshMat() const override { return MeshMat; }

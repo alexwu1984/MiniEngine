@@ -1,47 +1,28 @@
 ﻿#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/SceneRendering/SceneViewData.h"
-#include "Scene/Actor.h"
-#include "Scene/SceneMeshComponent.h"
+#include "Scene/FScene.h"
 
 namespace Engine
 {
-	void FSceneRendererPrimitiveGather::GatherVisiblePrimitives(const FSceneViewData& ViewData, const std::vector<std::shared_ptr<Actor>>& Actors,
+	void FSceneRendererPrimitiveGather::GatherVisiblePrimitives(const FSceneViewData& ViewData, const FScene& Scene,
 																FPrimitiveGatherResult& OutResult)
 	{
 		OutResult.VisiblePrimitives.clear();
 		OutResult.DynamicShadowCastingPrimitives.clear();
 		OutResult.ShadowFrustumCullPrimitives.clear();
 
-		const std::size_t ActorCount = Actors.size();
-		const std::size_t ReserveHint = ActorCount * 4u + 8u;
+		const std::vector<std::shared_ptr<FPrimitiveSceneProxy>> Proxies = Scene.SnapshotPrimitives();
+		const std::size_t ProxyCount = Proxies.size();
+		const std::size_t ReserveHint = ProxyCount * 4u + 8u;
 		OutResult.VisiblePrimitives.reserve(ReserveHint);
-		OutResult.DynamicShadowCastingPrimitives.reserve(ActorCount + 4u);
+		OutResult.DynamicShadowCastingPrimitives.reserve(ProxyCount + 4u);
 		OutResult.ShadowFrustumCullPrimitives.reserve(ReserveHint);
 
-		const math::Frustum& CullFrustum = ViewData.ViewFrustum;
-
-		for (const auto& ActorItem : Actors)
+		for (const auto& Proxy : Proxies)
 		{
-			if (!ActorItem || ActorItem->GetState() != Actor::EActive || !ActorItem->IsVisible())
+			if (!Proxy)
 				continue;
-
-			auto Components = std::move(ActorItem->GetComponents<SceneMeshComponent>());
-			for (auto& ComponentItem : Components)
-			{
-				if (ComponentItem->IsProjectShadow())
-				{
-					GltfSceneMeshInfo UnculledCaster;
-					if (ComponentItem->GatherMesh(UnculledCaster, nullptr))
-						OutResult.DynamicShadowCastingPrimitives.push_back(std::move(UnculledCaster));
-				}
-
-				GltfSceneMeshInfo SceneMeshInfo;
-				if (!ComponentItem->GatherMesh(SceneMeshInfo, &CullFrustum))
-					continue;
-
-				OutResult.ShadowFrustumCullPrimitives.push_back(SceneMeshInfo);
-				OutResult.VisiblePrimitives.push_back(std::move(SceneMeshInfo));
-			}
+			Proxy->AppendForView(ViewData, OutResult);
 		}
 	}
 }

@@ -12,7 +12,6 @@
 #include "App/AppWindow.h"
 #include "Render/PreProcessor.h"
 #include "GltfModel/GltfMesh.h"
-#include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/CubeBackground.h"
 #include "Render/SkyLightEnvironment.h"
@@ -23,6 +22,8 @@
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/Shadow/ShadowMap.h"
 #include "Scene/Component.h"
+#include "Scene/FScene.h"
+#include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/SceneRendering/SceneViewFamily.h"
 #include "Render/SceneRendering/SceneRenderer.h"
@@ -35,8 +36,6 @@ namespace Engine
 {
 	namespace
 	{
-		std::atomic<uint64_t> GNextMeshMaterialCacheSceneGeneration{ 1 };
-
 		void ApplyRDGCompileParamsFromJson(const nlohmann::json& Root, FRDGCompileParameters& Out)
 		{
 			try
@@ -61,9 +60,6 @@ namespace Engine
 	{
 		FWorldSceneRenderPrivate* d = d_ptr.get();
 		d->Owner = std::move(Owner);
-		d->MeshMaterialRenderCache = std::make_unique<FMeshMaterialRenderCache>();
-		d->MeshMaterialCacheSceneGeneration.store(GNextMeshMaterialCacheSceneGeneration.fetch_add(1u, std::memory_order_relaxed),
-												  std::memory_order_relaxed);
 	}
 
 	FWorldSceneRender::~FWorldSceneRender()
@@ -172,7 +168,6 @@ namespace Engine
 
 	void FWorldSceneRender::Render(float DeltaTime)
 	{
-		(void)DeltaTime;
 		SubmitSceneForRendering(DeltaTime);
 	}
 
@@ -213,43 +208,38 @@ namespace Engine
 		return d->MainViewPort;
 	}
 
-	uint64_t FWorldSceneRender::GetMeshMaterialCacheSceneGeneration() const noexcept
-	{
-		const FWorldSceneRenderPrivate* d = d_ptr.get();
-		return d ? d->MeshMaterialCacheSceneGeneration.load(std::memory_order_relaxed) : 0u;
-	}
-
 	void FWorldSceneRender::RequestMeshMaterialRenderCacheInvalidate()
 	{
-		// Game thread sets flag; render thread clears FMeshMaterialRenderCache on next Render.
-		FWorldSceneRenderPrivate* d = d_ptr.get();
-		if (d)
-			d->bMeshMaterialCacheInvalidatePending.store(true, std::memory_order_release);
+		const std::shared_ptr<World> w = GetWorld();
+		if (!w)
+			return;
+		const std::shared_ptr<FScene> scene = w->GetScene();
+		if (scene)
+			scene->RequestMeshMaterialRenderCacheInvalidate();
 	}
 
 	void FWorldSceneRender::FlushClearMeshMaterialRenderCacheNow()
 	{
-		std::shared_ptr<FWorldSceneRenderPrivate> dLife = d_ptr;
-		if (!dLife || !dLife->MeshMaterialRenderCache)
+		const std::shared_ptr<World> w = GetWorld();
+		const std::shared_ptr<FScene> scene = w ? w->GetScene() : nullptr;
+		if (!scene || !scene->GetMeshMaterialRenderCache())
 			return;
-		// Capture shared ownership of private data — never raw cache pointers: RecreateWorldSceneRenderForSceneSwap can destroy
-		// FWorldSceneRender and release the unique_ptr before this lambda runs, otherwise clear() is UAF / heap corruption in STL.
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[dLife](RenderCore::DynamicRHI* RHI)
+			[scene](RenderCore::DynamicRHI* RHI)
 			{
 				(void)RHI;
-				if (dLife && dLife->MeshMaterialRenderCache)
-					dLife->MeshMaterialRenderCache->Clear();
+				if (scene && scene->GetMeshMaterialRenderCache())
+					scene->GetMeshMaterialRenderCache()->Clear();
 			},
 			false);
 		FlushRenderingCommands();
-		dLife->bMeshMaterialCacheInvalidatePending.store(false, std::memory_order_release);
+		scene->ClearMeshMaterialCacheInvalidatePending();
 	}
 
 	// Full reload sequence (typical: SceneManager::ReloadSceneJson):
 	//   (1) FlushRenderingCommands + RHI::Wait — drain render work; GPU idle before destroying old World GPU resources.
-	//   (2) Old FWorldSceneRender: FlushClearMeshMaterialRenderCacheNow + ClearCachedMeshShadowPasses.
-	//   (3) New World, RecreateWorldSceneRenderForSceneSwap (new mesh-material cache + scene generation in ctor), BindInvalidate, LoadScene Json.
+	//   (2) Old FWorldSceneRender: FlushClearMeshMaterialRenderCacheNow (old World's FScene cache on RT). ~ShadowRenderPass clears shadow map.
+	//   (3) New World, RecreateWorldSceneRenderForSceneSwap, BindInvalidate, LoadScene Json.
 	//   (4) FlushRenderingCommands — drain LoadScene / IBL / preprocess enqueue from the new world.
 	//   (5) World::ApplySceneTransitionPrimaryCameraState — TAA/SSR *camera* path: TemporalHistoryGeneration, prev matrices, jitter, frame index.
 	//   (6) This API — TAA/SSR *GPU* path: PostProcessor::InvalidateTransientResources (pooled TAA/SSR/Bloom/FXAA); often no-op TAA UAVs right
@@ -261,16 +251,9 @@ namespace Engine
 		if (!dLife)
 			return;
 
-		// Game-thread leg (SceneRenderer.Render on next submit sees gen + invalidate flag):
-		dLife->MeshMaterialCacheSceneGeneration.fetch_add(1, std::memory_order_relaxed);
-		// Same effect as RequestMeshMaterialRenderCacheInvalidate(); inline avoids a second d_ptr read.
-		dLife->bMeshMaterialCacheInvalidatePending.store(true, std::memory_order_release);
-
+		// Fresh ShadowRenderPass after RecreateWorldSceneRenderForSceneSwap: shadow cache is already empty; only light cache matters.
 		if (dLife->ShadowRender)
-		{
-			dLife->ShadowRender->ClearCachedMeshShadowPasses();
 			dLife->ShadowRender->InvalidateCachedMainLightForShading();
-		}
 
 		if (!dLife->MainViewPort)
 			return;
@@ -296,7 +279,9 @@ namespace Engine
 
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
 	{
-		(void)DeltaTime;
+		auto RHI = GEngine->GetRHI();
+		if (!RHI)
+			return;
 		FWorldSceneRenderPrivate* d = d_ptr.get();
 		std::shared_ptr<World> World = GetWorld();
 		if (!d->IsInit || !World || !World->GetMainCamera())
@@ -320,10 +305,12 @@ namespace Engine
 		auto ViewDataPtr = std::make_shared<FSceneViewData>(Primary);
 		std::shared_ptr<const FSceneViewData> ViewConst = ViewDataPtr;
 
-		std::vector<std::shared_ptr<Actor>> actorsCopy = World->GetAllActorsCopy();
+		const std::shared_ptr<FScene> WorldScene = World->GetScene();
+		if (!WorldScene)
+			return;
 
 		FPrimitiveGatherResult PrimitiveGather;
-		FSceneRendererPrimitiveGather::GatherVisiblePrimitives(*ViewConst, actorsCopy, PrimitiveGather);
+		FSceneRendererPrimitiveGather::GatherVisiblePrimitives(*ViewConst, *WorldScene, PrimitiveGather);
 
 		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(PrimitiveGather.VisiblePrimitives);
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
@@ -333,15 +320,11 @@ namespace Engine
 
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 
-		auto RHI = GEngine->GetRHI();
-		if (!RHI)
-			return;
-
 		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
 
 		{
 			std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
-			d->SceneRenderer.Submit(this, d, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
+			d->SceneRenderer.Submit(this, d, WorldScene, ViewFamily, ViewConst, std::move(MeshesInfoCopy), std::move(shadowCasters), std::move(shadowFrustumBounds),
 											std::move(shadowLights), shadowProjectorScene, std::move(skyLightHdrOverride));
 		}
 

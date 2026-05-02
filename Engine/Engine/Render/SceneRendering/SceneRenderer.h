@@ -18,6 +18,7 @@ namespace Engine
 {
 	class FWorldSceneRender;
 	struct FWorldSceneRenderPrivate;
+	class FScene;
 
 	/**
 	 * Holds one frame's deferred rendering inputs and records them via RDG on the render thread.
@@ -29,8 +30,8 @@ namespace Engine
 		FSceneRenderer() = default;
 
 		/** Capture inputs for the next Render call (game thread; no RHI). */
-		void Submit(FWorldSceneRender* WorldSceneRenderOwner, FWorldSceneRenderPrivate* SceneResources, const FSceneViewFamily& ViewFamily,
-					std::shared_ptr<const FSceneViewData> ViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
+		void Submit(FWorldSceneRender* WorldSceneRenderOwner, FWorldSceneRenderPrivate* SceneResources, std::shared_ptr<FScene> WorldScene,
+					const FSceneViewFamily& ViewFamily, std::shared_ptr<const FSceneViewData> ViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
 					std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
 					std::vector<Light> ShadowPassLights, FShadowProjectorSceneData ShadowProjectorScene,
 					std::optional<std::wstring> SkyLightHdrFullPathOverride);
@@ -41,6 +42,7 @@ namespace Engine
 	private:
 		bool bHasFrame = false;
 		FWorldSceneRender* WorldSceneRenderOwner = nullptr;
+		std::shared_ptr<FScene> SubmittedWorldScene;
 		FWorldSceneRenderPrivate* SceneResources = nullptr;
 		FSceneViewFamily ViewFamily{};
 		std::shared_ptr<const FSceneViewData> ViewData;

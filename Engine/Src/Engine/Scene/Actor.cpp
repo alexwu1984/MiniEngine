@@ -3,6 +3,8 @@
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"
 #include "Scene/World.h"
+#include "Scene/FScene.h"
+#include "Scene/SceneMeshComponent.h"
 #include "Render/RenderStableIds.h"
 
 namespace Engine
@@ -20,8 +22,23 @@ namespace Engine
 	}
 	Actor::~Actor()
 	{
-		delete d_ptr;
-		d_ptr = nullptr;
+		if (d_ptr)
+		{
+			C_P(Actor);
+			if (const std::shared_ptr<World> world = d->WorldRef.lock())
+			{
+				if (const std::shared_ptr<FScene> scene = world->GetScene())
+				{
+					for (const auto& comp : d->Components)
+					{
+						if (const auto sm = ComponentCast<SceneMeshComponent>(comp))
+							scene->RemoveScenePrimitive(sm);
+					}
+				}
+			}
+			delete d_ptr;
+			d_ptr = nullptr;
+		}
 	}
 
 	void Actor::InitResouce()
@@ -203,6 +220,14 @@ namespace Engine
 	{
 		C_P(Actor);
 		d->Components.push_back(component);
+		if (const auto sm = ComponentCast<SceneMeshComponent>(component))
+		{
+			if (const auto W = GetWorld())
+			{
+				if (const std::shared_ptr<FScene> scene = W->GetScene())
+					scene->AddScenePrimitive(sm);
+			}
+		}
 		if (auto W = GetWorld())
 			W->RefreshShadowProjectorForActor(shared_from_this());
 	}
@@ -213,6 +238,14 @@ namespace Engine
 		auto iter = std::find(d->Components.begin(), d->Components.end(), component);
 		if (iter != d->Components.end())
 		{
+			if (const auto sm = ComponentCast<SceneMeshComponent>(component))
+			{
+				if (const auto W = GetWorld())
+				{
+					if (const std::shared_ptr<FScene> scene = W->GetScene())
+						scene->RemoveScenePrimitive(sm);
+				}
+			}
 			d->Components.erase(iter);
 			if (auto W = GetWorld())
 				W->RefreshShadowProjectorForActor(shared_from_this());

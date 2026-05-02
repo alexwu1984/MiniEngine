@@ -1,12 +1,12 @@
 ﻿#pragma once
+#include "Scene/SceneMeshComponent.h"
 #include <memory>
 #include <vector>
 
 namespace Engine
 {
 	struct FSceneViewData;
-	struct GltfSceneMeshInfo;
-	class Actor;
+	class FScene;
 
 	/** One-frame primitive lists produced for the active scene view (visible draws + shadow pass inputs). */
 	struct FPrimitiveGatherResult
@@ -16,10 +16,10 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> ShadowFrustumCullPrimitives;
 	};
 
-	/** Single-pass gather of visible mesh primitives and shadow-related subsets for the view. */
+	/** Single-pass gather from FScene primitive proxies (UE-style) + view culling. */
 	class FSceneRendererPrimitiveGather
 	{
 	public:
-		static void GatherVisiblePrimitives(const FSceneViewData& ViewData, const std::vector<std::shared_ptr<Actor>>& Actors, FPrimitiveGatherResult& OutResult);
+		static void GatherVisiblePrimitives(const FSceneViewData& ViewData, const FScene& Scene, FPrimitiveGatherResult& OutResult);
 	};
 }

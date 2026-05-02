@@ -11,6 +11,7 @@ namespace Engine
 	class CameraComponent;
 	class SkyLightComponent;
 	class DirectionalLightComponent;
+	class FScene;
 	struct WorldPrivate;
 
 	/** Game-thread world: actors, lights, main camera (UE world / scene subset; no input, no tick). */
@@ -48,6 +49,8 @@ namespace Engine
 		const std::vector<std::shared_ptr<Actor>>& GetAllActors() const;
 		/** Thread-safe copy of current actors (holds World's lock); prefer this when copying off the mutation path. */
 		std::vector<std::shared_ptr<Actor>> GetAllActorsCopy() const;
+		/** UE-style scene: primitive proxies and future scene-scoped render state (lifetime = this World). */
+		std::shared_ptr<FScene> GetScene() const;
 		/** Same ordering as the first entry in GatherLightsForView (highest SortPriority among enabled directionals). */
 		std::shared_ptr<DirectionalLightComponent> GetPrimaryDirectionalLightForEditing() const;
 

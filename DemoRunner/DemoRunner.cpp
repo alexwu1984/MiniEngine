@@ -136,8 +136,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 					ImGui::Text("d3d12_memmon_stacks=%d (effective=%s)", stacksV, stacksOn ? "on" : "off");
 					ImGui::Text("d3d12_gpudev=%d", gpudevV);
 					ImGui::Text("d3ddebug=%s / dxdebug=%s",
-						core::CommandLine::Get().GetName("d3ddebug") ? "on" : "off",
-						core::CommandLine::Get().GetName("dxdebug") ? "on" : "off");
+						core::CommandLine::Get().GetSwitch("d3ddebug") ? "on" : "off",
+						core::CommandLine::Get().GetSwitch("dxdebug") ? "on" : "off");
 				}
 				ImGui::Separator();
 				demo->OnGui();

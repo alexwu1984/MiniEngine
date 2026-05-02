@@ -253,8 +253,8 @@ namespace RenderCore
 
 	bool D3D12RHI_ShouldCreateWithD3DDebug()
 	{
-		return core::CommandLine::Get().GetName("d3ddebug") ||
-			core::CommandLine::Get().GetName("dxdebug");
+		return core::CommandLine::Get().GetSwitch("d3ddebug") ||
+			core::CommandLine::Get().GetSwitch("dxdebug");
 	}
 
 	static bool CmdBool(const char* name, bool defaultIfPresent = true)

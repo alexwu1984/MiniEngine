@@ -73,6 +73,16 @@ namespace core
 		return _CommandMap.contains(name);
 	}
 
+	bool CommandLine::GetSwitch(const std::string& name)
+	{
+		if (!_CommandMap.contains(name))
+			return false;
+		int parsed = 0;
+		if (GetInteger(name, parsed))
+			return parsed != 0;
+		return true;
+	}
+
 	bool CommandLine::GetInteger(const std::string& name, int& value)
 	{
 		if (!_CommandMap.contains(name))

@@ -19,7 +19,6 @@ namespace Engine
 	class CubeBackground;
 	class SceneTextures;
 	class ShadowRenderPass;
-	class FMeshMaterialRenderCache;
 	class DeferredLightingPass;
 
 	struct FWorldSceneRenderPrivate
@@ -28,10 +27,6 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIViewPort> MainViewPort;
 		std::shared_ptr<PreProcessor> PreProcess;
 		std::shared_ptr<PostProcessor> PostProcess;
-		std::unique_ptr<FMeshMaterialRenderCache> MeshMaterialRenderCache;
-		/** Incremented on full scene replacement so MeshMaterial cache keys cannot match across Worlds even if MeshBuffer/Material pointers recycle. */
-		std::atomic<uint64_t> MeshMaterialCacheSceneGeneration{ 1 };
-		std::atomic_bool bMeshMaterialCacheInvalidatePending{ false }; // game sets; render thread clears cache then resets
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;

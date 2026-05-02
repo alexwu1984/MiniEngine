@@ -1,11 +1,7 @@
 ﻿#include "Render/SceneTextures.h"
-
 #include "Render/RenderTexturePool.h"
-
 #include "RHI/RHITexture2D.h"
-
 #include "RHI/RHIUnorderedAccessView.h"
-
 #include "RHI/DynamicRHI.h"
 
 using namespace RenderCore;

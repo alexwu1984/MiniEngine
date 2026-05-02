@@ -19,7 +19,6 @@ namespace Engine
 	struct FWorldSceneRenderPrivate;
 	class ShadowRenderPass;
 	class CubeBackground;
-	class FMeshMaterialRenderCache;
 
 	/**
 	 * World-scoped scene rendering entry: viewport, scene textures/post/shadow resources, and game-thread submission.
@@ -60,9 +59,6 @@ namespace Engine
 
 		/** Request clearing the mesh draw cache on the next render (cache keys are raw pointers). Actor/resource churn uses this alone. */
 		void RequestMeshMaterialRenderCacheInvalidate();
-
-		/** Monotonic per full scene swap; folded into FMeshMaterialRenderCache keys (BS → Model3 pointer reuse safety). */
-		uint64_t GetMeshMaterialCacheSceneGeneration() const noexcept;
 
 	private:
 		/** Game thread: gather views/primitives, Submit to FSceneRenderer, enqueue render-thread work. */

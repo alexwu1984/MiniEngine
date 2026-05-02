@@ -15,15 +15,13 @@ namespace Engine
 		CachedRenders.clear();
 	}
 
-	std::shared_ptr<MaterialRender> FMeshMaterialRenderCache::GetOrCreate(std::shared_ptr<MeshBase> Mesh, uint64_t StableMaterialRenderCacheKey,
-																		   uint64_t SceneMaterialCacheGeneration)
+	std::shared_ptr<MaterialRender> FMeshMaterialRenderCache::GetOrCreate(std::shared_ptr<MeshBase> Mesh, uint64_t StableMaterialRenderCacheKey)
 	{
 		FMaterialRenderCacheLookupKey Key{};
 		Key.StableSlotKey = StableMaterialRenderCacheKey;
 		Key.MeshBuffer = reinterpret_cast<uintptr_t>(Mesh->GetMeshBuffer().get());
 		Key.Material = reinterpret_cast<uintptr_t>(Mesh->GetMaterial().get());
 		Key.DeclaredVtxFeat = Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures();
-		Key.SceneGeneration = SceneMaterialCacheGeneration;
 
 		{
 			std::lock_guard<std::mutex> Lock(Mutex);

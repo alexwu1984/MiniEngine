@@ -2,6 +2,7 @@
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
+#include "Scene/FScene.h"
 #include "Render/PreProcessor.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Render/PostProcessor.h"
@@ -43,13 +44,14 @@ namespace Engine
 		}
 	} // namespace
 
-	void FSceneRenderer::Submit(FWorldSceneRender* InWorldSceneRenderOwner, FWorldSceneRenderPrivate* InSceneResources, const FSceneViewFamily& InViewFamily,
-									 std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
-									 std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
-									 std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene,
-									 std::optional<std::wstring> SkyLightHdrFullPathOverride)
+	void FSceneRenderer::Submit(FWorldSceneRender* InWorldSceneRenderOwner, FWorldSceneRenderPrivate* InSceneResources, std::shared_ptr<FScene> InWorldScene,
+										const FSceneViewFamily& InViewFamily, std::shared_ptr<const FSceneViewData> InViewData, std::vector<GltfSceneMeshInfo> MeshesInfoCopy,
+										std::vector<GltfSceneMeshInfo> shadowCasters, std::vector<GltfSceneMeshInfo> shadowFrustumBounds,
+										std::vector<Light> ShadowPassLights, FShadowProjectorSceneData InShadowProjectorScene,
+										std::optional<std::wstring> SkyLightHdrFullPathOverride)
 	{
 		WorldSceneRenderOwner = InWorldSceneRenderOwner;
+		SubmittedWorldScene = std::move(InWorldScene);
 		SceneResources = InSceneResources;
 		ViewFamily = InViewFamily;
 		ViewData = std::move(InViewData);
@@ -59,7 +61,7 @@ namespace Engine
 		LightsForShadow = std::move(ShadowPassLights);
 		ShadowProjectorScene = InShadowProjectorScene;
 		SkyLightHdrOverrideForFrame = std::move(SkyLightHdrFullPathOverride);
-		bHasFrame = (WorldSceneRenderOwner != nullptr) && (SceneResources != nullptr) && (ViewData != nullptr);
+		bHasFrame = (WorldSceneRenderOwner != nullptr) && (SceneResources != nullptr) && (ViewData != nullptr) && (SubmittedWorldScene != nullptr);
 	}
 
 	void FSceneRenderer::Render(DynamicRHI* RHI)
@@ -77,6 +79,7 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(ShadowFrustumBounds);
 		std::vector<Light> ShadowPassLights = std::move(LightsForShadow);
 		FShadowProjectorSceneData ShadowProjectorSceneMoved = ShadowProjectorScene;
+		std::shared_ptr<FScene> WorldSceneForFrame = std::move(SubmittedWorldScene);
 
 		ViewData.reset();
 		WorldSceneRenderOwner = nullptr;
@@ -86,9 +89,14 @@ namespace Engine
 		if (!CommandContext)
 			return;
 
-		// Mesh draw cache keys are raw pointers; drop stale entries when the world signals a scene change.
-		if (d->bMeshMaterialCacheInvalidatePending.exchange(false, std::memory_order_acq_rel))
-			d->MeshMaterialRenderCache->Clear();
+		if (WorldSceneForFrame)
+		{
+			if (WorldSceneForFrame->ConsumeMeshMaterialCacheInvalidatePending())
+			{
+				if (FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame->GetMeshMaterialRenderCache())
+					MeshCache->Clear();
+			}
+		}
 
 		if (d->PreProcess)
 			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrOverrideForFrame));
@@ -191,16 +199,17 @@ namespace Engine
 			"RenderBasePass",
 			SceneTexturesIO,
 			SceneTexturesIO,
-			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst]()
+			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame]()
 			{
-				if (!MeshesForDraw->empty())
+				FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
+				if (!MeshesForDraw->empty() && MeshCache)
 				{
 					FDeferredBasePassDrawContext DrawContext;
 					DrawContext.ViewData = ViewConst;
 					DrawContext.TargetBuffer = d->TargetBuffer;
 					DrawContext.WorldSceneRender = Self;
 					DrawContext.RHICmdList = CommandContext.get();
-					FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHI, *MeshesForDraw, DrawContext, *d->MeshMaterialRenderCache);
+					FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHI, *MeshesForDraw, DrawContext, *MeshCache);
 				}
 			}});
 
@@ -208,16 +217,17 @@ namespace Engine
 			"RenderTranslucency",
 			SceneTexturesIO,
 			SceneTexturesIO,
-			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst]()
+			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame]()
 			{
-				if (!MeshesForDraw->empty())
+				FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
+				if (!MeshesForDraw->empty() && MeshCache)
 				{
 					FDeferredBasePassDrawContext DrawContext;
 					DrawContext.ViewData = ViewConst;
 					DrawContext.TargetBuffer = d->TargetBuffer;
 					DrawContext.WorldSceneRender = Self;
 					DrawContext.RHICmdList = CommandContext.get();
-					FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHI, *MeshesForDraw, DrawContext, *d->MeshMaterialRenderCache);
+					FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHI, *MeshesForDraw, DrawContext, *MeshCache);
 				}
 			}});
 

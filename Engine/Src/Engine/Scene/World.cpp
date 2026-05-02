@@ -6,6 +6,7 @@
 #include "Scene/SkyLightComponent.h"
 #include "Scene/DirectionalLightComponent.h"
 #include "Scene/RoamCameraActor.h"
+#include "Scene/FScene.h"
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
 #include "core/system.h"
@@ -174,6 +175,8 @@ namespace Engine
 
 	struct WorldPrivate
 	{
+		/** First field: destroyed last — primitives unregister from scene before FScene is released. */
+		std::shared_ptr<FScene> Scene;
 		std::vector<std::shared_ptr<Actor>> Actors;
 		std::vector<std::shared_ptr<Actor>> PendingActors;
 		std::shared_ptr<CameraComponent> MainCamera;
@@ -188,6 +191,8 @@ namespace Engine
 	World::World()
 		: d_ptr(new WorldPrivate())
 	{
+		C_P(World);
+		d->Scene = std::make_shared<FScene>();
 	}
 
 	World::~World()
@@ -387,6 +392,12 @@ namespace Engine
 		C_P(const World);
 		std::lock_guard<std::recursive_mutex> l(d->lock);
 		return d->Actors;
+	}
+
+	std::shared_ptr<FScene> World::GetScene() const
+	{
+		C_P(const World);
+		return d->Scene;
 	}
 
 	std::shared_ptr<DirectionalLightComponent> World::GetPrimaryDirectionalLightForEditing() const

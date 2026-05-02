@@ -2,7 +2,6 @@
 #include "Scene/World.h"
 #include "Scene/GameViewportClient.h"
 #include "Render/WorldSceneRender.h"
-#include "Render/Shadow/ShadowRenderPass.h"
 #include "Engine/Engine.h"
 #include "Thread/RenderThread.h"
 #include "RHI/DynamicRHI.h"
@@ -57,18 +56,16 @@ namespace Engine
 		if (!OwnerEngine_->GetRHI() || !vc || !sr)
 			return;
 
-		// --- ReplaceWorld + new Json (FWorldSceneRender::RequestRenderingResetAfterSceneTransition = step 8 detail) ---
+		// --- ReplaceWorld + new Json ---
 		// 1) Drain + GPU idle: safe to destroy old World's GPU resources (D3D12 UAF → garbage rectangles).
 		FlushRenderingCommands();
 		OwnerEngine_->GetRHI()->Wait();
 
-		// 2) Old SceneRender: mesh-material cache + shadow mesh→ShadowPS map (else old meshes / layouts stay pinned).
+		// 2) Old World's FScene: clear mesh-material cache on the render thread before ~World.
+		//    (Avoids many MaterialRender::~ each WaitForFinish on the game thread when the map is torn down.)
+		//    Shadow mesh→ShadowPS map lives on FWorldSceneRender and is released in ~ShadowRenderPass — no manual clear here.
 		if (const auto sr = SceneRender_.lock())
-		{
 			sr->FlushClearMeshMaterialRenderCacheNow();
-			if (const auto ShadowPass = sr->GetShadowRenderPass())
-				ShadowPass->ClearCachedMeshShadowPasses();
-		}
 
 		// 3) Old World's render-invalidate delegate.
 		UnbindInvalidateFromCurrentWorld();
@@ -82,7 +79,7 @@ namespace Engine
 		World_ = std::move(newWorld);
 		oldWorld.reset();
 
-		// 5) New FWorldSceneRender (new caches; ctor assigns scene generation). Rebind invalidate.
+		// 5) New FWorldSceneRender (new shadow pass / RDG targets path; mesh-material cache is on new World's FScene). Rebind invalidate.
 		OwnerEngine_->RecreateWorldSceneRenderForSceneSwap();
 		BindInvalidateToCurrentWorld();
 
@@ -95,7 +92,7 @@ namespace Engine
 		if (World_)
 			World_->ApplySceneTransitionPrimaryCameraState();
 
-		// 8) Bump scene gen, shadow caches, InitDefaultSceneTargets + InvalidateTransientResources; Flush — see WorldSceneRender.cpp.
+		// 8) InitDefaultSceneTargets + InvalidateTransientResources (TAA/SSR/Bloom temporals); see WorldSceneRender.cpp.
 		if (const auto newSr = OwnerEngine_->GetSceneRender())
 			newSr->RequestRenderingResetAfterSceneTransition();
 

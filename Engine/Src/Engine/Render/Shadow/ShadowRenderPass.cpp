@@ -222,10 +222,19 @@ namespace Engine
 		}
 
 		// Record on the same RHI command context as the frame graph pass (no nested render-thread enqueue).
-		if (Lights.empty())
+		int mainIdx = -1;
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			if (Lights[static_cast<size_t>(i)].Type == LightType_Directional)
+			{
+				mainIdx = i;
+				break;
+			}
+		}
+		if (mainIdx < 0)
 			return;
 
-		Light& mainLight = Lights[0];
+		Light& mainLight = Lights[static_cast<size_t>(mainIdx)];
 		mainLight.ShadowMapIndex = 0;
 
 		math::AABB3 mergedWorldAabb;

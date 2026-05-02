@@ -4,9 +4,43 @@
 #include "Scene/GltfInputComponent.h"
 #include "Scene/World.h"
 #include "GltfModel/GltfModel.h"
+#include "core/strings.h"
 
 namespace Engine
 {
+	namespace
+	{
+		static void ApplyActorDisplayNameFromSceneJson(Actor& ActorRef, const nlohmann::json& GltfJson)
+		{
+			try
+			{
+				if (GltfJson.find("ActorName") != GltfJson.end() && GltfJson["ActorName"].is_string())
+				{
+					ActorRef.SetActorName(core::u8_ucs2(GltfJson["ActorName"].get<std::string>()));
+					return;
+				}
+				if (GltfJson.find("Model") != GltfJson.end() && GltfJson["Model"].is_string())
+				{
+					std::string m = GltfJson["Model"].get<std::string>();
+					const size_t slash = m.find_last_of("/\\");
+					if (slash != std::string::npos)
+						m = m.substr(slash + 1);
+					const size_t dot = m.find_last_of('.');
+					if (dot != std::string::npos)
+						m = m.substr(0, dot);
+					if (!m.empty())
+						ActorRef.SetActorName(core::u8_ucs2(m));
+					return;
+				}
+				if (GltfJson.find("ProceduralFloor") != GltfJson.end())
+					ActorRef.SetActorName(L"ProceduralFloor");
+			}
+			catch (const std::exception&)
+			{
+			}
+		}
+	} // namespace
+
 	IMP_ACTOR_CLASS_NAME(GltfActor)
 	IMP_ACTOR_TRAITS_CLASS_NAME(GltfActor)
 
@@ -35,6 +69,7 @@ namespace Engine
 	{
 		Actor::InitResouce();
 		C_P(GltfActor);
+		ApplyActorDisplayNameFromSceneJson(*this, d->GltfJson);
 		d->MeshComp = std::make_shared<SceneMeshComponent>(this->shared_from_this());
 		bool bLoad = d->MeshComp->Load(d->GltfJson);
 		if (!bLoad)

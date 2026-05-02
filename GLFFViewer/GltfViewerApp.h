@@ -32,7 +32,6 @@ private:
 	std::wstring ProcessDir;
 	std::vector<std::wstring> ModelFiles;
 	std::vector<std::string> ModelLabelsUtf8;
-	math::Vector3 mDirectLight{ 0.021f, 0.351f, 0.477f };
 	std::shared_ptr<Engine::SimplePostProcessor> _Demo;
 	float xHDRRotate{ 16.875f };
 	float yHDRRotate{ -114.375f };

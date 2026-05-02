@@ -1,4 +1,5 @@
 ﻿#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
+#include "Render/MaterialPreFrame.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/Shadow/ShadowRenderPass.h"
@@ -16,7 +17,7 @@ namespace Engine
 			return Out;
 
 		Out.lightInfos = ViewData->Lights;
-		if (!Out.lightInfos.empty())
+		if (!Out.lightInfos.empty() && Out.lightInfos[0].Type == LightType_Directional)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 			{

@@ -5,10 +5,13 @@
 #include "Scene/SceneMeshComponent.h"
 #include "Scene/SkyLightComponent.h"
 #include "Scene/DirectionalLightComponent.h"
+#include "Scene/PointLightComponent.h"
 #include "Scene/RoamCameraActor.h"
 #include "Scene/FScene.h"
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
+#include "Render/MaterialPreFrame.h"
+#include "core/strings.h"
 #include "core/system.h"
 #include <algorithm>
 #include <cstdio>
@@ -105,6 +108,69 @@ namespace Engine
 			return out;
 		}
 
+		static std::vector<std::shared_ptr<PointLightComponent>> CollectPointLightComponentsSorted(
+			const std::vector<std::shared_ptr<Actor>>& Actors, const std::vector<std::shared_ptr<Actor>>& PendingActors)
+		{
+			std::vector<std::pair<int32_t, std::shared_ptr<PointLightComponent>>> pairs;
+			auto append = [&pairs](const std::vector<std::shared_ptr<Actor>>& List) {
+				for (const auto& a : List)
+				{
+					if (!a || !a->IsActorPrivateAllocated())
+						continue;
+					if (a->GetState() != Actor::EActive)
+						continue;
+					auto pl = a->GetComponent<PointLightComponent>();
+					if (!pl || !pl->IsEnabled())
+						continue;
+					pairs.emplace_back(pl->GetSortPriority(), pl);
+				}
+			};
+			append(Actors);
+			append(PendingActors);
+			std::sort(pairs.begin(), pairs.end(),
+					  [](const std::pair<int32_t, std::shared_ptr<PointLightComponent>>& A,
+						 const std::pair<int32_t, std::shared_ptr<PointLightComponent>>& B) { return A.first > B.first; });
+			std::vector<std::shared_ptr<PointLightComponent>> out;
+			out.reserve(pairs.size());
+			for (auto& p : pairs)
+				out.push_back(std::move(p.second));
+			return out;
+		}
+
+		static void SpawnConfigPointLightActor(const std::shared_ptr<World>& WorldSelf, const Light& Parsed, int32_t JsonOrderIndex,
+											   const std::wstring& AttachToActorName)
+		{
+			if (!WorldSelf)
+				return;
+
+			std::shared_ptr<Actor> host;
+			if (!AttachToActorName.empty())
+				host = WorldSelf->FindFirstActorByName(AttachToActorName);
+
+			if (host)
+			{
+				auto pt = std::make_shared<PointLightComponent>(std::weak_ptr<Actor>(host));
+				pt->SetColor(Parsed.Color);
+				pt->SetIntensity(Parsed.Intensity);
+				pt->SetRange(Parsed.Range > 0.f ? Parsed.Range : 10.f);
+				pt->SetSortPriority(500 - JsonOrderIndex);
+				pt->SetLocalOffset(Parsed.Position);
+				host->AddComponent(pt);
+				return;
+			}
+
+			auto actor = std::make_shared<Actor>(WorldSelf);
+			actor->SetActorName(std::wstring(L"ConfigPointLight_") + std::to_wstring(JsonOrderIndex));
+			actor->SetPosition(Parsed.Position);
+			auto pt = std::make_shared<PointLightComponent>(actor);
+			pt->SetColor(Parsed.Color);
+			pt->SetIntensity(Parsed.Intensity);
+			pt->SetRange(Parsed.Range > 0.f ? Parsed.Range : 10.f);
+			pt->SetSortPriority(500 - JsonOrderIndex);
+			actor->AddComponent(pt);
+			WorldSelf->AddActor(actor);
+		}
+
 		/** Evn.Light[] KHR-style strings; used only at scene load to spawn light actors. */
 		/** Evn.RotateIBL: "pitchDeg,yawDeg" — authoritative on primary SkyLightComponent (UE-style). */
 		static void ApplyEvnRotateIBL(const std::shared_ptr<World>& world, const nlohmann::json& evnJson)
@@ -134,11 +200,28 @@ namespace Engine
 			{
 				lightInfo = Light{};
 				const std::string colorStr = lightInfoJson.at("LightColor").get<std::string>();
-				std::sscanf(colorStr.c_str(), "%f,%f,%f", &lightInfo.Color.x, &lightInfo.Color.y, &lightInfo.Color.z);
-				const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
-				std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z);
+				if (std::sscanf(colorStr.c_str(), "%f,%f,%f", &lightInfo.Color.x, &lightInfo.Color.y, &lightInfo.Color.z) < 3)
+					return false;
 				lightInfo.Type = lightInfoJson.at("LightType").get<int>();
-				lightInfo.Intensity = lightInfoJson.at("LightStrength").get<float>();
+				lightInfo.Intensity = static_cast<float>(lightInfoJson.at("LightStrength").get<double>());
+				if (lightInfo.Type == LightType_Point)
+				{
+					lightInfo.Position = math::Vector3(0.f, 0.f, 0.f);
+					if (const auto pit = lightInfoJson.find("LightPosition"); pit != lightInfoJson.end() && pit->is_string())
+					{
+						const std::string posStr = pit->get<std::string>();
+						std::sscanf(posStr.c_str(), "%f,%f,%f", &lightInfo.Position.x, &lightInfo.Position.y, &lightInfo.Position.z);
+					}
+					lightInfo.Range = 10.f;
+					if (const auto rit = lightInfoJson.find("LightRange"); rit != lightInfoJson.end() && rit->is_number())
+						lightInfo.Range = static_cast<float>(rit->get<double>());
+					lightInfo.Direction = math::Vector3(0.f, -1.f, 0.f);
+					return true;
+				}
+
+				const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
+				if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z) < 3)
+					return false;
 				return true;
 			}
 			catch (const std::exception&)
@@ -201,6 +284,23 @@ namespace Engine
 		d_ptr = nullptr;
 	}
 
+	std::shared_ptr<Actor> World::FindFirstActorByName(const std::wstring& Name) const
+	{
+		if (Name.empty())
+			return nullptr;
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		auto scan = [&](const std::vector<std::shared_ptr<Actor>>& Vec) -> std::shared_ptr<Actor> {
+			for (const auto& a : Vec)
+				if (a && a->IsActorPrivateAllocated() && a->GetActorName() == Name)
+					return a;
+			return nullptr;
+		};
+		if (auto f = scan(d->Actors))
+			return f;
+		return scan(d->PendingActors);
+	}
+
 	void World::LoadScene(const std::wstring& ModelFile)
 	{
 		C_P(World);
@@ -242,6 +342,7 @@ namespace Engine
 
 			const nlohmann::json lightJsons = evnJson["Light"];
 			int32_t directionalJsonOrder = 0;
+			int32_t pointJsonOrder = 0;
 			for (const auto& lightInfoJson : lightJsons)
 			{
 				Light lightInfo{};
@@ -253,7 +354,15 @@ namespace Engine
 					++directionalJsonOrder;
 					continue;
 				}
-				// Point / spot from Evn are not in shipped assets; add PointLightComponent / SpotLightComponent + spawn here when needed.
+				if (lightInfo.Type == LightType_Point)
+				{
+					std::wstring attachName;
+					if (const auto ait = lightInfoJson.find("AttachActor"); ait != lightInfoJson.end() && ait->is_string())
+						attachName = core::u8_ucs2(ait->get<std::string>());
+					SpawnConfigPointLightActor(self, lightInfo, pointJsonOrder, attachName);
+					++pointJsonOrder;
+					continue;
+				}
 			}
 		}
 		catch (const std::exception& e)
@@ -395,15 +504,40 @@ namespace Engine
 		return sorted.empty() ? nullptr : sorted.front();
 	}
 
+	std::vector<std::shared_ptr<DirectionalLightComponent>> World::GetDirectionalLightsForEditingSorted() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		return CollectDirectionalLightComponentsSorted(d->Actors, d->PendingActors);
+	}
+
+	std::vector<std::shared_ptr<PointLightComponent>> World::GetPointLightsForEditingSorted() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		return CollectPointLightComponentsSorted(d->Actors, d->PendingActors);
+	}
+
 	std::vector<Light> World::GatherLightsForView() const
 	{
 		C_P(const World);
 		std::lock_guard<std::recursive_mutex> l(d->lock);
 		const auto dirComps = CollectDirectionalLightComponentsSorted(d->Actors, d->PendingActors);
+		const auto pointComps = CollectPointLightComponentsSorted(d->Actors, d->PendingActors);
 		std::vector<Light> out;
-		out.reserve(dirComps.size());
+		out.reserve((std::min)(static_cast<size_t>(MAX_LIGHT_INSTANCES), dirComps.size() + pointComps.size()));
 		for (const auto& comp : dirComps)
+		{
+			if (out.size() >= MAX_LIGHT_INSTANCES)
+				break;
 			out.push_back(comp->BuildLight());
+		}
+		for (const auto& comp : pointComps)
+		{
+			if (out.size() >= MAX_LIGHT_INSTANCES)
+				break;
+			out.push_back(comp->BuildLight());
+		}
 		return out;
 	}
 

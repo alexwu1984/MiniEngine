@@ -4,10 +4,12 @@
     "AmbientStrength": 1.48,
     "Light": [
       {
-        "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.0,0.729,0.833",
-        "LightStrength": 1.0,
-        "LightType": 0
+        "LightColor": "0.15,0.45,1.0",
+        "LightStrength": 120.0,
+        "LightType": 1,
+        "AttachActor": "Model4",
+        "LightPosition": "0.8,1.4,2.2",
+        "LightRange": 45.0
       }
     ],
 

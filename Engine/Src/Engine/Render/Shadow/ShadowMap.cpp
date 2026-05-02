@@ -6,6 +6,19 @@ namespace Engine
 {
 	static constexpr float LIGHT_DISTANCE = 4.0f;
 
+	static math::Vector3 ShadowFirstDirectionOrDefault(const std::vector<Light>& lights)
+	{
+		for (const Light& L : lights)
+		{
+			if (L.Type == LightType_Directional)
+			{
+				math::Vector3 d = L.Direction.Normalize();
+				return d.GetSqrLength() < 1e-12f ? math::Vector3{ 0.f, 0.f, 1.f } : d;
+			}
+		}
+		return math::Vector3{ 0.f, 0.f, 1.f };
+	}
+
 	ShadowMap::ShadowMap()
 	{
 
@@ -18,12 +31,6 @@ namespace Engine
 
 	void ShadowMap::ComputeSceneCascadeParams(const std::vector<Light>& lights, const FShadowProjectorSceneData& ProjectorScene, CascadeParameters& cascadeParams)
 	{
-		math::Vector3 lightDir{ 0.0, 0.0, 1.0f };
-		if (!lights.empty())
-		{
-			lightDir = lights[0].Direction.Normalize();
-		}
-
 		cascadeParams.lsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
 		cascadeParams.vsNearFar = { std::numeric_limits<float>::lowest(), (std::numeric_limits<float>::max)() };
 		cascadeParams.wsShadowCastersVolume = {};
@@ -53,13 +60,9 @@ namespace Engine
 
 		math::Vector3 wsSceneCorners[8]{};
 		modelBox.GetPoint(wsSceneCorners);
-		math::Vector3 lightDir{ 0.0, 0.0, 1.0f };
-		if (!lights.empty())
-		{
-			lightDir = lights[0].Direction.Normalize();
-		}
+		const math::Vector3 lightDir = ShadowFirstDirectionOrDefault(lights);
 
-		math::Vector3 lightPos = math::Vector3() + ((lightDir*-1) * LIGHT_DISTANCE);
+		math::Vector3 lightPos = math::Vector3() + ((lightDir * -1) * LIGHT_DISTANCE);
 		float disMin = FLT_MAX, disMax = -FLT_MAX;
 		for (size_t i = 0; i < _ARRAYSIZE(wsSceneCorners); i++)
 		{

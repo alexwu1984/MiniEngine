@@ -10,6 +10,7 @@ namespace Engine
 	class CameraComponent;
 	class SkyLightComponent;
 	class DirectionalLightComponent;
+	class PointLightComponent;
 	class FScene;
 	struct WorldPrivate;
 
@@ -22,6 +23,8 @@ namespace Engine
 
 		/** Spawn actors/lights from scene JSON (game content). Full scene swap is SceneManager::ReloadSceneJson. */
 		void LoadScene(const std::wstring& ModelFile);
+		/** First actor whose `GetActorName()` equals `Name` (scans Actors then PendingActors); null if none. */
+		std::shared_ptr<Actor> FindFirstActorByName(const std::wstring& Name) const;
 		/** After LoadScene when the world context changed: primary camera temporal / jitter / history (UE LocalPlayer ViewState analogue). */
 		void InvalidatePrimaryViewStateAfterSceneCut();
 		void AddActor(std::shared_ptr<Actor> actor);
@@ -52,8 +55,11 @@ namespace Engine
 		std::shared_ptr<FScene> GetScene() const;
 		/** Same ordering as the first entry in GatherLightsForView (highest SortPriority among enabled directionals). */
 		std::shared_ptr<DirectionalLightComponent> GetPrimaryDirectionalLightForEditing() const;
+		/** All enabled directionals, same sort order as GatherLightsForView (priority high → low). */
+		std::vector<std::shared_ptr<DirectionalLightComponent>> GetDirectionalLightsForEditingSorted() const;
+		/** All enabled point lights, same sort order as GatherLightsForView (priority high → low). */
+		std::vector<std::shared_ptr<PointLightComponent>> GetPointLightsForEditingSorted() const;
 
-		/** Punctual lights from components only (directional today; point/spot would add their components). */
 		std::vector<Light> GatherLightsForView() const;
 
 		/** Call when an actor's mesh components or shadow flags change; invalidates shadow-projector cache. */

@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -48,6 +48,7 @@ set(Engine_Scene_Source
 	Src/Engine/Scene/CameraComponent.cpp
 	Src/Engine/Scene/Component.cpp
 	Src/Engine/Scene/DirectionalLightComponent.cpp
+	Src/Engine/Scene/PointLightComponent.cpp
 	Src/Engine/Scene/FScene.cpp
 	Src/Engine/Scene/GameViewportClient.cpp
 	Src/Engine/Scene/GltfActor.cpp

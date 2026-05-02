@@ -4,6 +4,8 @@
 #include "Engine/Scene/World.h"
 #include "Scene/SkyLightComponent.h"
 #include "Engine/Scene/DirectionalLightComponent.h"
+#include "Scene/PointLightComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
@@ -13,8 +15,32 @@
 #include "Imgui/imgui.h"
 #include "core/commandline.h"
 #include "core/strings.h"
+#include <algorithm>
 
 using namespace Engine;
+
+namespace
+{
+	static bool ActorHostsSceneMesh(const std::shared_ptr<Actor>& Owner)
+	{
+		if (!Owner)
+			return false;
+		for (const auto& c : Owner->GetAllComponents())
+			if (ComponentCast<SceneMeshComponent>(c))
+				return true;
+		return false;
+	}
+
+	static std::string ActorNameOrFallbackUtf8(const std::shared_ptr<Actor>& Owner, const char* FallbackPrefix, int Idx)
+	{
+		if (!Owner)
+			return std::string(FallbackPrefix) + " #" + std::to_string(Idx);
+		const std::wstring& n = Owner->GetActorName();
+		if (!n.empty())
+			return core::ucs2_u8(n);
+		return std::string(FallbackPrefix) + " #" + std::to_string(Idx);
+	}
+}
 
 GltfViewApp::GltfViewApp()
 {
@@ -44,11 +70,6 @@ bool GltfViewApp::Init()
 		Camera->SetCameraPos(CameraPos);
 	}
 
-	{
-		const auto mergedLights = Scene->GatherLightsForView();
-		if (!mergedLights.empty())
-			mDirectLight = mergedLights[0].Direction;
-	}
 	if (const auto sl = Scene->FindPrimarySkyLightComponent())
 	{
 		xHDRRotate = sl->GetIBLRotationPitchDegrees();
@@ -127,15 +148,92 @@ void GltfViewApp::BindImGuiToSceneRender()
 					}
 				}
 
-				if (const auto dir = Scene->GetPrimaryDirectionalLightForEditing())
-				{
-					ImGui::SliderFloat("LightDir.x", &mDirectLight.x, -1, 1);
-					ImGui::SliderFloat("LightDir.y", &mDirectLight.y, -1, 1);
-					ImGui::SliderFloat("LightDir.z", &mDirectLight.z, -1, 1);
+				ImGui::Separator();
+				ImGui::TextUnformatted("Scene light components");
 
-					dir->SetUseActorForward(false);
-					dir->SetWorldDirection(static_cast<const math::Vector3&>(mDirectLight).Normalize());
+				const std::vector<std::shared_ptr<DirectionalLightComponent>> dirs =
+					Scene->GetDirectionalLightsForEditingSorted();
+				const std::vector<std::shared_ptr<PointLightComponent>> pts = Scene->GetPointLightsForEditingSorted();
+				if (dirs.empty() && pts.empty())
+					ImGui::TextDisabled("(No DirectionalLight / PointLight components)");
+
+				for (int i = 0; i < (int)dirs.size(); ++i)
+				{
+					const auto& dir = dirs[(size_t)i];
+					const auto Owner = dir ? dir->GetOwner() : nullptr;
+					ImGui::PushID(100000 + i);
+					const std::string titleDir = std::string("Directional · ") + ActorNameOrFallbackUtf8(Owner, "DirectionalLight", i);
+					if (ImGui::TreeNodeEx(titleDir.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+					{
+						dir->SetUseActorForward(false);
+
+						math::Vector3 d = dir->GetWorldDirection();
+						if (ImGui::DragFloat3("Direction (world)", &d.x, 0.02f))
+						{
+							d.Normalize();
+							if (d.GetSqrLength() >= 1e-10f)
+								dir->SetWorldDirection(d);
+						}
+
+						math::Vector3 col = dir->GetColor();
+						if (ImGui::DragFloat3("Color RGB (linear)", &col.x, 0.03f, 0.f, 32.f))
+							dir->SetColor(col);
+
+						float stren = dir->GetIntensity();
+						if (ImGui::DragFloat("Intensity", &stren, 0.1f, 0.f, 50.f))
+							dir->SetIntensity((std::max)(stren, 0.f));
+
+						ImGui::TreePop();
+					}
+					ImGui::PopID();
 				}
+
+				for (int i = 0; i < (int)pts.size(); ++i)
+				{
+					const auto& pl = pts[(size_t)i];
+					const auto Owner = pl ? pl->GetOwner() : nullptr;
+					ImGui::PushID(200000 + i);
+					const std::string titlePt = std::string("Point · ") + ActorNameOrFallbackUtf8(Owner, "PointLight", i);
+					if (ImGui::TreeNodeEx(titlePt.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+					{
+						const bool bOnMeshActor = ActorHostsSceneMesh(Owner);
+
+						ImGui::TextUnformatted(bOnMeshActor
+												   ? "Mesh host: edit local offset (follows actor transform)."
+												   : "Dedicated light actor: edit world position.");
+
+						if (bOnMeshActor)
+						{
+							math::Vector3 lo = pl->GetLocalOffset();
+							if (ImGui::DragFloat3("Local offset", &lo.x, 0.03f))
+								pl->SetLocalOffset(lo);
+						}
+						else if (Owner)
+						{
+							math::Vector3 wp = Owner->GetPosition();
+							if (ImGui::DragFloat3("World position", &wp.x, 0.03f))
+								Owner->SetPosition(wp);
+						}
+
+						math::Vector3 colp = pl->GetColor();
+						if (ImGui::DragFloat3("Color RGB (linear)", &colp.x, 0.03f, 0.f, 32.f))
+							pl->SetColor(colp);
+
+						float strenp = pl->GetIntensity();
+						if (ImGui::DragFloat("Intensity", &strenp, 1.f, 0.f, 500.f))
+							pl->SetIntensity((std::max)(strenp, 0.f));
+
+						float rng = pl->GetRange();
+						if (ImGui::DragFloat("Attenuation range", &rng, 0.25f, 0.05f, 256.f))
+							pl->SetRange((std::max)(rng, 0.01f));
+
+						ImGui::TreePop();
+					}
+					ImGui::PopID();
+				}
+
+				ImGui::Separator();
+				ImGui::TextUnformatted("SkyLight / IBL");
 
 				if (const auto sl = Scene->FindPrimarySkyLightComponent())
 				{
@@ -204,12 +302,6 @@ void GltfViewApp::ReloadScene(int32_t NewIndex)
 	if (!Scene)
 		return;
 
-	// Refresh cached light direction for UI.
-	{
-		const auto mergedLights = Scene->GatherLightsForView();
-		if (!mergedLights.empty())
-			mDirectLight = mergedLights[0].Direction;
-	}
 	if (const auto sl = Scene->FindPrimarySkyLightComponent())
 	{
 		xHDRRotate = sl->GetIBLRotationPitchDegrees();

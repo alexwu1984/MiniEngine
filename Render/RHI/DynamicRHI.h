@@ -37,6 +37,16 @@ namespace RenderCore
 	class RHIUnorderedAccessView;
 	class RHITilePool;
 
+	/** Thread-safe latch: any D3D thread may set it when the GPU device is lost (removal / Present failure). */
+	bool RHI_HasFatalDeviceLossForShell();
+	/** Win32: thread that runs the shell message loop (e.g. wWinMain / PeekMessage). Used to WM_QUIT immediately from render threads. */
+	void RHI_SetShellMessageThreadIdForFatalDeviceLossQuit(uint32_t win32ThreadId);
+	/**
+	 * One-shot log + sets RHI_HasFatalDeviceLossForShell + posts WM_QUIT to the shell thread when its id was registered.
+	 * Called from D3D11/D3D12 Present / RHIBeginFrame paths.
+	 */
+	void RHI_NotifyFatalGpuDeviceLoss(const wchar_t* apiLabel, HRESULT hrPresentOrZero, HRESULT hrDeviceRemovedReason);
+
 	class DynamicRHI
 	{
 	public:
@@ -56,6 +66,12 @@ namespace RenderCore
 		virtual void RHIWaitForGpuIdle() {}
 		/** Suggested parallel frame-slot count for transient per-frame GPU resources vs pipeline overlap (swap-chain / buffering heuristic); 0 reserved = invalid, treat as≥1 externally. */
 		virtual uint32_t RHIRecommendedParallelFrameResourceSlots() const { return 2u; }
+
+		/**
+		 * Polled only from the Win32 message-loop thread (e.g. AppWindow before Idle), not from the game tick / render worker.
+		 * When true, the shell should terminate the loop (PostQuitMessage) so COM/D3D are not called repeatedly after device removal (_com_error).
+		 */
+		virtual bool RHIHasFatalDeviceLossForShell() const { return RHI_HasFatalDeviceLossForShell(); }
 
 		/** Back-compat: same as RHIWaitForGpuIdle(). */
 		virtual void Wait() { RHIWaitForGpuIdle(); }

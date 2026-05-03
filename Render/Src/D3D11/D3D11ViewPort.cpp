@@ -175,7 +175,14 @@ namespace RenderCore
 			{
 				Flags |= DXGI_PRESENT_ALLOW_TEARING;
 			}
-			d->SwapChain->Present(0, Flags);
+			const HRESULT hrPresent = d->SwapChain->Present(0, Flags);
+			HRESULT hrRemoved = S_OK;
+			if (ID3D11Device* Dev = d->D3D11RHI->GetDevice())
+				hrRemoved = Dev->GetDeviceRemovedReason();
+
+			const bool bFatalDevice = FAILED(hrPresent) || hrRemoved != S_OK;
+			if (bFatalDevice)
+				d->D3D11RHI->NotifyFatalDeviceLossFromPresent(hrPresent, hrRemoved);
 		}
 	}
 

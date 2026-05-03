@@ -1,5 +1,7 @@
 ﻿#include "App/AppWindow.h"
+#include "Engine/ComErrorLog.h"
 #include "Imgui/imgui_impl_win32.h"
+#include "RHI/DynamicRHI.h"
 #include "core/commandline.h"
 
 namespace Engine
@@ -214,23 +216,44 @@ namespace Engine
 
 	int32_t AppWindow::RunLoop()
 	{
+		C_P(AppWindow);
 		MSG msg = {};
 		while (msg.message != WM_QUIT)
 		{
-			DWORD dwWait = MsgWaitForMultipleObjectsEx(0, nullptr, 0, QS_ALLINPUT, MWMO_ALERTABLE);
-
-			if (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+			try
 			{
-				if (msg.message == WM_QUIT)
-				{
-					break;
-				}
-				::TranslateMessage(&msg);
-				::DispatchMessageW(&msg);
-			}
-			Idle();
-			
+				(void)MsgWaitForMultipleObjectsEx(0, nullptr, 0, QS_ALLINPUT, MWMO_ALERTABLE);
 
+				if (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+				{
+					if (msg.message == WM_QUIT)
+						break;
+					::TranslateMessage(&msg);
+					::DispatchMessageW(&msg);
+				}
+
+				// After GPU fatal loss we no longer present; spinning Idle() only shows a blank client area.
+				// Exit the loop so WindowApplication::Run reaches ShutDown() (stops game tick + RHI teardown).
+				if (RenderCore::RHI_HasFatalDeviceLossForShell())
+					break;
+
+				Idle();
+			}
+			catch (const _com_error& e)
+			{
+				LogComErrorToEngineLog(L"AppWindow::RunLoop(main_thread)", e);
+				break;
+			}
+			catch (const std::exception& e)
+			{
+				LogStdExceptionToEngineLog(L"AppWindow::RunLoop(main_thread)", e);
+				break;
+			}
+			catch (...)
+			{
+				LogUnknownExceptionToEngineLog(L"AppWindow::RunLoop(main_thread)");
+				break;
+			}
 		}
 		return static_cast<int32_t>(msg.wParam);
 	}

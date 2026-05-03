@@ -31,6 +31,10 @@ namespace RenderCore
 		virtual void RHIFlushSubmissionPipeline() override;
 		virtual void RHIWaitForGpuIdle() override;
 		virtual uint32_t RHIRecommendedParallelFrameResourceSlots() const override;
+		virtual void RHIBeginFrame() override;
+
+		/** Called from D3D11 viewport Present path when Present fails or GetDeviceRemovedReason != S_OK. Logs once. */
+		void NotifyFatalDeviceLossFromPresent(HRESULT hrPresent, HRESULT hrDeviceRemovedReason);
 
 		/** Shutdown the RHI; handle shutdown and resource destruction before the RHI's actual destructor is called (so that all resources of the RHI are still available for shutdown). */
 		virtual void Shutdown() override;
@@ -84,8 +88,6 @@ namespace RenderCore
 
 	private:
 		bool InitD3DDevice();
-	
-	private:
 		D3D11DynamicRHIPrivate* d_ptr = nullptr;
 	};
 }

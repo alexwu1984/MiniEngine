@@ -26,6 +26,23 @@ namespace RenderCore
 		return !core::CommandLine::Get().GetName("noimgui");
 	}
 
+	/** Matches D3D11 viewport: uncapped by default. Pass -vsync to force interval=1 (VSync on). */
+	static bool D3D12RHI_WantsVsyncPresent()
+	{
+		return core::CommandLine::Get().GetSwitch("vsync");
+	}
+
+	static bool D3D12_QueryAllowTearing(IDXGIFactory2* Factory2)
+	{
+		if (!Factory2)
+			return false;
+		win32::com_ptr<IDXGIFactory5> F5;
+		if (FAILED(Factory2->QueryInterface(IID_PPV_ARGS(F5.get_init_ref()))) || !F5)
+			return false;
+		UINT Allow = 0;
+		return SUCCEEDED(F5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &Allow, sizeof(Allow))) && Allow != 0;
+	}
+
 	D3D12ViewPort::D3D12ViewPort(std::weak_ptr<FD3D12Adapter> InAdpater, HWND InWindowHandle, uint32_t InSizeX, uint32_t InSizeY)
 		:FD3D12AdapterChild(InAdpater),
 		WindowHandle(InWindowHandle),
@@ -63,8 +80,8 @@ namespace RenderCore
 		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
 		auto Adapter = GetParentAdapter();
 
-		// No DXGI waitable object; frame pacing via fence after Present.
-		bAllowTearing = false;
+		// Align with D3D11: allow DXGI tearing when supported so Present(0) is valid and avoids ~half-refresh FPS cliffs.
+		bAllowTearing = D3D12_QueryAllowTearing(Adapter->GetDXGIFactory2());
 
 		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
@@ -105,12 +122,13 @@ namespace RenderCore
 				NewSwapChain1->QueryInterface(IID_PPV_ARGS(SwapChain4.get_init_ref()));
 
 				core::LOG(core::log_inf,
-						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x vsync=1 tearing=%d (no waitable)",
+						  L"[D3D12] SwapChainCreate w=%u h=%u fmt=%u buffers=%u flipDiscard=1 flags=0x%08x present=%s tearing=%d (no waitable)",
 						  (unsigned)Desc1.Width,
 						  (unsigned)Desc1.Height,
 						  (unsigned)Desc1.Format,
 						  (unsigned)Desc1.BufferCount,
 						  (unsigned)Desc1.Flags,
+						  D3D12RHI_WantsVsyncPresent() ? L"vsync" : L"uncapped",
 						  (int)bAllowTearing);
 			}
 
@@ -334,8 +352,11 @@ namespace RenderCore
 			Adapter->NotifyEndOfFrameFenceValue(endFrameFenceValue);
 		}
 
-		const UINT syncInterval = 1u;
-		const UINT presentFlags = 0u;
+		// D3D11 uses Present(0); we default the same. -vsync uses interval 1 (caps at display refresh / waits on VBlank).
+		const UINT syncInterval = D3D12RHI_WantsVsyncPresent() ? 1u : 0u;
+		UINT presentFlags = 0u;
+		if (syncInterval == 0u && bAllowTearing)
+			presentFlags |= DXGI_PRESENT_ALLOW_TEARING;
 
 		const bool memMon = RenderCore::D3D12RHI_ShouldEnableMemMon();
 		if (memMon)
@@ -348,6 +369,18 @@ namespace RenderCore
 		}
 
 		const HRESULT hrPresent = SwapChain4->Present(syncInterval, presentFlags);
+		std::shared_ptr<FD3D12Adapter> Ad = TryGetParentAdapter();
+		HRESULT hrRemoved = S_OK;
+		if (Ad && Ad->GetD3DDevice())
+			hrRemoved = Ad->GetD3DDevice()->GetDeviceRemovedReason();
+
+		const bool bFatalDevice = FAILED(hrPresent) || hrRemoved != S_OK;
+		if (bFatalDevice)
+		{
+			if (Ad)
+				if (auto R = Ad->GetOwningRHI())
+					R->NotifyFatalDeviceLossFromPresent(hrPresent, hrRemoved);
+		}
 		if (memMon)
 		{
 			if (hrPresent == DXGI_STATUS_OCCLUDED)
@@ -360,7 +393,7 @@ namespace RenderCore
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
 		// Wait for previous frame completion, then signal (equivalent to not finishing the frame before Present).
-		if (PresentEndFence && (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
+		if (PresentEndFence && !bFatalDevice && (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
 		{
 			WaitForFrameEventCompletion();
 			IssueFrameEvent();

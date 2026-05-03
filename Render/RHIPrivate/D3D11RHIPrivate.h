@@ -80,6 +80,9 @@ namespace RenderCore
 		bool bGpuIdleFenceInitAttempted = false;
 		bool bGpuIdleFenceUsable = false;
 
+		/** Fallback when ID3D11Fence is unavailable: true GPU idle for world swap / resource teardown (Flush alone is not sufficient). */
+		win32::com_ptr<ID3D11Query> GpuIdleEventQuery;
+
 		RHIShaderCache ShaderCache;
 
 		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;

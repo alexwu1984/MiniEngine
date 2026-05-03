@@ -1,4 +1,5 @@
 ﻿#include "Engine/Thread/RenderThread.h"
+#include "Engine/ComErrorLog.h"
 #include "Render/RenderQueueSynchronization.h"
 #include "win/sync.h"
 #include "RHI/DynamicRHI.h"
@@ -116,7 +117,22 @@ namespace Engine
 		C_P(RenderThread);
 		if (std::this_thread::get_id() == d->RecordingThreadId)
 		{
-			Fun(d->OwnerRHI);
+			try
+			{
+				Fun(d->OwnerRHI);
+			}
+			catch (const _com_error& e)
+			{
+				LogComErrorToEngineLog(L"RenderThread::AppendCommand(inline_recording_thread)", e);
+			}
+			catch (const std::exception& e)
+			{
+				LogStdExceptionToEngineLog(L"RenderThread::AppendCommand(inline_recording_thread)", e);
+			}
+			catch (...)
+			{
+				LogUnknownExceptionToEngineLog(L"RenderThread::AppendCommand(inline_recording_thread)");
+			}
 		}
 		else
 		{
@@ -202,7 +218,23 @@ namespace Engine
 				auto& cmd = swapQueue.front();
 				if (cmd)
 				{
-					cmd(d->OwnerRHI);
+					try
+					{
+						if (!d->OwnerRHI || !RenderCore::RHI_HasFatalDeviceLossForShell())
+							cmd(d->OwnerRHI);
+					}
+					catch (const _com_error& e)
+					{
+						LogComErrorToEngineLog(L"RenderThread::Run(worker_batch)", e);
+					}
+					catch (const std::exception& e)
+					{
+						LogStdExceptionToEngineLog(L"RenderThread::Run(worker_batch)", e);
+					}
+					catch (...)
+					{
+						LogUnknownExceptionToEngineLog(L"RenderThread::Run(worker_batch)");
+					}
 				}
 				swapQueue.pop();
 			}

@@ -21,6 +21,7 @@
 #include "Imgui/imgui_impl_dx12.h"
 #include "common/crc.h"
 #include "core/commandline.h"
+#include "core/logger.h"
 
 namespace RenderCore
 {
@@ -365,8 +366,32 @@ namespace RenderCore
 		return 3u;
 	}
 
+	void D3D12DynamicRHI::NotifyFatalDeviceLossFromPresent(HRESULT hrPresent, HRESULT hrDeviceRemovedReason)
+	{
+		RHI_NotifyFatalGpuDeviceLoss(L"D3D12", hrPresent, hrDeviceRemovedReason);
+	}
+
 	void D3D12DynamicRHI::RHIBeginFrame()
 	{
+		if (RHI_HasFatalDeviceLossForShell())
+		{
+			DynamicRHI::RHIBeginFrame();
+			return;
+		}
+		if (D3D12Adapter)
+		{
+			if (ID3D12Device* Dev12 = D3D12Adapter->GetD3DDevice())
+			{
+				const HRESULT hrRm = Dev12->GetDeviceRemovedReason();
+				if (hrRm != S_OK)
+				{
+					RHI_NotifyFatalGpuDeviceLoss(L"D3D12", S_OK, hrRm);
+					DynamicRHI::RHIBeginFrame();
+					return;
+				}
+			}
+		}
+
 		D3D12RHI_EnterExclusiveRegion();
 		D3D12RHI_FlushDeferredCommands();
 		if (D3D12Adapter)

@@ -1,9 +1,50 @@
 ﻿#include "RHI/DynamicRHI.h"
 #include "D3D11/D3D11RHI.h"
 #include "D3D12/D3D12RHI.h"
+#include "core/logger.h"
+#include <atomic>
 
 namespace RenderCore
 {
+	namespace
+	{
+		std::atomic<bool> GRHIFatalDeviceLossForShell{ false };
+		std::atomic<bool> GRHILoggedFatalGpuOnce{ false };
+		std::atomic<uint32_t> GRHIShellMessageThreadId{ 0 };
+
+		static void RHI_PostQuitToShellThread()
+		{
+			const uint32_t tid = GRHIShellMessageThreadId.load(std::memory_order_relaxed);
+			if (tid)
+				::PostThreadMessageW(static_cast<DWORD>(tid), WM_QUIT, 1, 0);
+		}
+	}
+
+	bool RHI_HasFatalDeviceLossForShell()
+	{
+		return GRHIFatalDeviceLossForShell.load(std::memory_order_relaxed);
+	}
+
+	void RHI_SetShellMessageThreadIdForFatalDeviceLossQuit(uint32_t win32ThreadId)
+	{
+		GRHIShellMessageThreadId.store(win32ThreadId, std::memory_order_relaxed);
+	}
+
+	void RHI_NotifyFatalGpuDeviceLoss(const wchar_t* apiLabel, HRESULT hrPresentOrZero, HRESULT hrDeviceRemovedReason)
+	{
+		GRHIFatalDeviceLossForShell.store(true, std::memory_order_relaxed);
+		bool expected = false;
+		if (GRHILoggedFatalGpuOnce.compare_exchange_strong(expected, true, std::memory_order_relaxed))
+		{
+			core::LOG(core::log_e::log_err,
+					  L"%s: fatal GPU device loss (HRESULT=0x%08X GetDeviceRemovedReason=0x%08X). WM_QUIT -> shell thread; render queues drop work to avoid _com_error spam.",
+					  apiLabel ? apiLabel : L"RHI",
+					  (unsigned)hrPresentOrZero,
+					  (unsigned)hrDeviceRemovedReason);
+		}
+		RHI_PostQuitToShellThread();
+	}
+
 	std::shared_ptr< IDynamicRHIModule> GRHIModule;
 	std::shared_ptr<DynamicRHI> PlatformCreateDynamicRHI(RHIAPIType apiType)
 	{

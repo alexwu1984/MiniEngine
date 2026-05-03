@@ -37,6 +37,34 @@ namespace RenderCore
 			d->bGpuIdleFenceUsable = true;
 		}
 
+		/**
+		 * Blocks until the GPU finishes all work previously submitted to the immediate context.
+		 * Used when ID3D11Fence is missing or Signal fails — critical for ReloadSceneJson before tearing down D3D resources.
+		 */
+		static bool D3D11_WaitForGpuIdle_EventQuery(D3D11DynamicRHIPrivate* d)
+		{
+			if (!d || !d->Direct3DDevice || !d->Direct3DDeviceIMContext)
+				return false;
+			if (!d->GpuIdleEventQuery)
+			{
+				D3D11_QUERY_DESC Qd = {};
+				Qd.Query = D3D11_QUERY_EVENT;
+				if (FAILED(d->Direct3DDevice->CreateQuery(&Qd, d->GpuIdleEventQuery.get_init_ref())) || !d->GpuIdleEventQuery)
+					return false;
+			}
+			d->Direct3DDeviceIMContext->End(d->GpuIdleEventQuery.get());
+			d->Direct3DDeviceIMContext->Flush();
+			for (;;)
+			{
+				const HRESULT Hr = d->Direct3DDeviceIMContext->GetData(d->GpuIdleEventQuery.get(), nullptr, 0, 0);
+				if (Hr == S_OK)
+					return true;
+				if (Hr != S_FALSE)
+					return false;
+				::SwitchToThread();
+			}
+		}
+
 		size_t HashShaderMacros(const std::vector<RHIShaderMacro>& MacroDefines, size_t Hash)
 		{
 			for (const RHIShaderMacro& Macro : MacroDefines)
@@ -563,6 +591,27 @@ namespace RenderCore
 		return 2u;
 	}
 
+	void D3D11DynamicRHI::RHIBeginFrame()
+	{
+		if (RHI_HasFatalDeviceLossForShell())
+		{
+			DynamicRHI::RHIBeginFrame();
+			return;
+		}
+		if (ID3D11Device* Dev = GetDevice())
+		{
+			const HRESULT hrRm = Dev->GetDeviceRemovedReason();
+			if (hrRm != S_OK)
+				RHI_NotifyFatalGpuDeviceLoss(L"D3D11", S_OK, hrRm);
+		}
+		DynamicRHI::RHIBeginFrame();
+	}
+
+	void D3D11DynamicRHI::NotifyFatalDeviceLossFromPresent(HRESULT hrPresent, HRESULT hrDeviceRemovedReason)
+	{
+		RHI_NotifyFatalGpuDeviceLoss(L"D3D11", hrPresent, hrDeviceRemovedReason);
+	}
+
 	void D3D11DynamicRHI::RHIWaitForGpuIdle()
 	{
 		C_P(D3D11DynamicRHI);
@@ -583,11 +632,14 @@ namespace RenderCore
 			d->GpuIdleFence.reset();
 			d->GpuIdleContext4.reset();
 		}
+		if (D3D11_WaitForGpuIdle_EventQuery(d))
+			return;
+
 		static bool sLoggedWeakGpuWait = false;
 		if (!sLoggedWeakGpuWait)
 		{
 			sLoggedWeakGpuWait = true;
-			core::war() << "D3D11: RHIWaitForGpuIdle — ID3D11Fence / ID3D11DeviceContext4 unavailable or failed; using immediate-context Flush only (weaker than full GPU idle).";
+			core::war() << "D3D11: RHIWaitForGpuIdle — fence and EVENT query unavailable; using Flush only (not full GPU idle). Risk of TDR if resources are freed while GPU still references them.";
 		}
 	}
 

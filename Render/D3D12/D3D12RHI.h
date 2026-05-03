@@ -48,6 +48,9 @@ namespace RenderCore
 		virtual void RHIWaitForGpuIdle() override;
 		virtual uint32_t RHIRecommendedParallelFrameResourceSlots() const override;
 
+		/** Called from D3D12 viewport Present path when Present fails or GetDeviceRemovedReason != S_OK. Logs once. */
+		void NotifyFatalDeviceLossFromPresent(HRESULT hrPresent, HRESULT hrDeviceRemovedReason);
+
 		/** Shutdown the RHI; handle shutdown and resource destruction before the RHI's actual destructor is called (so that all resources of the RHI are still available for shutdown). */
 		virtual void Shutdown() override;
 

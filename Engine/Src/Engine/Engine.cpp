@@ -12,6 +12,7 @@
 #include "win/high_precision_tick.h"
 #include "Engine/Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
+#include "Engine/ComErrorLog.h"
 #include <functional>
 
 namespace Engine
@@ -235,20 +236,35 @@ namespace Engine
 
 	void MainEngine::Tick(float DeltaTime)
 	{
-		C_P(MainEngine);
-		if (d->ViewportClient)
-			d->ViewportClient->Tick(DeltaTime);
-		d->SeRender->Render(DeltaTime);
-		if (d->NeedResize)
+		try
 		{
-			d->SeRender->Resize(d->NewSize.w, d->NewSize.h, false);
-			d->NewSize = {};
-			d->NeedResize = false;
+			C_P(MainEngine);
+			if (d->ViewportClient)
+				d->ViewportClient->Tick(DeltaTime);
+			d->SeRender->Render(DeltaTime);
+			if (d->NeedResize)
+			{
+				d->SeRender->Resize(d->NewSize.w, d->NewSize.h, false);
+				d->NewSize = {};
+				d->NeedResize = false;
+			}
+			if (d->EndFrameTickCallback)
+				d->EndFrameTickCallback();
+			if (d->SeRender && (d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick))
+				d->SeRender->EndGameThreadFrameSync(d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick, d->bGpuIdleWaitEndOfTick);
 		}
-		if (d->EndFrameTickCallback)
-			d->EndFrameTickCallback();
-		if (d->SeRender && (d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick))
-			d->SeRender->EndGameThreadFrameSync(d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick, d->bGpuIdleWaitEndOfTick);
+		catch (const _com_error& e)
+		{
+			LogComErrorToEngineLog(L"MainEngine::Tick(game_thread)", e);
+		}
+		catch (const std::exception& e)
+		{
+			LogStdExceptionToEngineLog(L"MainEngine::Tick(game_thread)", e);
+		}
+		catch (...)
+		{
+			LogUnknownExceptionToEngineLog(L"MainEngine::Tick(game_thread)");
+		}
 	}
 
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)

@@ -1,5 +1,7 @@
 ﻿#include "Engine/Thread/RHISubmissionThread.h"
+#include "Engine/ComErrorLog.h"
 #include "D3D12/D3D12RHIRecording.h"
+#include "RHI/DynamicRHI.h"
 #include "RHI/RHIThreadPolicy.h"
 #include <future>
 
@@ -41,9 +43,30 @@ namespace Engine
 		{
 			std::lock_guard<std::mutex> Lock(QueueMutex);
 			Queue.push_back([Work = std::move(Work), Done]() {
-				RenderCore::D3D12RHI_ScopedExclusiveRegion SubmitScope;
-				Work();
-				Done->set_value();
+				auto finish = [Done]() { Done->set_value(); };
+				if (RenderCore::RHI_HasFatalDeviceLossForShell())
+				{
+					finish();
+					return;
+				}
+				try
+				{
+					RenderCore::D3D12RHI_ScopedExclusiveRegion SubmitScope;
+					Work();
+				}
+				catch (const _com_error& e)
+				{
+					LogComErrorToEngineLog(L"RHISubmissionThread::EnqueueAndWait", e);
+				}
+				catch (const std::exception& e)
+				{
+					LogStdExceptionToEngineLog(L"RHISubmissionThread::EnqueueAndWait", e);
+				}
+				catch (...)
+				{
+					LogUnknownExceptionToEngineLog(L"RHISubmissionThread::EnqueueAndWait");
+				}
+				finish();
 			});
 		}
 		QueueCv.notify_one();

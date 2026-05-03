@@ -36,6 +36,7 @@ namespace Engine
 	{
 		C_P(WindowApplication);
 		d->hInst = hInst;
+		RenderCore::RHI_SetShellMessageThreadIdForFatalDeviceLossQuit(GetCurrentThreadId());
 		core::CommandLine::Get().SetCommandLine(args, arguments);
 		d->AppWin = std::make_shared<AppWindow>(hInst);
 		if (!CreateAppWindow())
@@ -50,12 +51,17 @@ namespace Engine
 			ApiType = RenderCore::RHIAPIType::E_D3D12;
 		}
 		d->Engine->Init(d->AppWin, ApiType);
-		bool bRet =  Init();
-		if (bRet)
+		// Must start the render worker before virtual Init(): subclasses (e.g. GLTF viewer) call
+		// ReloadSceneJson from Init(), which relies on FlushRenderingCommands to drain the queue
+		// and pair with RHIWaitForGpuIdle. If the worker is not joinable yet, Flush is a no-op and
+		// scene reload / resource lifetime can desync — occasional Release white-screen hangs in nvwgf2umx.
+		d->Engine->StartThread();
+		if (!Init())
 		{
-			d->Engine->StartThread();
+			d->Engine->ShutDown();
+			return false;
 		}
-		return bRet;
+		return true;
 	}
 
 

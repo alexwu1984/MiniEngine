@@ -11,8 +11,10 @@
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
 #include "Render/MaterialPreFrame.h"
+#include "core/logger.h"
 #include "core/strings.h"
 #include "core/system.h"
+#include <comdef.h>
 #include <algorithm>
 #include <cstdio>
 #include <limits>
@@ -333,7 +335,15 @@ namespace Engine
 				}
 				auto AGltfModel = std::make_shared<Engine::GltfActor>(self, Model);
 				AGltfModel->InitResouce();
-				AddActor(AGltfModel);
+				// Load failure: InitResouce returns without AddComponent(mesh). Skip AddActor so RoamCamera+Evn still work.
+				if (AGltfModel->GetComponent<SceneMeshComponent>())
+					AddActor(AGltfModel);
+				else
+				{
+					core::LOG(core::log_e::log_err,
+							  L"World::LoadScene: GltfActor has no SceneMeshComponent after InitResouce (model load failed). Actor=%s",
+							  AGltfModel->GetActorName().c_str());
+				}
 			}
 
 			nlohmann::json evnJson = Root["Evn"];
@@ -365,10 +375,25 @@ namespace Engine
 				}
 			}
 		}
+		catch (const _com_error& e)
+		{
+			const wchar_t* msg = e.ErrorMessage();
+			if (!msg)
+				msg = L"(null ErrorMessage)";
+			core::LOG(core::log_e::log_err,
+					  L"World::LoadScene: _com_error HRESULT=0x%08X %s",
+					  (unsigned)e.Error(),
+					  msg);
+		}
 		catch (const std::exception& e)
 		{
-			std::string error = e.what();
-			(void)error;
+			core::LOG(core::log_e::log_err,
+					  L"World::LoadScene: %s",
+					  core::u8_ucs2(e.what()).c_str());
+		}
+		catch (...)
+		{
+			core::LOG(core::log_e::log_err, L"World::LoadScene: unknown C++ exception");
 		}
 	}
 

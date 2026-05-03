@@ -67,7 +67,12 @@ namespace Engine
 			-1.0f, 1.0f, -1.0f,
 			-1.0f, 1.0f, 1.0f,
 		};
-		d->CubeVB = d->RHI->RHICreateVertexBuffer(vertices, RenderCore::BUF_Dynamic, sizeof(math::Vector3), 36);
+		d->CubeVB = d->RHI->RHICreateVertexBuffer(
+			vertices,
+			static_cast<RenderCore::EBufferUsageFlags>(
+				RenderCore::BUF_Static | RenderCore::BUF_VertexBuffer | RenderCore::BUF_KeepCPUAccessible),
+			sizeof(math::Vector3),
+			36);
 	}
 
 	void CubeRender::Render(RenderCore::RHICommandContext& RHIContext)

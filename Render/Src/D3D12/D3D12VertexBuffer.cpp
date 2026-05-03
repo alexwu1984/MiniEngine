@@ -3,6 +3,7 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12CommandContext.h"
+#include <cstring>
 
 namespace RenderCore
 {
@@ -42,8 +43,32 @@ namespace RenderCore
 		d->bDynamic = (InUsage & BUF_AnyDynamic) != 0;
 
 		D3D12_RESOURCE_DESC ResDesc = DescribeBuffer();
-		// Vertex buffers live in DEFAULT memory.
-		// Dynamic updates use transient UPLOAD allocations + CopyBufferRegion, not committed UPLOAD buffers.
+
+		// Opt-in via BUF_KeepCPUAccessible: UPLOAD + Map avoids InitializeBuffer (submit/fence) during fragile early init.
+		// Without it, behavior matches pre-change (DEFAULT + GPU copy) — e.g. glTF uses BUF_Dynamic and is unaffected.
+		if (InData && !d->bDynamic && (InUsage & BUF_KeepCPUAccessible))
+		{
+			D3D12_HEAP_PROPERTIES UploadHeapProps{};
+			UploadHeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+			UploadHeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			UploadHeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			UploadHeapProps.CreationNodeMask = 1;
+			UploadHeapProps.VisibleNodeMask = 1;
+			static int32_t sUploadCounter = 0;
+			std::wstring Name = core::formatw("W:", d->BufferSize, "_VertexUpload_", ++sUploadCounter);
+			HRESULT hr = GetParentAdapter()->CreateCommittedResource(ResDesc, UploadHeapProps, D3D12_RESOURCE_STATE_GENERIC_READ,
+																	 nullptr, &d->Resource, Name.c_str());
+			if (FAILED(hr))
+				return false;
+			void* Mapped = d->Resource->Map(nullptr);
+			if (!Mapped)
+				return false;
+			std::memcpy(Mapped, InData, static_cast<size_t>(d->BufferSize));
+			d->Resource->Unmap();
+			return true;
+		}
+
+		// Vertex buffers for dynamic / no-initial-data: DEFAULT; initial data uses GPU copy via command list.
 		D3D12_RESOURCE_STATES InitState = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_PROPERTIES HeapProps;
 		HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -59,7 +84,6 @@ namespace RenderCore
 			return false;
 		if (InData)
 		{
-			// Initialize via transient upload + GPU copy (keeps DEFAULT residency and avoids WC commit growth).
 			GetParentDevice()->GetDefaultCommandContext()->InitializeBuffer(d->Resource, InData, d->BufferSize, 0);
 		}
 
@@ -80,9 +104,17 @@ namespace RenderCore
 		if (NumBytes > (uint32_t)d->BufferSize)
 			return;
 
-		// UE4-style dynamic DEFAULT buffer update: never splice into the open frame command list.
-		// Transient upload list (staging + CopyBufferRegion + ExecuteAndClear), same as CreateVertexBuffer —
-		// valid any time via D3D12CommandContext::InitializeBuffer (ScopedUploadBypass + RHI submit).
+		if (d->Resource->GetHeapType() == D3D12_HEAP_TYPE_UPLOAD)
+		{
+			void* Mapped = d->Resource->Map(nullptr);
+			if (Mapped)
+			{
+				std::memcpy(Mapped, InData, NumBytes);
+				d->Resource->Unmap();
+			}
+			return;
+		}
+
 		if (std::shared_ptr<D3D12CommandContext> Ctx = GetParentDevice()->GetDefaultCommandContext())
 			Ctx->InitializeBuffer(d->Resource, InData, NumBytes, 0);
 	}

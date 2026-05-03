@@ -15,6 +15,18 @@ namespace RenderCore
 
 		std::mutex GExecutorMutex;
 		std::function<void(std::function<void()>)> GSubmissionExecutor;
+
+		std::recursive_mutex G_D3D12QueueSubmitMutex;
+	}
+
+	std::recursive_mutex& RHI_D3D12QueueSubmitMutex()
+	{
+		return G_D3D12QueueSubmitMutex;
+	}
+
+	RHI_D3D12ScopedQueueSubmitLock::RHI_D3D12ScopedQueueSubmitLock()
+		: Guard(RHI_D3D12QueueSubmitMutex())
+	{
 	}
 
 	void RHI_RegisterRHIRecordingThread(std::thread::id ThreadId)

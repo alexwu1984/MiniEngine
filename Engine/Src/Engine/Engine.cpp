@@ -79,7 +79,7 @@ namespace Engine
 		}
 	}
 
-	void MainEngine::StartThread()
+	void MainEngine::StartRenderWorkerThreads()
 	{
 		C_P(MainEngine);
 		const bool bWantRHIWorker =
@@ -107,7 +107,11 @@ namespace Engine
 			d->bFlushRenderQueueEndOfTick = core::CommandLine::Get().GetSwitch("rendersync");
 			d->bGpuIdleWaitEndOfTick = core::CommandLine::Get().GetSwitch("gpuwait");
 		}
+	}
 
+	void MainEngine::StartGameLoopTick()
+	{
+		C_P(MainEngine);
 		d->GameTick.Start("GameThread", 120, win32::HighPrecisionTick::ThreadPriority::Highest);
 	}
 

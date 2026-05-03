@@ -1,6 +1,7 @@
 ﻿#include "DemoRunner/Demos/PostProcessDemo.h"
 
 #include "core/system.h"
+#include "core/logger.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
@@ -24,6 +25,13 @@ void PostProcessorDemo::InitResource()
 	const std::wstring texPath = core::process_directory().wstring() + L"/GLTFModel/";
 	Texture1 = RHI->RHICreateTexture2D(texPath + L"tifa_wallpaper_3840x2160.png");
 	Texture2 = RHI->RHICreateTexture2D(texPath + L"aerith_wallpaper_3840x2160.jpg");
+	if (!Texture1 || !Texture2)
+	{
+		core::logger::err() << "PostProcessDemo: texture load failed (expect "
+							 << core::ucs2_u8(texPath + L"tifa_wallpaper_3840x2160.png") << " and "
+							 << core::ucs2_u8(texPath + L"aerith_wallpaper_3840x2160.jpg")
+							 << ") — Draw skipped; clear color is black.";
+	}
 }
 
 void PostProcessorDemo::Draw(RenderCore::RHICommandContext& Ctx,

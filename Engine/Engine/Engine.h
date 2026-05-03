@@ -29,7 +29,10 @@ namespace Engine
 		~MainEngine();
 
 		void Init(std::shared_ptr< AppWindow> AppWin,RenderCore::RHIAPIType ApiType);
-		void StartThread();
+		/** D3D12 RHI submission + recording workers (must be up before Init() paths that FlushRenderingCommands). */
+		void StartRenderWorkerThreads();
+		/** Game tick thread; start only after WindowApplication::Init() finishes to avoid racing scene setup. */
+		void StartGameLoopTick();
 		void ShutDown();
 		void LoadConfig(const std::wstring& FileName, const nlohmann::json& Root);
 		/**

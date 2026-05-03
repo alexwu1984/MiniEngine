@@ -1,6 +1,5 @@
 ﻿#pragma once
-#include <functional>
-#include <thread>
+#include "core/inc.h"
 
 namespace RenderCore
 {
@@ -9,13 +8,11 @@ namespace RenderCore
 	 *
 	 * - RHI recording thread: builds command lists (Engine::RenderThread when registered). See RHI_IsInRHIRecordingThread().
 	 *
-	 * - RHI execution thread: runs sequential deferred device work (root signature / PSO Create*, and GPU submit when the
-	 *   worker is enabled). In MiniEngine this is the same OS thread as Engine::RHISubmissionThread — registration uses
-	 *   RHI_RegisterRHISubmissionThread / RHI_RegisterRHIExecutionThread (aliases). Tasks share one FIFO queue with
-	 *   ENQUEUE_RHI_SUBMIT_COMMAND / RHI_SubmitOrInline so ordering matches UE’s “single RHI consumer” idea.
+	 * - RHI execution thread: FIFO worker (Engine::RHISubmissionThread) runs ExecuteCommandLists / heavy submit. Recording stays
+	 *   on RenderThread so CPU overlaps GPU. ID3D12CommandQueue is **not** thread-safe: any Execute / Signal / queue Wait must be
+	 *   serialized — see RHI_D3D12ScopedQueueSubmitLock in D3D12DirectCommandListManager (covers RHISubmitThread vs game-thread idle).
 	 *
-	 * When no submission/execution thread is registered, checks are permissive (tools / DemoRunner); executors unset
-	 * means deferred work runs inline on the caller.
+	 * When no submission thread is registered (`-norhithread`), checks are permissive (DemoRunner); work runs inline on caller.
 	 */
 	void RHI_RegisterRHIRecordingThread(std::thread::id ThreadId);
 	void RHI_UnregisterRHIRecordingThread();
@@ -49,6 +46,16 @@ namespace RenderCore
 	/** When set, work from non-execution threads is forwarded here (must block until done). Used for submit and deferred create. */
 	void RHI_SetSubmissionExecutor(std::function<void(std::function<void()>)> Executor);
 	void RHI_ClearSubmissionExecutor();
+
+	/** Coarse lock for all ID3D12CommandQueue Execute / Signal / Wait usage (cross-thread safe with RHISubmissionThread). */
+	std::recursive_mutex& RHI_D3D12QueueSubmitMutex();
+
+	/** RAII — prefer wrapping each D3D queue submission batch (recursive: nested submits allowed). */
+	struct RHI_D3D12ScopedQueueSubmitLock
+	{
+		std::lock_guard<std::recursive_mutex> Guard;
+		RHI_D3D12ScopedQueueSubmitLock();
+	};
 
 	/** GPU submit: must satisfy D3D12RHI_CheckSubmitAllowed when executed. Prefer ENQUEUE_RHI_SUBMIT_COMMAND at call sites. */
 	void RHI_SubmitOrInline(const char* OperationLabel, std::function<void()> Work);

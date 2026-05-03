@@ -1,6 +1,7 @@
 ﻿#include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include <vector>
+#include "RHI/RHIThreadPolicy.h"
 #include "RHI/RHI.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12CommandList.h"
@@ -135,6 +136,7 @@ namespace RenderCore
 
 	void FD3D12Fence::GpuWait(ED3D12CommandQueueType InQueueType, uint64_t FenceValue)
 	{
+		RHI_D3D12ScopedQueueSubmitLock QueueSubmitLock;
 		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
 		Assert(CommandQueue);
 		Assert(FenceCoreCache);
@@ -220,6 +222,7 @@ namespace RenderCore
 
 	void FD3D12Fence::InternalSignal(ED3D12CommandQueueType InQueueType, uint64_t FenceToSignal)
 	{
+		RHI_D3D12ScopedQueueSubmitLock QueueSubmitLock;
 		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice()->GetD3DCommandQueue(InQueueType);
 		Assert(CommandQueue);
 		Assert(FenceCoreCache);
@@ -763,16 +766,19 @@ namespace RenderCore
 			D3D12MemMonAtomicAdd(D3D12CreateStats::Submit_ExecCalls_Compute());
 		else if (CommandListType == D3D12_COMMAND_LIST_TYPE_COPY)
 			D3D12MemMonAtomicAdd(D3D12CreateStats::Submit_ExecCalls_Copy());
-		Render::D3D12CallStats::IncExecuteCommandLists((uint32_t)Payload.NumCommandLists);
-		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
+		{
+			RHI_D3D12ScopedQueueSubmitLock QueueSubmitLock;
+			Render::D3D12CallStats::IncExecuteCommandLists((uint32_t)Payload.NumCommandLists);
+			D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 
-		// Track submits per queue type (diagnostics).
-		D3D12SubmitStats::OnSubmit(QueueType);
+			// Track submits per queue type (diagnostics).
+			D3D12SubmitStats::OnSubmit(QueueType);
 
-		// Always signal after Execute so fence-tied retire/recycle paths progress deterministically.
-		if (QueueType == ED3D12CommandQueueType::Default)
-			Render::D3D12CallStats::IncDirectFenceImmediateSignal();
-		return Fence.Signal(QueueType);
+			// Always signal after Execute so fence-tied retire/recycle paths progress deterministically.
+			if (QueueType == ED3D12CommandQueueType::Default)
+				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+			return Fence.Signal(QueueType);
+		}
 	}
 
 	D3D12CommandListHandle FD3D12CommandListManager::CreateCommandListHandle(D3D12CommandAllocator& CommandAllocator)

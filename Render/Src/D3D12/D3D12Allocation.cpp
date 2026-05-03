@@ -491,17 +491,24 @@ namespace RenderCore
 		if (!Adapter || PageSizeBytes == 0)
 			return false;
 
-		// The transient ring backs root CBVs / copies. Growing must not invalidate existing GPU VAs
-		// held by D3D12UniformBuffer until those buffers reallocate (#921). Flush + idle so the GPU
-		// finishes with the old resource, then retire the backing instead of releasing it.
-		if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
+		// Only drain the queues when replacing an existing backing or when retired blocks may still be in flight.
+		// First-time Init hits ReallocBuffer with Buffer==null: flushing + BlockUntilIdle can wedge (submission/recording
+		// ordering) before any GPU work references this allocator.
+		const bool bNeedGpuDrain = (Buffer != nullptr) || !RetiredConstantBuffers.empty();
+		if (bNeedGpuDrain)
 		{
-			D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
-			if (auto Ctx = Dev->GetDefaultCommandContext())
-				Ctx->FlushCommands(true);
-			if (auto Ctx = Dev->GetDefaultAsyncComputeContext())
-				Ctx->FlushCommands(true);
-			Dev->BlockUntilIdle();
+			// The transient ring backs root CBVs / copies. Growing must not invalidate existing GPU VAs
+			// held by D3D12UniformBuffer until those buffers reallocate (#921). Flush + idle so the GPU
+			// finishes with the old resource, then retire the backing instead of releasing it.
+			if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
+			{
+				D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+				if (auto Ctx = Dev->GetDefaultCommandContext())
+					Ctx->FlushCommands(true);
+				if (auto Ctx = Dev->GetDefaultAsyncComputeContext())
+					Ctx->FlushCommands(true);
+				Dev->BlockUntilIdle();
+			}
 		}
 
 		if (Buffer)

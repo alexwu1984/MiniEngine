@@ -43,24 +43,24 @@ namespace Engine
 		{
 			return false;
 		}
-		RenderCore::RHIAPIType ApiType = RenderCore::RHIAPIType::E_D3D11;
+		RenderCore::RHIAPIType ApiType = RenderCore::RHIAPIType::E_D3D12;
 		std::string apiStr;
 		core::CommandLine::Get().GetString("render_api", apiStr);
-		if (apiStr == "D3D12")
+		if (apiStr == "D3D11")
 		{
-			ApiType = RenderCore::RHIAPIType::E_D3D12;
+			ApiType = RenderCore::RHIAPIType::E_D3D11;
 		}
 		d->Engine->Init(d->AppWin, ApiType);
-		// Must start the render worker before virtual Init(): subclasses (e.g. GLTF viewer) call
-		// ReloadSceneJson from Init(), which relies on FlushRenderingCommands to drain the queue
-		// and pair with RHIWaitForGpuIdle. If the worker is not joinable yet, Flush is a no-op and
-		// scene reload / resource lifetime can desync — occasional Release white-screen hangs in nvwgf2umx.
-		d->Engine->StartThread();
+		// Recording / optional RHI submit workers must exist before virtual Init(): subclasses call
+		// ReloadSceneJson/FlushRenderingCommands. Do not start GameTick until Init() returns — otherwise
+		// MainEngine::Tick races scene load on the main thread (Release white-screen / deadlocks).
+		d->Engine->StartRenderWorkerThreads();
 		if (!Init())
 		{
 			d->Engine->ShutDown();
 			return false;
 		}
+		d->Engine->StartGameLoopTick();
 		return true;
 	}
 

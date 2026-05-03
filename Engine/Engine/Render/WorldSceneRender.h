@@ -57,6 +57,8 @@ namespace Engine
 		 * Pointer-keyed caches are not cleared on RemoveActor; primitives are re-gathered each frame from FScene.
 		 */
 		void FlushClearMeshMaterialRenderCacheNow();
+		/** Before destroying the current World: drop shadow pass mesh→ShadowPS cache so old meshes are not kept alive and PSOs are not reused across scene cuts. */
+		void FlushClearShadowPassMeshCacheNow();
 
 		/** 0 = do not throttle; otherwise block game thread via Flush until pending ExecuteFrame jobs drop below Max. Parsed from MainEngine / command line. */
 		void SetMaxSceneFramesInFlight(uint32_t MaxConcurrent) noexcept;

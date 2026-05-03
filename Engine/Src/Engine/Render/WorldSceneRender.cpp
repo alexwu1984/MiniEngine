@@ -63,6 +63,8 @@ namespace Engine
 				d->TargetBuffer->InitDefaultSceneTargets(W, H);
 			if (d->PostProcess)
 				d->PostProcess->InvalidateTransientResources();
+			if (d->PreProcess)
+				d->PreProcess->InvalidateSkyLightCapturedEnvironment();
 		}
 
 		/** Render thread: swapchain / viewport resolution + scene targets. */
@@ -246,6 +248,22 @@ namespace Engine
 				(void)RHI;
 				if (FMeshMaterialRenderCache* cache = scene->GetMeshMaterialRenderCache())
 					cache->Clear();
+			},
+			false);
+		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);
+	}
+
+	void FWorldSceneRender::FlushClearShadowPassMeshCacheNow()
+	{
+		FWorldSceneRenderPrivate* Resources = d_ptr.get();
+		ENQUEUE_UNIQUE_RENDER_COMMAND(
+			[Resources](RenderCore::DynamicRHI* RHI)
+			{
+				(void)RHI;
+				if (!Resources || !Resources->ShadowRender)
+					return;
+				Resources->ShadowRender->InvalidateCachedMainLightForShading();
+				Resources->ShadowRender->ClearCachedMeshShadowPasses();
 			},
 			false);
 		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);

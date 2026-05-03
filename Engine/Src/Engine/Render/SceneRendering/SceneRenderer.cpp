@@ -67,14 +67,15 @@ namespace Engine
 		if (!CommandContext)
 			return;
 
-		if (d->PreProcess)
-			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrMove));
-
 		auto MeshesForDraw = std::make_shared<std::vector<GltfSceneMeshInfo>>(std::move(MeshesInfoCopy));
 
 		FRDGBuilder Graph;
 		auto TB = d->TargetBuffer;
+		// RHICreateHDRTexture2D → upload uses D3D12 recording TLS; must run after RHIBeginFrame's RHIFrameBoundary push
+		// (Debug ensures; Release no-op check — wrong thread/stack can spiral into device removal / handled _com_error on Present).
 		RHI->RHIBeginFrame();
+		if (d->PreProcess)
+			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrMove));
 		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
 			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 

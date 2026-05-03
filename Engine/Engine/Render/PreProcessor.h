@@ -29,6 +29,8 @@ namespace Engine
 
 		/** Call on render thread before PreProcess::Draw; applies SkyLightComponent HDR or JSON fallback. */
 		void ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath);
+		/** After scene swap or scene-texture recycle: next PreProcess::Draw may re-capture IBL (same HDR path is otherwise left as “already init”). */
+		void InvalidateSkyLightCapturedEnvironment();
 
 	private:
 		PreProcessorPrivate* d_ptr = nullptr;

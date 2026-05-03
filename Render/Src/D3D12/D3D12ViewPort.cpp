@@ -392,10 +392,15 @@ namespace RenderCore
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
-		// Wait for previous frame completion, then signal (equivalent to not finishing the frame before Present).
+		// PresentEndFence: signal each frame for teardown/resize paths. Optional CPU wait (off by default):
+		// an extra wait here added ~one frame of latency vs GPU; RHIBeginFrame already caps in-flight work via
+		// d3d12_max_gpu_lag on the adapter frame fence. Pass -d3d12_present_cpu_sync to re-enable the wait.
 		if (PresentEndFence && !bFatalDevice && (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
 		{
-			WaitForFrameEventCompletion();
+			int presentCpuSync = 0;
+			(void)core::CommandLine::Get().GetInteger("d3d12_present_cpu_sync", presentCpuSync);
+			if (presentCpuSync != 0)
+				WaitForFrameEventCompletion();
 			IssueFrameEvent();
 		}
 	}

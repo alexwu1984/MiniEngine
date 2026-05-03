@@ -224,12 +224,18 @@ namespace Engine
 			{
 				(void)MsgWaitForMultipleObjectsEx(0, nullptr, 0, QS_ALLINPUT, MWMO_ALERTABLE);
 
-				if (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+				const BOOL hadWinMsg = ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE);
+				if (hadWinMsg)
 				{
 					if (msg.message == WM_QUIT)
 						break;
 					::TranslateMessage(&msg);
 					::DispatchMessageW(&msg);
+				}
+				else
+				{
+					// Avoid a pure busy-spin (MsgWait timeout 0 + Idle/present): yield so driver & worker threads schedule.
+					::Sleep(0);
 				}
 
 				// After GPU fatal loss we no longer present; spinning Idle() only shows a blank client area.

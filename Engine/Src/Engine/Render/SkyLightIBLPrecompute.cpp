@@ -53,6 +53,13 @@ namespace Engine
 		GenerateSpecularPrefilter(RHIContext);
 	}
 
+	void FSkyLightIBLPrecompute::InvalidateCapturedEnvironment()
+	{
+		C_P(FSkyLightIBLPrecompute);
+		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
+		d->bInitRender = false;
+	}
+
 	std::shared_ptr<RenderCore::RHITextureCube> FSkyLightIBLPrecompute::GetSkyLightCubemap()
 	{
 		C_P(FSkyLightIBLPrecompute);

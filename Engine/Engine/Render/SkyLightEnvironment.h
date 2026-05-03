@@ -30,6 +30,8 @@ namespace Engine
 		/** Game thread supplies primary SkyLightComponent path each frame; falls back to JSON Evn.Hdr when nullopt. */
 		void ResolveAndApplyHDRSource(std::optional<std::wstring> ComponentOverrideFullPath);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
+		/** Scene cut / viewport recycle: next Draw() rebuilds cubemap from current HDRTex (Resolve skips reload when HDR path unchanged). */
+		void InvalidateCapturedEnvironment();
 		void AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext);
 		std::shared_ptr<RenderCore::RHITextureCube> GetSkyLightCubemap();
 		std::shared_ptr<RenderCore::RHITextureCube> GetDiffuseIrradianceCubemap();

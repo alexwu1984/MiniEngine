@@ -57,4 +57,11 @@ namespace Engine
 		d->GenIBL->ResolveAndApplyHDRSource(std::move(componentOverrideFullPath));
 	}
 
+	void PreProcessor::InvalidateSkyLightCapturedEnvironment()
+	{
+		C_P(PreProcessor);
+		if (d->GenIBL)
+			d->GenIBL->InvalidateCapturedEnvironment();
+	}
+
 }

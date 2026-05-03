@@ -548,6 +548,18 @@ namespace RenderCore
 		}
 
 		AppendStaticSamplerDigestToRootCacheKey(KeyName, VertexResCount.NumSamplers, PixelResCount.NumSamplers, ComputeResCount.NumSamplers, SamplerCache);
+
+		// FD3D12Shader KeyName is only "FileName_Entry"; macros / vertex-decl variants (skinning, tangent,
+		// RHI_BINDLESS vs not, etc.) fold into stable-ish Hash bytes but previously did NOT fold into the
+		// root-signature cache key. Re-using the first-seen layout for another variant ⇒ root/bytecode
+		// mismatch and CreateGraphicsPipelineState E_INVALIDARG (often misread as root creation failure).
+		KeyName += "_vh";
+		KeyName += std::to_string(static_cast<unsigned long long>(CurrentVertexHash));
+		KeyName += "_ph";
+		KeyName += std::to_string(static_cast<unsigned long long>(CurrentPixelHash));
+		KeyName += "_ch";
+		KeyName += std::to_string(static_cast<unsigned long long>(CurrentComputeHash));
+
 		m_LastUnifiedRootCacheKey = KeyName;
 
 		{

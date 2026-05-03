@@ -39,10 +39,12 @@ namespace Engine
 		FlushRenderingCommands(ERenderQueueFlushCategory::ReloadOrWorldSwap);
 		OwnerEngine_->GetRHI()->RHIWaitForGpuIdle();
 
-		// 2) UE426-style: flush mesh-material draw cache only when replacing World (pointer-keyed caches; before ~FScene).
-		//    Shadow/mesh caches on FWorldSceneRender: FinalizeViewportRenderingAfterSceneCut.
+		// 2) Drop shadow/mesh caches that key on MeshBase* before ~World (shadow pass map otherwise keeps old meshes + ShadowPS alive).
 		if (const auto srFlush = SceneRender_.lock())
+		{
+			srFlush->FlushClearShadowPassMeshCacheNow();
 			srFlush->FlushClearMeshMaterialRenderCacheNow();
+		}
 
 		// 3) New World; viewport weak ref + clear queued input (old roam must not move new camera).
 		auto newWorld = std::make_shared<World>();

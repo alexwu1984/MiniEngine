@@ -18,6 +18,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHICommandContext.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
 
@@ -74,6 +75,8 @@ namespace Engine
 		FRDGBuilder Graph;
 		auto TB = d->TargetBuffer;
 		RHI->RHIBeginFrame();
+		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"PreProcess",

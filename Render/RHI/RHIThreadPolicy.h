@@ -12,6 +12,8 @@ namespace RenderCore
 	 *   on RenderThread so CPU overlaps GPU. ID3D12CommandQueue is **not** thread-safe: any Execute / Signal / queue Wait must be
 	 *   serialized — see RHI_D3D12ScopedQueueSubmitLock in D3D12DirectCommandListManager (covers RHISubmitThread vs game-thread idle).
 	 *
+	 * Submission executor storage uses one mutex; recording vs submission membership is hinted with atomic thread fingerprints
+	 * (no mutex on every RHI_IsIn* query). Separate recursive mutex guards queue Execute/Signal/Wait batches.
 	 * When no submission thread is registered (`-norhithread`), checks are permissive (DemoRunner); work runs inline on caller.
 	 */
 	void RHI_RegisterRHIRecordingThread(std::thread::id ThreadId);

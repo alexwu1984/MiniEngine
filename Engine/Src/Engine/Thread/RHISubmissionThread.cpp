@@ -51,7 +51,8 @@ namespace Engine
 				}
 				try
 				{
-					RenderCore::D3D12RHI_ScopedExclusiveRegion SubmitScope;
+					RenderCore::D3D12RHI_ScopedRecordingContext SubmitScope(
+						RenderCore::ERHIRecordingContextScope::SubmissionThreadTask);
 					Work();
 				}
 				catch (const _com_error& e)

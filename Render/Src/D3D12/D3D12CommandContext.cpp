@@ -1067,7 +1067,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::InitializeTexture(FD3D12Resource* Dest, UINT NumSubResources, D3D12_SUBRESOURCE_DATA SubData[])
 	{
-		D3D12RHI_ScopedUploadBypassRegion UploadBypassScope;
+		D3D12RHI_ScopedRecordingContext ScopedOutsideFrame(RenderCore::ERHIRecordingContextScope::OutsideFrameResourceUpload);
 		Assert(Dest);
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
 		// Get a new command list
@@ -1089,7 +1089,7 @@ namespace RenderCore
 
 	void D3D12CommandContext::InitializeBuffer(FD3D12Resource* Dest, const void* Data, uint32_t NumBytes, size_t Offset /*= 0*/)
 	{
-		D3D12RHI_ScopedUploadBypassRegion UploadBypassScope;
+		D3D12RHI_ScopedRecordingContext ScopedOutsideFrame(RenderCore::ERHIRecordingContextScope::OutsideFrameResourceUpload);
 		Assert(Dest);
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
 		// Get a new command list

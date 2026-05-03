@@ -102,7 +102,7 @@ namespace RenderCore
 
 	void FD3D12Device::Initialize()
 	{
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::DeviceLifetimeBatch);
 		CreateCommandContexts();
 		InitPlatformSpecific();
 		InitDescriptorAllocator();
@@ -196,7 +196,7 @@ namespace RenderCore
 
 	void FD3D12Device::Cleanup()
 	{
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::DeviceLifetimeBatch);
 		if (DefaultCommandContext)
 			DefaultCommandContext->Destroy();
 		if (AsyncComputeContext)

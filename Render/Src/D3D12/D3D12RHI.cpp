@@ -347,16 +347,9 @@ namespace RenderCore
 		RHICachedStates::Initialize(this);
 	}
 
-	void D3D12DynamicRHI::RHIFlushSubmissionPipeline()
-	{
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
-		D3D12RHI_FlushDeferredCommands();
-	}
-
 	void D3D12DynamicRHI::RHIWaitForGpuIdle()
 	{
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
-		D3D12RHI_FlushDeferredCommands();
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::GpuDrainIdle);
 		if (D3D12Adapter)
 			D3D12Adapter->BlockUntilIdle();
 	}
@@ -392,8 +385,7 @@ namespace RenderCore
 			}
 		}
 
-		D3D12RHI_EnterExclusiveRegion();
-		D3D12RHI_FlushDeferredCommands();
+		D3D12RHI_PushRecordingContext(ERHIRecordingContextScope::RHIFrameBoundary);
 		if (D3D12Adapter)
 		{
 			if (std::shared_ptr<FD3D12Device> Dev = D3D12Adapter->GetDevice())
@@ -405,13 +397,12 @@ namespace RenderCore
 	void D3D12DynamicRHI::RHIEndFrame()
 	{
 		DynamicRHI::RHIEndFrame();
-		D3D12RHI_FlushDeferredCommands();
-		D3D12RHI_LeaveExclusiveRegion();
+		D3D12RHI_PopRecordingContextIfTopIs(ERHIRecordingContextScope::RHIFrameBoundary);
 	}
 
 	void D3D12DynamicRHI::Shutdown()
 	{
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::GpuDrainIdle);
 		RHICachedStates::DestroyAll();
 		const bool bUseImGui = !core::CommandLine::Get().GetName("noimgui");
 		if (D3D12Adapter)

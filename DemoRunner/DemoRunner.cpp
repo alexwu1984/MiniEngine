@@ -6,6 +6,7 @@
 #include "App/AppWindow.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
+#include "D3D12/D3D12RHIRecording.h"
 
 #include "Imgui/imgui.h"
 
@@ -108,6 +109,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 			return;
 
 		RHI->RHIBeginFrame();
+		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
 		// Begin ImGui frame (done inside ViewPort->Prepare()).
 		const auto cc = demo->GetClearColor();

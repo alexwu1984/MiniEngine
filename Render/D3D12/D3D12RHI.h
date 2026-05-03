@@ -44,7 +44,6 @@ namespace RenderCore
 		/** Initializes the RHI; separate from IDynamicRHIModule::CreateRHI so that GDynamicRHI is set when it is called. */
 		virtual void Init() override;
 
-		virtual void RHIFlushSubmissionPipeline() override;
 		virtual void RHIWaitForGpuIdle() override;
 		virtual uint32_t RHIRecommendedParallelFrameResourceSlots() const override;
 

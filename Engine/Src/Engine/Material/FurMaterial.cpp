@@ -42,9 +42,14 @@ namespace Engine
 			d->FurConfigParam = Asset->GetFurConfig();
 
 		core::filesystem::path Path = core::process_directory();
-		std::wstring ModelFile = Path.wstring() + L"/GLTFModel/" + core::u8_ucs2(d->FurConfigParam.NoiseTex);
+		const std::wstring ModelFile = Path.wstring() + L"/GLTFModel/" + core::u8_ucs2(d->FurConfigParam.NoiseTex);
 
-		d->NoiseTex = GetDynamicRHI()->RHICreateTexture2D(ModelFile);
+		auto LoadNoiseTexCommand = [this, ModelFile](RenderCore::DynamicRHI* DyRHI) {
+			C_P(FurMaterial);
+			d->NoiseTex = DyRHI->RHICreateTexture2D(ModelFile);
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND(LoadNoiseTexCommand);
+		FlushRenderingCommands(ERenderQueueFlushCategory::LoadOrResourceCreationSync);
 	}
 
 	GltfMaterial::MaterialType FurMaterial::GetMaterialType() const

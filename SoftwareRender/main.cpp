@@ -7,6 +7,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIViewPort.h"
+#include "D3D12/D3D12RHIRecording.h"
 
 #include "Imgui/imgui.h"
 
@@ -79,6 +80,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	app.BuildCpuRayTraceScene();
 	{
 		RHI->RHIBeginFrame();
+		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 		app.GpuInit(RHI.get());
 		RHI->RHIEndFrame();
 	}
@@ -99,6 +102,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 				return;
 
 			RHI->RHIBeginFrame();
+			const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+				RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
 			const auto cc = app.GetClearColor();
 			viewPort->Clear(core::FLinearColor(cc.R, cc.G, cc.B, cc.A));

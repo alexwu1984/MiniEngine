@@ -1,22 +1,31 @@
 ﻿#include "RHI/RHIThreadPolicy.h"
 #include "D3D12/D3D12RHIRecording.h"
+#include <atomic>
+#include <functional>
 #include <mutex>
-#include <optional>
 
 namespace RenderCore
 {
 	namespace
 	{
-		std::mutex GRecordingThreadMutex;
-		std::optional<std::thread::id> GRecordingThreadId;
-
-		std::mutex GSubmissionThreadMutex;
-		std::optional<std::thread::id> GSubmissionThreadId;
-
+		/** Registration mutex: guards std::function; thread ids use atomics (no lock on IsIn* hot path). */
 		std::mutex GExecutorMutex;
 		std::function<void(std::function<void()>)> GSubmissionExecutor;
 
 		std::recursive_mutex G_D3D12QueueSubmitMutex;
+
+		/** 0 = not registered (IsIn* is permissive / true). Otherwise std::thread::id fingerprint. */
+		std::atomic<uint64_t> GRecordingThreadFingerprint{0};
+		std::atomic<uint64_t> GSubmissionThreadFingerprint{0};
+
+		uint64_t ThreadIdFingerprint(std::thread::id Tid)
+		{
+			const size_t H = std::hash<std::thread::id>{}(Tid);
+			uint64_t V = static_cast<uint64_t>(H);
+			if (V == 0)
+				V = 1;
+			return V;
+		}
 	}
 
 	std::recursive_mutex& RHI_D3D12QueueSubmitMutex()
@@ -31,54 +40,48 @@ namespace RenderCore
 
 	void RHI_RegisterRHIRecordingThread(std::thread::id ThreadId)
 	{
-		std::lock_guard<std::mutex> Lock(GRecordingThreadMutex);
-		GRecordingThreadId = ThreadId;
+		GRecordingThreadFingerprint.store(ThreadIdFingerprint(ThreadId), std::memory_order_release);
 	}
 
 	void RHI_UnregisterRHIRecordingThread()
 	{
-		std::lock_guard<std::mutex> Lock(GRecordingThreadMutex);
-		GRecordingThreadId.reset();
+		GRecordingThreadFingerprint.store(0, std::memory_order_release);
 	}
 
 	bool RHI_IsRHIRecordingThreadRegistered()
 	{
-		std::lock_guard<std::mutex> Lock(GRecordingThreadMutex);
-		return GRecordingThreadId.has_value();
+		return GRecordingThreadFingerprint.load(std::memory_order_acquire) != 0;
 	}
 
 	bool RHI_IsInRHIRecordingThread()
 	{
-		std::lock_guard<std::mutex> Lock(GRecordingThreadMutex);
-		if (!GRecordingThreadId.has_value())
+		const uint64_t Expected = GRecordingThreadFingerprint.load(std::memory_order_acquire);
+		if (Expected == 0)
 			return true;
-		return std::this_thread::get_id() == *GRecordingThreadId;
+		return ThreadIdFingerprint(std::this_thread::get_id()) == Expected;
 	}
 
 	void RHI_RegisterRHISubmissionThread(std::thread::id ThreadId)
 	{
-		std::lock_guard<std::mutex> Lock(GSubmissionThreadMutex);
-		GSubmissionThreadId = ThreadId;
+		GSubmissionThreadFingerprint.store(ThreadIdFingerprint(ThreadId), std::memory_order_release);
 	}
 
 	void RHI_UnregisterRHISubmissionThread()
 	{
-		std::lock_guard<std::mutex> Lock(GSubmissionThreadMutex);
-		GSubmissionThreadId.reset();
+		GSubmissionThreadFingerprint.store(0, std::memory_order_release);
 	}
 
 	bool RHI_IsRHISubmissionThreadRegistered()
 	{
-		std::lock_guard<std::mutex> Lock(GSubmissionThreadMutex);
-		return GSubmissionThreadId.has_value();
+		return GSubmissionThreadFingerprint.load(std::memory_order_acquire) != 0;
 	}
 
 	bool RHI_IsInRHISubmissionThread()
 	{
-		std::lock_guard<std::mutex> Lock(GSubmissionThreadMutex);
-		if (!GSubmissionThreadId.has_value())
+		const uint64_t Expected = GSubmissionThreadFingerprint.load(std::memory_order_acquire);
+		if (Expected == 0)
 			return true;
-		return std::this_thread::get_id() == *GSubmissionThreadId;
+		return ThreadIdFingerprint(std::this_thread::get_id()) == Expected;
 	}
 
 	void RHI_SetSubmissionExecutor(std::function<void(std::function<void()>)> Executor)

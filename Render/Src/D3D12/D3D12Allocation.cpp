@@ -448,7 +448,7 @@ namespace RenderCore
 			{
 				if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
 				{
-					D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+				D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::GpuDrainIdle);
 					if (auto Ctx = Dev->GetDefaultCommandContext())
 						Ctx->FlushCommands(true);
 					if (auto Ctx = Dev->GetDefaultAsyncComputeContext())
@@ -502,7 +502,7 @@ namespace RenderCore
 			// finishes with the old resource, then retire the backing instead of releasing it.
 			if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
 			{
-				D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+				D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::GpuDrainIdle);
 				if (auto Ctx = Dev->GetDefaultCommandContext())
 					Ctx->FlushCommands(true);
 				if (auto Ctx = Dev->GetDefaultAsyncComputeContext())

@@ -61,7 +61,7 @@ namespace RenderCore
 	{
 		// Release backbuffers only after the GPU is idle; otherwise debug layer / driver can stall
 		// or fault when RTVs are destroyed while work is still in flight.
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::GpuDrainIdle);
 		if (std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter())
 		{
 			if (Adapter->GetDevice())
@@ -77,7 +77,7 @@ namespace RenderCore
 
 	void D3D12ViewPort::Init()
 	{
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::SwapChainMaintenance);
 		auto Adapter = GetParentAdapter();
 
 		// Align with D3D11: allow DXGI tearing when supported so Present(0) is valid and avoids ~half-refresh FPS cliffs.
@@ -172,7 +172,7 @@ namespace RenderCore
 		if (!Device)
 			return;
 
-		D3D12RHI_ScopedExclusiveRegion RHIExclusiveScope;
+		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::SwapChainMaintenance);
 
 		if (SizeX != InSizeX || SizeY != InSizeY)
 		{

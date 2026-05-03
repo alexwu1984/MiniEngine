@@ -11,7 +11,7 @@ namespace Engine
 	/**
 	 * RHI execution thread (UE4 naming): sequential queue for D3D12 device work forwarded from RenderCore::
 	 * ENQUEUE_RHI_SUBMIT_COMMAND / RHI_SubmitOrInline (GPU submit) and ENQUEUE_RHI_COMMAND / RHI_ExecuteDeferredOrInline (root / PSO Create*, etc.). Same FIFO preserves order.
-	 * Each task runs under D3D12RHI_ScopedExclusiveRegion on this thread when used.
+	 * Each task runs under D3D12RHI_ScopedRecordingContext(SubmissionThreadTask) on this thread when used.
 	 * Submission vs game recording thread: see Render/RenderQueueSynchronization.h.
 	 */
 	class RHISubmissionThread

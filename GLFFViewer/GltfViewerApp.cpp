@@ -91,12 +91,12 @@ void GltfViewApp::BuildModelList()
 
 	const core::filesystem::path gltfDir = core::filesystem::path(ProcessDir) / "GLTFModel";
 	const std::vector<std::wstring> rel = {
+		L"Model1.json",
 		L"BS_Model5.json",
 		L"Model3.json",
 		L"Model5.json",
 		L"Model4.json",
 		L"harley.json",
-		L"Model1.json",
 		L"Model2.json",
 		L"old_bicycle.json",
 	};
@@ -162,7 +162,7 @@ void GltfViewApp::BindImGuiToSceneRender()
 					const auto& dir = dirs[(size_t)i];
 					const auto Owner = dir ? dir->GetOwner() : nullptr;
 					ImGui::PushID(100000 + i);
-					const std::string titleDir = std::string("Directional · ") + ActorNameOrFallbackUtf8(Owner, "DirectionalLight", i);
+					const std::string titleDir = std::string("Directional:") + ActorNameOrFallbackUtf8(Owner, "DirectionalLight", i);
 					if (ImGui::TreeNodeEx(titleDir.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 					{
 						dir->SetUseActorForward(false);

@@ -1,4 +1,5 @@
 ﻿#include "App/AppWindow.h"
+#include "App/MiniEngineWinResources.h"
 #include "Engine/ComErrorLog.h"
 #include "Imgui/imgui_impl_win32.h"
 #include "RHI/DynamicRHI.h"
@@ -87,12 +88,28 @@ namespace Engine
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = 0;
 		wcex.hInstance = d->_hInst;
-		wcex.hIcon = nullptr;
+		{
+			const HICON iconLg = static_cast<HICON>(::LoadImageW(
+				d->_hInst,
+				MAKEINTRESOURCEW(MINIENGINE_ICON_RESOURCE_ID),
+				IMAGE_ICON,
+				::GetSystemMetrics(SM_CXICON),
+				::GetSystemMetrics(SM_CYICON),
+				LR_DEFAULTCOLOR));
+			const HICON iconSm = static_cast<HICON>(::LoadImageW(
+				d->_hInst,
+				MAKEINTRESOURCEW(MINIENGINE_ICON_RESOURCE_ID),
+				IMAGE_ICON,
+				::GetSystemMetrics(SM_CXSMICON),
+				::GetSystemMetrics(SM_CYSMICON),
+				LR_DEFAULTCOLOR));
+			wcex.hIcon = iconLg ? iconLg : ::LoadIcon(nullptr, IDI_APPLICATION);
+			wcex.hIconSm = iconSm ? iconSm : wcex.hIcon;
+		}
 		wcex.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
 		wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 		wcex.lpszMenuName = nullptr;
 		wcex.lpszClassName = L"EngineAppWindow";
-		wcex.hIconSm = nullptr;
 
 		RegisterClassExW(&wcex);
 

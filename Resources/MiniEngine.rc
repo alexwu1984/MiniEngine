@@ -1,0 +1,4 @@
+﻿// MiniEngine application icon (linked into GLFFViewer / DemoRunner / SoftwareRender).
+// Id 1 = primary exe icon for Explorer/shell (see MSDN RT_ICON ordering).
+// Regenerate MiniEngine.ico with: python Tools/gen_miniengine_icon.py
+1 ICON "MiniEngine.ico"

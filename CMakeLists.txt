@@ -45,6 +45,9 @@ file(GLOB Sources "GLFFViewer/*.cpp")
 
 add_executable(GLFFViewer ${Sources} ${Headers})
 
+set(MINIENGINE_APP_ICON_RC "${CMAKE_CURRENT_SOURCE_DIR}/Resources/MiniEngine.rc")
+target_sources(GLFFViewer PRIVATE ${MINIENGINE_APP_ICON_RC})
+
 target_link_libraries(GLFFViewer LINK_PUBLIC Core DirectXTex Render Engine )
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -105,6 +108,8 @@ file(GLOB SoftwareRender_Sources "SoftwareRender/*.cpp")
 
 add_executable(SoftwareRender ${SoftwareRender_Sources} ${SoftwareRender_Headers})
 
+target_sources(SoftwareRender PRIVATE ${MINIENGINE_APP_ICON_RC})
+
 target_link_libraries(SoftwareRender LINK_PUBLIC Core DirectXTex Render Engine )
 
 set_target_properties(SoftwareRender PROPERTIES
@@ -119,6 +124,9 @@ file(GLOB DemoRunner_DemoHeaders "DemoRunner/Demos/*.h")
 file(GLOB DemoRunner_DemoSources "DemoRunner/Demos/*.cpp")
 
 add_executable(DemoRunner ${DemoRunner_Sources} ${DemoRunner_Headers} ${DemoRunner_DemoSources} ${DemoRunner_DemoHeaders})
+
+target_sources(DemoRunner PRIVATE ${MINIENGINE_APP_ICON_RC})
+
 target_link_libraries(DemoRunner LINK_PUBLIC Core DirectXTex Render Engine )
 target_include_directories(DemoRunner PRIVATE ${PROJECT_SOURCE_DIR})
 target_include_directories(DemoRunner PRIVATE ${PROJECT_SOURCE_DIR}/GLFFViewer)

@@ -313,17 +313,6 @@ namespace Engine
 
 	void FRDGBuilder::AddPass(FRDGPassDescriptor Pass)
 	{
-		if (Pass.Name == "Present" || Pass.Name == "RHISubmitAndPresent")
-		{
-			Pass.PassFlags |= RDG_GraphSink;
-			if (!Passes.empty())
-				SchedulingEdges.emplace_back(Passes.back().Name, Pass.Name);
-		}
-		else if (Pass.Name == "UIPresent")
-		{
-			Pass.PassFlags |= RDG_GraphSink;
-			// Ordering vs tonemap / post-process is wired explicitly in FSceneRenderer (Tonemapping -> UIPresent).
-		}
 		Passes.emplace_back(std::move(Pass));
 	}
 

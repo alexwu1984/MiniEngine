@@ -47,7 +47,7 @@ namespace Engine
 				d->bInitRender = true;
 			},
 			false,
-			RDG_MayCullIfUnreachableFromSink,
+			RDG_GraphSink,
 			ERDGPassQueue::Graphics });
 	}
 

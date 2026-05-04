@@ -245,7 +245,10 @@ namespace Engine
 				Self->sigGuiEvent();
 				d->MainViewPort->RHIImGuiRenderDrawData();
 				d->MainViewPort->RHISubmitAndPresentFrame();
-			}});
+			},
+			false,
+			RDG_Raster | RDG_GraphSink,
+			ERDGPassQueue::Graphics});
 
 		if (bScheduleShadowPass)
 		{

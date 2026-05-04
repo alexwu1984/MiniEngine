@@ -20,7 +20,7 @@ enum ERDGPassFlags : uint32_t
 	RDG_Copy = 1u << 2,
 	/** Culled when compile enables sink reachability culling and pass is not an ancestor of any GraphSink. */
 	RDG_MayCullIfUnreachableFromSink = 1u << 3,
-	/** Reachability root for culling (swap-chain tail: Present, RHISubmitAndPresent, or scene UIPresent). */
+	/** Reachability root for sink-based pass culling; callers set this on terminal passes (e.g. scene UIPresent). */
 	RDG_GraphSink = 1u << 4,
 };
 

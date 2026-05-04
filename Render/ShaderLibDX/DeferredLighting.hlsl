@@ -1,4 +1,4 @@
-// Fullscreen deferred lighting: reads scene textures from base pass, applies analytic lights + split-sum IBL.
+﻿// Fullscreen deferred lighting: reads scene textures from base pass, applies analytic lights + split-sum IBL.
 #include "ShaderUtils.hlsl"
 #include "PerFrameStruct.hlsl"
 #include "DeferredShadingCommon.hlsl"
@@ -14,10 +14,22 @@ Texture2D BrdfLut : register(t6);
 TextureCube PrefilterCubeMap : register(t7);
 Texture2D ShadowMap : register(t8);
 Texture2D MaterialAuxGBuffer : register(t9);
+TextureCube PointShadowCube : register(t10);
 SamplerState SampleLinear : register(s0);
 SamplerState SampleShadow : register(s1);
 
 #include "ShadowPCSS.hlsl"
+
+cbuffer cbPointShadow : register(b4)
+{
+    row_major matrix PointFaceVP[6];
+    float4 PointShadowLightPosRange; // xyz = light pos, w = range (CPU-filled; matches Engine::CBPointShadow)
+    int PointShadowEnabled;
+    int PointShadowLightIndex;
+    uint2 PointShadowPad;
+};
+
+static const int kPointLightCubeShadowMapIndex = 2;
 
 struct PSInput
 {
@@ -142,6 +154,33 @@ float ComputeShadow(float4 ShadowCoord, float3 Normal)
     return clamp(ComputeShadowPCSS(ShadowCoord, Normal), 0.0, 1.0);
 }
 
+int PointShadowCubeFaceIndex(float3 dirW)
+{
+    float3 a = abs(dirW);
+    if (a.x >= a.y && a.x >= a.z)
+        return dirW.x > 0.0 ? 0 : 1;
+    if (a.y >= a.z)
+        return dirW.y > 0.0 ? 2 : 3;
+    return dirW.z > 0.0 ? 4 : 5;
+}
+
+float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float lightRange)
+{
+    if (PointShadowEnabled == 0)
+        return 1.0;
+    float3 toFrag = worldPos - lightPos;
+    float dist = length(toFrag);
+    if (dist >= lightRange - 1e-3)
+        return 1.0;
+    float3 dir = toFrag / max(dist, 1e-5);
+    int face = PointShadowCubeFaceIndex(dir);
+    float4 clip = mul(float4(worldPos, 1.0), PointFaceVP[face]);
+    float zR = clip.z / max(clip.w, 1e-6);
+    float zMap = PointShadowCube.SampleLevel(SampleShadow, dir, 0).r;
+    float bias = 0.002;
+    return (zR <= zMap + bias) ? 1.0 : 0.0;
+}
+
 float3 ApplyDirectionalLightDeferred(float4 lightClipPos, Light light, MaterialInfo materialInfo, float3 normal, float3 view)
 {
     float3 shade = GetPointShade(light.Direction, materialInfo, normal, view);
@@ -151,13 +190,16 @@ float3 ApplyDirectionalLightDeferred(float4 lightClipPos, Light light, MaterialI
     return light.Intensity * light.Color * shade * visibility;
 }
 
-float3 ApplyPointLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
+float3 ApplyPointLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view, int lightIndex)
 {
     float3 pointToLight = light.Position - worldPos;
     float distance = length(pointToLight);
     float attenuation = GetRangeAttenuation(light.Range, distance);
     float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
-    return attenuation * light.Intensity * light.Color * shade;
+    float vis = 1.0;
+    if (light.ShadowMapIndex == kPointLightCubeShadowMapIndex && PointShadowEnabled != 0 && lightIndex == PointShadowLightIndex)
+        vis = SamplePointShadowCubeVisibility(worldPos, light.Position, light.Range);
+    return attenuation * light.Intensity * light.Color * shade * vis;
 }
 
 float3 ApplySpotLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
@@ -190,7 +232,7 @@ float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseCo
 }
 
 float3 ApplyPointLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
-	float3 strandT, float3 geomN, float3 worldPos, float3 view)
+	float3 strandT, float3 geomN, float3 worldPos, float3 view, int lightIndex)
 {
 	float3 pointToLight = light.Position - worldPos;
 	float distance = length(pointToLight);
@@ -199,7 +241,10 @@ float3 ApplyPointLightHair(Light light, float3 baseColor, float perceptualRoughn
 	float NdotL = saturate(dot(geomN, L));
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
-	return attenuation * light.Intensity * light.Color * (diffKK + specKK) * NdotL * ao;
+	float vis = 1.0;
+	if (light.ShadowMapIndex == kPointLightCubeShadowMapIndex && PointShadowEnabled != 0 && lightIndex == PointShadowLightIndex)
+		vis = SamplePointShadowCubeVisibility(worldPos, light.Position, light.Range);
+	return attenuation * light.Intensity * light.Color * (diffKK + specKK) * NdotL * ao * vis;
 }
 
 float3 ApplySpotLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
@@ -300,7 +345,7 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, view);
 			}
 			else if (light.Type == LightType_Point)
-				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view);
+				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i);
 			else if (light.Type == LightType_Spot)
 				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view);
 		}
@@ -312,7 +357,7 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 				color += ApplyDirectionalLightDeferred(lc, light, materialInfo, normal, view);
 			}
 			else if (light.Type == LightType_Point)
-				color += ApplyPointLight(light, materialInfo, normal, worldPos, view);
+				color += ApplyPointLight(light, materialInfo, normal, worldPos, view, i);
 			else if (light.Type == LightType_Spot)
 				color += ApplySpotLight(light, materialInfo, normal, worldPos, view);
 		}

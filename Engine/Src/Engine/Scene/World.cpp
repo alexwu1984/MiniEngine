@@ -140,7 +140,7 @@ namespace Engine
 		}
 
 		static void SpawnConfigPointLightActor(const std::shared_ptr<World>& WorldSelf, const Light& Parsed, int32_t JsonOrderIndex,
-											   const std::wstring& AttachToActorName)
+											   const std::wstring& AttachToActorName, bool bCastShadow)
 		{
 			if (!WorldSelf)
 				return;
@@ -157,6 +157,7 @@ namespace Engine
 				pt->SetRange(Parsed.Range > 0.f ? Parsed.Range : 10.f);
 				pt->SetSortPriority(500 - JsonOrderIndex);
 				pt->SetLocalOffset(Parsed.Position);
+				pt->SetCastShadow(bCastShadow);
 				host->AddComponent(pt);
 				return;
 			}
@@ -169,6 +170,7 @@ namespace Engine
 			pt->SetIntensity(Parsed.Intensity);
 			pt->SetRange(Parsed.Range > 0.f ? Parsed.Range : 10.f);
 			pt->SetSortPriority(500 - JsonOrderIndex);
+			pt->SetCastShadow(bCastShadow);
 			actor->AddComponent(pt);
 			WorldSelf->AddActor(actor);
 		}
@@ -369,7 +371,10 @@ namespace Engine
 					std::wstring attachName;
 					if (const auto ait = lightInfoJson.find("AttachActor"); ait != lightInfoJson.end() && ait->is_string())
 						attachName = core::u8_ucs2(ait->get<std::string>());
-					SpawnConfigPointLightActor(self, lightInfo, pointJsonOrder, attachName);
+					bool castShadow = false;
+					if (const auto cs = lightInfoJson.find("CastShadow"); cs != lightInfoJson.end() && cs->is_boolean())
+						castShadow = cs->get<bool>();
+					SpawnConfigPointLightActor(self, lightInfo, pointJsonOrder, attachName, castShadow);
 					++pointJsonOrder;
 					continue;
 				}

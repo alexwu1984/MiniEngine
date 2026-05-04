@@ -6,7 +6,7 @@ namespace Engine
 {
 	/**
 	 * Local punctual light (UE PointLight analogue). World Position = Owner world translation + LocalOffset.
-	 * Feeds deferred + forward analytic branch (LightType_Point); no shadow in this tutorial path.
+	 * Feeds deferred + forward analytic branch (LightType_Point). Optional cubemap shadow via CastShadow.
 	 */
 	class PointLightComponent : public Component
 	{
@@ -34,6 +34,9 @@ namespace Engine
 		void SetLocalOffset(const math::Vector3& InOff);
 		const math::Vector3& GetLocalOffset() const { return LocalOffset; }
 
+		void SetCastShadow(bool bInCastShadow);
+		bool GetCastShadow() const { return bCastShadow; }
+
 		Light BuildLight() const;
 
 	private:
@@ -43,6 +46,7 @@ namespace Engine
 		float Intensity = 1.f;
 		float Range = 10.f;
 		math::Vector3 LocalOffset{};
+		bool bCastShadow = false;
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(PointLightComponent);
 }

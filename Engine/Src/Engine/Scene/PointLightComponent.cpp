@@ -41,6 +41,11 @@ namespace Engine
 		LocalOffset = InOff;
 	}
 
+	void PointLightComponent::SetCastShadow(bool bInCastShadow)
+	{
+		bCastShadow = bInCastShadow;
+	}
+
 	Light PointLightComponent::BuildLight() const
 	{
 		Light L{};
@@ -48,7 +53,7 @@ namespace Engine
 		L.Color = Color;
 		L.Intensity = Intensity;
 		L.Range = Range;
-		L.ShadowMapIndex = -1;
+		L.ShadowMapIndex = bCastShadow ? kPointLightCubeShadowMapIndex : -1;
 
 		L.Position = math::Vector3{};
 		if (const auto owner = GetOwner())

@@ -12,6 +12,7 @@
 #include "Engine/GltfModel/GltfMeshBuffer.h"
 #include "Engine/Material/GltfMaterial.h"
 #include "RHI/RHIRenderTarget.h"
+#include "RHI/RHITextureCube.h"
 
 namespace Engine
 {
@@ -115,11 +116,41 @@ namespace Engine
 		RHIContext.SetRenderTarget(renderTarget);
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
-		//to do,set uniform buffer
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject));
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0] = mainLight;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
+		if (d->HasSkin)
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton));
+		RHIContext.DrawPrimitive(d->Mesh->GetMeshBuffer()->GetVerticesBuffer(), d->Mesh->GetMeshBuffer()->GetIndexBuffer());
+	}
+
+	void ShadowPS::DrawCubeFace(RenderCore::RHICommandContext& RHIContext, const math::Matrix4x4& WorldTransform,
+		const Light& faceLight, std::shared_ptr<RenderCore::RHITextureCube> cube, int32_t faceIndex)
+	{
+		C_P(ShadowPS);
+		const uint32_t VtxFeatNow = d->Mesh && d->Mesh->GetMeshBuffer()
+			? d->Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures()
+			: 0u;
+		if (VtxFeatNow != d->CachedVtxFeat)
+			InitResource();
+		RenderCore::RHICommandMark Mark(RHIContext, "Shadow_PointCubeFace");
+
+		GraphicsPipelineStateInitializer Init;
+		Init.PixelShader = d->PixelShader;
+		Init.VertexShader = d->VertexShader;
+		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+
+		RHIContext.SetRenderTarget(cube, faceIndex, 0);
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject));
+
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0] = faceLight;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 		if (d->HasSkin)
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton));

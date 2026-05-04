@@ -1,17 +1,8 @@
-{
+﻿{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
-    "Light": [
-      {
-        "LightColor": "0.15,0.45,1.0",
-        "LightStrength": 120.0,
-        "LightType": 1,
-        "AttachActor": "Model4",
-        "LightPosition": "0.8,1.4,2.2",
-        "LightRange": 45.0
-      }
-    ],
+    "Light": [],
 
     "AAType": "FXAA",
     "RotateIBL": "0,0"
@@ -46,7 +37,7 @@
         "Metallic": 1.0
       },
       "MainCamera": true,
-      "ProjShadow": true,
+      "ProjShadow": false,
       "FurMaterial": {
         "Name": "TuEr_fur",
         "NoiseTex": "noise.jpg",

@@ -8,7 +8,9 @@
 #include "Render/Shadow/ShadowMapManager.h"
 #include "Render/Shadow/ShadowMap.h"
 #include "RHI/RHIRenderTarget.h"
+#include "RHI/RHITextureCube.h"
 #include "math/aabb3.h"
+#include "math/math.h"
 #include "math/vector2.h"
 #include "math/vector4.h"
 #include <cmath>
@@ -122,14 +124,42 @@ namespace
 namespace Engine
 {
 	static constexpr float LIGHT_DISTANCE = 4.0f;
+	static constexpr int32_t kPointShadowCubeSize = 512;
+
+	static math::Matrix4x4 ComputePointShadowFaceViewProj(const math::Vector3& lightPos, int face, float zNear, float zFar)
+	{
+		math::Vector3 forward;
+		math::Vector3 up;
+		switch (face)
+		{
+		case 0: forward = { 1.f, 0.f, 0.f }; up = { 0.f, 1.f, 0.f }; break;
+		case 1: forward = { -1.f, 0.f, 0.f }; up = { 0.f, 1.f, 0.f }; break;
+		case 2: forward = { 0.f, 1.f, 0.f }; up = { 0.f, 0.f, -1.f }; break;
+		case 3: forward = { 0.f, -1.f, 0.f }; up = { 0.f, 0.f, 1.f }; break;
+		case 4: forward = { 0.f, 0.f, 1.f }; up = { 0.f, 1.f, 0.f }; break;
+		default: forward = { 0.f, 0.f, -1.f }; up = { 0.f, 1.f, 0.f }; break;
+		}
+		const math::Vector3 target = lightPos + forward;
+		const math::Matrix4x4 view = math::Matrix4x4::MatrixLookAtLH(lightPos, target, up);
+		const math::Matrix4x4 proj = math::Matrix4x4::MatrixPerspectiveFovLH(math::HALF_PI, 1.f, zNear, zFar);
+		return view * proj;
+	}
+
 	struct ShadowRenderPassPrivate
 	{
 		RenderCore::DynamicRHI* RHI;
 		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<ShadowPS>> ShadowRenders;
 		std::shared_ptr<ShadowMapManager> ShadowMgr;
 		std::shared_ptr<RenderCore::RHIRenderTarget> DepthRenderBuffer;
+		std::shared_ptr<RenderCore::RHITextureCube> PointShadowCube;
 		Light CachedMainLightForShading{};
 		bool bCachedMainLightValid = false;
+
+		math::Matrix4x4 CachedPointFaceVP[6]{};
+		math::Vector3 CachedPointLightPos{};
+		float CachedPointLightRange = 0.f;
+		int CachedPointShadowLightIndex = -1;
+		bool bCachedPointShadowValid = false;
 
 		ShadowRenderPassPrivate(RenderCore::DynamicRHI* _RHI)
 			: RHI(_RHI)
@@ -138,6 +168,77 @@ namespace Engine
 			ShadowMgr->SetShadowCascades(1);
 		}
 	};
+
+	static void UpdateShadowPSPaletteForMesh(const std::shared_ptr<ShadowPS>& shadowRender, const std::shared_ptr<MeshBase>& Mesh)
+	{
+		if (!shadowRender || !Mesh || !Mesh->HasSkin())
+			return;
+		const bool bResolvedPalette = Mesh->GetSkinId() > -1 && !Mesh->GetBoneNodeArray().empty()
+			&& Mesh->GetSkinId() < static_cast<int>(Mesh->GetBoneNodeArray().size());
+		if (bResolvedPalette)
+		{
+			auto& Bone = Mesh->GetBoneNodeArray()[static_cast<size_t>(Mesh->GetSkinId())];
+			const uint32_t MaxSkin = static_cast<uint32_t>(CBPerSkeleton::kPaletteMatrixCount);
+			const uint32_t NumBones = static_cast<uint32_t>(Bone.size());
+			for (uint32_t BoneIndex = 0; BoneIndex < NumBones && BoneIndex < MaxSkin; ++BoneIndex)
+				shadowRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
+		}
+		else
+			shadowRender->ResetSkeletonPaletteIdentity();
+	}
+
+	static void DrawShadowCasterMeshesDirectional(
+		ShadowRenderPassPrivate* d,
+		RenderCore::RHICommandContext& RHIContext,
+		const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
+		const Light& light,
+		const std::shared_ptr<RenderCore::RHIRenderTarget>& rt)
+	{
+		for (const auto& MeshInfo : ShadowCasterMeshes)
+		{
+			for (size_t MeshIndex = 0; MeshIndex < MeshInfo.Meshes.size(); ++MeshIndex)
+			{
+				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
+				if (!Mesh)
+					continue;
+				auto& shadowRender = d->ShadowRenders[Mesh];
+				if (!shadowRender)
+				{
+					shadowRender = std::make_shared<ShadowPS>(d->RHI, Mesh);
+					shadowRender->InitResource();
+				}
+				UpdateShadowPSPaletteForMesh(shadowRender, Mesh);
+				shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, light, rt);
+			}
+		}
+	}
+
+	static void DrawShadowCasterMeshesPointCubeFace(
+		ShadowRenderPassPrivate* d,
+		RenderCore::RHICommandContext& RHIContext,
+		const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
+		const Light& faceLight,
+		const std::shared_ptr<RenderCore::RHITextureCube>& cube,
+		int face)
+	{
+		for (const auto& MeshInfo : ShadowCasterMeshes)
+		{
+			for (size_t MeshIndex = 0; MeshIndex < MeshInfo.Meshes.size(); ++MeshIndex)
+			{
+				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
+				if (!Mesh)
+					continue;
+				auto& shadowRender = d->ShadowRenders[Mesh];
+				if (!shadowRender)
+				{
+					shadowRender = std::make_shared<ShadowPS>(d->RHI, Mesh);
+					shadowRender->InitResource();
+				}
+				UpdateShadowPSPaletteForMesh(shadowRender, Mesh);
+				shadowRender->DrawCubeFace(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, faceLight, cube, face);
+			}
+		}
+	}
 
 	ShadowRenderPass::ShadowRenderPass(RenderCore::DynamicRHI* RHI)
 		: d_ptr(new ShadowRenderPassPrivate(RHI))
@@ -154,12 +255,15 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		const int32_t SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
+		if (!d->PointShadowCube)
+			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_R32_FLOAT, kPointShadowCubeSize, kPointShadowCubeSize, 1, false);
 	}
 
 	void ShadowRenderPass::InvalidateCachedMainLightForShading()
 	{
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
+		d->bCachedPointShadowValid = false;
 	}
 
 	bool ShadowRenderPass::TryGetCachedMainLightForShading(Light& OutLight)
@@ -182,6 +286,7 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
+		d->bCachedPointShadowValid = false;
 		d->ShadowMgr->Update(Lights, ShadowProjectorScene);
 
 		if (ShadowCasterMeshes.empty() && !ShadowProjectorScene.bValid)
@@ -231,11 +336,17 @@ namespace Engine
 				break;
 			}
 		}
-		if (mainIdx < 0)
-			return;
 
-		Light& mainLight = Lights[static_cast<size_t>(mainIdx)];
-		mainLight.ShadowMapIndex = 0;
+		int pointShadowIdx = -1;
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			const Light& L = Lights[static_cast<size_t>(i)];
+			if (L.Type == LightType_Point && L.ShadowMapIndex == kPointLightCubeShadowMapIndex)
+			{
+				pointShadowIdx = i;
+				break;
+			}
+		}
 
 		math::AABB3 mergedWorldAabb;
 		bool mergedValid = false;
@@ -247,9 +358,7 @@ namespace Engine
 				{
 					if (!Mesh)
 						continue;
-					// Frustum fit: actor world only. MeshMat includes per-frame node/skin pose; merging it into
-					// the light AABB shifts LightViewProj every frame and drags unrelated receivers' shadows.
-					// Shadow draws still use MeshMat * WorldTransform below.
+					// Actor/world transform only for bounds (mesh anim merged elsewhere shifts the light frustum).
 					math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
 					mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
 					mergedValid = true;
@@ -261,82 +370,79 @@ namespace Engine
 			mergedWorldAabb = ShadowProjectorScene.ModelLocalAABB.Transform(ShadowProjectorScene.WorldTransform);
 			mergedValid = true;
 		}
-		if (!mergedValid)
-			return;
 
-		math::Vector3 wsSceneCorners[8];
-		mergedWorldAabb.GetPoint(wsSceneCorners);
-
-		const math::Vector3 lightLookAt = mergedWorldAabb.GetCenter();
-		math::Vector3 lightUp = math::Vector3::UnitY;
-		mainLight.Position = lightLookAt + (mainLight.Direction * LIGHT_DISTANCE);
-
-		math::Vector3 zAxis = (lightLookAt - mainLight.Position).Normalize();
-		if (math::Abs(math::Vector3::Dot(zAxis, lightUp)) > 0.999f)
+		if (mainIdx >= 0 && mergedValid)
 		{
-			lightUp = { lightUp.z, lightUp.x, lightUp.y };
-		}
+			Light& mainLight = Lights[static_cast<size_t>(mainIdx)];
+			mainLight.ShadowMapIndex = 0;
 
-		mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(mainLight.Position, lightLookAt, lightUp);
+			math::Vector3 wsSceneCorners[8];
+			mergedWorldAabb.GetPoint(wsSceneCorners);
 
-		float nearValue = 0.f;
-		float farValue = 1.f;
-		float centerX = 0.f;
-		float centerY = 0.f;
-		float sizeX = 1.f;
-		float sizeY = 1.f;
+			const math::Vector3 lightLookAt = mergedWorldAabb.GetCenter();
+			math::Vector3 lightUp = math::Vector3::UnitY;
+			mainLight.Position = lightLookAt + (mainLight.Direction * LIGHT_DISTANCE);
 
-		const core::vec2i smSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize() : core::vec2i{ 2048, 2048 };
-
-		for (int iter = 0; iter < kFitSnapIterations; ++iter)
-		{
-			FitOrthoFromWorldCorners(wsSceneCorners, mainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
-			SnapLightViewTranslationToShadowTexels(mainLight.LightView, lightLookAt, sizeX, sizeY, smSize.x, smSize.y);
-		}
-		FitOrthoFromWorldCorners(wsSceneCorners, mainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
-
-		const math::Matrix4x4 proj = math::Matrix4x4::MatrixOrthographicOffCenterLH(centerX - sizeX, centerX + sizeX, centerY - sizeY, centerY + sizeY, nearValue, farValue);
-		RefineLightViewFromClipTexelSnap(mainLight.LightView, proj, mainLight.LightViewProj, lightLookAt, sizeX, sizeY, smSize.x, smSize.y);
-
-		d->CachedMainLightForShading = mainLight;
-		d->bCachedMainLightValid = true;
-
-		RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
-		auto TargetSize = d->DepthRenderBuffer->GetSize();
-		RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
-
-		for (const auto& MeshInfo : ShadowCasterMeshes)
-		{
-			size_t MeshSize = MeshInfo.Meshes.size();
-			for (int32_t MeshIndex = 0; MeshIndex < MeshSize; ++MeshIndex)
+			math::Vector3 zAxis = (lightLookAt - mainLight.Position).Normalize();
+			if (math::Abs(math::Vector3::Dot(zAxis, lightUp)) > 0.999f)
 			{
-				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
-				if (!Mesh)
-					continue;
-				auto& shadowRender = d->ShadowRenders[Mesh];
-				if (!shadowRender)
-				{
-					shadowRender = std::make_shared<ShadowPS>(d->RHI, Mesh);
-					shadowRender->InitResource();
-				}
-				if (Mesh->HasSkin())
-				{
-					const bool bResolvedPalette = Mesh->GetSkinId() > -1 && !Mesh->GetBoneNodeArray().empty()
-						&& Mesh->GetSkinId() < static_cast<int>(Mesh->GetBoneNodeArray().size());
-					if (bResolvedPalette)
-					{
-						auto& Bone = Mesh->GetBoneNodeArray()[static_cast<size_t>(Mesh->GetSkinId())];
-						const uint32_t MaxSkin = static_cast<uint32_t>(CBPerSkeleton::kPaletteMatrixCount);
-						const uint32_t NumBones = static_cast<uint32_t>(Bone.size());
-						for (uint32_t BoneIndex = 0; BoneIndex < NumBones && BoneIndex < MaxSkin; ++BoneIndex)
-							shadowRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
-					}
-					else
-						shadowRender->ResetSkeletonPaletteIdentity();
-				}
-
-				shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, mainLight, d->DepthRenderBuffer);
+				lightUp = { lightUp.z, lightUp.x, lightUp.y };
 			}
+
+			mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(mainLight.Position, lightLookAt, lightUp);
+
+			float nearValue = 0.f;
+			float farValue = 1.f;
+			float centerX = 0.f;
+			float centerY = 0.f;
+			float sizeX = 1.f;
+			float sizeY = 1.f;
+
+			const core::vec2i smSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize() : core::vec2i{ 2048, 2048 };
+
+			for (int iter = 0; iter < kFitSnapIterations; ++iter)
+			{
+				FitOrthoFromWorldCorners(wsSceneCorners, mainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+				SnapLightViewTranslationToShadowTexels(mainLight.LightView, lightLookAt, sizeX, sizeY, smSize.x, smSize.y);
+			}
+			FitOrthoFromWorldCorners(wsSceneCorners, mainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+
+			const math::Matrix4x4 proj = math::Matrix4x4::MatrixOrthographicOffCenterLH(centerX - sizeX, centerX + sizeX, centerY - sizeY, centerY + sizeY, nearValue, farValue);
+			RefineLightViewFromClipTexelSnap(mainLight.LightView, proj, mainLight.LightViewProj, lightLookAt, sizeX, sizeY, smSize.x, smSize.y);
+
+			d->CachedMainLightForShading = mainLight;
+			d->bCachedMainLightValid = true;
+
+			RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+			auto TargetSize = d->DepthRenderBuffer->GetSize();
+			RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
+
+			DrawShadowCasterMeshesDirectional(d, RHIContext, ShadowCasterMeshes, mainLight, d->DepthRenderBuffer);
+		}
+
+		if (pointShadowIdx >= 0 && d->PointShadowCube && !ShadowCasterMeshes.empty())
+		{
+			const Light& ptBase = Lights[static_cast<size_t>(pointShadowIdx)];
+			const float zNear = 0.05f;
+			const float zFar = (std::max)(ptBase.Range, zNear + 0.1f);
+			for (int face = 0; face < 6; ++face)
+				d->CachedPointFaceVP[face] = ComputePointShadowFaceViewProj(ptBase.Position, face, zNear, zFar);
+			d->CachedPointLightPos = ptBase.Position;
+			d->CachedPointLightRange = ptBase.Range;
+			d->CachedPointShadowLightIndex = pointShadowIdx;
+
+			const core::vec2i cubeSize = d->PointShadowCube->GetSize();
+			for (int face = 0; face < 6; ++face)
+			{
+				RHIContext.Clear(d->PointShadowCube, face, 0, core::FLinearColor::White, 1.f, 0);
+				RHIContext.SetViewPort(0, 0, cubeSize.x, cubeSize.y);
+				Light faceLight = ptBase;
+				faceLight.LightViewProj = d->CachedPointFaceVP[face];
+
+				DrawShadowCasterMeshesPointCubeFace(d, RHIContext, ShadowCasterMeshes, faceLight, d->PointShadowCube, face);
+			}
+
+			d->bCachedPointShadowValid = true;
 		}
 	}
 
@@ -344,6 +450,24 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		return d->DepthRenderBuffer;
+	}
+
+	std::shared_ptr<RenderCore::RHITextureCube> ShadowRenderPass::GetPointShadowCube() const
+	{
+		C_P(ShadowRenderPass);
+		return d->PointShadowCube;
+	}
+
+	bool ShadowRenderPass::TryGetCachedPointShadowForDeferred(int& OutLightIndex, math::Matrix4x4 OutFaceVp[6], math::Vector4& OutPosRange) const
+	{
+		C_P(ShadowRenderPass);
+		if (!d->bCachedPointShadowValid)
+			return false;
+		for (int i = 0; i < 6; ++i)
+			OutFaceVp[i] = d->CachedPointFaceVP[i];
+		OutLightIndex = d->CachedPointShadowLightIndex;
+		OutPosRange = math::Vector4(d->CachedPointLightPos.x, d->CachedPointLightPos.y, d->CachedPointLightPos.z, d->CachedPointLightRange);
+		return true;
 	}
 
 } // namespace Engine

@@ -14,6 +14,9 @@ namespace Engine
 	static const int LightType_Point = 1;
 	static const int LightType_Spot = 2;
 
+	/** Deferred + shadow pass: punctual lights that own the single cubemap shadow use this ShadowMapIndex (not the directional map). */
+	static constexpr int kPointLightCubeShadowMapIndex = 2;
+
 	struct Light
 	{
 		math::Matrix4x4	LightViewProj;
@@ -74,6 +77,18 @@ namespace Engine
 	static_assert(sizeof(CBPerFrame) % 16u == 0u, "D3D constant buffer size must be 16-byte aligned");
 	static_assert(sizeof(CBPerFrame) <= 65536u, "D3D11/D3D12 cbuffer max size is 64KB");
 	using CBPerFrameWrap = RenderCore::TUniformBufferBinding<CBPerFrame, 0u>;
+
+	struct CBPointShadow
+	{
+		math::Matrix4x4 FaceVP[6];
+		/** Matches DeferredLighting.hlsl cbPointShadow (reserved for shader parity / future use). */
+		math::Vector4 LightPosRange{};
+		int32_t Enabled = 0;
+		int32_t LightIndex = -1;
+		uint32_t Pad[2]{};
+	};
+	static_assert(sizeof(CBPointShadow) % 16u == 0u, "cbPointShadow must be 16-byte aligned");
+	using CBPointShadowWrap = RenderCore::TUniformBufferBinding<CBPointShadow, 4u>;
 
 	struct CBPerObject
 	{

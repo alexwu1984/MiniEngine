@@ -3,6 +3,10 @@
 #include "RHI/RHIDefinitions.h"
 #include "math/math.h"
 
+#ifndef WITH_D3D12_MEMMON
+#define WITH_D3D12_MEMMON 0
+#endif
+
 namespace RenderCore
 {
 
@@ -199,7 +203,9 @@ namespace RenderCore
 	};
 
 	bool D3D12RHI_ShouldCreateWithD3DDebug();
+
 	// Command-line driven memmon switches: d3d12_memmon=1 or d3d_mem=1 (default off).
+	// Available only when Render is built as Debug or RelWithDebInfo (WITH_D3D12_MEMMON); always off in Release.
 	bool D3D12RHI_ShouldEnableMemMon();
 	// Requires memmon on; d3d12_memmon_stacks=1 (default off).
 	bool D3D12RHI_ShouldEnableMemMonStacks();
@@ -209,7 +215,12 @@ namespace RenderCore
 	/** Increment D3D12CreateStats counters only when D3D12RHI_ShouldEnableMemMon() is true. */
 	inline void D3D12MemMonAtomicAdd(std::atomic_uint64_t& Counter, std::uint64_t Delta = 1)
 	{
+#if WITH_D3D12_MEMMON
 		if (D3D12RHI_ShouldEnableMemMon())
 			Counter.fetch_add(Delta, std::memory_order_relaxed);
+#else
+		(void)Counter;
+		(void)Delta;
+#endif
 	}
 }

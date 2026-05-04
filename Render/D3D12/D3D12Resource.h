@@ -157,7 +157,9 @@ namespace RenderCore
 		inline void* Map(const D3D12_RANGE* ReadRange = nullptr)
 		{
 			Assert(Resource);
+#if WITH_D3D12_MEMMON
 			Render::D3D12CallStats::IncMap();
+#endif
 			VERIFYD3DRESULT(Resource->Map(0, ReadRange, &ResourceBaseAddress));
 
 			// Deep memmon: attribute WC virtual memory growth to the exact upload resource being mapped.
@@ -185,7 +187,9 @@ namespace RenderCore
 			// Make it idempotent so Debug doesn't break on a second Unmap().
 			if (!ResourceBaseAddress)
 				return;
+#if WITH_D3D12_MEMMON
 			Render::D3D12CallStats::IncUnmap();
+#endif
 			Resource->Unmap(0, nullptr);
 
 			ResourceBaseAddress = nullptr;

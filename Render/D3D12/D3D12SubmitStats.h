@@ -42,6 +42,7 @@ namespace RenderCore::D3D12SubmitStats
 
 	inline void OnSubmit(ED3D12CommandQueueType QueueType)
 	{
+#if WITH_D3D12_MEMMON
 		if (!D3D12RHI_ShouldEnableMemMon())
 			return;
 		switch (QueueType)
@@ -51,6 +52,9 @@ namespace RenderCore::D3D12SubmitStats
 		case ED3D12CommandQueueType::Async:   detail::Compute().fetch_add(1, std::memory_order_relaxed); break;
 		default: break;
 		}
+#else
+		(void)QueueType;
+#endif
 	}
 
 	inline Snapshot GetSnapshot()

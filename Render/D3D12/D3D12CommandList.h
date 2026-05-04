@@ -208,7 +208,9 @@ namespace RenderCore
 				// Avoid spamming empty flushes (they add CPU overhead and can amplify driver-side work).
 				if (n == 0)
 					return;
+#if WITH_D3D12_MEMMON
 				Render::D3D12CallStats::FlushResourceBarriers(n);
+#endif
 				ResourceBarrierBatcher.Flush(CommandList.get());
 			}
 

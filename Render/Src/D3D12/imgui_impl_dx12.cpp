@@ -249,7 +249,9 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
         if (!vtxStaging.CPU || !idxStaging.CPU || !vtxStaging.D3D12Resource || !idxStaging.D3D12Resource)
             return;
 
+#if WITH_D3D12_MEMMON
         Render::D3D12CallStats::AddUploadBytes(vtxBytes + idxBytes);
+#endif
 
         ImDrawVert* vtx_dst = (ImDrawVert*)vtxStaging.CPU;
         ImDrawIdx* idx_dst = (ImDrawIdx*)idxStaging.CPU;
@@ -269,7 +271,9 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
 
         ctx->CopyBufferRegion(fr->VertexBuffer->GetResource(), 0, vtxStaging.D3D12Resource, (UINT64)vtxStaging.Offset, vtxBytes);
         ctx->CopyBufferRegion(fr->IndexBuffer->GetResource(), 0, idxStaging.D3D12Resource, (UINT64)idxStaging.Offset, idxBytes);
+#if WITH_D3D12_MEMMON
         Render::D3D12CallStats::AddCopyBytes(vtxBytes + idxBytes);
+#endif
 
         upload_ctx->TransitionResource(fr->VertexBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, false);
         upload_ctx->TransitionResource(fr->IndexBuffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, false);

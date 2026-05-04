@@ -1,4 +1,9 @@
 ﻿#pragma once
+
+#ifndef WITH_D3D12_MEMMON
+#define WITH_D3D12_MEMMON 0
+#endif
+
 #include "core/inc.h"
 
 namespace Render

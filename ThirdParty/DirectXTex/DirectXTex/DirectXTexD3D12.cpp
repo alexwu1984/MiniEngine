@@ -1,4 +1,4 @@
-//-------------------------------------------------------------------------------------
+﻿//-------------------------------------------------------------------------------------
 // DirectXTexD3D12.cpp
 //  
 // DirectX Texture Library - Direct3D 12 helpers
@@ -649,7 +649,7 @@ HRESULT DirectX::CaptureTexture(
     D3D12_RESOURCE_STATES beforeState,
     D3D12_RESOURCE_STATES afterState) noexcept
 {
-    ++DXTexStats::CaptureTextureCalls_D3D12();
+    DXTexStats::TraceCaptureTexture_D3D12();
     if (!pCommandQueue || !pSource)
         return E_INVALIDARG;
 

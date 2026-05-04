@@ -430,7 +430,9 @@ namespace RenderCore
 		}
 
 		win32::com_ptr<ID3D12Resource> pResource;
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::IncCreateCommittedResource();
+#endif
 		const HRESULT hr = d->RootDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, EffectiveInitial, ClearValue, IID_PPV_ARGS(pResource.get_init_ref()));
 
 		if (SUCCEEDED(hr))

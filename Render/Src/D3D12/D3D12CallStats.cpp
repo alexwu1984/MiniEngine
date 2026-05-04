@@ -1,10 +1,12 @@
 ﻿#include "D3D12/D3D12CallStats.h"
 #include "RHI/RHI.h"
+#include <atomic>
 
 namespace Render
 {
 	namespace D3D12CallStats
 	{
+#if WITH_D3D12_MEMMON
 		static std::atomic<uint64_t> sExecuteCalls{0};
 		static std::atomic<uint64_t> sExecuteLists{0};
 		static std::atomic<uint64_t> sSignalCalls{0};
@@ -149,6 +151,22 @@ namespace Render
 			s.UploadBytes = sUploadBytes.exchange(0, std::memory_order_relaxed);
 			return s;
 		}
+#else
+		void IncExecuteCommandLists(uint32_t NumLists) { (void)NumLists; }
+		void IncQueueSignal() {}
+		void IncPresent() {}
+		void IncCreateCommittedResource() {}
+		void IncMap() {}
+		void IncUnmap() {}
+		void IncFenceSetEventOnCompletion() {}
+		void IncWaitForSingleObject() {}
+		void IncDirectFenceImmediateSignal() {}
+		void IncDirectFenceDeferredReserve() {}
+		void AddResourceBarriers(uint32_t Count) { (void)Count; }
+		void FlushResourceBarriers(uint32_t FlushedCount) { (void)FlushedCount; }
+		void AddCopyBytes(uint64_t Bytes) { (void)Bytes; }
+		void AddUploadBytes(uint64_t Bytes) { (void)Bytes; }
+		Snapshot SnapshotAndReset() { return {}; }
+#endif
 	}
 }
-

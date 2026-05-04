@@ -1,4 +1,4 @@
-//--------------------------------------------------------------------------------------
+﻿//--------------------------------------------------------------------------------------
 // File: WICTextureLoader12.cpp
 //
 // Function for loading a WIC image and creating a Direct3D 12 runtime texture for it
@@ -675,7 +675,7 @@ HRESULT DirectX::LoadWICTextureFromFile(
     D3D12_SUBRESOURCE_DATA& subresource,
     size_t maxsize)
 {
-    ++DXTexStats::WICTextureLoader_LoadFromFileCalls_D3D12();
+    DXTexStats::TraceWICTextureLoader_LoadFromFile_D3D12();
     return LoadWICTextureFromFileEx(
         d3dDevice,
         fileName,

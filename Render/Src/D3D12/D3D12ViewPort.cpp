@@ -358,6 +358,7 @@ namespace RenderCore
 		if (syncInterval == 0u && bAllowTearing)
 			presentFlags |= DXGI_PRESENT_ALLOW_TEARING;
 
+#if WITH_D3D12_MEMMON
 		const bool memMon = RenderCore::D3D12RHI_ShouldEnableMemMon();
 		if (memMon)
 		{
@@ -367,6 +368,7 @@ namespace RenderCore
 			if (!::IsWindowVisible(WindowHandle))
 				D3D12PresentStats::WindowNotVisible().fetch_add(1, std::memory_order_relaxed);
 		}
+#endif
 
 		const HRESULT hrPresent = SwapChain4->Present(syncInterval, presentFlags);
 		std::shared_ptr<FD3D12Adapter> Ad = TryGetParentAdapter();
@@ -381,7 +383,8 @@ namespace RenderCore
 				if (auto R = Ad->GetOwningRHI())
 					R->NotifyFatalDeviceLossFromPresent(hrPresent, hrRemoved);
 		}
-		if (memMon)
+#if WITH_D3D12_MEMMON
+		if (RenderCore::D3D12RHI_ShouldEnableMemMon())
 		{
 			if (hrPresent == DXGI_STATUS_OCCLUDED)
 				D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
@@ -389,6 +392,7 @@ namespace RenderCore
 				D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
 			Render::D3D12CallStats::IncPresent();
 		}
+#endif
 
 		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 

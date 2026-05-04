@@ -171,11 +171,15 @@ namespace RenderCore
 				std::lock_guard<std::recursive_mutex> Lock(WaitForFenceCS);
 
 				// We must wait.  Do so with an event handler so we don't oversleep.
+#if WITH_D3D12_MEMMON
 				Render::D3D12CallStats::IncFenceSetEventOnCompletion();
+#endif
 				VERIFYD3DRESULT(FenceCoreCache->GetFence()->SetEventOnCompletion(FenceValue, FenceCoreCache->GetCompletionEvent()));
 
 				// Wait for the event to complete (the event is automatically reset afterwards)
+#if WITH_D3D12_MEMMON
 				Render::D3D12CallStats::IncWaitForSingleObject();
+#endif
 				const uint32_t WaitResult = WaitForSingleObject(FenceCoreCache->GetCompletionEvent(), INFINITE);
 				Assert(0 == WaitResult);
 			}
@@ -227,7 +231,9 @@ namespace RenderCore
 		Assert(CommandQueue);
 		Assert(FenceCoreCache);
 
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::IncQueueSignal();
+#endif
 		// (diagnostic logging removed)
 		HRESULT hr = CommandQueue->Signal(FenceCoreCache->GetFence(), FenceToSignal);
 		Assert(SUCCEEDED(hr));
@@ -739,8 +745,10 @@ namespace RenderCore
 		if (Payload.NumCommandLists == 0)
 		{
 			D3D12SubmitStats::OnSubmit(QueueType);
+#if WITH_D3D12_MEMMON
 			if (QueueType == ED3D12CommandQueueType::Default)
 				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+#endif
 			return Fence.Signal(QueueType);
 		}
 		for (uint32_t i = 0; i < Payload.NumCommandLists; ++i)
@@ -755,8 +763,10 @@ namespace RenderCore
 		if (Payload.NumCommandLists == 0)
 		{
 			D3D12SubmitStats::OnSubmit(QueueType);
+#if WITH_D3D12_MEMMON
 			if (QueueType == ED3D12CommandQueueType::Default)
 				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+#endif
 			return Fence.Signal(QueueType);
 		}
 
@@ -768,15 +778,19 @@ namespace RenderCore
 			D3D12MemMonAtomicAdd(D3D12CreateStats::Submit_ExecCalls_Copy());
 		{
 			RHI_D3D12ScopedQueueSubmitLock QueueSubmitLock;
+#if WITH_D3D12_MEMMON
 			Render::D3D12CallStats::IncExecuteCommandLists((uint32_t)Payload.NumCommandLists);
+#endif
 			D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 
 			// Track submits per queue type (diagnostics).
 			D3D12SubmitStats::OnSubmit(QueueType);
 
 			// Always signal after Execute so fence-tied retire/recycle paths progress deterministically.
+#if WITH_D3D12_MEMMON
 			if (QueueType == ED3D12CommandQueueType::Default)
 				Render::D3D12CallStats::IncDirectFenceImmediateSignal();
+#endif
 			return Fence.Signal(QueueType);
 		}
 	}

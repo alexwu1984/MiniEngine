@@ -267,20 +267,32 @@ namespace RenderCore
 
 	bool D3D12RHI_ShouldEnableMemMon()
 	{
+#if WITH_D3D12_MEMMON
 		return CmdBool("d3d12_memmon", false) || CmdBool("d3d_mem", false);
+#else
+		return false;
+#endif
 	}
 
 	bool D3D12RHI_ShouldEnableMemMonStacks()
 	{
+#if WITH_D3D12_MEMMON
 		if (!D3D12RHI_ShouldEnableMemMon())
 			return false;
 		return CmdBool("d3d12_memmon_stacks", false);
+#else
+		return false;
+#endif
 	}
 
 	bool D3D12RHI_ShouldEnableMemMonDeep()
 	{
+#if WITH_D3D12_MEMMON
 		if (!D3D12RHI_ShouldEnableMemMon())
 			return false;
 		return CmdBool("d3d12_memmon_deep", false) || CmdBool("d3d_mem_deep", false);
+#else
+		return false;
+#endif
 	}
 }

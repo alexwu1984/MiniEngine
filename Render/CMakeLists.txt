@@ -51,3 +51,8 @@ target_link_libraries(Render LINK_PUBLIC Assimp)
 target_link_libraries(Render LINK_PUBLIC Core dinput8.lib dxguid.lib xinput.lib dxgi.lib d3d11.lib D3DCompiler.lib d3d12.lib)
 
 target_include_directories(Render PUBLIC RHI)
+
+# D3D12 memory monitor (d3d12_memmon): compile in Debug + RelWithDebInfo only; stripped from Release/MinSizeRel.
+target_compile_definitions(Render PRIVATE
+	$<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:WITH_D3D12_MEMMON=1>
+)

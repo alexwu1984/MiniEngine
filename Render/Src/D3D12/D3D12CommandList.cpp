@@ -258,7 +258,9 @@ namespace RenderCore
 		Assert(CommandListData);
 		D3D12RHI_CheckRecordingAllowed("AddTransitionBarrier");
 		CommandListData->ResourceBarrierBatcher.AddTransition(pResource->GetResource(), Before, After, Subresource);
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddResourceBarriers(1);
+#endif
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
@@ -266,7 +268,9 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddUAV();
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddResourceBarriers(1);
+#endif
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 
@@ -274,7 +278,9 @@ namespace RenderCore
 	{
 		Assert(CommandListData);
 		CommandListData->ResourceBarrierBatcher.AddAliasingBarrier(pResource->GetResource());
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddResourceBarriers(1);
+#endif
 		CommandListData->CurrentOwningContext->numBarriers++;
 	}
 

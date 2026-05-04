@@ -1,4 +1,4 @@
-//--------------------------------------------------------------------------------------
+﻿//--------------------------------------------------------------------------------------
 // File: ScreenGrab12.cpp
 //
 // Function for capturing a 2D texture and saving it to a file (aka a 'screenshot'
@@ -848,7 +848,7 @@ HRESULT DirectX::SaveDDSTextureToFile(
     D3D12_RESOURCE_STATES beforeState,
     D3D12_RESOURCE_STATES afterState)
 {
-    ++DXTexStats::ScreenGrab_SaveDDSCalls_D3D12();
+    DXTexStats::TraceScreenGrab_SaveDDS_D3D12();
     if ( !fileName )
         return E_INVALIDARG;
 
@@ -1055,7 +1055,7 @@ HRESULT DirectX::SaveWICTextureToFile(
     std::function<void(IPropertyBag2*)> setCustomProps,
     bool forceSRGB)
 {
-    ++DXTexStats::ScreenGrab_SaveWICCalls_D3D12();
+    DXTexStats::TraceScreenGrab_SaveWIC_D3D12();
     if ( !fileName )
         return E_INVALIDARG;
 

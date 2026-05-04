@@ -1074,11 +1074,15 @@ namespace RenderCore
 		CommandList.SetCurrentOwningContext(this);
 
 		size_t UploadBufferSize = (size_t)GetRequiredIntermediateSize(Dest->GetResource(), 0, NumSubResources);
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddUploadBytes((uint64_t)UploadBufferSize);
+#endif
 		// UpdateSubresources requires the intermediate offset to be aligned to D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT.
 		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(UploadBufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.D3D12Resource, (UINT64)Allocation.Offset, 0, NumSubResources, SubData);
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddCopyBytes((uint64_t)UploadBufferSize);
+#endif
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);
 		CommandList.Close();
@@ -1095,7 +1099,9 @@ namespace RenderCore
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);
 
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddUploadBytes((uint64_t)NumBytes);
+#endif
 		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(NumBytes);
 		memcpy(Allocation.CPU, Data, NumBytes);
 
@@ -1106,7 +1112,9 @@ namespace RenderCore
 			CommandList.FlushResourceBarriers();
 		}
 
+#if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddCopyBytes((uint64_t)NumBytes);
+#endif
 		CommandList->CopyBufferRegion(Dest->GetResource(), Offset, Allocation.D3D12Resource, (UINT64)Allocation.Offset, NumBytes);
 		CommandList.AddTransitionBarrier(Dest, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 		Dest->GetResourceState().SetResourceState(D3D12_RESOURCE_STATE_GENERIC_READ);

@@ -1,4 +1,4 @@
-//--------------------------------------------------------------------------------------
+﻿//--------------------------------------------------------------------------------------
 // File: DDSTextureLoader12.cpp
 //
 // Functions for loading a DDS texture and creating a Direct3D runtime resource for it
@@ -1555,7 +1555,7 @@ HRESULT DirectX::LoadDDSTextureFromFile(
     DDS_ALPHA_MODE* alphaMode,
     bool* isCubeMap)
 {
-    ++DXTexStats::DDSTextureLoader_LoadFromFileCalls_D3D12();
+    DXTexStats::TraceDDSTextureLoader_LoadFromFile_D3D12();
     return LoadDDSTextureFromFileEx(
         d3dDevice,
         fileName,

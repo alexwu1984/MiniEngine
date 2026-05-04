@@ -135,15 +135,7 @@ namespace win32
 			LastTickTimeNS = CurrentTimeNS;
 
 			RecordGameThreadTickForFpsLog();
-			auto TStart = std::chrono::high_resolution_clock::now();
 			SigTick(Delta);
-			auto TEnd = std::chrono::high_resolution_clock::now();
-			const float CostTime = std::chrono::duration<float, std::milli>(TEnd - TStart).count();
-			// SigTick includes full render + optional d3d12_memmon; 5ms was mostly false positives.
-			if (CostTime > 25.0f)
-			{
-				core::LOG(core::log_inf, __FUNCTIONW__ L" SigTick slow: %0.1fms", CostTime);
-			}
 			
 		}
 		core::LOG(core::log_inf, __FUNCTIONW__ L" Quit");

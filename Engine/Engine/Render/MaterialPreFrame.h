@@ -67,7 +67,6 @@ namespace Engine
 		float				CameraFarZ{ 1000.f };
 		uint32_t			PerFramePadBeforeLights[2]{};
 		Light				Lights[MAX_LIGHT_INSTANCES];
-		MaterialPerFrame	Material;
 	};
 
 	struct CBPerFrame
@@ -77,6 +76,13 @@ namespace Engine
 	static_assert(sizeof(CBPerFrame) % 16u == 0u, "D3D constant buffer size must be 16-byte aligned");
 	static_assert(sizeof(CBPerFrame) <= 65536u, "D3D11/D3D12 cbuffer max size is 64KB");
 	using CBPerFrameWrap = RenderCore::TUniformBufferBinding<CBPerFrame, 0u>;
+
+	struct CBPerMaterial
+	{
+		MaterialPerFrame myMaterial{};
+	};
+	static_assert(sizeof(CBPerMaterial) % 16u == 0u, "cbPerMaterial must be 16-byte aligned");
+	using CBPerMaterialWrap = RenderCore::TUniformBufferBinding<CBPerMaterial, 6u>;
 
 	struct CBPointShadow
 	{

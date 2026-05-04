@@ -29,6 +29,13 @@ namespace Engine
 	protected:
 		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
 
+		void RefreshIBLMipAndRebindPerFrame(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
+		void BindDeferredBaseMaterialTextures(RenderCore::RHICommandContext& RHIContext);
+
+	public:
+		void BeginDeferredOpaqueDrawBatch(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
+		void DrawDeferredOpaqueBatchInstance(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
+
 	private:
 		virtual std::wstring GetShaderFileName() const;
 		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro> & ShaderMacros);

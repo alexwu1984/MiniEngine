@@ -59,7 +59,6 @@ struct PerFrame
     float         CameraFarZ;
     uint2         _PerFramePadBeforeLights;
     Light         Lights[MAX_LIGHT_INSTANCES];
-    MaterialPerFrame Material;
 };
 
 cbuffer cbPerFrame : register(b0)

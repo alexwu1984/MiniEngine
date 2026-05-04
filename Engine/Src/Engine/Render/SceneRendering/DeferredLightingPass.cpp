@@ -126,10 +126,6 @@ namespace Engine
 						Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
 				}
 			}
-			Out.Data.myPerFrame.Material.Metallic = 0.f;
-			Out.Data.myPerFrame.Material.AlphaCutoff = 0.5f;
-			Out.Data.myPerFrame.Material.AlphaMask = 0;
-			Out.Data.myPerFrame.Material.Padding = 0;
 			if (Pre)
 			{
 				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())

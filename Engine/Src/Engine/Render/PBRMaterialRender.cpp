@@ -1,4 +1,5 @@
 ﻿#include "Engine/Render/PBRMaterialRender.h"
+#include <algorithm>
 #include "Engine.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -20,9 +21,11 @@ namespace Engine
 
 	struct PBRMaterialRenderPrivate
 	{
-		PBRMaterialRenderPrivate() :GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
-			GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
-			GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get())
+		PBRMaterialRenderPrivate()
+			: GET_SHADER_STRUCT_MEMBER(CBPerSkeleton)(GEngine->GetRHI().get()),
+			  GET_SHADER_STRUCT_MEMBER(CBPerFrame)(GEngine->GetRHI().get()),
+			  GET_SHADER_STRUCT_MEMBER(CBPerObject)(GEngine->GetRHI().get()),
+			  GET_SHADER_STRUCT_MEMBER(CBPerMaterial)(GEngine->GetRHI().get())
 		{
 		}
 		std::shared_ptr<GltfMeshBuffer> MeshBuffer;
@@ -34,6 +37,7 @@ namespace Engine
 
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
+		DECLARE_SHADER_STRUCT_MEMBER(CBPerMaterial)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
 	};
 
@@ -201,15 +205,46 @@ namespace Engine
 		{
 			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[index] = d->RenderParam.lightInfos[index];
 		}
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.AlphaCutoff = d->MeshMaterial->GetMaterialAlphaCutoff();
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.AlphaMask = d->MeshMaterial->UsesMaterialAlphaMask() ? 1u : 0u;
-		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Material.Padding = 0u;
-
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
+
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaCutoff = d->MeshMaterial->GetMaterialAlphaCutoff();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaMask = d->MeshMaterial->UsesMaterialAlphaMask() ? 1u : 0u;
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Padding = 0u;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerMaterial));
 
 		if (d->RenderParam.HasSkin)
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton));
+	}
+
+	void PBRMaterialRender::RefreshIBLMipAndRebindPerFrame(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
+	{
+		C_P(PBRMaterialRender);
+		if (!RenderParam.preProcessor.expired())
+		{
+			if (auto Pre = RenderParam.preProcessor.lock())
+			{
+				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
+				{
+					if (auto SpecCube = SkyLightEnv->GetSpecularReflectionCubemap())
+						d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount =
+							static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
+				}
+			}
+		}
+		else
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount = 1.f;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
+	}
+
+	void PBRMaterialRender::BindDeferredBaseMaterialTextures(RenderCore::RHICommandContext& RHIContext)
+	{
+		C_P(PBRMaterialRender);
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
 	}
 
 	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
@@ -219,29 +254,33 @@ namespace Engine
 		d->RenderParam = RenderParam;
 		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
 
-		// Match specular prefilter cubemap mips; default IBLMIpCount==1 made lod/BRDF mip math invalid (black metals, dull scene).
-		if (!RenderParam.preProcessor.expired())
-		{
-			if (auto Pre = RenderParam.preProcessor.lock())
-			{
-				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
-				{
-					if (auto SpecCube = SkyLightEnv->GetSpecularReflectionCubemap())
-						d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
-				}
-			}
-		}
-		else
-		{
-			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount = 1.f;
-		}
-		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
+		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
+		BindDeferredBaseMaterialTextures(RHIContext);
 
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
+		DrawMesh(RHIContext);
+	}
+
+	void PBRMaterialRender::BeginDeferredOpaqueDrawBatch(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
+	{
+		C_P(PBRMaterialRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "PBRPassBatchBegin");
+		d->RenderParam = RenderParam;
+		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
+		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
+		BindDeferredBaseMaterialTextures(RHIContext);
+		DrawMesh(RHIContext);
+	}
+
+	void PBRMaterialRender::DrawDeferredOpaqueBatchInstance(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
+	{
+		C_P(PBRMaterialRender);
+		if (RenderParam.HasSkin)
+			return;
+
+		d->RenderParam = RenderParam;
+		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = RenderParam.CurrModelMatrix;
+		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mPrevWorld = RenderParam.PrevModelMatrix;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject));
 
 		DrawMesh(RHIContext);
 	}

@@ -20,6 +20,11 @@ Texture2D AoMap : register(t4);
 #endif
 SamplerState SampleLinear : register(s0);
 
+cbuffer cbPerMaterial : register(b6)
+{
+    MaterialPerFrame myMaterial;
+};
+
 struct PS_OUTPUT_SCENE
 {
     float4 Target0 : SV_Target0; //Scene color
@@ -140,8 +145,8 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     float metallic;
     GetPBRParams(Input, diffuseColor, specularColor, perceptualRoughness, metallic, alpha);
 
-    if (myPerFrame.Material.AlphaMask != 0)
-        clip(alpha - myPerFrame.Material.AlphaCutoff);
+    if (myMaterial.AlphaMask != 0)
+        clip(alpha - myMaterial.AlphaCutoff);
 
     // AO may live in any channel depending on source asset; take max so wrong swizzle / packed maps do not zero IBL.
     float4 aoSamp = AoMap.Sample(SampleLinear, Input.UV0);

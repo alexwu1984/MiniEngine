@@ -3,8 +3,6 @@
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Adapter.h"
 
-#include <intrin.h>
-
 namespace RenderCore
 {
 	FD3D12BuddyAllocator::FD3D12BuddyAllocator(std::weak_ptr<FD3D12Device> InParent, eBuddyAllocationStrategy InStrategy)

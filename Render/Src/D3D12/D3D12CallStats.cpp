@@ -1,8 +1,6 @@
 ﻿#include "D3D12/D3D12CallStats.h"
 #include "RHI/RHI.h"
 
-#include <atomic>
-
 namespace Render
 {
 	namespace D3D12CallStats

@@ -18,12 +18,11 @@
 #include "D3D12/D3D12RuntimeStatsMonitor.h"
 #include "RHI/RHI.h"
 #include "RHI/RHIDefinitions.h"
-#include "pix.h"
 #include "core/logger.h"
 #include "win/high_precision_tick.h"
 #include "core/commandline.h"
-
 #include "DirectXTex/DXTexStats.h"
+#include <pix.h>
 
 namespace RenderCore
 {

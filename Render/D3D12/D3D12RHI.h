@@ -3,7 +3,6 @@
 #include "RHI/RHIShdader.h"
 #include "win/com_ptr.h"
 #include "d3dx12.h"
-#include <mutex>
 
 namespace RenderCore
 {

@@ -14,15 +14,9 @@
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Allocation.h"
 #include "RHI/RHI.h"
-
-#include "../../../ThirdParty/DirectXTex/DXTexStats.h"
-
+#include "DirectXTex/DXTexStats.h"
 #include "core/commandline.h"
 #include "core/logger.h"
-
-#include <windows.h>
-#include <dxgi1_4.h>
-#include <mutex>
 
 namespace RenderCore
 {

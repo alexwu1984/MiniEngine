@@ -1,18 +1,10 @@
 ﻿#include "D3D12/D3D12UploadWCDiagnostics.h"
-
+#include "win/win32.h"
 #include "RHI/RHI.h"
 #include "core/commandline.h"
 #include "core/logger.h"
-
-#include <windows.h>
 #include <DbgHelp.h>
-
-#include <mutex>
 #include <unordered_set>
-#include <unordered_map>
-#include <vector>
-#include <cwchar>
-#include <algorithm>
 
 namespace RenderCore
 {

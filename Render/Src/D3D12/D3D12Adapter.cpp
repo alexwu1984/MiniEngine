@@ -13,7 +13,6 @@
 #include "Imgui/imgui_impl_dx12.h"
 #include <d3d12sdklayers.h>
 #include <dxgidebug.h>
-#include <atomic>
 
 namespace RenderCore
 {

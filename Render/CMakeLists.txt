@@ -4,11 +4,11 @@ include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 #-------------------------------------------------------------------------------------------
 # Library definition
 #-------------------------------------------------------------------------------------------
-file(GLOB Header_RHI RHI/*.h)
-file(GLOB Header_D3D11 D3D11/*.h)
-file(GLOB Header_D3D12 D3D12/*.h)
-file(GLOB Header_RHIPrivate RHIPrivate/*.h)
-file(GLOB Header_Imgui Imgui/*.h)
+file(GLOB Header_RHI CONFIGURE_DEPENDS RHI/*.h)
+file(GLOB Header_D3D11 CONFIGURE_DEPENDS D3D11/*.h)
+file(GLOB Header_D3D12 CONFIGURE_DEPENDS D3D12/*.h)
+file(GLOB Header_RHIPrivate CONFIGURE_DEPENDS RHIPrivate/*.h)
+file(GLOB Header_Imgui CONFIGURE_DEPENDS Imgui/*.h)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty)
@@ -22,10 +22,10 @@ source_group("Header Files\\RHIPrivate" FILES ${Header_RHIPrivate} )
 source_group("Header Files\\Imgui" FILES ${Header_Imgui} )
 
 file(GLOB Src_RHI CONFIGURE_DEPENDS Src/RHI/*.cpp)
-file(GLOB Src_D3D11 Src/D3D11/*.cpp)
+file(GLOB Src_D3D11 CONFIGURE_DEPENDS Src/D3D11/*.cpp)
 file(GLOB Src_D3D12 CONFIGURE_DEPENDS Src/D3D12/*.cpp)
-file(GLOB Src_RHIPrivate Src/RHIPrivate/*.cpp)
-file(GLOB Src_Imgui Src/Imgui/*.cpp)
+file(GLOB Src_RHIPrivate CONFIGURE_DEPENDS Src/RHIPrivate/*.cpp)
+file(GLOB Src_Imgui CONFIGURE_DEPENDS Src/Imgui/*.cpp)
 
 source_group("Source Files\\Src\\RHI" FILES ${Src_RHI} )
 source_group("Source Files\\Src\\D3D11" FILES ${Src_D3D11} )

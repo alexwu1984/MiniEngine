@@ -81,9 +81,9 @@ namespace Engine
 		}
 
 		PBRMaterial->InitRenderResource();
-		// InitShader enqueues RHICreateVertexShader with a captured raw `this`; drain the render queue before the instance can be destroyed
-		// (e.g. BS blend-shape scene → quick switch to Model3) to avoid use-after-free poisoning subsequent draws.
-		FlushRenderingCommands(ERenderQueueFlushCategory::LoadOrResourceCreationSync);
+		// InitShader uses ENQUEUE_UNIQUE_RENDER_COMMAND on this worker; AppendCommand runs it inline — no queue drain needed.
+		// FlushRenderingCommands here used to PumpRecordingQueueUntilEmpty and could nest a second ExecuteFrame mid-pass,
+		// breaking ImGui (double NewFrame) and frame boundaries.
 
 		// Same render worker thread may have inserted this key via nested initialization / second GetOrCreate.
 		const auto FoundAgain = CachedRenders.find(Key);

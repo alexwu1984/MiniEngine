@@ -264,6 +264,10 @@ namespace Engine
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
 		}
 
+		// ImGuiEncode intentionally declares no RDG textures; pin ordering vs clears/present so scheduling stays deterministic.
+		Graph.AddPassDependency("ClearSceneTextures", "ImGuiEncode");
+		Graph.AddPassDependency("ImGuiEncode", "RHISubmitAndPresent");
+
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))

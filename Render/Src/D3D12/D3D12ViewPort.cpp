@@ -411,12 +411,11 @@ namespace RenderCore
 
 	void D3D12ViewPort::Prepare()
 	{
-		if (D3D12RHI_ShouldUseImGui())
-		{
-			ImGui_ImplDX12_NewFrame();
-			ImGui_ImplWin32_NewFrame();
-			ImGui::NewFrame();
-		}
+		if (!SwapChain4 || !D3D12RHI_ShouldUseImGui())
+			return;
+		ImGui_ImplDX12_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
 	}
 
 	std::shared_ptr<RHITexture2D> D3D12ViewPort::GetBackBuffer() const

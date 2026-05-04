@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
-project(MiniEngineTutorial)
+project(MiniEngine)
 
 
 add_compile_definitions(_UNICODE UNICODE)
@@ -27,6 +27,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin/minsizerel
 # Use solution folders to organize projects
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+# Recommend: configure from repo root — GenerateProjectFiles.bat, or:
+#   cmake -S . -B build -A x64
+# Optional generator (when CMake default is wrong): append e.g. -G "Visual Studio 17 2022"
+# VS builds are multi-config; Debug/Release is chosen at build time (--config).
+
 add_subdirectory(Core)
 add_subdirectory(ThirdParty)
 add_subdirectory(Render)
@@ -40,33 +45,29 @@ include_directories(${PROJECT_SOURCE_DIR}/Engine)
 
 set ( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS" )
 
-file(GLOB Headers "GLFFViewer/*.h")
-file(GLOB Sources "GLFFViewer/*.cpp")
+file(GLOB Headers CONFIGURE_DEPENDS "GLFFViewer/*.h")
+file(GLOB Sources CONFIGURE_DEPENDS "GLFFViewer/*.cpp")
 
 add_executable(GLFFViewer ${Sources} ${Headers})
 
 set(MINIENGINE_APP_ICON_RC "${CMAKE_CURRENT_SOURCE_DIR}/Resources/MiniEngine.rc")
 target_sources(GLFFViewer PRIVATE ${MINIENGINE_APP_ICON_RC})
 
-target_link_libraries(GLFFViewer LINK_PUBLIC Core DirectXTex Render Engine )
-
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-target_link_libraries(GLFFViewer LINK_PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avcodec.lib 
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avdevice.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avfilter.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avformat.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avutil.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/swresample.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/swscale.lib)
-else ()
-target_link_libraries(GLFFViewer LINK_PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avcodec.lib 
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avdevice.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avfilter.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avformat.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avutil.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/swresample.lib
-											  ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/swscale.lib)
-endif ()
+target_link_libraries(GLFFViewer LINK_PUBLIC Core DirectXTex Render Engine
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avcodec.lib>
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avdevice.lib>
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avfilter.lib>
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avformat.lib>
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/avutil.lib>
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/swresample.lib>
+	$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64d/swscale.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avcodec.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avdevice.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avfilter.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avformat.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/avutil.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/swresample.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/ffmpeg/lib/x64/swscale.lib>)
 
 set_target_properties(GLFFViewer PROPERTIES
 	PROJECT_LABEL "GLFFViewer")
@@ -103,8 +104,8 @@ endfunction()
 copy_runtime_assets(GLFFViewer)
 sync_shaderlib_dx_postbuild(GLFFViewer)
 
-file(GLOB SoftwareRender_Headers "SoftwareRender/*.h")
-file(GLOB SoftwareRender_Sources "SoftwareRender/*.cpp")
+file(GLOB SoftwareRender_Headers CONFIGURE_DEPENDS "SoftwareRender/*.h")
+file(GLOB SoftwareRender_Sources CONFIGURE_DEPENDS "SoftwareRender/*.cpp")
 
 add_executable(SoftwareRender ${SoftwareRender_Sources} ${SoftwareRender_Headers})
 
@@ -118,10 +119,10 @@ set_target_properties(SoftwareRender PROPERTIES
 copy_runtime_assets(SoftwareRender)
 sync_shaderlib_dx_postbuild(SoftwareRender)
 
-file(GLOB DemoRunner_Headers "DemoRunner/*.h")
-file(GLOB DemoRunner_Sources "DemoRunner/*.cpp")
-file(GLOB DemoRunner_DemoHeaders "DemoRunner/Demos/*.h")
-file(GLOB DemoRunner_DemoSources "DemoRunner/Demos/*.cpp")
+file(GLOB DemoRunner_Headers CONFIGURE_DEPENDS "DemoRunner/*.h")
+file(GLOB DemoRunner_Sources CONFIGURE_DEPENDS "DemoRunner/*.cpp")
+file(GLOB DemoRunner_DemoHeaders CONFIGURE_DEPENDS "DemoRunner/Demos/*.h")
+file(GLOB DemoRunner_DemoSources CONFIGURE_DEPENDS "DemoRunner/Demos/*.cpp")
 
 add_executable(DemoRunner ${DemoRunner_Sources} ${DemoRunner_Headers} ${DemoRunner_DemoSources} ${DemoRunner_DemoHeaders})
 

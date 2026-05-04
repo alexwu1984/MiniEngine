@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -10,17 +10,17 @@ include_directories(${PROJECT_SOURCE_DIR}/../Core)
 include_directories(${PROJECT_SOURCE_DIR}/../Render)
 include_directories(${PROJECT_SOURCE_DIR}/../ThirdParty/Assimp/include)
 
-file(GLOB App_Header App/*.h)
-file(GLOB Engine_Header Engine/*.h)
-file(GLOB Engine_Thread_Header Engine/Thread/*.h)
-file(GLOB Engine_Scene_Header Engine/Scene/*.h)
-file(GLOB Engine_GltfModel_Header Engine/GltfModel/*.h)
-file(GLOB Engine_AssimpModel_Header Engine/AssimpModel/*.h)
-file(GLOB Engine_Render_Header Engine/Render/*.h)
-file(GLOB Engine_Render_Header_Shadow Engine/Render/Shadow/*.h)
-file(GLOB Engine_Render_SceneRendering_Header Engine/Render/SceneRendering/*.h)
-file(GLOB Engine_Material_Header Engine/Material/*.h)
-file(GLOB Engine_Procedural_Header Engine/Procedural/*.h)
+file(GLOB App_Header CONFIGURE_DEPENDS App/*.h)
+file(GLOB Engine_Header CONFIGURE_DEPENDS Engine/*.h)
+file(GLOB Engine_Thread_Header CONFIGURE_DEPENDS Engine/Thread/*.h)
+file(GLOB Engine_Scene_Header CONFIGURE_DEPENDS Engine/Scene/*.h)
+file(GLOB Engine_GltfModel_Header CONFIGURE_DEPENDS Engine/GltfModel/*.h)
+file(GLOB Engine_AssimpModel_Header CONFIGURE_DEPENDS Engine/AssimpModel/*.h)
+file(GLOB Engine_Render_Header CONFIGURE_DEPENDS Engine/Render/*.h)
+file(GLOB Engine_Render_Header_Shadow CONFIGURE_DEPENDS Engine/Render/Shadow/*.h)
+file(GLOB Engine_Render_SceneRendering_Header CONFIGURE_DEPENDS Engine/Render/SceneRendering/*.h)
+file(GLOB Engine_Material_Header CONFIGURE_DEPENDS Engine/Material/*.h)
+file(GLOB Engine_Procedural_Header CONFIGURE_DEPENDS Engine/Procedural/*.h)
 
 source_group("Header Files\\App" FILES ${App_Header} )
 source_group("Header Files\\Engine" FILES ${Engine_Header} )
@@ -34,8 +34,8 @@ source_group("Header Files\\Engine\\Render\\SceneRendering" FILES ${Engine_Rende
 source_group("Header Files\\Engine\\Material" FILES ${Engine_Material_Header} )
 source_group("Header Files\\Engine\\Procedural" FILES ${Engine_Procedural_Header} )
 
-file(GLOB App_Source Src/App/*.cpp)
-file(GLOB Engine_Source Src/Engine/*.cpp)
+file(GLOB App_Source CONFIGURE_DEPENDS Src/App/*.cpp)
+file(GLOB Engine_Source CONFIGURE_DEPENDS Src/Engine/*.cpp)
 # Explicit sources: GLOB can miss new files until CMake reconfigure (LNK2019 on RHISubmissionThread).
 set(Engine_Thread_Source
 	Src/Engine/Thread/EngineThread.cpp
@@ -61,11 +61,11 @@ set(Engine_Scene_Source
 	Src/Engine/Scene/SkyLightComponent.cpp
 	Src/Engine/Scene/World.cpp
 )
-file(GLOB Engine_GltfModel_Source Src/Engine/GltfModel/*.cpp)
-file(GLOB Engine_AssimpModel_Source Src/Engine/AssimpModel/*.cpp)
-file(GLOB Engine_Render_Source Src/Engine/Render/*.cpp)
+file(GLOB Engine_GltfModel_Source CONFIGURE_DEPENDS Src/Engine/GltfModel/*.cpp)
+file(GLOB Engine_AssimpModel_Source CONFIGURE_DEPENDS Src/Engine/AssimpModel/*.cpp)
+file(GLOB Engine_Render_Source CONFIGURE_DEPENDS Src/Engine/Render/*.cpp)
 list(REMOVE_DUPLICATES Engine_Render_Source)
-file(GLOB Engine_Render_Shadow_Source Src/Engine/Render/Shadow/*.cpp)
+file(GLOB Engine_Render_Shadow_Source CONFIGURE_DEPENDS Src/Engine/Render/Shadow/*.cpp)
 # Explicit: GLOB can omit new files until reconfigure (LNK2019).
 set(Engine_Render_SceneRendering_Source
 	Src/Engine/Render/SceneRendering/DeferredLightingPass.cpp
@@ -81,8 +81,8 @@ set(Engine_Render_SceneRendering_Source
 	Src/Engine/Render/SceneRendering/SceneViewFamily.cpp
 	Src/Engine/Render/SceneRendering/TranslucentMeshSorter.cpp
 )
-file(GLOB Engine_Material_Source Src/Engine/Material/*.cpp)
-file(GLOB Engine_Procedural_Source Src/Engine/Procedural/*.cpp)
+file(GLOB Engine_Material_Source CONFIGURE_DEPENDS Src/Engine/Material/*.cpp)
+file(GLOB Engine_Procedural_Source CONFIGURE_DEPENDS Src/Engine/Procedural/*.cpp)
 
 source_group("Source Files\\Src\\App" FILES ${App_Source} )
 source_group("Source Files\\Src\\Engine" FILES ${Engine_Source} )

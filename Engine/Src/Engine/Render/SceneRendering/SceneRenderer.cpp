@@ -237,21 +237,13 @@ namespace Engine
 		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->TargetBuffer, d->MainViewPort, ViewConst);
 
 		Graph.AddPass(FRDGPassDescriptor{
-			"ImGuiEncode",
+			"UIPresent",
 			{},
 			{},
 			[d, Self]()
 			{
 				Self->sigGuiEvent();
 				d->MainViewPort->RHIImGuiRenderDrawData();
-			}});
-
-		Graph.AddPass(FRDGPassDescriptor{
-			"RHISubmitAndPresent",
-			{},
-			{},
-			[d]()
-			{
 				d->MainViewPort->RHISubmitAndPresentFrame();
 			}});
 
@@ -264,9 +256,8 @@ namespace Engine
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
 		}
 
-		// ImGuiEncode intentionally declares no RDG textures; pin ordering vs clears/present so scheduling stays deterministic.
-		Graph.AddPassDependency("ClearSceneTextures", "ImGuiEncode");
-		Graph.AddPassDependency("ImGuiEncode", "RHISubmitAndPresent");
+		// After TonemappingPass::BuildDesc ("Tonemapping"): composite ImGui then submit/present.
+		Graph.AddPassDependency("Tonemapping", "UIPresent");
 
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();

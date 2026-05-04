@@ -31,6 +31,8 @@ namespace Engine
 
 	private:
 		void Run();
+		/** Recording worker only: run CommandQueue commands stolen mid-batch so Flush drains cross-thread work without waiting on DrainWait (avoids deadlock with nested ENQUEUE wait=true). */
+		void PumpRecordingQueueUntilEmpty();
 
 	private:
 		RenderThreadPrivate* d_ptr = nullptr;
@@ -39,7 +41,7 @@ namespace Engine
 	extern RenderThread* GRenderThread;
 
 	/**
-	 * Drains the FIFO on the recording worker (RenderThread) through a batch boundary — not RHI GPU idle.
+	 * Drains the FIFO on the recording worker until the queue is empty and the worker is idle (may span multiple swap batches) — not RHI GPU idle.
 	 * Prefer the ERenderQueueFlushCategory overload for new code; see RenderQueueSynchronization.h.
 	 */
 	void FlushRenderingCommands();

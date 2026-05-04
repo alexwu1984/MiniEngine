@@ -11,6 +11,31 @@ namespace Engine
 {
 	namespace
 	{
+		static void InvokeRenderQueueLambda(RenderCore::DynamicRHI* OwnerRHI,
+											std::function<void(RenderCore::DynamicRHI*)>& Cmd,
+											const wchar_t* ContextTag)
+		{
+			if (!Cmd)
+				return;
+			try
+			{
+				if (!OwnerRHI || !RenderCore::RHI_HasFatalDeviceLossForShell())
+					Cmd(OwnerRHI);
+			}
+			catch (const _com_error& e)
+			{
+				LogComErrorToEngineLog(ContextTag, e);
+			}
+			catch (const std::exception& e)
+			{
+				LogStdExceptionToEngineLog(ContextTag, e);
+			}
+			catch (...)
+			{
+				LogUnknownExceptionToEngineLog(ContextTag);
+			}
+		}
+
 #if defined(MINIENGINE_RENDER_QUEUE_FLUSH_AUDIT)
 		void AuditRenderQueueFlush(ERenderQueueFlushCategory Category)
 		{
@@ -144,6 +169,29 @@ namespace Engine
 		}
 	}
 
+	void RenderThread::PumpRecordingQueueUntilEmpty()
+	{
+		C_P(RenderThread);
+		Assert(std::this_thread::get_id() == d->RecordingThreadId);
+		static constexpr wchar_t kCtx[] = L"RenderThread::PumpRecordingQueueUntilEmpty";
+		for (;;)
+		{
+			std::queue<std::function<void(RenderCore::DynamicRHI*)>> slice;
+			{
+				std::unique_lock<std::mutex> lock(d->QueueMutex);
+				if (d->CommandQueue.empty())
+					return;
+				d->CommandQueue.swap(slice);
+			}
+			while (!slice.empty())
+			{
+				auto& cmd = slice.front();
+				InvokeRenderQueueLambda(d->OwnerRHI, cmd, kCtx);
+				slice.pop();
+			}
+		}
+	}
+
 	void RenderThread::WaitForFinish()
 	{
 		C_P(RenderThread);
@@ -151,20 +199,24 @@ namespace Engine
 		// (e.g. FWorldSceneRender dtor runs after Engine::ShutDown already stopped the render thread).
 		if (!d->WorkerThread.joinable())
 			return;
-		// Nested ENQUEUE(..., wait=true) executes lambdas inline on the worker; waiting here would block
-		// forever because this batch's DrainWait.set() runs only after the outer cmd returns.
+		// On the recording worker: never wait on DrainWait — it only signals after the outer batch ends.
+		// Drain cross-thread CommandQueue items immediately so Flush actually synchronizes nested/recording-thread callers.
 		if (std::this_thread::get_id() == d->RecordingThreadId)
-			return;
-		// DrainWait is auto-reset: the first WaitForFinish() consumes the signal while the worker is idle
-		// on QueueWakeup (no further DrainWait.set() until another batch runs). A second WaitForFinish()
-		// on the same idle state — e.g. ReloadSceneJson then SceneMeshComponent::~SceneMeshComponent —
-		// would hang forever without this fast-path.
 		{
-			std::unique_lock<std::mutex> lock(d->QueueMutex);
-			if (!d->bExecutingBatch.load(std::memory_order_acquire) && d->CommandQueue.empty())
-				return;
+			PumpRecordingQueueUntilEmpty();
+			return;
 		}
-		d->DrainWait.wait();
+		// Loop: one DrainWait pulse completes one swap-batch; the worker may immediately start another batch
+		// (same Flush must not return until queue is drained and worker is idle — Release timing exposed this gap).
+		for (;;)
+		{
+			{
+				std::unique_lock<std::mutex> lock(d->QueueMutex);
+				if (!d->bExecutingBatch.load(std::memory_order_acquire) && d->CommandQueue.empty())
+					return;
+			}
+			d->DrainWait.wait();
+		}
 	}
 
 	std::thread::id RenderThread::GetWorkerThreadId() const
@@ -213,29 +265,11 @@ namespace Engine
 				break;
 			}
 
+			static constexpr wchar_t kRunBatchCtx[] = L"RenderThread::Run(worker_batch)";
 			while (!swapQueue.empty())
 			{
 				auto& cmd = swapQueue.front();
-				if (cmd)
-				{
-					try
-					{
-						if (!d->OwnerRHI || !RenderCore::RHI_HasFatalDeviceLossForShell())
-							cmd(d->OwnerRHI);
-					}
-					catch (const _com_error& e)
-					{
-						LogComErrorToEngineLog(L"RenderThread::Run(worker_batch)", e);
-					}
-					catch (const std::exception& e)
-					{
-						LogStdExceptionToEngineLog(L"RenderThread::Run(worker_batch)", e);
-					}
-					catch (...)
-					{
-						LogUnknownExceptionToEngineLog(L"RenderThread::Run(worker_batch)");
-					}
-				}
+				InvokeRenderQueueLambda(d->OwnerRHI, cmd, kRunBatchCtx);
 				swapQueue.pop();
 			}
 

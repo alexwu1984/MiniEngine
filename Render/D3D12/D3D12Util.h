@@ -3,18 +3,11 @@
  * D3D12 RHI utilities: sync point, resource state, barriers, thread-safe queue,
  * heap helpers, shader quantize types, resource desc helpers, queue mapping.
  */
+#include "D3D12/D3D12FormatUtil.h"
 #include "D3D12/D3D12Limits.h"
 #include "D3D12/D3D12RHICommon.h"
 #include "RHIPrivate/ShaderCore.h"
-#include "RHI/RHIDefinitions.h"
-#include <d3d12.h>
-#include <intrin.h>
-#include <cassert>
-#include <cstring>
-#include <cstdint>
-#include <deque>
-#include <mutex>
-#include <vector>
+
 
 namespace RenderCore
 {
@@ -31,8 +24,8 @@ namespace RenderCore
 		void WaitForCompletion() const;
 
 	private:
-		FD3D12Fence* Fence;
-		uint64_t Value;
+		FD3D12Fence* Fence{nullptr};
+		uint64_t Value{ 0 };
 	};
 
 	typedef uint16_t CBVSlotMask;
@@ -307,8 +300,6 @@ namespace RenderCore
 		assert(HeapType == D3D12_HEAP_TYPE_READBACK);
 		return D3D12_RESOURCE_STATE_COPY_DEST;
 	}
-
-#include "D3D12/D3D12FormatUtil.h"
 
 	inline D3D12_RESOURCE_FLAGS CombineResourceFlags(int32_t TexFlags)
 	{

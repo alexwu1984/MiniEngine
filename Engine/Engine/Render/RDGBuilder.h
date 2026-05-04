@@ -1,12 +1,5 @@
 ﻿#pragma once
-#include "core/inc.h"
 #include "RHI/RDGResourceAccess.h"
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace RenderCore
 {

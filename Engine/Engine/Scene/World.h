@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "core/inc.h"
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowMap.h"

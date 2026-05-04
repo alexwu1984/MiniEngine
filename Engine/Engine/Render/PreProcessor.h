@@ -1,8 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
-#include <optional>
-#include <string>
 
 namespace RenderCore
 {

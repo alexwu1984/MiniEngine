@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include "core/inc.h"
-#include <string>
 #include "Render/Bloom.h"
 #include "Render/PostProcessFullscreenShaders.h"
 #include "Render/PostProcessGraph.h"

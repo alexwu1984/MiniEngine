@@ -1,8 +1,6 @@
 ﻿#pragma once
-#include "core/inc.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHITexture2D.h"
-#include <memory>
 
 namespace Engine
 {

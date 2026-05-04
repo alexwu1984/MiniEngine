@@ -1,8 +1,7 @@
 ﻿#pragma once
-#include "core/inc.h"
+#include "RHI/DynamicRHI.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/CubeRender.h"
-#include "RHI/DynamicRHI.h"
 #include "RHI/RHITextureCube.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIShdader.h"

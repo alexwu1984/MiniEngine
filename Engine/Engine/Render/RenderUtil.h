@@ -1,4 +1,5 @@
-﻿#include "core/inc.h"
+﻿#pragma once
+#include "core/inc.h"
 
 namespace RenderCore
 {

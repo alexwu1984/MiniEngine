@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "core/inc.h"
 #include "RHI/RHIShaderDefine.h"
 #include "math/vector2.h"
 

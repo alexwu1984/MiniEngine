@@ -1,7 +1,5 @@
 ﻿#pragma once
-#include <memory>
-#include <mutex>
-#include <vector>
+#include "core/inc.h"
 
 namespace Engine
 {

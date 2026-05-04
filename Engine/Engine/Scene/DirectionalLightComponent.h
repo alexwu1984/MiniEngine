@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "Scene/Component.h"
 #include "Render/MaterialPreFrame.h"
-#include <cstdint>
 
 namespace Engine
 {

@@ -1,12 +1,13 @@
 ﻿#pragma once
 /**
  * DXGI / pixel-format helpers (texture creation and views).
- * Requires: DXGI types, RHIDefinitions (TexCreate_*, GPixelFormats, EPixelFormat).
+ * All symbols are in namespace RenderCore (TexCreate_*, GPixelFormats, EPixelFormat come from RHIDefinitions).
  */
 #include "RHI/RHIDefinitions.h"
 #include <d3d12.h>
 
-/* Included from D3D12Util.h inside namespace RenderCore. */
+namespace RenderCore
+{
 
 	inline DXGI_FORMAT FindShaderResourceDXGIFormat(DXGI_FORMAT InFormat, bool bSRGB)
 	{
@@ -171,3 +172,4 @@
 		}
 	}
 
+}

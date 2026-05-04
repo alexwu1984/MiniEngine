@@ -2,8 +2,6 @@
 #include "templates/EnumAsByte.h"
 #include "RHI/RHIDefinitions.h"
 #include "math/math.h"
-#include <atomic>
-#include <cstdint>
 
 namespace RenderCore
 {

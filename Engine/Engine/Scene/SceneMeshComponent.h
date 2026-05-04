@@ -3,7 +3,6 @@
 #include "math/frustum.h"
 #include "math/vector3.h"
 #include "Render/MaterialRender.h"
-#include <vector>
 
 namespace Engine
 {

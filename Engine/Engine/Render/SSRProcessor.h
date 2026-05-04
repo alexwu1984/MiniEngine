@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "core/inc.h"
-#include <memory>
 
 namespace RenderCore
 {

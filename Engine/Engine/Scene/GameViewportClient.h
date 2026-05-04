@@ -1,9 +1,5 @@
 ﻿#pragma once
 #include "Scene/DeviceInputState.h"
-#include "core/inc.h"
-#include <memory>
-#include <mutex>
-#include <queue>
 
 namespace Engine
 {

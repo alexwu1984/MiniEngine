@@ -1,10 +1,6 @@
 ﻿#pragma once
-#include "core/inc.h"
-#include "tinygltf/json.h"
 #include "RHI/RHIDefinitions.h"
-#include <map>
-#include <memory>
-#include <vector>
+#include "tinygltf/json.h"
 
 namespace RenderCore
 {

@@ -2,8 +2,6 @@
 #include "core/color.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
-#include <atomic>
-#include <mutex>
 
 namespace RenderCore
 {

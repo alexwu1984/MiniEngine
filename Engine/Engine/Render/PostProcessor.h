@@ -1,7 +1,6 @@
 ﻿#pragma once
-#include "core/inc.h"
-#include "tinygltf/json.h"
 #include "Render/RDGBuilder.h"
+#include "tinygltf/json.h"
 
 namespace RenderCore
 {

@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include <cstdint>
-#include <memory>
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIUniformBuffer.h"

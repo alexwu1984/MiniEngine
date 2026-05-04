@@ -1,7 +1,5 @@
 ﻿#pragma once
 #include "Scene/Component.h"
-#include <cstdint>
-#include <string>
 
 namespace Engine
 {

@@ -1,6 +1,5 @@
 ﻿#pragma once
-#include <memory>
-#include <string>
+#include "core/inc.h"
 
 namespace Engine
 {

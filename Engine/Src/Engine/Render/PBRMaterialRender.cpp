@@ -13,7 +13,6 @@
 #include "Engine/Render/WorldSceneRender.h"
 #include "Render/SceneTextures.h"
 #include "RHI/RHITextureCube.h"
-#include <algorithm>
 
 namespace Engine
 {

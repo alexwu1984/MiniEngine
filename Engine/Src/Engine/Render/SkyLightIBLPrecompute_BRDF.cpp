@@ -2,8 +2,6 @@
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "RHI/RHIDefinitions.h"
 #include "math/math.h"
-#include <algorithm>
-#include <vector>
 
 namespace Engine
 {

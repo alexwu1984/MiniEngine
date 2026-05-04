@@ -55,7 +55,7 @@ namespace Engine
 		}
 
 		/** UE Renderer-side: recycle scene-target surfaces at WxH + drop temporal history in post (TAA/SSR/Bloom, etc.). Invoked from render-thread lambdas only. */
-		static void RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(FWorldSceneRenderPrivate* d, uint32_t W, uint32_t H)
+		static void RecycleRenderTargetAndPostResource(FWorldSceneRenderPrivate* d, uint32_t W, uint32_t H)
 		{
 			if (!d || W == 0 || H == 0)
 				return;
@@ -73,7 +73,7 @@ namespace Engine
 			if (!Resources || !Resources->MainViewPort || W == 0 || H == 0)
 				return;
 			Resources->MainViewPort->Resize(W, H, bFullscreen);
-			RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(Resources, W, H);
+			RecycleRenderTargetAndPostResource(Resources, W, H);
 		}
 	} // namespace
 
@@ -159,16 +159,14 @@ namespace Engine
 		{
 		}
 		auto SelfPin = shared_from_this();
-		FWorldSceneRenderPrivate* const Resources = d;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[SelfPin = std::move(SelfPin), Resources, Root](RenderCore::DynamicRHI* RHI)
+			[SelfPin = std::move(SelfPin), d, Root](RenderCore::DynamicRHI* RHI)
 			{
 				(void)SelfPin;
-				FWorldSceneRenderPrivate* dLife = Resources;
-				if (dLife->PreProcess)
-					dLife->PreProcess->LoadConfig(Root);
-				if (dLife->PostProcess)
-					dLife->PostProcess->LoadConfig(Root);
+				if (d->PreProcess)
+					d->PreProcess->LoadConfig(Root);
+				if (d->PostProcess)
+					d->PostProcess->LoadConfig(Root);
 			});
 	}
 
@@ -255,9 +253,10 @@ namespace Engine
 
 	void FWorldSceneRender::FlushClearShadowPassMeshCacheNow()
 	{
+		auto SelfPin = shared_from_this();
 		FWorldSceneRenderPrivate* Resources = d_ptr.get();
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[Resources](RenderCore::DynamicRHI* RHI)
+			[Resources, SelfPin = std::move(SelfPin)](RenderCore::DynamicRHI* RHI)
 			{
 				(void)RHI;
 				if (!Resources || !Resources->ShadowRender)
@@ -282,18 +281,17 @@ namespace Engine
 			Sz = dLife->MainViewPort->GetSize();
 
 		auto SelfPin = shared_from_this();
-		FWorldSceneRenderPrivate* Resources = dLife;
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			[SelfPin = std::move(SelfPin), Resources, Sz](RenderCore::DynamicRHI* RHI)
+			[SelfPin = std::move(SelfPin), dLife, Sz](RenderCore::DynamicRHI* RHI)
 			{
 				(void)SelfPin;
 				(void)RHI;
-				if (Resources->ShadowRender)
+				if (dLife->ShadowRender)
 				{
-					Resources->ShadowRender->InvalidateCachedMainLightForShading();
-					Resources->ShadowRender->ClearCachedMeshShadowPasses();
+					dLife->ShadowRender->InvalidateCachedMainLightForShading();
+					dLife->ShadowRender->ClearCachedMeshShadowPasses();
 				}
-				RecycleViewportSceneTexturesAndInvalidateTemporalPostProcess(Resources, Sz.w, Sz.h);
+				RecycleRenderTargetAndPostResource(dLife, Sz.w, Sz.h);
 			},
 			false);
 		FlushRenderingCommands(ERenderQueueFlushCategory::InvalidateRenderCaches);

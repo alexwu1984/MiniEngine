@@ -6,8 +6,6 @@
 #include "GltfModel/GltfSkeleton.h"
 #include "math/matrix4x4.h"
 #include "tinygltf/tiny_gltf.h"
-#include <algorithm>
-#include <vector>
 
 namespace Engine
 {

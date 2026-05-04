@@ -83,7 +83,7 @@ namespace Engine
 	{
 		C_P(MainEngine);
 		const bool bWantRHIWorker =
-			(d->InitApiType == RenderCore::RHIAPIType::E_D3D12) && !core::CommandLine::Get().GetName("norhithread");
+			(d->InitApiType == RenderCore::RHIAPIType::E_D3D12) && !core::CommandLine::Get().GetSwitch("norhithread");
 		if (bWantRHIWorker)
 		{
 			d->RHISubmitThread = std::make_unique<RHISubmissionThread>();

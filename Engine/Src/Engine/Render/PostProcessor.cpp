@@ -175,8 +175,6 @@ namespace Engine
 		d->ApplySSR = std::make_shared<ApplySSRPass>(d->RHI, FullscreenVertexShader);
 		d->ApplySSR->InitResource();
 
-		d->TAA.reset();
-		d->FXaa.reset();
 		switch (d->AAType)
 		{
 		case EPostProcessorAAType::TAA:

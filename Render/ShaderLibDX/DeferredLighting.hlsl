@@ -1,4 +1,4 @@
-﻿// Fullscreen deferred lighting: reads scene textures from base pass, applies analytic lights + split-sum IBL.
+// Fullscreen deferred lighting: reads scene textures from base pass, applies analytic lights + split-sum IBL.
 #include "ShaderUtils.hlsl"
 #include "PerFrameStruct.hlsl"
 #include "DeferredShadingCommon.hlsl"

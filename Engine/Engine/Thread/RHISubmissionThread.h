@@ -1,10 +1,5 @@
 ﻿#pragma once
-#include <atomic>
-#include <condition_variable>
-#include <deque>
-#include <functional>
-#include <mutex>
-#include <thread>
+#include "core/inc.h"
 
 namespace Engine
 {

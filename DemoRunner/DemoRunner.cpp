@@ -11,7 +11,6 @@
 #include "Imgui/imgui.h"
 
 #include <shellapi.h>
-#include <combaseapi.h>
 
 #include "core/strings.h"
 
@@ -36,11 +35,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 {
 	int argc = 0;
 	LPWSTR* argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+	core::scoped_com_mta_init com_mta;
 
 	const std::wstring logPath = core::process_directory().wstring() + L"/Engine.log";
 	core::global_logger::start(core::ucs2_u8(logPath), core::log_inf);
 
-	::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 	core::CommandLine::Get().SetCommandLine(argc, argv);
 
 	int32_t width = 1920;
@@ -53,7 +52,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	if (!RHI)
 	{
 		core::logger::err() << "DemoRunner: failed to create DynamicRHI (D3D12)";
-		::CoUninitialize();
 		core::global_logger::stop();
 		return 1;
 	}
@@ -62,7 +60,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	if (!window->CreateAppWindow(width, height))
 	{
 		core::logger::err() << "DemoRunner: failed to create window";
-		::CoUninitialize();
 		core::global_logger::stop();
 		return 1;
 	}
@@ -76,7 +73,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	{
 		core::logger::err() << "DemoRunner: failed to create viewport";
 		RHI->Shutdown();
-		::CoUninitialize();
 		core::global_logger::stop();
 		return 1;
 	}
@@ -187,7 +183,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	RHI.reset();
 	RenderCore::ReleasePlatformModule();
 
-	::CoUninitialize();
 	core::global_logger::stop();
 	return exitCode;
 }

@@ -18,7 +18,8 @@ option(BUILD_DX12 "Build with DirectX12 Runtime support" ON)
 # Enable the use of OpenMP for software BC6H/BC7 compression
 option(BC_USE_OPENMP "Build with OpenMP support" ON)
 
-set(CMAKE_CXX_STANDARD 14)
+# Match MiniEngine (/std:c++20); DirectXTexWIC uses <filesystem> (needs C++17+).
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

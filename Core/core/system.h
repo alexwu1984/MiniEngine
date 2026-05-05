@@ -37,4 +37,19 @@ namespace core
     bool  create_process(const std::wstring& cmdLine);
     bool ceate_dump(const wchar_t* name_prefix, struct _EXCEPTION_POINTERS* ExceptionInfo);
     void outputDebugString(const wchar_t* pcString, ...);
+
+    /**
+     * RAII for CoInitializeEx(nullptr, COINIT_MULTITHREADED) on the current thread.
+     * Same role as UE4 Windows startup: initialize COM once at process entry before WIC / etc.
+     */
+    struct scoped_com_mta_init
+    {
+        scoped_com_mta_init() noexcept;
+        ~scoped_com_mta_init();
+        scoped_com_mta_init(const scoped_com_mta_init&) = delete;
+        scoped_com_mta_init& operator=(const scoped_com_mta_init&) = delete;
+
+    private:
+        bool com_needs_uninit_;
+    };
 }

@@ -24,7 +24,7 @@ float sdRectangle(float2 p, float2 halfSize)
     float2 d = abs(p) - halfSize;
     float outsideDist = length(max(d, 0.0f));
     float insideDist = min(max(d.x, d.y), 0.0f);
-    // ´ø·ûºÅ¾àÀë£ºÍâ²¿ÎªÕý£¬ÄÚ²¿Îª¸º£¬±ß½çÎª0
+    // å¸¦ç¬¦å·è·ç¦»ï¼šå¤–éƒ¨ä¸ºæ­£ï¼Œå†…éƒ¨ä¸ºè´Ÿï¼Œè¾¹ç•Œä¸º0
     return outsideDist + insideDist;
 }
 
@@ -33,13 +33,13 @@ float f(float x)
     return 1.0f - u_b * pow(u_c * exp(1.0f), -u_d * x - u_a);
 }
 
-// ¸¨Öúº¯Êý£ºËæ»úÔëÉù
+// è¾…åŠ©å‡½æ•°ï¼šéšæœºå™ªå£°
 float rand(float2 co)
 {
     return frac(sin(dot(co, float2(12.9898f, 78.233f))) * 43758.5453f);
 }
 
-// ¸¨Öúº¯Êý£º·¢¹âÐ§¹û
+// è¾…åŠ©å‡½æ•°ï¼šå‘å…‰æ•ˆæžœ
 float Glow(float2 texCoord)
 {
     return sin(atan2(texCoord.y * 2.0f - 1.0f, texCoord.x * 2.0f - 1.0f) - 0.5f);
@@ -48,16 +48,16 @@ float Glow(float2 texCoord)
 float4 PS_LiquidGlass(in VertexOutput Input) : SV_Target0
 {
     float2 center = float2(0.5f, 0.5f);
-    float2 p = (Input.Tex- center) * 2.0f; // ¹éÒ»»¯µ½[-1,1]
+    float2 p = (Input.Tex- center) * 2.0f; // å½’ä¸€åŒ–åˆ°[-1,1]
     
-    // ¼ÆËã¾ØÐÎ¾àÀë£¨Ê¹ÓÃ³£Á¿»º³åÇøµÄrectHalfSize£©
+    // è®¡ç®—çŸ©å½¢è·ç¦»ï¼ˆä½¿ç”¨å¸¸é‡ç¼“å†²åŒºçš„rectHalfSizeï¼‰
     float d = sdRectangle(p, rectHalfSize);
     
-    // ²Ã¼ô¾ØÐÎÍâ²¿ÏñËØ
+    // è£å‰ªçŸ©å½¢å¤–éƒ¨åƒç´ 
     if (d > 0.0f)
         discard;
     
-    // ¾àÀëÓ³Éä£¨ÓëÔ­Âß¼­Ò»ÖÂ£©
+    // è·ç¦»æ˜ å°„ï¼ˆä¸ŽåŽŸé€»è¾‘ä¸€è‡´ï¼‰
     float dist = -d;
     float2 sampleP = p * pow(f(dist), u_fPower);
     
@@ -66,17 +66,17 @@ float4 PS_LiquidGlass(in VertexOutput Input) : SV_Target0
     
    // float2 coord = (Input.Tex + sampleP*0.1) * 0.5f + float2(0.5f, 0.5f);
     
-    // ±ß½ç¼ì²é£¨³¬³ö·¶Î§·µ»ØÆ·ºì£©
+    // è¾¹ç•Œæ£€æŸ¥ï¼ˆè¶…å‡ºèŒƒå›´è¿”å›žå“çº¢ï¼‰
     if (max(coord.x, coord.y) > 1.0 || min(coord.x, coord.y) < 0.0)
         return float4(1.0, 0.0, 1.0, 1.0);
     
-    // ÔëÉù¼ÆËã
+    // å™ªå£°è®¡ç®—
     float noise = rand(Input.Pos.xy * 1e-3f) - 0.5f;
     
-    // ÎÆÀí²ÉÑù£¨HLSLÐèÏÔÊ½Ö¸¶¨²ÉÑùÆ÷£©
+    // çº¹ç†é‡‡æ ·ï¼ˆHLSLéœ€æ˜¾å¼æŒ‡å®šé‡‡æ ·å™¨ï¼‰
     float4 color = SceneColorTexture.Sample(LinearSampler, coord) + float4(noise * u_noise, noise * u_noise, noise * u_noise, 0.0f);
     
-    // ·¢¹âÐ§¹û¼ÆËã
+    // å‘å…‰æ•ˆæžœè®¡ç®—
     float mul = Glow(Input.Tex) * u_glowWeight * smoothstep(u_glowEdge0, u_glowEdge1, dist) + 1.0f + u_glowBias;
     
     return color * float4(mul, mul, mul, 1.0f);

@@ -1,16 +1,16 @@
 ﻿#include "win/win32.h"
 #include "math/vector2.h"
 #include "core/commandline.h"
+#include "core/system.h"
 #include "GltfViewerApp.h"
 #include "Engine/ComErrorLog.h"
 #include <shellapi.h>
-#include <combaseapi.h>
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
 	int argc = 0;
 	LPWSTR* argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
-	HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	core::scoped_com_mta_init com_mta;
 	int ret = 0;
 	try
 	{
@@ -33,6 +33,5 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		Engine::LogUnknownExceptionToEngineLog(L"wWinMain");
 		ret = 1;
 	}
-	::CoUninitialize();
 	return ret;
 }

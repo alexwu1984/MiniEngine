@@ -269,17 +269,6 @@ REFGUID DirectX::GetWICCodec(WICCodecs codec) noexcept
 //-------------------------------------------------------------------------------------
 IWICImagingFactory* DirectX::GetWICFactory(bool& iswic2) noexcept
 {
-    // MiniEngine: WIC bitmap decode runs on the calling thread; CoCreateInstance / codecs expect COM inited
-    // on that thread. The process-wide factory pointer does not substitute for per-thread apartment setup.
-    {
-        static thread_local bool s_comReadyOnThisThread = false;
-        if (!s_comReadyOnThisThread)
-        {
-            s_comReadyOnThisThread = true;
-            (void)::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-        }
-    }
-
     if (g_Factory)
     {
         iswic2 = g_WIC2;

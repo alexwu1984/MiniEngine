@@ -42,7 +42,7 @@ float2 Rotate(float2 v, float a)
 {
     float  sinval, cosval;
     sincos(a, sinval, cosval);
-    //¹¹½¨Ðý×ª¾ØÕó
+    //æž„å»ºæ—‹è½¬çŸ©é˜µ
     float2x2 mat = float2x2(cosval, -sinval, sinval, cosval);
     return mul(v,mat);
 }

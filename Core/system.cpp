@@ -4,6 +4,7 @@
 #include <shlobj.h>
 #include <psapi.h>
 #include <DbgHelp.h>
+#include <objbase.h>
 
 #pragma comment(lib,"DbgHelp.lib")
 
@@ -283,6 +284,20 @@ namespace core
 		pArgs = (char*)&pcString + sizeof(pcString);
 		_vstprintf_s(s_sLogBuffer, LOG_BUFFER_SIZE, pcString, pArgs);
 		OutputDebugString(s_sLogBuffer);
+	}
+
+	scoped_com_mta_init::scoped_com_mta_init() noexcept
+		: com_needs_uninit_(false)
+	{
+		const HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+		if (hr == S_OK || hr == S_FALSE)
+			com_needs_uninit_ = true;
+	}
+
+	scoped_com_mta_init::~scoped_com_mta_init()
+	{
+		if (com_needs_uninit_)
+			::CoUninitialize();
 	}
 
 }

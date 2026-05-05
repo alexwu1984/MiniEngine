@@ -11,6 +11,7 @@ namespace Engine
 {
 	class FMeshMaterialRenderCache;
 	struct GltfSceneMeshInfo;
+	class DeferredLightingPass;
 
 	/** Records opaque and translucent mesh draws into the deferred scene texture targets. */
 	class FDeferredShadingBasePassRenderer
@@ -22,5 +23,9 @@ namespace Engine
 											  FMeshMaterialRenderCache& MaterialCache);
 		static void RenderDeferredBasePassFullSequence(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const FDeferredBasePassDrawContext& DrawContext,
 													   FMeshMaterialRenderCache& MaterialCache);
+
+		/** Forward fur shells onto lit SceneColor (after deferred lighting). */
+		static void RenderFurForwardAfterDeferredLighting(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const FDeferredBasePassDrawContext& DrawContext,
+														  FMeshMaterialRenderCache& MaterialCache, DeferredLightingPass* DeferredLighting);
 	};
 }

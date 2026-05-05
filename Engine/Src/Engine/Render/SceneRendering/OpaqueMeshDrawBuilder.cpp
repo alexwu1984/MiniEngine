@@ -158,6 +158,12 @@ namespace Engine
 					continue;
 				}
 
+				if (furMat && !bIsPrePass)
+				{
+					++i;
+					continue;
+				}
+
 				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, Mat, bIsPrePass, DrawContext);
 				++i;
 			}

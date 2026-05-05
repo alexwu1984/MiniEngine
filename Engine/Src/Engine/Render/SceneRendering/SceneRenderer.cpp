@@ -232,6 +232,23 @@ namespace Engine
 				RDG_Raster,
 				ERDGPassQueue::Graphics,
 				true});
+			Graph.AddPass(FRDGPassDescriptor{
+				"RenderFurForward",
+				SceneTexturesIO,
+				SceneTexturesIO,
+				[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame, TB]()
+				{
+					FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
+					if (!MeshesForDraw->empty() && MeshCache && d->DeferredLighting)
+					{
+						FDeferredBasePassDrawContext DrawContext;
+						DrawContext.ViewData = ViewConst;
+						DrawContext.TargetBuffer = d->TargetBuffer;
+						DrawContext.WorldSceneRender = Self;
+						DrawContext.RHICmdList = CommandContext.get();
+						FDeferredShadingBasePassRenderer::RenderFurForwardAfterDeferredLighting(RHI, *MeshesForDraw, DrawContext, *MeshCache, d->DeferredLighting.get());
+					}
+				}});
 		}
 
 		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->TargetBuffer, d->MainViewPort, ViewConst);
@@ -257,6 +274,12 @@ namespace Engine
 			Graph.AddPassDependency("Shadow", "RenderTranslucency");
 			if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
+		}
+
+		if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+		{
+			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderFurForward");
+			Graph.AddPassDependency("RenderFurForward", "Tonemapping");
 		}
 
 		// After TonemappingPass::BuildDesc ("Tonemapping"): composite ImGui then submit/present.

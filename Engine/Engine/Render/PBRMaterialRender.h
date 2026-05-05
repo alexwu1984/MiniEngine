@@ -21,11 +21,20 @@ namespace Engine
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) final;
 		virtual void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 	protected:
+		/** D3D12: ps_5_1 Texture2D[] for first material SRVs (PBR: t0–t4; FurMaterial: t0–t1 albedo+noise). */
+		virtual bool WantsRHIBindless() const { return true; }
+		void StoreRenderParam(const MaterialRenderParam& RenderParam);
+		void BindDrawUniformBuffers(RenderCore::RHICommandContext& RHIContext);
+
 		void DrawPrimitive(RenderCore::RHICommandContext& RHIContext);
 		virtual void DrawMesh(RenderCore::RHICommandContext& RHIContext);
 		virtual void PreDrawMesh(RenderCore::RHICommandContext& RHIContext);
 		virtual bool IsNeedPreDraw() const;
 		const MaterialRenderParam& GetRenderParam() const;
+		std::shared_ptr<GltfMeshBuffer> GetPBRMeshBuffer() const;
+		std::shared_ptr<RenderCore::RHIVertexShader> GetPBRVertexShader() const;
+		std::shared_ptr<RenderCore::RHIPixelShader> GetPBRPixelShader() const;
+		std::shared_ptr<MaterialBase> GetPBRMeshMaterial() const;
 	protected:
 		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
 

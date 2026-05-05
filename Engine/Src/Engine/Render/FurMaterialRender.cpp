@@ -1,33 +1,41 @@
 ﻿#include "Engine/Render/FurMaterialRender.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHICachedStates.h"
+#include "RHI/RHIPipeLineState.h"
 #include "Engine.h"
 #include "Render/MaterialPreFrame.h"
 #include "Material/FurMaterial.h"
 #include "Render/SceneTextures.h"
+#include "GltfModel/GltfMeshBuffer.h"
+#include "Material/MaterialBase.h"
+#include "Thread/RenderThread.h"
+#include "core/system.h"
+#include "core/logger.h"
+#include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/SceneRendering/SceneViewData.h"
+#include "Render/WorldSceneRender.h"
 
 namespace Engine
 {
 	using namespace RenderCore;
-
 
 	struct FurMaterialRenderPrivate
 	{
 		FurMaterialRenderPrivate()
 			:GET_SHADER_STRUCT_MEMBER(CBPerFur)(GEngine->GetRHI().get())
 		{
-
 		}
 
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFur);
 		FurConfig Config;
 		std::shared_ptr<RenderCore::RHITexture2D> NoiseTex;
+		std::shared_ptr<RenderCore::RHIPixelShader> InnerBasePixelShader;
 	};
 
 	FurMaterialRender::FurMaterialRender(std::shared_ptr<GltfMeshBuffer> MeshBuffer, std::shared_ptr< MaterialBase> MeshMaterial,
 										 const FurConfig& InConifg,
 										 std::shared_ptr<RenderCore::RHITexture2D> NoiseTex)
-		:PBRMaterialRender(MeshBuffer,MeshMaterial)
+		:PBRMaterialRender(MeshBuffer, MeshMaterial)
 		,d_ptr(new FurMaterialRenderPrivate())
 	{
 		C_P(FurMaterialRender);
@@ -43,6 +51,29 @@ namespace Engine
 	void FurMaterialRender::InitRenderResource()
 	{
 		PBRMaterialRender::InitRenderResource();
+		const std::wstring ShaderRoot = core::process_directory().wstring() + L"/ShaderLibDX/";
+		ENQUEUE_UNIQUE_RENDER_COMMAND([this, ShaderRoot](RenderCore::DynamicRHI* RHI)
+		{
+			C_P(FurMaterialRender);
+			if (!RHI || !GetPBRMeshBuffer())
+				return;
+			const uint32_t VtxFeat = GetPBRMeshBuffer()->GetDeclaredVertexFeatures();
+			// Fur MainPS/Vs: PBRMaterialRender::InitShader (GetShaderFileName = FurMaterial.hlsl).
+
+			std::vector<RHIShaderMacro> InnerMacros;
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
+				InnerMacros.push_back({ "ID_SKINNING_MATRICES","2" });
+			if (VtxFeat & MeshBufferVertexFeatures::Tangent)
+				InnerMacros.push_back({ "HAS_TANGENT","1" });
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
+				InnerMacros.push_back({ "HAS_WEIGHTS_0","1" });
+			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->IsTransparent())
+				InnerMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
+			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0)
+				InnerMacros.push_back({ "RHI_BINDLESS", "1" });
+			const std::wstring PbrPath = ShaderRoot + L"PBRMaterial.hlsl";
+			d->InnerBasePixelShader = RHI->RHICreatePixelShader(PbrPath, std::string("MainPS"), InnerMacros);
+		});
 	}
 
 	void FurMaterialRender::SetPipeLineState(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
@@ -51,7 +82,6 @@ namespace Engine
 		if (!TargetBuffer)
 			return;
 
-		// Fur writes an extra MRT (MaterialAux) for shading model / strand data when enabled.
 		std::vector<std::shared_ptr<RHITexture2D>> Targets = {
 			TargetBuffer->GetSceneColor(),
 			TargetBuffer->GetMotionVector(),
@@ -73,62 +103,121 @@ namespace Engine
 		ShaderMacros.push_back({ "HASFUR","1" });
 	}
 
-	void FurMaterialRender::DrawMesh(RHICommandContext& RHIContext)
+	void FurMaterialRender::DrawDeferredInnerBase(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
 		C_P(FurMaterialRender);
-		RenderCore::RHICommandMark Mark(RHIContext, "FurPass");
+		RenderCore::RHICommandMark Mark(RHIContext, "FurInnerBase");
+		if (!RenderParam.TargetBuffer || !d->InnerBasePixelShader || !GetPBRVertexShader())
+			return;
+		StoreRenderParam(RenderParam);
+		PBRMaterialRender::SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
+		GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = GetPBRVertexShader();
+		Init.PixelShader = d->InnerBasePixelShader;
+		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
+		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
+		BindDeferredBaseMaterialTextures(RHIContext);
+
 		auto& FurConfig = d->Config;
+		d->GET_UNIFORMDATA(CBPerFur).Gravity = FurConfig.Gravity;
+		d->GET_UNIFORMDATA(CBPerFur).FurColor = FurConfig.FurColor;
+		d->GET_UNIFORMDATA(CBPerFur).FurLength = 0.f;
+		d->GET_UNIFORMDATA(CBPerFur).FurOffset = 0.f;
+		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;
+		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
+		d->GET_UNIFORMDATA(CBPerFur).FurLevel = 0.f;
+		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
+		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 0;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
+
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
+
+		DrawPrimitive(RHIContext);
+	}
+
+	void FurMaterialRender::DrawForwardFur(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* FurSharedBind,
+										 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
+	{
+		C_P(FurMaterialRender);
+		RenderCore::RHICommandMark Mark(RHIContext, "FurForward");
+		if (!RenderParam.TargetBuffer || !GetPBRVertexShader())
+			return;
+		if (!GetPBRPixelShader())
+		{
+			static bool s_LoggedMissingFwdPs = false;
+			if (!s_LoggedMissingFwdPs)
+			{
+				s_LoggedMissingFwdPs = true;
+				core::LOG(core::log_err, L"FurMaterialRender: MainPS (pixel shader) is null; forward fur pass is skipped.");
+			}
+			return;
+		}
+
+		StoreRenderParam(RenderParam);
+		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.TargetBuffer->GetSceneColor() };
+		RHIContext.SetRenderTarget(Rt, RenderParam.TargetBuffer->GetDepth());
+
+		GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = GetPBRVertexShader();
+		Init.PixelShader = GetPBRPixelShader();
+		Init.BlendState = RHICachedStates::BlendTraditional;
+		// Match deferred shell path: depth write on so successive shells test against the previous layer, not only the
+		// inner base. LessEqual + no-write leaves a single reference depth; extruded shells often end up "behind" that
+		// test and clip entirely (no visible fur).
+		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		// Shell extrusion often flips triangle winding relative to the base mesh; CullBack can drop every shell.
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+
+		if (FurSharedBind && WorldSceneRender && ViewData)
+			FurSharedBind->BindFurForwardSharedSRVs(RHIContext, RenderParam.TargetBuffer, WorldSceneRender, ViewData);
+
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
+		BindDrawUniformBuffers(RHIContext);
+		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
+
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, GetPBRMeshMaterial()->GetBaseColorTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->NoiseTex);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RHICachedStates::WarpLinerSampler);
+
+		auto& FurConfig = d->Config;
+		d->GET_UNIFORMDATA(CBPerFur).Gravity = FurConfig.Gravity;
+		d->GET_UNIFORMDATA(CBPerFur).FurColor = FurConfig.FurColor;
 		d->GET_UNIFORMDATA(CBPerFur).FurLength = FurConfig.FurLength;
-		d->GET_UNIFORMDATA(CBPerFur).FurLevel = FurConfig.FurLevel;
 		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;
 		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
 		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
 		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 0;
+		d->GET_UNIFORMDATA(CBPerFur).FurLevel = static_cast<float>(FurConfig.FurLevel);
 
-		RHIContext.RHISetBlendState(RHICachedStates::BlendDeferredTranslucentMRT, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-		// Shells are blended: writing depth lets low-alpha fluff win the depth buffer so deferred reads wrong Z (dark rim).
-		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateLessEqualNoWrite, 0);
-		RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
-
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->NoiseTex);
-
-		for (int32_t Index = 0; Index < FurConfig.FurLevel; Index++)
+		const int32_t FurLevelCount = (std::max)(1, static_cast<int32_t>(FurConfig.FurLevel));
+		for (int32_t Index = 0; Index < FurLevelCount; ++Index)
 		{
-			float FurOffset = 1.0 / FurConfig.FurLevel * (Index + 1);
+			const float FurOffset = 1.0f / static_cast<float>(FurLevelCount) * (static_cast<float>(Index) + 1.f);
 			d->GET_UNIFORMDATA(CBPerFur).FurOffset = FurOffset;
-
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
-			RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
-			RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
-
 			DrawPrimitive(RHIContext);
 		}
 	}
 
-	void FurMaterialRender::PreDrawMesh(RenderCore::RHICommandContext& RHIContext)
+	void FurMaterialRender::PreDraw(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
-		C_P(FurMaterialRender);
-		RenderCore::RHICommandMark Mark(RHIContext, "FurPrePass");
-		auto& FurConfig = d->Config;
-		d->GET_UNIFORMDATA(CBPerFur).FurLength = 0;
-		d->GET_UNIFORMDATA(CBPerFur).FurLevel = 0;
-		d->GET_UNIFORMDATA(CBPerFur).UVScale = FurConfig.UVScale;
-		d->GET_UNIFORMDATA(CBPerFur).FurAmbientStrength = FurConfig.FurAmbientStrength;
-		d->GET_UNIFORMDATA(CBPerFur).FurLightExposure = FurConfig.FurLightExposure;
-		d->GET_UNIFORMDATA(CBPerFur).FurOffset = 0;
-		d->GET_UNIFORMDATA(CBPerFur).DrawSolid = 1;
+		DrawDeferredInnerBase(RHIContext, RenderParam);
+	}
 
-		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
-		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RenderCore::RHICachedStates::WarpLinerSampler);
-		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
+	void FurMaterialRender::DrawMesh(RHICommandContext& RHIContext)
+	{
+		(void)RHIContext;
+	}
 
-		// Prepass must write depth for deferred world position, but should not overwrite scene color / GBuffer.
-		// FurMaterial.hlsl outputs alpha=0 in DrawSolid branch, so this blend state keeps MRTs unchanged.
-		RHIContext.RHISetBlendState(RHICachedStates::BlendDeferredTranslucentMRT, core::FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-		RHIContext.RHISetDepthStencilState(RHICachedStates::DepthStateEnable, 0);
-		RHIContext.RHISetRasterizerState(RHICachedStates::RasterizerStateCullBack);
-
-		DrawPrimitive(RHIContext);
+	void FurMaterialRender::PreDrawMesh(RHICommandContext& RHIContext)
+	{
+		(void)RHIContext;
 	}
 
 	bool FurMaterialRender::IsNeedPreDraw() const

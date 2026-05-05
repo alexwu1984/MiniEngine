@@ -149,8 +149,7 @@ namespace Engine
 			if (d->MeshMaterial->IsTransparent())
 				ShaderMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
 
-			// D3D12: batch first five material SRVs as one ps_5_1 texture array (see RHI_BINDLESS in PBRMaterial.hlsl).
-			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0)
+			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0 && WantsRHIBindless())
 				ShaderMacros.push_back({ "RHI_BINDLESS", "1" });
 
 			d->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
@@ -186,7 +185,18 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
 
-		//to do,set uniform buffer
+		BindDrawUniformBuffers(RHIContext);
+	}
+
+	void PBRMaterialRender::StoreRenderParam(const MaterialRenderParam& p)
+	{
+		C_P(PBRMaterialRender);
+		d->RenderParam = p;
+	}
+
+	void PBRMaterialRender::BindDrawUniformBuffers(RenderCore::RHICommandContext& RHIContext)
+	{
+		C_P(PBRMaterialRender);
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = d->RenderParam.CurrModelMatrix;
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mPrevWorld = d->RenderParam.PrevModelMatrix;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject));
@@ -328,6 +338,30 @@ namespace Engine
 	{
 		C_P(const PBRMaterialRender);
 		return d->RenderParam;
+	}
+
+	std::shared_ptr<GltfMeshBuffer> PBRMaterialRender::GetPBRMeshBuffer() const
+	{
+		C_P(const PBRMaterialRender);
+		return d->MeshBuffer;
+	}
+
+	std::shared_ptr<RHIVertexShader> PBRMaterialRender::GetPBRVertexShader() const
+	{
+		C_P(const PBRMaterialRender);
+		return d->VertexShader;
+	}
+
+	std::shared_ptr<RHIPixelShader> PBRMaterialRender::GetPBRPixelShader() const
+	{
+		C_P(const PBRMaterialRender);
+		return d->PixelShader;
+	}
+
+	std::shared_ptr<MaterialBase> PBRMaterialRender::GetPBRMeshMaterial() const
+	{
+		C_P(const PBRMaterialRender);
+		return d->MeshMaterial;
 	}
 
 }

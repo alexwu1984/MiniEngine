@@ -38,6 +38,10 @@ namespace Engine
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
 					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
+		/** Binds IBL + shadow SRVs (t5–t10) and cbPointShadow for fur forward pass (per-frame cbPerFrame comes from FurMaterialRender). */
+		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer, FWorldSceneRender* WorldSceneRender,
+									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
+
 	private:
 		RenderCore::DynamicRHI* RHI = nullptr;
 		/** Created once in InitResource; avoids per-frame RHICreateUniformBuffer (failures left cb_ null → D3D11 AV). */

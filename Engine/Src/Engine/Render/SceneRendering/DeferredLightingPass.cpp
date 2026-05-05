@@ -282,4 +282,64 @@ namespace Engine
 		CopySceneColorToPreLighting(RHIContext, TargetBuffer);
 		ExecuteRaster(RHIContext, std::move(ViewPort), TargetBuffer, WorldSceneRender, ViewData);
 	}
+
+	void DeferredLightingPass::BindFurForwardSharedSRVs(RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer,
+														FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
+	{
+		if (!TargetBuffer || !ViewData)
+			return;
+		PreProcessor* Pre = WorldSceneRender ? WorldSceneRender->GetPreProcessor().get() : nullptr;
+		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PointShadowUniform && PointShadowUniform->GetRHIBuffer())
+		{
+			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform.get(), *ViewData, Pre, WorldSceneRender);
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
+		}
+
+		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
+		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
+
+		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
+		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;
+		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
+		if (Pre)
+		{
+			if (const auto SkyLightEnv = Pre->GetSkyLightEnvironment())
+			{
+				if (const auto t = SkyLightEnv->GetDiffuseIrradianceCubemap())
+					irrCube = t;
+				if (const auto t = SkyLightEnv->GetSpecularReflectionCubemap())
+					specCube = t;
+				if (const auto t = SkyLightEnv->GetBRDFIntegrationLUT())
+					brdfLut = t;
+			}
+		}
+		RHIContext.RHISetShaderTexture(SF_Pixel, 5, irrCube);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
+
+		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PerFrameUniform->Data.myPerFrame.LightCount > 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
+		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
+		if (bDeferredShadow)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+			{
+				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
+				{
+					if (std::shared_ptr<RHITexture2D> st = shadowRt->GetTex())
+						shadowSrvTex = std::move(st);
+				}
+			}
+		}
+		RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowSrvTex);
+
+		std::shared_ptr<RHITextureCube> pointShadowSrv = FallbackIBLCube;
+		if (PointShadowUniform && PointShadowUniform->GetRHIBuffer() && PointShadowUniform->Data.Enabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (std::shared_ptr<RHITextureCube> pc = ShadowPass->GetPointShadowCube())
+					pointShadowSrv = std::move(pc);
+		}
+		RHIContext.RHISetShaderTexture(SF_Pixel, 10, pointShadowSrv);
+	}
 }

@@ -1,3 +1,6 @@
+#ifndef MINIENGINE_SHADER_UTILS_HLSL
+#define MINIENGINE_SHADER_UTILS_HLSL
+
 #pragma pack_matrix(row_major)
 
 const static float PI = 3.1415926535897932f;
@@ -538,3 +541,4 @@ float3 AMDTonemapping(float3 color)
     color = peak * ratio;
     return LinearToSrgb(color);
 }
+#endif // MINIENGINE_SHADER_UTILS_HLSL

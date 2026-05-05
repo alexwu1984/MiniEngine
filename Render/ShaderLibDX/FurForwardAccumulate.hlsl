@@ -28,14 +28,19 @@ float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT
 			color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, worldPos, view, coverageAlpha);
 	}
 
-	float3 iblDiffuse, iblSpecular;
-	GetIBLContributionSplit(materialInfo, geomN, view, iblDiffuse, iblSpecular);
+	// Forward shells: avoid split-sum IBL (irradiance + BRDF LUT + prefiltered cube). Zoomed shells are
+	// fill-bound; shadow-off still pays 3 IBL samples/pixel/layer here. Diffuse-only cubemap matches the
+	// heavy roughness path where spec IBL was already scaled by ~0.038 (minimal contribution vs lights).
+	float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, geomN).rgb;
+	float3 iblDiffuse = DiffuseLight * materialInfo.diffuseColor;
 	float NdotVao = saturate(dot(geomN, view));
 	float specOccPowBase = max(NdotVao + aoSpec - 0.0001, 1e-5);
 	float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + aoSpec);
 	float kkIbDiffuseMul = lerp(0.32, 0.72, perceptualRoughness);
 	color += iblDiffuse * aoDiffuse * kkIbDiffuseMul * myPerFrame.IBLFactor;
-	color += iblSpecular * specOcc * 0.038 * myPerFrame.IBLFactor;
+	// Cheap stand-in for environment spec (one albedo mul, no extra texture fetches).
+	float3 iblSpecularCheap = DiffuseLight * materialInfo.specularColor * 0.024;
+	color += iblSpecularCheap * specOcc * myPerFrame.IBLFactor;
 	return color;
 }
 

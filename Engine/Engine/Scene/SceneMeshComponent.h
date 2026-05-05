@@ -33,6 +33,8 @@ namespace Engine
 		bool Load(const nlohmann::json& ModelJson);
 		GltfModel& GetModel() const;
 		math::AABB3 GetModelBox() const;
+		/** Shadow directional frustum merge: model AABB + FurLength slack so extruded shells are not clipped at a hard box edge. */
+		math::AABB3 GetShadowFrustumWorldBounds() const;
 
 		virtual void Tick(float deltaTime) override;
 		virtual void OnUpdateWorldTransform(float deltaTime) override;

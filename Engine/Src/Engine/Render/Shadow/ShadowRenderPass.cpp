@@ -1,6 +1,7 @@
 ﻿#include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "GltfModel/GltfMesh.h"
+#include "Material/FurMaterial.h"
 #include "Scene/SceneMeshComponent.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
@@ -14,18 +15,17 @@
 #include "math/vector2.h"
 #include "math/vector4.h"
 #include <cmath>
+#include <cfloat>
 #include <unordered_set>
 
 namespace
 {
-	// When true: fit orthographic shadow XY/Z to shadow casters (render-thread mesh list) or, if that list is
-	// empty, to World::BuildShadowProjectorAggregateData only — not to every camera-frustum-visible mesh.
-	// Visible receivers (e.g. huge ground) used to be merged via FrustumBoundsMeshes and destroyed texel density.
-	// Set false to restore the old behavior (merge all ShadowFrustumCullPrimitives / visible bounds).
+	// When true: fit orthographic shadow XY to shadow casters only (keeps texel density on the character).
+	// Visible receiver bounds (FrustumBoundsMeshes) still contribute to light-space Z so ground contact shadows are not clipped.
 	static constexpr bool kPreferTightShadowFrustumFromCasters = true;
 
 	static constexpr float kZMargin = 4.0f;
-	static constexpr float kXYMargin = 0.22f;
+	static constexpr float kXYMargin = 0.14f;
 	// Fit / snap iterations: snap changes LightView, which changes light-space bounds; need another fit+snap with updated half-extents.
 	static constexpr int kFitSnapIterations = 2;
 
@@ -63,6 +63,72 @@ namespace
 		sizeY = (lsMax.y - lsMin.y) * 0.5f * (1.0f + kXYMargin);
 		centerX = (lsMin.x + lsMax.x) * 0.5f;
 		centerY = (lsMin.y + lsMax.y) * 0.5f;
+	}
+
+	static math::AABB3 WorldMeshBoundsForShadowFrustum(const std::shared_ptr<Engine::MeshBase>& Mesh, const math::AABB3& TransformedMeshBox)
+	{
+		if (!Mesh || !Mesh->GetMaterial())
+			return TransformedMeshBox;
+		auto FurMat = std::dynamic_pointer_cast<Engine::FurMaterial>(Mesh->GetMaterial());
+		if (!FurMat)
+			return TransformedMeshBox;
+		const float Reach = (std::max)(0.f, FurMat->GetFurConfig().FurLength) * 1.2f;
+		return math::ExpandAabbByMargin(TransformedMeshBox, Reach);
+	}
+
+	// When kPreferTightShadowFrustumFromCasters: XY (and baseline Z) come from caster AABB only.
+	// Extend light-space Z to include visible receivers (ground); otherwise contact shadows on the floor
+	// clip at a hard frustum boundary → ear/body shadows look "broken" along a box edge.
+	static void ExpandOrthoDepthForReceiverBounds(const math::Matrix4x4& lightView, const math::AABB3& receiverWorldAabb,
+												float& nearValue, float& farValue)
+	{
+		math::Vector3 corners[8];
+		receiverWorldAabb.GetPoint(corners);
+		float zMin = FLT_MAX;
+		float zMax = -FLT_MAX;
+		for (int i = 0; i < 8; ++i)
+		{
+			const math::Vector3 ls = lightView.TransformPosition(corners[i]);
+			zMin = (std::min)(zMin, ls.z);
+			zMax = (std::max)(zMax, ls.z);
+		}
+		if (zMin > zMax)
+		{
+			const float t = zMin;
+			zMin = zMax;
+			zMax = t;
+		}
+		nearValue = (std::min)(nearValue, zMin - kZMargin);
+		farValue = (std::max)(farValue, zMax + kZMargin);
+		if (nearValue >= farValue)
+			farValue = nearValue + 1.0f;
+	}
+
+	// Widen ortho XY using receiver geometry near the caster (intersection with padded caster AABB).
+	// Otherwise top-down views: ear shadows on the floor extend in light-space XY past the caster-only fit → hard clip (horizontal "break").
+	static void ExpandOrthoXYForWorldAabb(const math::Matrix4x4& lightView, const math::AABB3& worldAabb, float& centerX, float& centerY,
+										  float& sizeX, float& sizeY)
+	{
+		math::Vector3 corners[8];
+		worldAabb.GetPoint(corners);
+		float lxMin = centerX - sizeX;
+		float lxMax = centerX + sizeX;
+		float lyMin = centerY - sizeY;
+		float lyMax = centerY + sizeY;
+		for (int i = 0; i < 8; ++i)
+		{
+			const math::Vector3 ls = lightView.TransformPosition(corners[i]);
+			lxMin = (std::min)(lxMin, ls.x);
+			lxMax = (std::max)(lxMax, ls.x);
+			lyMin = (std::min)(lyMin, ls.y);
+			lyMax = (std::max)(lyMax, ls.y);
+		}
+		centerX = (lxMin + lxMax) * 0.5f;
+		centerY = (lyMin + lyMax) * 0.5f;
+		sizeX = (lxMax - lxMin) * 0.5f * (1.0f + kXYMargin);
+		sizeY = (lyMax - lyMin) * 0.5f * (1.0f + kXYMargin);
+		sizeX = (std::max)(sizeX, 1e-4f);
+		sizeY = (std::max)(sizeY, 1e-4f);
 	}
 
 	static void SnapLightViewTranslationToShadowTexels(
@@ -240,6 +306,184 @@ namespace Engine
 		}
 	}
 
+	static int FindFirstDirectionalLightIndex(const std::vector<Light>& Lights)
+	{
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			if (Lights[static_cast<size_t>(i)].Type == LightType_Directional)
+				return i;
+		}
+		return -1;
+	}
+
+	static int FindPointShadowCubeLightIndex(const std::vector<Light>& Lights)
+	{
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			const Light& L = Lights[static_cast<size_t>(i)];
+			if (L.Type == LightType_Point && L.ShadowMapIndex == kPointLightCubeShadowMapIndex)
+				return i;
+		}
+		return -1;
+	}
+
+	/** Mesh list that drives orthographic frustum fitting (UE-ish “subject bounds” source vs full receiver set). */
+	static const std::vector<GltfSceneMeshInfo>* SelectShadowSubjectMeshListForFrustum(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
+																					   const FShadowProjectorSceneData& ShadowProjectorScene)
+	{
+		if (kPreferTightShadowFrustumFromCasters)
+		{
+			if (!ShadowCasterMeshes.empty())
+				return &ShadowCasterMeshes;
+			if (ShadowProjectorScene.bValid)
+				return nullptr;
+			if (!FrustumBoundsMeshes.empty())
+				return &FrustumBoundsMeshes;
+			return &ShadowCasterMeshes;
+		}
+		return !FrustumBoundsMeshes.empty() ? &FrustumBoundsMeshes : &ShadowCasterMeshes;
+	}
+
+	static void PruneStaleMeshShadowPS(ShadowRenderPassPrivate* d, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes)
+	{
+		std::unordered_set<const MeshBase*> casterMeshPtrs;
+		for (const auto& MeshInfo : ShadowCasterMeshes)
+		{
+			for (const auto& Mesh : MeshInfo.Meshes)
+			{
+				if (Mesh)
+					casterMeshPtrs.insert(Mesh.get());
+			}
+		}
+		for (auto it = d->ShadowRenders.begin(); it != d->ShadowRenders.end();)
+		{
+			if (!it->first || casterMeshPtrs.find(it->first.get()) == casterMeshPtrs.end())
+				it = d->ShadowRenders.erase(it);
+			else
+				++it;
+		}
+	}
+
+	/** World-space union AABB for shadow “subject” geometry (casters / frustum driver), including fur shell margin; projector fallback if empty. */
+	static void BuildMergedShadowSubjectWorldAabb(const std::vector<GltfSceneMeshInfo>* SubjectMeshList, const FShadowProjectorSceneData& ShadowProjectorScene, math::AABB3& OutSubjectWorldAabb,
+												  bool& OutSubjectValid)
+	{
+		OutSubjectValid = false;
+		if (SubjectMeshList)
+		{
+			for (const auto& MeshInfo : *SubjectMeshList)
+			{
+				for (const auto& Mesh : MeshInfo.Meshes)
+				{
+					if (!Mesh)
+						continue;
+					math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
+					wbox = WorldMeshBoundsForShadowFrustum(Mesh, wbox);
+					OutSubjectWorldAabb = OutSubjectValid ? OutSubjectWorldAabb.MergeAABB(wbox) : wbox;
+					OutSubjectValid = true;
+				}
+			}
+		}
+		if (!OutSubjectValid && ShadowProjectorScene.bValid)
+		{
+			OutSubjectWorldAabb = ShadowProjectorScene.ModelLocalAABB.Transform(ShadowProjectorScene.WorldTransform);
+			OutSubjectValid = true;
+		}
+	}
+
+	static void BuildMergedShadowReceiverWorldAabb(const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes, math::AABB3& OutReceiverWorldAabb, bool& OutReceiverValid)
+	{
+		OutReceiverValid = false;
+		for (const auto& MeshInfo : FrustumBoundsMeshes)
+		{
+			for (const auto& Mesh : MeshInfo.Meshes)
+			{
+				if (!Mesh)
+					continue;
+				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
+				OutReceiverWorldAabb = OutReceiverValid ? OutReceiverWorldAabb.MergeAABB(wbox) : wbox;
+				OutReceiverValid = true;
+			}
+		}
+	}
+
+	/** Directional shadow depth pass view-projection; optional receiver-aware XY/Z when using tight caster frustum. */
+	static void SetupDirectionalShadowViewProjection(Light& MainLight, const math::AABB3& SubjectWorldAabb, bool bReceiverRelativeFrustumAdjust, const math::AABB3& ReceiverWorldAabb,
+													 const core::vec2i& ShadowMapSize)
+	{
+		math::Vector3 wsSceneCorners[8];
+		SubjectWorldAabb.GetPoint(wsSceneCorners);
+
+		const math::Vector3 lightLookAt = SubjectWorldAabb.GetCenter();
+		math::Vector3 lightUp = math::Vector3::UnitY;
+		MainLight.Position = lightLookAt + (MainLight.Direction * LIGHT_DISTANCE);
+
+		math::Vector3 zAxis = (lightLookAt - MainLight.Position).Normalize();
+		if (math::Abs(math::Vector3::Dot(zAxis, lightUp)) > 0.999f)
+			lightUp = { lightUp.z, lightUp.x, lightUp.y };
+
+		MainLight.LightView = math::Matrix4x4::MatrixLookAtLH(MainLight.Position, lightLookAt, lightUp);
+
+		float nearValue = 0.f;
+		float farValue = 1.f;
+		float centerX = 0.f;
+		float centerY = 0.f;
+		float sizeX = 1.f;
+		float sizeY = 1.f;
+
+		for (int iter = 0; iter < kFitSnapIterations; ++iter)
+		{
+			FitOrthoFromWorldCorners(wsSceneCorners, MainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+			SnapLightViewTranslationToShadowTexels(MainLight.LightView, lightLookAt, sizeX, sizeY, ShadowMapSize.x, ShadowMapSize.y);
+		}
+		FitOrthoFromWorldCorners(wsSceneCorners, MainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+
+		if (bReceiverRelativeFrustumAdjust)
+			ExpandOrthoDepthForReceiverBounds(MainLight.LightView, ReceiverWorldAabb, nearValue, farValue);
+
+		if (bReceiverRelativeFrustumAdjust)
+		{
+			math::AABB3 crop;
+			math::AABB3 casterPad = math::ExpandAabbByMargin(SubjectWorldAabb, 4.f);
+			if (ReceiverWorldAabb.GetIntersect(casterPad, crop))
+				ExpandOrthoXYForWorldAabb(MainLight.LightView, crop, centerX, centerY, sizeX, sizeY);
+		}
+
+		const math::Matrix4x4 proj = math::Matrix4x4::MatrixOrthographicOffCenterLH(centerX - sizeX, centerX + sizeX, centerY - sizeY, centerY + sizeY, nearValue, farValue);
+		RefineLightViewFromClipTexelSnap(MainLight.LightView, proj, MainLight.LightViewProj, lightLookAt, sizeX, sizeY, ShadowMapSize.x, ShadowMapSize.y);
+	}
+
+	static void RenderDirectionalShadowMapPass(ShadowRenderPassPrivate* d, RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& MainLight)
+	{
+		RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+		const auto TargetSize = d->DepthRenderBuffer->GetSize();
+		RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
+		DrawShadowCasterMeshesDirectional(d, RHIContext, ShadowCasterMeshes, MainLight, d->DepthRenderBuffer);
+	}
+
+	static void RenderPointLightShadowCubePass(ShadowRenderPassPrivate* d, RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& PointLight,
+											   int PointLightIndex)
+	{
+		const float zNear = 0.05f;
+		const float zFar = (std::max)(PointLight.Range, zNear + 0.1f);
+		for (int face = 0; face < 6; ++face)
+			d->CachedPointFaceVP[face] = ComputePointShadowFaceViewProj(PointLight.Position, face, zNear, zFar);
+		d->CachedPointLightPos = PointLight.Position;
+		d->CachedPointLightRange = PointLight.Range;
+		d->CachedPointShadowLightIndex = PointLightIndex;
+
+		const core::vec2i cubeSize = d->PointShadowCube->GetSize();
+		for (int face = 0; face < 6; ++face)
+		{
+			RHIContext.Clear(d->PointShadowCube, face, 0, core::FLinearColor::White, 1.f, 0);
+			RHIContext.SetViewPort(0, 0, cubeSize.x, cubeSize.y);
+			Light faceLight = PointLight;
+			faceLight.LightViewProj = d->CachedPointFaceVP[face];
+			DrawShadowCasterMeshesPointCubeFace(d, RHIContext, ShadowCasterMeshes, faceLight, d->PointShadowCube, face);
+		}
+		d->bCachedPointShadowValid = true;
+	}
+
 	ShadowRenderPass::ShadowRenderPass(RenderCore::DynamicRHI* RHI)
 		: d_ptr(new ShadowRenderPassPrivate(RHI))
 	{
@@ -253,7 +497,7 @@ namespace Engine
 	void ShadowRenderPass::InitResource()
 	{
 		C_P(ShadowRenderPass);
-		const int32_t SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+		const int32_t SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 		if (!d->PointShadowCube)
 			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_R32_FLOAT, kPointShadowCubeSize, kPointShadowCubeSize, 1, false);
@@ -292,158 +536,34 @@ namespace Engine
 		if (ShadowCasterMeshes.empty() && !ShadowProjectorScene.bValid)
 			return;
 
-		const std::vector<GltfSceneMeshInfo>* boundsSource = nullptr;
-		if (kPreferTightShadowFrustumFromCasters)
-		{
-			if (!ShadowCasterMeshes.empty())
-				boundsSource = &ShadowCasterMeshes;
-			else if (ShadowProjectorScene.bValid)
-				boundsSource = nullptr;
-			else if (!FrustumBoundsMeshes.empty())
-				boundsSource = &FrustumBoundsMeshes;
-			else
-				boundsSource = &ShadowCasterMeshes;
-		}
-		else
-		{
-			boundsSource = !FrustumBoundsMeshes.empty() ? &FrustumBoundsMeshes : &ShadowCasterMeshes;
-		}
+		const std::vector<GltfSceneMeshInfo>* subjectMeshList = SelectShadowSubjectMeshListForFrustum(ShadowCasterMeshes, FrustumBoundsMeshes, ShadowProjectorScene);
+		PruneStaleMeshShadowPS(d, ShadowCasterMeshes);
 
-		std::unordered_set<const MeshBase*> casterMeshPtrs;
-		for (const auto& MeshInfo : ShadowCasterMeshes)
-		{
-			for (const auto& Mesh : MeshInfo.Meshes)
-			{
-				if (Mesh)
-					casterMeshPtrs.insert(Mesh.get());
-			}
-		}
-		for (auto it = d->ShadowRenders.begin(); it != d->ShadowRenders.end();)
-		{
-			if (!it->first || casterMeshPtrs.find(it->first.get()) == casterMeshPtrs.end())
-				it = d->ShadowRenders.erase(it);
-			else
-				++it;
-		}
+		const int mainDirIdx = FindFirstDirectionalLightIndex(Lights);
+		const int pointShadowIdx = FindPointShadowCubeLightIndex(Lights);
 
-		// Record on the same RHI command context as the frame graph pass (no nested render-thread enqueue).
-		int mainIdx = -1;
-		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
-		{
-			if (Lights[static_cast<size_t>(i)].Type == LightType_Directional)
-			{
-				mainIdx = i;
-				break;
-			}
-		}
+		math::AABB3 subjectWorldAabb;
+		bool subjectValid = false;
+		BuildMergedShadowSubjectWorldAabb(subjectMeshList, ShadowProjectorScene, subjectWorldAabb, subjectValid);
 
-		int pointShadowIdx = -1;
-		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
-		{
-			const Light& L = Lights[static_cast<size_t>(i)];
-			if (L.Type == LightType_Point && L.ShadowMapIndex == kPointLightCubeShadowMapIndex)
-			{
-				pointShadowIdx = i;
-				break;
-			}
-		}
+		math::AABB3 receiverWorldAabb;
+		bool receiverValid = false;
+		BuildMergedShadowReceiverWorldAabb(FrustumBoundsMeshes, receiverWorldAabb, receiverValid);
 
-		math::AABB3 mergedWorldAabb;
-		bool mergedValid = false;
-		if (boundsSource)
+		if (mainDirIdx >= 0 && subjectValid)
 		{
-			for (const auto& MeshInfo : *boundsSource)
-			{
-				for (const auto& Mesh : MeshInfo.Meshes)
-				{
-					if (!Mesh)
-						continue;
-					// Actor/world transform only for bounds (mesh anim merged elsewhere shifts the light frustum).
-					math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
-					mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
-					mergedValid = true;
-				}
-			}
-		}
-		if (!mergedValid && ShadowProjectorScene.bValid)
-		{
-			mergedWorldAabb = ShadowProjectorScene.ModelLocalAABB.Transform(ShadowProjectorScene.WorldTransform);
-			mergedValid = true;
-		}
-
-		if (mainIdx >= 0 && mergedValid)
-		{
-			Light& mainLight = Lights[static_cast<size_t>(mainIdx)];
+			Light& mainLight = Lights[static_cast<size_t>(mainDirIdx)];
 			mainLight.ShadowMapIndex = 0;
-
-			math::Vector3 wsSceneCorners[8];
-			mergedWorldAabb.GetPoint(wsSceneCorners);
-
-			const math::Vector3 lightLookAt = mergedWorldAabb.GetCenter();
-			math::Vector3 lightUp = math::Vector3::UnitY;
-			mainLight.Position = lightLookAt + (mainLight.Direction * LIGHT_DISTANCE);
-
-			math::Vector3 zAxis = (lightLookAt - mainLight.Position).Normalize();
-			if (math::Abs(math::Vector3::Dot(zAxis, lightUp)) > 0.999f)
-			{
-				lightUp = { lightUp.z, lightUp.x, lightUp.y };
-			}
-
-			mainLight.LightView = math::Matrix4x4::MatrixLookAtLH(mainLight.Position, lightLookAt, lightUp);
-
-			float nearValue = 0.f;
-			float farValue = 1.f;
-			float centerX = 0.f;
-			float centerY = 0.f;
-			float sizeX = 1.f;
-			float sizeY = 1.f;
-
-			const core::vec2i smSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize() : core::vec2i{ 2048, 2048 };
-
-			for (int iter = 0; iter < kFitSnapIterations; ++iter)
-			{
-				FitOrthoFromWorldCorners(wsSceneCorners, mainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
-				SnapLightViewTranslationToShadowTexels(mainLight.LightView, lightLookAt, sizeX, sizeY, smSize.x, smSize.y);
-			}
-			FitOrthoFromWorldCorners(wsSceneCorners, mainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
-
-			const math::Matrix4x4 proj = math::Matrix4x4::MatrixOrthographicOffCenterLH(centerX - sizeX, centerX + sizeX, centerY - sizeY, centerY + sizeY, nearValue, farValue);
-			RefineLightViewFromClipTexelSnap(mainLight.LightView, proj, mainLight.LightViewProj, lightLookAt, sizeX, sizeY, smSize.x, smSize.y);
-
+			const core::vec2i smSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize() : core::vec2i{ 4096, 4096 };
+			const bool bReceiverRelativeFrustumAdjust = receiverValid && kPreferTightShadowFrustumFromCasters && subjectMeshList == &ShadowCasterMeshes;
+			SetupDirectionalShadowViewProjection(mainLight, subjectWorldAabb, bReceiverRelativeFrustumAdjust, receiverWorldAabb, smSize);
 			d->CachedMainLightForShading = mainLight;
 			d->bCachedMainLightValid = true;
-
-			RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
-			auto TargetSize = d->DepthRenderBuffer->GetSize();
-			RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
-
-			DrawShadowCasterMeshesDirectional(d, RHIContext, ShadowCasterMeshes, mainLight, d->DepthRenderBuffer);
+			RenderDirectionalShadowMapPass(d, RHIContext, ShadowCasterMeshes, mainLight);
 		}
 
 		if (pointShadowIdx >= 0 && d->PointShadowCube && !ShadowCasterMeshes.empty())
-		{
-			const Light& ptBase = Lights[static_cast<size_t>(pointShadowIdx)];
-			const float zNear = 0.05f;
-			const float zFar = (std::max)(ptBase.Range, zNear + 0.1f);
-			for (int face = 0; face < 6; ++face)
-				d->CachedPointFaceVP[face] = ComputePointShadowFaceViewProj(ptBase.Position, face, zNear, zFar);
-			d->CachedPointLightPos = ptBase.Position;
-			d->CachedPointLightRange = ptBase.Range;
-			d->CachedPointShadowLightIndex = pointShadowIdx;
-
-			const core::vec2i cubeSize = d->PointShadowCube->GetSize();
-			for (int face = 0; face < 6; ++face)
-			{
-				RHIContext.Clear(d->PointShadowCube, face, 0, core::FLinearColor::White, 1.f, 0);
-				RHIContext.SetViewPort(0, 0, cubeSize.x, cubeSize.y);
-				Light faceLight = ptBase;
-				faceLight.LightViewProj = d->CachedPointFaceVP[face];
-
-				DrawShadowCasterMeshesPointCubeFace(d, RHIContext, ShadowCasterMeshes, faceLight, d->PointShadowCube, face);
-			}
-
-			d->bCachedPointShadowValid = true;
-		}
+			RenderPointLightShadowCubePass(d, RHIContext, ShadowCasterMeshes, Lights[static_cast<size_t>(pointShadowIdx)], pointShadowIdx);
 	}
 
 	std::shared_ptr<RenderCore::RHIRenderTarget> ShadowRenderPass::GetShadowMap() const

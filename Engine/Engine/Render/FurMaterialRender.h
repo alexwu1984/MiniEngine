@@ -20,7 +20,7 @@ namespace Engine
 		virtual void InitRenderResource() override;
 		void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) override;
 
-		/** After deferred lighting: binds IBL/shadow SRVs for forward PS (after PSO) when DeferredLighting+view+world are non-null. */
+		/** After deferred lighting: forward fur shells. Bind FurSharedBind after PSO — D3D12 clears pixel SRVs on shader change. */
 		void DrawForwardFur(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* FurSharedBind = nullptr,
 							FWorldSceneRender* WorldSceneRender = nullptr, const std::shared_ptr<const FSceneViewData>& ViewData = {});
 

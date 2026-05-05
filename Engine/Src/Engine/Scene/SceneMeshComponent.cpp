@@ -16,6 +16,7 @@
 #include "Scene/CameraComponent.h"
 #include "Scene/World.h"
 #include "Scene/FScene.h"
+#include "math/aabb3.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Thread/RenderThread.h"
 #include "core/logger.h"
@@ -212,6 +213,19 @@ namespace Engine
 		return {};
 	}
 
+	math::AABB3 SceneMeshComponent::GetShadowFrustumWorldBounds() const
+	{
+		C_P(const SceneMeshComponent);
+		const math::Matrix4x4 W =
+			GetOwner() ? GetOwner()->GetWorldTransform() : math::Matrix4x4::ms_Materix3X3WIdentity;
+		math::AABB3 wbox = GetModelBox().Transform(W);
+		if (d->Asset && !d->Asset->GetFurConfig().Name.empty())
+		{
+			const float m = (std::max)(0.f, d->Asset->GetFurConfig().FurLength) * 1.2f;
+			wbox = math::ExpandAabbByMargin(wbox, m);
+		}
+		return wbox;
+	}
 
 	void SceneMeshComponent::Tick(float deltaTime)
 	{

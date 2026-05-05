@@ -630,7 +630,7 @@ namespace Engine
 					auto mesh = ComponentCast<SceneMeshComponent>(c);
 					if (!mesh || !mesh->IsProjectShadow())
 						continue;
-					const math::AABB3 wbox = mesh->GetModelBox().Transform(a->GetWorldTransform());
+					const math::AABB3 wbox = mesh->GetShadowFrustumWorldBounds();
 					merged = any ? merged.MergeAABB(wbox) : wbox;
 					any = true;
 				}

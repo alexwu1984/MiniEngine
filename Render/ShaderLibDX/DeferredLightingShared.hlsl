@@ -85,6 +85,30 @@ float ComputeShadow(float4 ShadowCoord, float3 Normal)
 	return clamp(ComputeShadowPCSS(ShadowCoord, Normal), 0.0, 1.0);
 }
 
+// Hair/fur: shadow map is rendered from the base mesh (no cbPerFur bound in shadow pass → FurOffset=0).
+// Shell vertices sit in front of that depth in light space; PCSS blocker search + tight bias yields high-frequency
+// broken stripes. Use stable PCF + stronger bias (extra from shell coverage).
+float ComputeShadowHair(float4 ShadowCoord, float3 Normal, float coverageAlpha)
+{
+	float vis = 1.0;
+	const float w = ShadowCoord.w;
+	if (abs(w) < 1e-6)
+		return vis;
+	const float3 proj = ShadowCoord.xyz / w;
+	if (proj.z <= 0.0 || proj.z >= 1.0)
+		return vis;
+	const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+	if (any(uv < 0.0) || any(uv > 1.0))
+		return vis;
+
+	const float zR = clamp(proj.z, 0.0, 1.0);
+	float bias = ShadowDepthBiasPCSS(Normal);
+	// Pull receivers off the occluder depth from the inner shell; wispy tips need more slack.
+	bias += 0.00115 + saturate(1.0 - coverageAlpha) * 0.00135;
+	const float fixedPcfRadius = 0.0020;
+	return PCF_ShadowR32(uv, zR, fixedPcfRadius, bias);
+}
+
 int PointShadowCubeFaceIndex(float3 dirW)
 {
 	float3 a = abs(dirW);
@@ -112,11 +136,11 @@ float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float li
 	return (zR <= zMap + bias) ? 1.0 : 0.0;
 }
 
-float DirectionalShadowHair(float4 lightClipPos, float3 geomN)
+float DirectionalShadowHair(float4 lightClipPos, float3 geomN, float coverageAlpha)
 {
 	float visibility = 1.0f;
 	if (IsEnableShadow())
-		visibility = clamp(ComputeShadow(lightClipPos, geomN), 0.0, 1.0);
+		visibility = clamp(ComputeShadowHair(lightClipPos, geomN, coverageAlpha), 0.0, 1.0);
 	return visibility;
 }
 
@@ -137,7 +161,7 @@ float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseCo
 	float NdotL = HairShellNdotL(geomN, L, coverageAlpha);
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
-	float visibility = DirectionalShadowHair(lightClipPos, geomN);
+	float visibility = DirectionalShadowHair(lightClipPos, geomN, coverageAlpha);
 	float specMask = saturate(NdotL * 0.55 + 0.38);
 	return light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao * visibility;
 }

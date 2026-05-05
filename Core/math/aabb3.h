@@ -127,4 +127,22 @@ namespace math
 		Vector3 _Min;				// min corner
 
 	};
+
+	/** Uniformly expand an AABB (same margin on ±X/±Y/±Z). Useful for fitting shadow frusta past vertex extrusion (e.g. fur shells). */
+	inline AABB3 ExpandAabbByMargin(const AABB3& Box, float Margin)
+	{
+		if (Margin <= 0.f)
+			return Box;
+		Vector3 Mn = Box.GetMinPoint();
+		Vector3 Mx = Box.GetMaxPoint();
+		Mn.x -= Margin;
+		Mn.y -= Margin;
+		Mn.z -= Margin;
+		Mx.x += Margin;
+		Mx.y += Margin;
+		Mx.z += Margin;
+		AABB3 Out;
+		Out.Set(Mx, Mn);
+		return Out;
+	}
 }

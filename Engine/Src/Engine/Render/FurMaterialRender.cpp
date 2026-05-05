@@ -12,8 +12,8 @@
 #include "core/system.h"
 #include "core/logger.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
-#include "Render/SceneRendering/SceneViewData.h"
 #include "Render/WorldSceneRender.h"
+#include "Render/SceneRendering/SceneViewData.h"
 
 namespace Engine
 {
@@ -140,7 +140,7 @@ namespace Engine
 	}
 
 	void FurMaterialRender::DrawForwardFur(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* FurSharedBind,
-										 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
+										   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurForward");
@@ -173,6 +173,7 @@ namespace Engine
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
+		// D3D12: changing pixel shader clears staged SRV table; bind IBL + shadow (t5–t10) after PSO.
 		if (FurSharedBind && WorldSceneRender && ViewData)
 			FurSharedBind->BindFurForwardSharedSRVs(RHIContext, RenderParam.TargetBuffer, WorldSceneRender, ViewData);
 

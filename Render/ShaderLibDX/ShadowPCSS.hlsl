@@ -4,10 +4,10 @@
 #ifndef MINIENGINE_SHADOW_PCSS_HLSL
 #define MINIENGINE_SHADOW_PCSS_HLSL
 
-static const float kPCSSBlockerSearchRadiusUV = 0.014;
-static const float kPCSSMinFilterRadiusUV = 0.00035;
-static const float kPCSSMaxFilterRadiusUV = 0.0085;
-static const float kPCSSPenumbraMul = 22.0;
+static const float kPCSSBlockerSearchRadiusUV = 0.010;
+static const float kPCSSMinFilterRadiusUV = 0.00022;
+static const float kPCSSMaxFilterRadiusUV = 0.0045;
+static const float kPCSSPenumbraMul = 14.0;
 
 static const float2 kPoissonDisk16[16] =
 {

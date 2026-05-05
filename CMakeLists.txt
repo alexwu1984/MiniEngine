@@ -82,10 +82,9 @@ function(copy_runtime_assets target_name)
 		# robocopy returns codes <= 7 for "success with some skips"; we treat those as success to keep builds stable.
 		COMMAND ${CMAKE_COMMAND} -E echo "Copy runtime assets -> ${runtime_output_dir}"
 		COMMAND cmd /c robocopy "${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel" "${runtime_output_dir}/GLTFModel" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP ^& if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))
-		COMMAND powershell -NoProfile -ExecutionPolicy Bypass
-			-File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.ps1"
-			-SourceDir "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
-			-DestDir "${runtime_output_dir}/ShaderLibDX"
+		COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.py"
+			--source "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+			--dest "${runtime_output_dir}/ShaderLibDX"
 		COMMENT "Copying runtime assets for ${target_name}")
 	add_dependencies(${target_name} ${target_name}_RuntimeAssets)
 endfunction()
@@ -93,10 +92,9 @@ endfunction()
 # Every link: sync HLSL next to the built exe (matches core::process_directory() + /ShaderLibDX/).
 function(sync_shaderlib_dx_postbuild target_name)
 	add_custom_command(TARGET ${target_name} POST_BUILD
-		COMMAND powershell -NoProfile -ExecutionPolicy Bypass
-			-File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.ps1"
-			-SourceDir "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
-			-DestDir "$<TARGET_FILE_DIR:${target_name}>/ShaderLibDX"
+		COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.py"
+			--source "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+			--dest "$<TARGET_FILE_DIR:${target_name}>/ShaderLibDX"
 		VERBATIM
 		COMMENT "Sync ShaderLibDX for ${target_name}")
 endfunction()

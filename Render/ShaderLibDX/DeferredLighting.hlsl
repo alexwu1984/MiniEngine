@@ -220,11 +220,21 @@ float DirectionalShadowHair(float4 lightClipPos, float3 geomN)
 	return visibility;
 }
 
+// Fur shells: GBuffer normal is SrcAlpha-blended vs floor; geom N·L collapses on contact while sky pixels often
+// take the depth>=1 early-out (unlit baseColor only). Soft minimum + wrap on translucent edges matches sky-side read.
+float HairShellNdotL(float3 geomN, float3 L, float coverageAlpha)
+{
+	float n = saturate(dot(geomN, L));
+	float e = saturate((1.0 - coverageAlpha) * 4.0);
+	n = max(n, e * 0.38);
+	return lerp(n, saturate(n * 0.62 + 0.32), e * 0.55);
+}
+
 float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseColor, float perceptualRoughness, float ao,
-	float3 strandT, float3 geomN, float3 view)
+	float3 strandT, float3 geomN, float3 view, float coverageAlpha)
 {
 	float3 L = normalize(light.Direction);
-	float NdotL = saturate(dot(geomN, L));
+	float NdotL = HairShellNdotL(geomN, L, coverageAlpha);
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
 	float visibility = DirectionalShadowHair(lightClipPos, geomN);
@@ -232,13 +242,13 @@ float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseCo
 }
 
 float3 ApplyPointLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
-	float3 strandT, float3 geomN, float3 worldPos, float3 view, int lightIndex)
+	float3 strandT, float3 geomN, float3 worldPos, float3 view, int lightIndex, float coverageAlpha)
 {
 	float3 pointToLight = light.Position - worldPos;
 	float distance = length(pointToLight);
 	float3 L = pointToLight / max(distance, 1e-5);
 	float attenuation = GetRangeAttenuation(light.Range, distance);
-	float NdotL = saturate(dot(geomN, L));
+	float NdotL = HairShellNdotL(geomN, L, coverageAlpha);
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
 	float vis = 1.0;
@@ -248,14 +258,14 @@ float3 ApplyPointLightHair(Light light, float3 baseColor, float perceptualRoughn
 }
 
 float3 ApplySpotLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
-	float3 strandT, float3 geomN, float3 worldPos, float3 view)
+	float3 strandT, float3 geomN, float3 worldPos, float3 view, float coverageAlpha)
 {
 	float3 pointToLight = light.Position - worldPos;
 	float distance = length(pointToLight);
 	float rangeAttenuation = GetRangeAttenuation(light.Range, distance);
 	float spotAttenuation = GetSpotAttenuation(pointToLight, -light.Direction, light.OuterConeCos, light.InnerConeCos);
 	float3 L = pointToLight / max(distance, 1e-5);
-	float NdotL = saturate(dot(geomN, L));
+	float NdotL = HairShellNdotL(geomN, L, coverageAlpha);
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
 	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * (diffKK + specKK) * NdotL * ao;
@@ -328,7 +338,24 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	uint smid = DecodeShadingModelId(auxSample.r);
 	const bool bHair = IsHairShadingModel(smid);
 	float3 strandT = DecodeHairTangentOctPacked(auxSample.gb);
-	float hairIblDiffuseScale = saturate(auxSample.a);
+	// MatAux .a is blended with shell coverage (SrcAlpha MRT); do not use as packed ibl scale for hair.
+	float hairIblDiffuseScale = bHair ? 1.0f : saturate(auxSample.a);
+
+	// Fur/shell edges: SrcAlpha-blended normals between strands and contact geometry crush N·L on default-lit GGX. Nudge toward
+	// world up for dielectric, high-roughness semi-transparent pixels (not hair SM — aux channel must stay interpretable).
+	if (!bHair && baseSample.a < 0.999f && baseSample.a > 1e-3f && metallic < 0.05f && perceptualRoughness > 0.5f)
+	{
+		float edge = saturate((1.0f - baseSample.a) * 3.0f);
+		float3 upW = float3(0.0f, 1.0f, 0.0f);
+		normal = normalize(lerp(normal, upW, edge * 0.45f));
+	}
+	// Hair/fur: same blended-geomN issue on floor; sky often skips lighting (depth early-out). Nudge for IBL + shadow axes.
+	if (bHair && baseSample.a < 0.999f && baseSample.a > 1e-3f)
+	{
+		float edge = saturate((1.0f - baseSample.a) * 3.0f);
+		float3 upW = float3(0.0f, 1.0f, 0.0f);
+		normal = normalize(lerp(normal, upW, edge * 0.42f));
+	}
 
 	float3 color = float3(0, 0, 0);
 	float4 mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[0].LightViewProj);
@@ -342,12 +369,12 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 			if (light.Type == LightType_Directional)
 			{
 				float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
-				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, view);
+				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, view, baseSample.a);
 			}
 			else if (light.Type == LightType_Point)
-				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i);
+				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i, baseSample.a);
 			else if (light.Type == LightType_Spot)
-				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view);
+				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, baseSample.a);
 		}
 		else
 		{

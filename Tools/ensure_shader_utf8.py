@@ -1,7 +1,7 @@
 """Normalize shader sources to UTF-8 without BOM (strip signature if present).
 
 Tries UTF-8 first, then GBK family (common in Chinese toolchains), then latin-1.
-Scans the same trees as strip_shader_bom.ps1.
+Scans Render/ShaderLibDX and ThirdParty/DirectXTex/DirectXTex/Shaders.
 
 Usage (from repo root):
   python Tools/ensure_shader_utf8.py

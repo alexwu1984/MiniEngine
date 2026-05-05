@@ -81,65 +81,89 @@ namespace Engine
 		});
 		std::stable_sort(Flat.begin(), Flat.end(), BatchSortOpaqueLess);
 
-		size_t i = 0;
-		while (i < Flat.size())
+		// Fur shells use SrcAlpha blending into the GBuffer; opaque PBR uses replace. If fur draws before floor/walls,
+		// later opaque overwrites blended pixels → no softness over geometry (sky is drawn earlier so fur-over-sky still works).
+		std::vector<FTranslucentMeshSortKey> nonFurSubset;
+		std::vector<FTranslucentMeshSortKey> furSubset;
+		nonFurSubset.reserve(Flat.size());
+		furSubset.reserve(8);
+		for (const auto& Key : Flat)
 		{
-			const FTranslucentMeshSortKey& Key = Flat[i];
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-			std::shared_ptr<MaterialRender> Mat = MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey);
 			const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
 			if (!Mesh || !meshMat || meshMat->IsTransparent())
-			{
-				++i;
 				continue;
-			}
-
-			MeshBase* LeadMesh = Mesh.get();
-			auto* strictPBR = (Mat.get() && typeid(*Mat.get()) == typeid(PBRMaterialRender)) ? static_cast<PBRMaterialRender*>(Mat.get()) : nullptr;
-			auto* furMat = dynamic_cast<FurMaterialRender*>(Mat.get());
-
-			size_t end = i + 1;
-			if (strictPBR && LeadMesh && !LeadMesh->HasSkin() && !furMat)
-			{
-				while (end < Flat.size())
-				{
-					const FTranslucentMeshSortKey& K2 = Flat[end];
-					std::shared_ptr<MeshBase> M2 = K2.Mesh;
-					const auto mat2 = M2 ? M2->GetMaterial() : nullptr;
-					if (!M2 || !mat2 || mat2->IsTransparent())
-						break;
-					std::shared_ptr<MaterialRender> Mat2 = MaterialCache.GetOrCreate(M2, K2.MaterialRenderCacheKey);
-					if (!Mat2.get() || typeid(*Mat2.get()) != typeid(PBRMaterialRender))
-						break;
-					if (dynamic_cast<FurMaterialRender*>(Mat2.get()))
-						break;
-					if (!MeshesCompatibleForPBROpaqueBatch(LeadMesh, M2.get()))
-						break;
-					++end;
-				}
-			}
-
-			if (strictPBR && end > i + 1 && LeadMesh && !LeadMesh->HasSkin() && !furMat)
-			{
-				MaterialRenderParam P0 = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
-					DrawContext.WorldSceneRender, DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr, LeadMesh, Key.WorldTransform, Key.PrevWorldTransform,
-					DrawContext.TargetBuffer);
-				strictPBR->BeginDeferredOpaqueDrawBatch(*DrawContext.RHICmdList, P0);
-				for (size_t j = i + 1; j < end; ++j)
-				{
-					const FTranslucentMeshSortKey& Kj = Flat[j];
-					MeshBase* Mj = Kj.Mesh.get();
-					MaterialRenderParam Pj = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
-						DrawContext.WorldSceneRender, DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr, Mj, Kj.WorldTransform, Kj.PrevWorldTransform,
-						DrawContext.TargetBuffer);
-					strictPBR->DrawDeferredOpaqueBatchInstance(*DrawContext.RHICmdList, Pj);
-				}
-				i = end;
-				continue;
-			}
-
-			FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, Mat, bIsPrePass, DrawContext);
-			++i;
+			std::shared_ptr<MaterialRender> Mat = MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey);
+			if (dynamic_cast<FurMaterialRender*>(Mat.get()))
+				furSubset.push_back(Key);
+			else
+				nonFurSubset.push_back(Key);
 		}
+
+		auto drawSubset = [&](std::vector<FTranslucentMeshSortKey>& Subset) {
+			size_t i = 0;
+			while (i < Subset.size())
+			{
+				const FTranslucentMeshSortKey& Key = Subset[i];
+				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+				std::shared_ptr<MaterialRender> Mat = MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey);
+				const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
+				if (!Mesh || !meshMat || meshMat->IsTransparent())
+				{
+					++i;
+					continue;
+				}
+
+				MeshBase* LeadMesh = Mesh.get();
+				auto* strictPBR = (Mat.get() && typeid(*Mat.get()) == typeid(PBRMaterialRender)) ? static_cast<PBRMaterialRender*>(Mat.get()) : nullptr;
+				auto* furMat = dynamic_cast<FurMaterialRender*>(Mat.get());
+
+				size_t end = i + 1;
+				if (strictPBR && LeadMesh && !LeadMesh->HasSkin() && !furMat)
+				{
+					while (end < Subset.size())
+					{
+						const FTranslucentMeshSortKey& K2 = Subset[end];
+						std::shared_ptr<MeshBase> M2 = K2.Mesh;
+						const auto mat2 = M2 ? M2->GetMaterial() : nullptr;
+						if (!M2 || !mat2 || mat2->IsTransparent())
+							break;
+						std::shared_ptr<MaterialRender> Mat2 = MaterialCache.GetOrCreate(M2, K2.MaterialRenderCacheKey);
+						if (!Mat2.get() || typeid(*Mat2.get()) != typeid(PBRMaterialRender))
+							break;
+						if (dynamic_cast<FurMaterialRender*>(Mat2.get()))
+							break;
+						if (!MeshesCompatibleForPBROpaqueBatch(LeadMesh, M2.get()))
+							break;
+						++end;
+					}
+				}
+
+				if (strictPBR && end > i + 1 && LeadMesh && !LeadMesh->HasSkin() && !furMat)
+				{
+					MaterialRenderParam P0 = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
+						DrawContext.WorldSceneRender, DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr, LeadMesh, Key.WorldTransform, Key.PrevWorldTransform,
+						DrawContext.TargetBuffer);
+					strictPBR->BeginDeferredOpaqueDrawBatch(*DrawContext.RHICmdList, P0);
+					for (size_t j = i + 1; j < end; ++j)
+					{
+						const FTranslucentMeshSortKey& Kj = Subset[j];
+						MeshBase* Mj = Kj.Mesh.get();
+						MaterialRenderParam Pj = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
+							DrawContext.WorldSceneRender, DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr, Mj, Kj.WorldTransform, Kj.PrevWorldTransform,
+							DrawContext.TargetBuffer);
+						strictPBR->DrawDeferredOpaqueBatchInstance(*DrawContext.RHICmdList, Pj);
+					}
+					i = end;
+					continue;
+				}
+
+				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, Mat, bIsPrePass, DrawContext);
+				++i;
+			}
+		};
+
+		drawSubset(nonFurSubset);
+		drawSubset(furSubset);
 	}
 }

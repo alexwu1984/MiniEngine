@@ -2,6 +2,8 @@
 #include "GLTFPbrPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
 #include "ShaderUtils.hlsl"
+#include "DeferredShadingCommon.hlsl"
+#include "HairShading.hlsl"
 
 #if defined(RHI_BINDLESS)
 Texture2D Fur_Material2D[2] : register(t0);
@@ -20,6 +22,7 @@ struct PS_OUTPUT_SCENE
     float4 Target2 : SV_Target2;
     float4 Target3 : SV_Target3;
     float4 Target4 : SV_Target4;
+    float4 Target5 : SV_Target5;
 };
 
 float3 Calculate3DFurVelocity(float4 CurrentVelocity, float4 PreVelocity)
@@ -53,6 +56,7 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
         Output.Target0 = float4(0, 0, 0, 0);
         Output.Target3 = float4(0, 0, 0, 0);
         Output.Target4 = float4(0, 0, 0, 0);
+        Output.Target5 = float4(0, 0, 0, 0);
         return Output;
     }
 
@@ -81,6 +85,18 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     Output.Target0 = float4(ShellAlbedo, Alpha);
     Output.Target3 = float4(ExtraEmissive, Alpha);
     Output.Target4 = float4(kMetallic, kAO, kRough, Alpha);
+    // SHADINGMODELID_HAIR + strand tangent oct (MaterialAux .a is coverage for MRT blend; IBL hair scale fixed in deferred).
+    float3 strandDir;
+#if defined(HAS_TANGENT)
+    strandDir = normalize(Input.Tangent);
+#else
+    float3 up = float3(0.0, 1.0, 0.0);
+    strandDir = cross(n, up);
+    strandDir = (dot(strandDir, strandDir) > 1e-8) ? normalize(strandDir) : normalize(cross(n, float3(1.0, 0.0, 0.0)));
+#endif
+    float2 tOct = EncodeHairTangentOctPacked(strandDir);
+    float4 auxHair = EncodeMaterialAux_HairStrand(tOct, 1.0);
+    Output.Target5 = float4(auxHair.r, auxHair.g, auxHair.b, Alpha);
 
     if (myPerFrame.bUnlit != 0)
     {

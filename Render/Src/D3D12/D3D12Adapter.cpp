@@ -49,6 +49,7 @@ namespace RenderCore
 
 		std::shared_ptr<FDynamicDescriptorHeap> DynamicViewDescriptorHeap;
 		std::unique_ptr<FD3D12FastConstantAllocator> TransientUniformBufferAllocator;
+		const uint32_t kMaxGpuLagFrames = 2;
 
 		~FD3D12AdapterPrivate()
 		{
@@ -274,17 +275,10 @@ namespace RenderCore
 		C_P(FD3D12Adapter);
 		// Lower values = stricter catch-up wait before recording (less CPU/GPU overlap, stabler lifetimes).
 		// 0 can interact badly with the optional RHI submission worker (see MainEngine::StartRenderWorkerThreads); default 2.
-		int gpuLagFrames = 2;
-		(void)core::CommandLine::Get().GetInteger("d3d12_max_gpu_lag", gpuLagFrames);
-		if (gpuLagFrames < 0)
-			gpuLagFrames = 0;
-		if (gpuLagFrames > 16)
-			gpuLagFrames = 16;
-		const uint32_t kMaxGpuLagFrames = static_cast<uint32_t>(gpuLagFrames);
 		const uint64_t last = d->LastEndFrameFenceSignaledValue.load(std::memory_order_acquire);
-		if (last > kMaxGpuLagFrames && d->FrameFence)
+		if (last > d->kMaxGpuLagFrames && d->FrameFence)
 		{
-			const uint64_t waitValue = last - kMaxGpuLagFrames;
+			const uint64_t waitValue = last - d->kMaxGpuLagFrames;
 			d->FrameFence->WaitForFence(waitValue);
 		}
 		d->RHIRecordingFrameCounter.fetch_add(1, std::memory_order_relaxed);

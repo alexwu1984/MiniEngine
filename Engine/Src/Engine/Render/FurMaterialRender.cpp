@@ -197,13 +197,11 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = static_cast<float>(FurConfig.FurLevel);
 
 		const int32_t FurLevelCount = (std::max)(1, static_cast<int32_t>(FurConfig.FurLevel));
-		for (int32_t Index = 0; Index < FurLevelCount; ++Index)
-		{
-			const float FurOffset = 1.0f / static_cast<float>(FurLevelCount) * (static_cast<float>(Index) + 1.f);
-			d->GET_UNIFORMDATA(CBPerFur).FurOffset = FurOffset;
-			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
-			DrawPrimitive(RHIContext);
-		}
+		// One draw, FurLevel instances: VS derives shell depth from SV_InstanceID (FUR_SHELL_INSTANCED_DRAW in FurMaterial.hlsl).
+		d->GET_UNIFORMDATA(CBPerFur).FurOffset = 0.f;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
+		if (GetPBRMeshBuffer())
+			RHIContext.DrawPrimitiveInstanced(GetPBRMeshBuffer()->GetVerticesBuffer(), GetPBRMeshBuffer()->GetIndexBuffer(), static_cast<uint32_t>(FurLevelCount), 0u);
 	}
 
 	void FurMaterialRender::PreDraw(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)

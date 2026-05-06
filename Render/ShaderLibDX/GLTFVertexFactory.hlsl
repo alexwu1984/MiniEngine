@@ -40,7 +40,7 @@ struct VS_INPUT_SCENE
 //--------------------------------------------------------------------------------------
 // mainVS
 //--------------------------------------------------------------------------------------
-VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
+VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input, uint InstanceId : SV_InstanceID)
 {
     VS_OUTPUT_SCENE Output = (VS_OUTPUT_SCENE)0;
 #ifdef HAS_WEIGHTS_0
@@ -59,18 +59,24 @@ VS_OUTPUT_SCENE gltfVertexFactory(VS_INPUT_SCENE input)
     matrix transMatrix = mul(skinningMatrix, GetWorldMatrix());
     Output.Normal = normalize(mul(float4(input.Normal, 0), transMatrix).xyz);
 #ifdef HASFUR
-    float2 UVoffset = float2(0.2, 0.2) * FurOffset;
+    float shellFurOffset = FurOffset;
+#if defined(FUR_SHELL_INSTANCED_DRAW)
+    if (FurLevel >= 0.5)
+        shellFurOffset = ((float)InstanceId + 1.0) / max(FurLevel, 1.0);
+#endif
+    float2 UVoffset = float2(0.2, 0.2) * shellFurOffset;
     UVoffset *= 0.1;
     Output.UV0 = input.UV0 * UVScale + UVoffset;
     Output.UV1 = input.UV0;
     float furLength_coeff = 1.0;
     float vGravityStength = 0.5;
-	float3 Direction = lerp(input.Normal, Gravity * vGravityStength + input.Normal * (1.0 - vGravityStength), FurOffset);
-	float3 P = input.Position + Direction * FurLength * FurOffset * furLength_coeff;
+	float3 Direction = lerp(input.Normal, Gravity * vGravityStength + input.Normal * (1.0 - vGravityStength), shellFurOffset);
+	float3 P = input.Position + Direction * FurLength * shellFurOffset * furLength_coeff;
     Output.WorldPos = mul(float4(P, 1.0f),transMatrix).xyz;
     
 	float SH = clamp(Output.Normal.y * 0.25 + 0.35, 0.0, 1.0);
     Output.SH = float3(SH, SH, SH );
+    Output.FurShellOffset = shellFurOffset;
 #else
     Output.UV0 = input.UV0;
     Output.WorldPos = mul(float4(input.Position, 1.0f),transMatrix).xyz;
@@ -145,6 +151,7 @@ VS_OUTPUT_SCENE gltfVertexFactoryForLight(VS_INPUT_SCENE input)
     
 	float SH = clamp(Output.Normal.y * 0.25 + 0.35, 0.0, 1.0);
     Output.SH = float3(SH, SH, SH );
+    Output.FurShellOffset = FurOffset;
 #else
     Output.UV0 = input.UV0;
     Output.WorldPos = mul(float4(input.Position, 1.0f),transMatrix).xyz;

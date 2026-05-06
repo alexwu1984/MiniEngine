@@ -1,3 +1,5 @@
+// One instanced draw for all forward shells (FurLevel instances); VS derives layer from SV_InstanceID.
+#define FUR_SHELL_INSTANCED_DRAW 1
 #include "GLTFPbrPass-VS.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
@@ -52,7 +54,8 @@ PS_OUTPUT_FWD MainPS(VS_OUTPUT_SCENE Input)
 	float Noise = NoiseMap.Sample(SampleLinear, Input.UV0).r;
 	float FurMask = 0.5;
 	float Tming = 0.5;
-	float Alpha = clamp((Noise * 2.0 - (FurOffset * FurOffset + (FurOffset * FurMask * 5.0))) * Tming, 0.0, 1.0);
+	float shellT = Input.FurShellOffset;
+	float Alpha = clamp((Noise * 2.0 - (shellT * shellT + (shellT * FurMask * 5.0))) * Tming, 0.0, 1.0);
 	clip(Alpha - 0.001);
 
 	float3 strandDir;
@@ -70,7 +73,7 @@ PS_OUTPUT_FWD MainPS(VS_OUTPUT_SCENE Input)
 	float3 upW = float3(0.0, 1.0, 0.0);
 	geomN = normalize(lerp(geomN, upW, edge * 0.42));
 
-	float Occlusion = FurOffset * FurOffset + 0.04;
+	float Occlusion = shellT * shellT + 0.04;
 	float Fresnel = 1.0 - max(0.0, dot(n, Vw));
 	float3 RimLight = float3(Fresnel * Occlusion, Fresnel * Occlusion, Fresnel * Occlusion);
 	RimLight *= RimLight;

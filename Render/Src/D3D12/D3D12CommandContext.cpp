@@ -470,14 +470,12 @@ namespace RenderCore
 			FD3D12Resource* const Res = Texture2D->GetResource();
 			if (Res && Res->RequiresResourceStateTracking())
 			{
+				// Depth/stencil SRV reads plane 0 only (#527-style); color textures use one whole-resource
+				// transition when all mips share the same target (fewer ResourceBarrier calls vs per-sub loop).
 				if (ShouldTransitionDepthPlaneOnlyForShaderSample(Texture2D, Res))
 					TransitionSubResource(Res, TargetState, 0, false);
 				else
-				{
-					const uint32_t n = Res->GetSubresourceCount();
-					for (uint32_t sub = 0; sub < n; ++sub)
-						TransitionSubResource(Res, TargetState, sub, false);
-				}
+					TransitionResource(Res, TargetState, false);
 			}
 		}
 		CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
@@ -497,17 +495,7 @@ namespace RenderCore
 					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				FD3D12Resource* const Res = TextureCube->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
-				{
-					const uint32_t numMips = TextureCube->GetNumMips();
-					for (uint32_t mip = 0; mip < numMips; ++mip)
-					{
-						for (int face = 0; face < 6; ++face)
-						{
-							const uint32_t subIdx = TextureCube->GetSubresourceIndex(face, (int32_t)mip);
-							TransitionSubResource(Res, TargetState, subIdx, false);
-						}
-					}
-				}
+					TransitionResource(Res, TargetState, false);
 			}
 			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, -1, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
@@ -637,6 +625,35 @@ namespace RenderCore
 			return;
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(),1,0,0,0);
+		++numDraws;
+	}
+
+	void D3D12CommandContext::DrawPrimitiveInstanced(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount,
+													 uint32_t StartInstanceLocation)
+	{
+		if (!CurrentStateCache || InstanceCount == 0)
+			return;
+
+		int32_t StreamIndex = 0;
+		for (const auto& BufferRHI : VertexBufferArrayRHI)
+		{
+			if (BufferRHI)
+			{
+				D3D12VertexBffer* VertexBuffer = RHIResourceCast(BufferRHI.get());
+				CurrentStateCache->SetVertexBuffer(CommandListHandle, StreamIndex++, VertexBuffer->VertexBufferView());
+			}
+		}
+		static constexpr D3D12_VERTEX_BUFFER_VIEW kNullVBV{};
+		for (uint32_t s = static_cast<uint32_t>(StreamIndex); s < 32u; ++s)
+			CurrentStateCache->SetVertexBuffer(CommandListHandle, s, kNullVBV);
+		D3D12IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		if (!IndexBuffer)
+			return;
+		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexBuffer->IndexBufferView());
+		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
+			return;
+		CommandListHandle.FlushResourceBarriers();
+		CommandListHandle->DrawIndexedInstanced(IndexBuffer->GetIndexCount(), InstanceCount, 0, 0, StartInstanceLocation);
 		++numDraws;
 	}
 

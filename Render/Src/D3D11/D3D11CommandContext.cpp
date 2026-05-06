@@ -620,6 +620,31 @@ namespace RenderCore
 		Impl->D3D11RHI->GetDeviceContext()->DrawIndexed(IndexBuffer->GetIndexCount(), 0, 0);
 	}
 
+	void D3D11CommandContext::DrawPrimitiveInstanced(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount,
+													 uint32_t StartInstanceLocation)
+	{
+		if (InstanceCount == 0)
+			return;
+
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		int32_t StreamIndex = 0;
+		for (const auto& BufferRHI : VertexBufferArrayRHI)
+		{
+			if (BufferRHI)
+			{
+				D3D11VertexBuffer* Buffer = RHIResourceCast(BufferRHI.get());
+				StateCache.SetStreamSource(Buffer->GetNativeBuffer(), StreamIndex++, Buffer->GetStride(), 0);
+			}
+		}
+		D3D11IndexBuffer* IndexBuffer = RHIResourceCast(IndexBufferRHI.get());
+		if (!IndexBuffer)
+			return;
+		for (uint32_t ClearSlot = static_cast<uint32_t>(StreamIndex); ClearSlot < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; ++ClearSlot)
+			StateCache.SetStreamSource(nullptr, ClearSlot, 0, 0);
+		StateCache.SetIndexBuffer(IndexBuffer->GetNativeBuffer(), static_cast<DXGI_FORMAT>(IndexBuffer->GetIndexFormat()), 0);
+		Impl->D3D11RHI->GetDeviceContext()->DrawIndexedInstanced(IndexBuffer->GetIndexCount(), InstanceCount, 0, 0, StartInstanceLocation);
+	}
+
 	void D3D11CommandContext::Draw(uint32_t VertexCount, uint32_t VertexStartOffset /*= 0*/)
 	{
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();

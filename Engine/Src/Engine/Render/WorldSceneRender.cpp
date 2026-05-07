@@ -337,11 +337,13 @@ namespace Engine
 		Out = d_ptr->LastFramePassCpuTimingsForGui;
 	}
 
-	bool FWorldSceneRender::TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Matrix4x4& OutCameraViewProj) const noexcept
+	bool FWorldSceneRender::TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,
+														  math::Matrix4x4& OutCameraViewProj) const noexcept
 	{
 		if (!d_ptr || !d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
 			return false;
 		OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
+		OutLightDirectionTowardSource = d_ptr->GuiDirLightDirectionTowardSourceForDebug;
 		OutCameraViewProj = d_ptr->GuiCameraViewProjForDebug;
 		return true;
 	}

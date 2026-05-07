@@ -3,6 +3,7 @@
 #include "core/event.h"
 #include "core/color.h"
 #include "math/matrix4x4.h"
+#include "math/vector3.h"
 #include "Render/RDGBuilder.h"
 #include "tinygltf/json.h"
 
@@ -80,7 +81,7 @@ namespace Engine
 		/** Thread-safe copy of last completed frame's RDG pass CPU Encode timings (see HUD disclaimer). */
 		void GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const;
 		/** Valid after Shadow RDG pass when directional shadow was rendered this frame (render-thread matrices). */
-		bool TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Matrix4x4& OutCameraViewProj) const noexcept;
+		bool TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource, math::Matrix4x4& OutCameraViewProj) const noexcept;
 
 	private:
 		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */

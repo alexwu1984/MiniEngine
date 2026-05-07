@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "core/color.h"
 #include "math/matrix4x4.h"
+#include "math/vector3.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
 #include <atomic>
@@ -56,6 +57,8 @@ namespace Engine
 
 		math::Matrix4x4 GuiCameraViewProjForDebug{};
 		math::Matrix4x4 GuiDirLightViewProjForDebug{};
+		/** Matches Light.Direction in shaders: world-space unit vector toward the directional light source. */
+		math::Vector3 GuiDirLightDirectionTowardSourceForDebug{};
 		std::atomic<bool> bShowDirectionalLightFrustum{ false };
 		std::atomic<bool> bGuiDirLightFrustumValid{ false };
 	};

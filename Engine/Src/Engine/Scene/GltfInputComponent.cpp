@@ -5,9 +5,19 @@
 #include "Scene/FreeRoamCameraComponent.h"
 #include "Scene/DeviceInputState.h"
 #include "win/cpu_clock.h"
+#include "win/win32.h"
+#include <algorithm>
+#include <cmath>
 
 namespace Engine
 {
+	namespace
+	{
+		static math::Vector3 PolarToVectorGlTFSample(float yaw, float pitch)
+		{
+			return math::Vector3(sinf(yaw) * cosf(pitch), sinf(pitch), cosf(yaw) * cosf(pitch));
+		}
+	} // namespace
 	IMP_COMPONENT_CLASS_NAME(GltfDeviceInputComponent)
 	IMP_COMPONENT_TRAITS_CLASS_NAME(GltfDeviceInputComponent)
 
@@ -25,6 +35,13 @@ namespace Engine
 		bool bMouseRotateModelEnabled = true;
 		core::vec2f RoamLookLastPos{};
 		bool bRoamLookHasLast = false;
+
+		bool bOrbitCameraEnabled = false;
+		math::Vector3 OrbitTargetWorld{};
+		float OrbitYaw = 0.f;
+		float OrbitPitch = 0.f;
+		float OrbitDistance = 3.5f;
+		core::vec2f OrbitDragLastPos{};
 	};
 
 	GltfDeviceInputComponent::GltfDeviceInputComponent(class std::weak_ptr<Actor> Owner)
@@ -49,6 +66,38 @@ namespace Engine
 	{
 		C_P(const GltfDeviceInputComponent);
 		return d->bMouseRotateModelEnabled;
+	}
+
+	void GltfDeviceInputComponent::EnableOrbitCamera(bool bEnable, const math::Vector3& targetWorld, float distance, float yawRadians,
+													 float pitchRadians)
+	{
+		C_P(GltfDeviceInputComponent);
+		d->bOrbitCameraEnabled = bEnable;
+		if (!bEnable)
+			return;
+		d->OrbitTargetWorld = targetWorld;
+		d->OrbitDistance = std::max(distance, 0.1f);
+		d->OrbitYaw = yawRadians;
+		d->OrbitPitch = pitchRadians;
+		const float lim = math::MATH_PI * 0.5f - 1e-3f;
+		d->OrbitPitch = std::clamp(d->OrbitPitch, -lim, lim);
+	}
+
+	bool GltfDeviceInputComponent::IsOrbitCameraEnabled() const
+	{
+		C_P(const GltfDeviceInputComponent);
+		return d->bOrbitCameraEnabled;
+	}
+
+	void GltfDeviceInputComponent::SnapOrbitToCamera(CameraComponent* Cam)
+	{
+		C_P(GltfDeviceInputComponent);
+		if (!Cam || !d->bOrbitCameraEnabled)
+			return;
+		const math::Vector3 pol = PolarToVectorGlTFSample(d->OrbitYaw, d->OrbitPitch);
+		const math::Vector3 eye = d->OrbitTargetWorld + pol * d->OrbitDistance;
+		Cam->SetExplicitLookAtWorldTarget(d->OrbitTargetWorld, true);
+		Cam->SetCameraPos(eye);
 	}
 
 	void GltfDeviceInputComponent::ProcessInput(const InputDeviceState& State)
@@ -80,6 +129,8 @@ namespace Engine
 				d->LBDownPoint = Pos;
 				d->LBtnRotate = d->Rotate;
 				d->LeftButtonPressed = true;
+				if (d->bOrbitCameraEnabled)
+					d->OrbitDragLastPos = Pos;
 			}
 			else if (Button == MouseButton::RightButton)
 			{
@@ -133,6 +184,42 @@ namespace Engine
 			if (roamCam)
 				break;
 
+			if (d->bOrbitCameraEnabled)
+			{
+				std::shared_ptr<CameraComponent> orbitCam = GetOwner()->GetComponent<CameraComponent>();
+				if (orbitCam && d->LeftButtonPressed && Button == MouseButton::LeftButton)
+				{
+					const core::vec2f delta{ Pos.x - d->OrbitDragLastPos.x, Pos.y - d->OrbitDragLastPos.y };
+					d->OrbitDragLastPos = Pos;
+					const bool ctrlDown = (::GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+					if (ctrlDown)
+					{
+						const math::Vector3 pol = PolarToVectorGlTFSample(d->OrbitYaw, d->OrbitPitch);
+						const math::Vector3 eye = d->OrbitTargetWorld + pol * d->OrbitDistance;
+						math::Vector3 forward = d->OrbitTargetWorld - eye;
+						forward.Normalize();
+						math::Vector3 worldUp(0.f, 1.f, 0.f);
+						math::Vector3 right = math::Vector3::Cross(worldUp, forward);
+						if (right.GetSqrLength() < 1e-10f)
+							right = math::Vector3::Cross(math::Vector3(1.f, 0.f, 0.f), forward);
+						right.Normalize();
+						const math::Vector3 camUp = math::Vector3::Cross(forward, right).Normalize();
+						const float panScale = d->OrbitDistance / 10.f;
+						d->OrbitTargetWorld += right * ((-delta.x) / 100.f) * panScale;
+						d->OrbitTargetWorld += camUp * ((delta.y) / 100.f) * panScale;
+					}
+					else
+					{
+						d->OrbitYaw -= delta.x / 100.f;
+						d->OrbitPitch += delta.y / 100.f;
+						const float lim = math::MATH_PI * 0.5f - 1e-3f;
+						d->OrbitPitch = std::clamp(d->OrbitPitch, -lim, lim);
+					}
+					SnapOrbitToCamera(orbitCam.get());
+					break;
+				}
+			}
+
 			if (!d->bMouseRotateModelEnabled)
 				break;
 
@@ -157,6 +244,13 @@ namespace Engine
 			std::shared_ptr<CameraComponent> MainCamera = GetOwner()->GetComponent<CameraComponent>();
 			if (!MainCamera)
 				break;
+			if (d->bOrbitCameraEnabled)
+			{
+				d->OrbitDistance -= static_cast<float>(State.MouseInputState.WheelValue) / 360.f;
+				d->OrbitDistance = std::max(d->OrbitDistance, 0.1f);
+				SnapOrbitToCamera(MainCamera.get());
+				break;
+			}
 			float Scale = 1.0f;
 			if (State.MouseInputState.WheelValue < 0)
 				Scale = -0.2f;

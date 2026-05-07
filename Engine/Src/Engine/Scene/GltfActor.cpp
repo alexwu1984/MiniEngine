@@ -98,6 +98,8 @@ namespace Engine
 			SetPosition(Pos);
 		}
 
+		const bool bHasOrbitCameraJson = d->GltfJson.find("OrbitCamera") != d->GltfJson.end() && d->GltfJson["OrbitCamera"].is_object();
+
 		if (d->GltfJson.find("MainCamera") != d->GltfJson.end())
 		{
 			if (d->GltfJson["MainCamera"])
@@ -106,7 +108,7 @@ namespace Engine
 				ComputeWorldTransform(0.f);
 				const math::Matrix4x4& W = GetWorldTransform();
 				bool bUsedJsonCamera = false;
-				if (d->GltfJson.find("Camera") != d->GltfJson.end() && d->GltfJson["Camera"].is_object())
+				if (!bHasOrbitCameraJson && d->GltfJson.find("Camera") != d->GltfJson.end() && d->GltfJson["Camera"].is_object())
 				{
 					try
 					{
@@ -136,7 +138,7 @@ namespace Engine
 					{
 					}
 				}
-				if (!bUsedJsonCamera)
+				if (!bHasOrbitCameraJson && !bUsedJsonCamera)
 				{
 					const math::AABB3 Box = d->MeshComp->GetModelBox();
 					const math::Vector3 LocalCenter = Box.GetCenter();
@@ -166,10 +168,48 @@ namespace Engine
 		d->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
 		d->InputComp->InitResource();
 		{
-			bool bMouseRotateModel = !GetWorld()->UsesRoamCameraScene();
-			if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
-				bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
-			d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+			const bool bMainCam = d->GltfJson.find("MainCamera") != d->GltfJson.end() && d->GltfJson["MainCamera"].get<bool>();
+			if (bHasOrbitCameraJson && bMainCam)
+			{
+				try
+				{
+					const auto& O = d->GltfJson["OrbitCamera"];
+					math::Vector3 tgt(0.f, 0.f, 0.f);
+					if (O.find("target") != O.end() && O["target"].is_array() && O["target"].size() >= 3)
+					{
+						tgt.x = O["target"].at(0).get<float>();
+						tgt.y = O["target"].at(1).get<float>();
+						tgt.z = O["target"].at(2).get<float>();
+					}
+					float dist = 3.5f;
+					if (O.find("distance") != O.end() && O["distance"].is_number())
+						dist = static_cast<float>(O["distance"].get<double>());
+					float yawDeg = 0.f;
+					float pitchDeg = 0.f;
+					if (O.find("yawDeg") != O.end() && O["yawDeg"].is_number())
+						yawDeg = static_cast<float>(O["yawDeg"].get<double>());
+					if (O.find("pitchDeg") != O.end() && O["pitchDeg"].is_number())
+						pitchDeg = static_cast<float>(O["pitchDeg"].get<double>());
+					static constexpr float kDegToRad = 3.14159265f / 180.f;
+					d->InputComp->EnableOrbitCamera(true, tgt, dist, yawDeg * kDegToRad, pitchDeg * kDegToRad);
+					d->InputComp->SnapOrbitToCamera(d->CameraComp.get());
+					d->InputComp->SetMouseRotateModelEnabled(false);
+				}
+				catch (const std::exception&)
+				{
+					bool bMouseRotateModel = !GetWorld()->UsesRoamCameraScene();
+					if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
+						bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
+					d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+				}
+			}
+			else
+			{
+				bool bMouseRotateModel = !GetWorld()->UsesRoamCameraScene();
+				if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
+					bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
+				d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+			}
 		}
 		AddComponent(d->InputComp);
 	}

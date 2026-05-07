@@ -51,6 +51,10 @@ struct FSkyLightIBLPrecomputePrivate
 	DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
 	bool bInitRender = false;
 	bool bConfigProceduralSky = false;
+	/** Evn first directional LightDir (world toward sun); procedural lat-long sun disk + shadows stay aligned. */
+	float ProceduralSunDirX = 0.f;
+	float ProceduralSunDirY = 0.49f;
+	float ProceduralSunDirZ = 0.833f;
 	std::wstring ConfigHdrFullPath;
 	std::wstring LastAppliedHdrFullPath;
 	/** Serialize HDR path + HDRTex updates vs ResolveSkyLightForFrame / LoadConfig (different render-queue commands or future game-thread readers). */

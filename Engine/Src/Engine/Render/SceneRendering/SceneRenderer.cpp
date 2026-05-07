@@ -107,6 +107,7 @@ namespace Engine
 					if (d->ShadowRender && d->ShadowRender->TryGetCachedMainLightForShading(Dir))
 					{
 						d->GuiDirLightViewProjForDebug = Dir.LightViewProj;
+						d->GuiDirLightDirectionTowardSourceForDebug = Dir.Direction;
 						d->bGuiDirLightFrustumValid.store(true, std::memory_order_relaxed);
 					}
 				}});

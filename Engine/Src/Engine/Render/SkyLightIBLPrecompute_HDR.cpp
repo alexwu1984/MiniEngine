@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -29,7 +30,36 @@ namespace Engine
 			return lower == "proceduralsky" || lower == "procedural_sky";
 		}
 
-		static std::shared_ptr<RenderCore::RHITexture2D> CreateProceduralSkyLatLong(RenderCore::DynamicRHI* RHI)
+		static bool TryParseFirstDirectionalLightDir(const nlohmann::json& EvnJson, float& sx, float& sy, float& sz)
+		{
+			try
+			{
+				const auto& arr = EvnJson.at("Light");
+				if (!arr.is_array())
+					return false;
+				for (const auto& lj : arr)
+				{
+					if (!lj.is_object() || lj.find("LightType") == lj.end() || !lj.at("LightType").is_number_integer())
+						continue;
+					if (lj.at("LightType").get<int>() != LightType_Directional)
+						continue;
+					const std::string dirStr = lj.at("LightDir").get<std::string>();
+					float x = 0.f, y = 0.f, z = 0.f;
+					if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &x, &y, &z) != 3)
+						return false;
+					sx = x;
+					sy = y;
+					sz = z;
+					return true;
+				}
+			}
+			catch (const std::exception&)
+			{
+			}
+			return false;
+		}
+
+		static std::shared_ptr<RenderCore::RHITexture2D> CreateProceduralSkyLatLong(RenderCore::DynamicRHI* RHI, float sunX, float sunY, float sunZ)
 		{
 			if (!RHI)
 				return {};
@@ -42,10 +72,10 @@ namespace Engine
 			std::vector<uint8_t> staging(slicePitch, 0);
 
 			const float pi = 3.14159265358979323846f;
-			// Match AMD glTFSample VK Renderer procedural skydome constants (SkyDomeProc::Constants).
-			// vSunDirection = (1, 0.05, 0); turbidity-ish horizon fade kept mild so the disk reads clearly after cubemap filter.
-			float sx = 1.0f, sy = 0.05f, sz = 0.0f;
-			const float invLen = 1.f / std::sqrt(sx * sx + sy * sy + sz * sz);
+			// Sun direction = Evn first directional LightDir (world toward light); matches Model*.json convention & directional shadows.
+			float sx = sunX, sy = sunY, sz = sunZ;
+			const float lenSq = sx * sx + sy * sy + sz * sz;
+			const float invLen = lenSq > 1e-12f ? (1.f / std::sqrt(lenSq)) : 1.f;
 			sx *= invLen;
 			sy *= invLen;
 			sz *= invLen;
@@ -102,7 +132,18 @@ namespace Engine
 			{
 				d->bConfigProceduralSky = true;
 				d->ConfigHdrFullPath.clear();
-				d->HDRTex = CreateProceduralSkyLatLong(d->RHI);
+				float sx = 0.f, sy = 0.49f, sz = 0.833f;
+				float px = sx, py = sy, pz = sz;
+				if (TryParseFirstDirectionalLightDir(EvnJson, px, py, pz))
+				{
+					sx = px;
+					sy = py;
+					sz = pz;
+				}
+				d->ProceduralSunDirX = sx;
+				d->ProceduralSunDirY = sy;
+				d->ProceduralSunDirZ = sz;
+				d->HDRTex = CreateProceduralSkyLatLong(d->RHI, sx, sy, sz);
 				d->LastAppliedHdrFullPath = kProcSkySentinel;
 			}
 			else
@@ -146,7 +187,7 @@ namespace Engine
 			if (d->LastAppliedHdrFullPath == kProcSkySentinel && d->HDRTex)
 				return;
 
-			d->HDRTex = CreateProceduralSkyLatLong(d->RHI);
+			d->HDRTex = CreateProceduralSkyLatLong(d->RHI, d->ProceduralSunDirX, d->ProceduralSunDirY, d->ProceduralSunDirZ);
 			d->LastAppliedHdrFullPath = kProcSkySentinel;
 			d->bInitRender = false;
 			return;

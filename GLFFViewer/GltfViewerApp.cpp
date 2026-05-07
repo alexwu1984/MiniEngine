@@ -16,6 +16,8 @@
 #include "core/commandline.h"
 #include "core/strings.h"
 #include "math/matrix4x4.h"
+#include "math/vector3.h"
+#include <cfloat>
 #include "Render/RDGBuilder.h"
 #include "RHI/DynamicRHI.h"
 #include <algorithm>
@@ -38,25 +40,39 @@ namespace
 		return true;
 	}
 
-	static void DrawDirLightOrthoFrustumOverlay(ImDrawList* dl, const math::Matrix4x4& lightViewProj, const math::Matrix4x4& cameraViewProj,
-												ImU32 col)
+	/** Same clip-space box as AMD glTFSample WireframeBox + Renderer.cpp light frustum: GenerateBox verts scaled by
+	 *  vCenter=(0,0,0.5) vRadius=(1,1,0.5), world = clipLight * inverse(LightViewProj) (row-vector clip = world * LightViewProj). */
+	static void DrawDirLightOrthoFrustumOverlay(ImDrawList* dl, const math::Matrix4x4& lightViewProj, const math::Vector3& lightDirTowardSource,
+												const math::Matrix4x4& cameraViewProj, ImU32 col)
 	{
-		static const int edges[12][2] = { { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 4, 5 }, { 5, 7 }, { 7, 6 }, { 6, 4 },
+		static const int edges[12][2] = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },
 										   { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
+		static const float rawBox[8][3] = {
+			{ -1.f, -1.f, 1.f }, { 1.f, -1.f, 1.f }, { 1.f, 1.f, 1.f }, { -1.f, 1.f, 1.f },
+			{ -1.f, -1.f, -1.f }, { 1.f, -1.f, -1.f }, { 1.f, 1.f, -1.f }, { -1.f, 1.f, -1.f },
+		};
+		constexpr float cx = 0.f, cy = 0.f, cz = 0.5f;
+		constexpr float rx = 1.f, ry = 1.f, rz = 0.5f;
+
+		const float detVp = lightViewProj.Determinant();
+		if (std::fabs(detVp) < 1e-24f)
+			return;
 		const math::Matrix4x4 invLP = lightViewProj.Inverse();
 		math::Vector3 c[8]{};
-		int k = 0;
-		for (int z : { 0, 1 })
+		for (int i = 0; i < 8; ++i)
 		{
-			for (int y : { -1, 1 })
+			const float lx = cx + rawBox[i][0] * rx;
+			const float ly = cy + rawBox[i][1] * ry;
+			const float lz = cz + rawBox[i][2] * rz;
+			const math::Vector4 clipLight(lx, ly, lz, 1.f);
+			const math::Vector4 worldH = clipLight * invLP;
+			const float w = worldH.w;
+			if (std::fabs(w) < 1e-8f)
+				c[i] = math::Vector3(worldH.x, worldH.y, worldH.z);
+			else
 			{
-				for (int x : { -1, 1 })
-				{
-					const math::Vector4 clip((float)x, (float)y, (float)z, 1.f);
-					const math::Vector4 worldH = clip * invLP;
-					const float iw = 1.f / (std::max)(std::fabs(worldH.w), 1e-6f);
-					c[k++] = math::Vector3(worldH.x * iw, worldH.y * iw, worldH.z * iw);
-				}
+				const float iw = 1.f / w;
+				c[i] = math::Vector3(worldH.x * iw, worldH.y * iw, worldH.z * iw);
 			}
 		}
 		ImVec2 s[8]{};
@@ -70,6 +86,54 @@ namespace
 		{
 			if ((mask & (1u << e[0])) && (mask & (1u << e[1])))
 				dl->AddLine(s[e[0]], s[e[1]], col, 2.f);
+		}
+
+		math::Vector3 center(0.f, 0.f, 0.f);
+		for (const auto& p : c)
+			center = center + p;
+		center = center * (1.f / 8.f);
+
+		math::Vector3 mn(FLT_MAX, FLT_MAX, FLT_MAX);
+		math::Vector3 mx(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		for (const auto& p : c)
+		{
+			mn.x = (std::min)(mn.x, p.x);
+			mn.y = (std::min)(mn.y, p.y);
+			mn.z = (std::min)(mn.z, p.z);
+			mx.x = (std::max)(mx.x, p.x);
+			mx.y = (std::max)(mx.y, p.y);
+			mx.z = (std::max)(mx.z, p.z);
+		}
+		const float diag = (mx - mn).GetLength();
+		const float axisHalf = (std::max)(diag * 0.55f, 0.35f);
+
+		const math::Vector3 dir = lightDirTowardSource.Normalize();
+		if (dir.GetSqrLength() < 1e-12f)
+			return;
+
+		const math::Vector3 sunW = center + dir * axisHalf;
+		const math::Vector3 shadowW = center - dir * axisHalf;
+
+		ImVec2 pSun{}, pSh{};
+		if (ProjectWorldToImGuiScreen(sunW, cameraViewProj, pSun) && ProjectWorldToImGuiScreen(shadowW, cameraViewProj, pSh))
+		{
+			const ImU32 axisCol = IM_COL32(60, 240, 255, 255);
+			dl->AddLine(pSh, pSun, axisCol, 3.f);
+
+			float vx = pSun.x - pSh.x;
+			float vy = pSun.y - pSh.y;
+			const float len = std::sqrt(vx * vx + vy * vy);
+			if (len > 6.f)
+			{
+				vx /= len;
+				vy /= len;
+				const float ah = 16.f;
+				const float hw = 7.f;
+				const ImVec2 tip = pSun;
+				const ImVec2 base(pSun.x - vx * ah, pSun.y - vy * ah);
+				const ImVec2 perp(-vy * hw, vx * hw);
+				dl->AddTriangleFilled(tip, ImVec2(base.x + perp.x, base.y + perp.y), ImVec2(base.x - perp.x, base.y - perp.y), axisCol);
+			}
 		}
 	}
 }
@@ -250,8 +314,13 @@ void GltfViewApp::BindImGuiToSceneRender()
 				if (auto srDbg = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr)
 				{
 					bool showFrustum = srDbg->GetShowDirectionalLightFrustum();
-					if (ImGui::Checkbox("Show directional light frustum (shadow ortho)", &showFrustum))
+					if (ImGui::Checkbox("Show directional shadow ortho volume (screen overlay)", &showFrustum))
 						srDbg->SetShowDirectionalLightFrustum(showFrustum);
+					if (showFrustum)
+						ImGui::TextWrapped(
+							"Yellow box matches AMD glTFSample WireframeBox light frustum (inverse(LightViewProj) × NDC box "
+							"vCenter/radius). Cyan arrow: Light.Direction (toward source). Screen projection still uses the scene "
+							"perspective camera.");
 				}
 
 				for (int i = 0; i < (int)pts.size(); ++i)
@@ -374,9 +443,10 @@ void GltfViewApp::BindImGuiToSceneRender()
 				if (srOv->GetShowDirectionalLightFrustum())
 				{
 					math::Matrix4x4 lvp;
+					math::Vector3 lightDir;
 					math::Matrix4x4 cvp;
-					if (srOv->TryGetGuiDebugDirLightFrustum(lvp, cvp))
-						DrawDirLightOrthoFrustumOverlay(ImGui::GetForegroundDrawList(), lvp, cvp, IM_COL32(255, 220, 64, 255));
+					if (srOv->TryGetGuiDebugDirLightFrustum(lvp, lightDir, cvp))
+						DrawDirLightOrthoFrustumOverlay(ImGui::GetForegroundDrawList(), lvp, lightDir, cvp, IM_COL32(255, 220, 64, 255));
 				}
 			}
 		},

@@ -36,6 +36,7 @@ namespace Engine
 		std::vector<Light> LightsForShadow;
 		FShadowProjectorSceneData ShadowProjectorScene{};
 		std::optional<std::wstring> SkyLightHdrFullPathOverride;
+		bool bSkyLightProceduralIBL = false;
 		/** Matches FWorldSceneRenderPrivate::SubmissionSequence for this enqueue; carried so ExecuteFrame / profiling need not dereference viewport state. Starts at 1 for the first queued frame. */
 		uint64_t SubmissionSequence = 0;
 	};

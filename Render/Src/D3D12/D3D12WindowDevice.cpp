@@ -1,4 +1,5 @@
 ﻿#include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12GpuTimestampRing.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12Adapter.h"
@@ -97,7 +98,13 @@ namespace RenderCore
 
 	FD3D12Device::~FD3D12Device()
 	{
+		GpuPassTimestamps.reset();
+	}
 
+	void FD3D12Device::NotifyGpuPassTimestampsAdapterFrameFence(uint64_t AdapterFrameFenceSignaledValue)
+	{
+		if (GpuPassTimestamps)
+			GpuPassTimestamps->NotifyAdapterFrameFence(AdapterFrameFenceSignaledValue);
 	}
 
 	void FD3D12Device::Initialize()
@@ -112,6 +119,8 @@ namespace RenderCore
 			DefaultCommandContext->OpenCommandList();
 		if(AsyncComputeContext)
 			AsyncComputeContext->OpenCommandList();
+
+		GpuPassTimestamps = std::make_unique<FD3D12GpuTimestampRing>(weak_from_this());
 	}
 
 	void FD3D12Device::InitializeNullUniformBuffer()
@@ -197,6 +206,11 @@ namespace RenderCore
 	void FD3D12Device::Cleanup()
 	{
 		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::DeviceLifetimeBatch);
+		if (GpuPassTimestamps)
+		{
+			GpuPassTimestamps->Destroy();
+			GpuPassTimestamps.reset();
+		}
 		if (DefaultCommandContext)
 			DefaultCommandContext->Destroy();
 		if (AsyncComputeContext)

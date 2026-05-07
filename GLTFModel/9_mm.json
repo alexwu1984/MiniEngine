@@ -16,7 +16,7 @@
   "Modles": [
     {
       "Model": "old_bicycle.glb",
-      "Scale": 0.2,
+      "Scale": 1.0,
       "Material": {
         "Metallic": 1.0
       },

@@ -5,6 +5,8 @@
 #include "Scene/World.h"
 #include "GltfModel/GltfModel.h"
 #include "core/strings.h"
+#include <algorithm>
+#include <cmath>
 
 namespace Engine
 {
@@ -82,28 +84,10 @@ namespace Engine
 		d->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
 		d->CameraComp->InitResource();
 
-		if (d->GltfJson.find("MainCamera") != d->GltfJson.end())
-		{
-			if (d->GltfJson["MainCamera"])
-			{
-				GetWorld()->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
-				auto Box = d->MeshComp->GetModelBox();
-				math::Vector3 Length = Box.GetMaxPoint() - Box.GetMinPoint();
-				float Dist = (std::max)(Length.x, (std::max)(Length.y, Length.z));
-				Dist = Dist * 4;
-				auto Pos = d->CameraComp->GetCameraPos();
-				d->CameraComp->SetCameraPos(math::Vector3(Pos.x, Pos.y, Dist));
-			}
-		}
-
+		// Apply transform before MainCamera distance: GetModelBox() is local; actor Scale scales the mesh in world.
 		if (d->GltfJson.find("Scale") != d->GltfJson.end())
 		{
 			SetScale(d->GltfJson["Scale"]);
-		}
-
-		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
-		{
-			d->MeshComp->SetProjectShadow(d->GltfJson["ProjShadow"]);
 		}
 
 		if (d->GltfJson.find("Position") != d->GltfJson.end())
@@ -112,6 +96,69 @@ namespace Engine
 			math::Vector3 Pos;
 			std::sscanf(PosStr.c_str(), "%f,%f,%f", &Pos.x, &Pos.y, &Pos.z);
 			SetPosition(Pos);
+		}
+
+		if (d->GltfJson.find("MainCamera") != d->GltfJson.end())
+		{
+			if (d->GltfJson["MainCamera"])
+			{
+				GetWorld()->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
+				ComputeWorldTransform(0.f);
+				const math::Matrix4x4& W = GetWorldTransform();
+				bool bUsedJsonCamera = false;
+				if (d->GltfJson.find("Camera") != d->GltfJson.end() && d->GltfJson["Camera"].is_object())
+				{
+					try
+					{
+						const auto& CamJ = d->GltfJson["Camera"];
+						auto parseVec3 = [](const nlohmann::json& Ar, math::Vector3& Out) -> bool
+						{
+							if (!Ar.is_array() || Ar.size() < 3)
+								return false;
+							Out.x = Ar.at(0).get<float>();
+							Out.y = Ar.at(1).get<float>();
+							Out.z = Ar.at(2).get<float>();
+							return true;
+						};
+						math::Vector3 LocalFrom;
+						math::Vector3 LocalTo;
+						if (CamJ.find("defaultFrom") != CamJ.end() && CamJ.find("defaultTo") != CamJ.end()
+							&& parseVec3(CamJ["defaultFrom"], LocalFrom) && parseVec3(CamJ["defaultTo"], LocalTo))
+						{
+							const math::Vector3 WorldFrom = W.TransformPosition(LocalFrom);
+							const math::Vector3 WorldTo = W.TransformPosition(LocalTo);
+							d->CameraComp->SetExplicitLookAtWorldTarget(WorldTo, true);
+							d->CameraComp->SetCameraPos(WorldFrom);
+							bUsedJsonCamera = true;
+						}
+					}
+					catch (const std::exception&)
+					{
+					}
+				}
+				if (!bUsedJsonCamera)
+				{
+					const math::AABB3 Box = d->MeshComp->GetModelBox();
+					const math::Vector3 LocalCenter = Box.GetCenter();
+					const math::Vector3 HalfExtents = (Box.GetMaxPoint() - Box.GetMinPoint()) * 0.5f;
+					float Radius = HalfExtents.GetLength();
+					Radius = std::max(Radius, 1e-3f);
+					const math::Vector3 WorldCenter = W.TransformPosition(LocalCenter);
+					const float FovY = d->CameraComp->GetFovVerticalRadians();
+					const float TanHalf = std::tan(FovY * 0.5f);
+					static constexpr float kViewerFrameMargin = 1.18f;
+					float Dist = (Radius / std::max(TanHalf, 1e-4f)) * kViewerFrameMargin;
+					Dist = std::max(Dist, Radius + 0.05f);
+					const math::Vector3 Eye = WorldCenter + math::Vector3(0.f, 0.f, Dist);
+					d->CameraComp->SetExplicitLookAtWorldTarget(WorldCenter, true);
+					d->CameraComp->SetCameraPos(Eye);
+				}
+			}
+		}
+
+		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
+		{
+			d->MeshComp->SetProjectShadow(d->GltfJson["ProjShadow"]);
 		}
 		
 		AddComponent(d->CameraComp);

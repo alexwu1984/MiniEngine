@@ -168,7 +168,9 @@ namespace Engine
 		if (d->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
-			Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+			// BLEND must still depth-test against opaque base pass (sky has no depth write). Depth-off caused the Buster
+			// concrete disc (BLEND + opacity map) to overdrawing the drone legs with SrcAlpha blend → “transparent robot”.
+			Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
 		}
 		else
 		{

@@ -62,6 +62,7 @@ namespace Engine
 		FShadowProjectorSceneData ShadowProjectorSceneMoved = std::move(Packet.ShadowProjectorScene);
 		std::shared_ptr<FScene> WorldSceneForFrame = std::move(Packet.WorldScene);
 		std::optional<std::wstring> SkyLightHdrMove = std::move(Packet.SkyLightHdrFullPathOverride);
+		const bool skyProcIBL = Packet.bSkyLightProceduralIBL;
 
 		std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
 		if (!CommandContext)
@@ -69,13 +70,16 @@ namespace Engine
 
 		auto MeshesForDraw = std::make_shared<std::vector<GltfSceneMeshInfo>>(std::move(MeshesInfoCopy));
 
+		d->GuiCameraViewProjForDebug = ViewConst->CurrViewProjMatrix;
+		d->bGuiDirLightFrustumValid.store(false, std::memory_order_relaxed);
+
 		FRDGBuilder Graph;
 		auto TB = d->TargetBuffer;
 		// RHICreateHDRTexture2D → upload uses D3D12 recording TLS; must run after RHIBeginFrame's RHIFrameBoundary push
 		// (Debug ensures; Release no-op check — wrong thread/stack can spiral into device removal / handled _com_error on Present).
 		RHI->RHIBeginFrame();
 		if (d->PreProcess)
-			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrMove));
+			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrMove), skyProcIBL);
 		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
 			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
@@ -99,6 +103,12 @@ namespace Engine
 				[d, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved)]() mutable
 				{
 					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, std::move(ShadowPassLights), ShadowProjectorScene);
+					Light Dir{};
+					if (d->ShadowRender && d->ShadowRender->TryGetCachedMainLightForShading(Dir))
+					{
+						d->GuiDirLightViewProjForDebug = Dir.LightViewProj;
+						d->bGuiDirLightFrustumValid.store(true, std::memory_order_relaxed);
+					}
 				}});
 		}
 		else if (d->ShadowRender)
@@ -287,6 +297,7 @@ namespace Engine
 
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();
+		RDGExecParams.PassCpuTimingsOut = &d->ScratchPassCpuTimings;
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))
 		{
 			core::LOG(core::log_err, L"FRDG: frame graph compile failed (cycle); executing passes in AddPass order so Present still runs.");
@@ -294,6 +305,10 @@ namespace Engine
 		}
 		else
 			Graph.ExecutePasses(RDGExecParams);
+		{
+			std::lock_guard<std::mutex> Lock(d->PassCpuTimingMutex);
+			d->LastFramePassCpuTimingsForGui = d->ScratchPassCpuTimings;
+		}
 		RHI->RHIEndFrame();
 	}
 

@@ -1,5 +1,6 @@
 ﻿#include "D3D11/D3D11CommandContext.h"
 #include <d3d11_1.h>
+#include "win/com_ptr.h"
 #include "RHIPrivate/D3D11RHIPrivate.h"
 #include "RHIPrivate/D3D11StateCachePrivate.h"
 #include "D3D11/D3D11RHI.h"
@@ -145,9 +146,170 @@ namespace RenderCore
 		return D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	}
 
+	class FD3D11GpuPassTimestamps
+	{
+	public:
+		static constexpr uint32_t kRing = 4;
+		static constexpr uint32_t kMaxQ = 160;
+
+		explicit FD3D11GpuPassTimestamps(ID3D11Device* InDev)
+			: Dev(InDev)
+		{
+		}
+
+		void Destroy()
+		{
+			DisjointQueries.clear();
+			TsQueries.clear();
+			bReady = false;
+			bInBatch = false;
+			bAwaitingCpuRead = false;
+			RecordingSeq = 0;
+			Awaiting = {};
+			NamesThisFrame.clear();
+		}
+
+		void LazyCreate()
+		{
+			if (bReady || !Dev)
+				return;
+			DisjointQueries.resize(kRing);
+			TsQueries.resize(kRing * kMaxQ);
+			for (uint32_t S = 0; S < kRing; ++S)
+			{
+				D3D11_QUERY_DESC Qd = { D3D11_QUERY_TIMESTAMP_DISJOINT, 0 };
+				if (FAILED(Dev->CreateQuery(&Qd, DisjointQueries[S].get_init_ref())))
+					return;
+			}
+			for (uint32_t I = 0; I < kRing * kMaxQ; ++I)
+			{
+				D3D11_QUERY_DESC Qd = { D3D11_QUERY_TIMESTAMP, 0 };
+				if (FAILED(Dev->CreateQuery(&Qd, TsQueries[I].get_init_ref())))
+					return;
+			}
+			bReady = true;
+		}
+
+		void BeginRecording(ID3D11DeviceContext* Ctx)
+		{
+			if (!Ctx || !Dev)
+				return;
+			LazyCreate();
+			if (!bReady)
+				return;
+
+			RecordingSeq++;
+			ActiveSlot = static_cast<uint32_t>(RecordingSeq % kRing);
+			BaseIdx = ActiveSlot * kMaxQ;
+			NumWritten = 0;
+			NamesThisFrame.clear();
+
+			Ctx->Begin(DisjointQueries[ActiveSlot].get());
+			Ctx->End(TsQueries[BaseIdx].get());
+			NumWritten = 1;
+			bInBatch = true;
+		}
+
+		void AfterPass(ID3D11DeviceContext* Ctx, const char* NameUtf8)
+		{
+			if (!Ctx || !bReady || !bInBatch)
+				return;
+			if (NumWritten >= kMaxQ)
+				return;
+			Ctx->End(TsQueries[BaseIdx + NumWritten].get());
+			NamesThisFrame.emplace_back(NameUtf8 ? NameUtf8 : "");
+			NumWritten++;
+		}
+
+		void EndRecording(ID3D11DeviceContext* Ctx)
+		{
+			if (!Ctx || !bReady || !bInBatch)
+				return;
+			Ctx->End(DisjointQueries[ActiveSlot].get());
+			bInBatch = false;
+
+			Awaiting.NumQueries = NumWritten;
+			Awaiting.BaseIdx = BaseIdx;
+			Awaiting.Names = NamesThisFrame;
+			Awaiting.DisjointSlot = ActiveSlot;
+			bAwaitingCpuRead = true;
+		}
+
+		void TryConsume(ID3D11DeviceContext* Ctx, std::vector<std::pair<std::string, double>>& Out)
+		{
+			Out.clear();
+			if (!Ctx || !bReady || !bAwaitingCpuRead)
+				return;
+			if (Awaiting.DisjointSlot >= kRing)
+				return;
+
+			D3D11_QUERY_DATA_TIMESTAMP_DISJOINT Dj = {};
+			HRESULT Hr = Ctx->GetData(DisjointQueries[Awaiting.DisjointSlot].get(), &Dj, sizeof(Dj), D3D11_ASYNC_GETDATA_DONOTFLUSH);
+			if (Hr == S_FALSE)
+				return;
+			if (FAILED(Hr) || Dj.Disjoint)
+			{
+				bAwaitingCpuRead = false;
+				return;
+			}
+
+			const double MsPerTick = 1000.0 / double(Dj.Frequency);
+			std::vector<uint64_t> Ticks(Awaiting.NumQueries);
+			for (uint32_t I = 0; I < Awaiting.NumQueries; ++I)
+			{
+				Hr = Ctx->GetData(TsQueries[Awaiting.BaseIdx + I].get(), &Ticks[I], sizeof(uint64_t), D3D11_ASYNC_GETDATA_DONOTFLUSH);
+				if (Hr == S_FALSE)
+					return;
+				if (FAILED(Hr))
+				{
+					bAwaitingCpuRead = false;
+					return;
+				}
+			}
+
+			bAwaitingCpuRead = false;
+
+			if (Awaiting.NumQueries < 2 || Awaiting.Names.size() + 1 != Awaiting.NumQueries)
+				return;
+
+			uint64_t Prev = Ticks[0];
+			for (uint32_t I = 0; I < Awaiting.Names.size(); ++I)
+			{
+				const uint64_t Cur = Ticks[I + 1];
+				const uint64_t D = (Cur >= Prev) ? (Cur - Prev) : 0ull;
+				Out.emplace_back(Awaiting.Names[I], double(D) * MsPerTick);
+				Prev = Cur;
+			}
+		}
+
+	private:
+		ID3D11Device* Dev = nullptr;
+		bool bReady = false;
+		bool bInBatch = false;
+		bool bAwaitingCpuRead = false;
+		uint64_t RecordingSeq = 0;
+		uint32_t ActiveSlot = 0;
+		uint32_t BaseIdx = 0;
+		uint32_t NumWritten = 0;
+		std::vector<std::string> NamesThisFrame;
+
+		std::vector<win32::com_ptr<ID3D11Query>> DisjointQueries;
+		std::vector<win32::com_ptr<ID3D11Query>> TsQueries;
+
+		struct FAwaiting
+		{
+			uint32_t NumQueries = 0;
+			uint32_t BaseIdx = 0;
+			uint32_t DisjointSlot = 0;
+			std::vector<std::string> Names;
+		};
+		FAwaiting Awaiting;
+	};
+
 	struct D3D11CommandContextP
 	{
 		D3D11DynamicRHI* D3D11RHI = nullptr;
+		std::unique_ptr<FD3D11GpuPassTimestamps> GpuPassTimestamps;
 	};
 
 	D3D11CommandContext::D3D11CommandContext(D3D11DynamicRHI* D3D11RHI)
@@ -158,7 +320,8 @@ namespace RenderCore
 
 	D3D11CommandContext::~D3D11CommandContext()
 	{
-
+		if (Impl && Impl->GpuPassTimestamps)
+			Impl->GpuPassTimestamps->Destroy();
 	}
 
 	void D3D11CommandContext::SetViewPort(int32_t TopLeftX, int32_t TopLeftY, int32_t SizeX, int32_t SizeY)
@@ -726,6 +889,36 @@ namespace RenderCore
 		(void)Items;
 		(void)Count;
 		(void)PassQueue;
+	}
+
+	void D3D11CommandContext::RDGBeginGpuPassTimingFrame()
+	{
+		if (!Impl->D3D11RHI || !Impl->D3D11RHI->GetDevice())
+			return;
+		if (!Impl->GpuPassTimestamps)
+			Impl->GpuPassTimestamps = std::make_unique<FD3D11GpuPassTimestamps>(Impl->D3D11RHI->GetDevice());
+		Impl->GpuPassTimestamps->BeginRecording(Impl->D3D11RHI->GetDeviceContext());
+	}
+
+	void D3D11CommandContext::RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8)
+	{
+		if (!Impl->GpuPassTimestamps || !Impl->D3D11RHI)
+			return;
+		Impl->GpuPassTimestamps->AfterPass(Impl->D3D11RHI->GetDeviceContext(), PassNameUtf8);
+	}
+
+	void D3D11CommandContext::RDGResolveGpuPassTimingsEndOfFrame()
+	{
+		if (!Impl->GpuPassTimestamps || !Impl->D3D11RHI)
+			return;
+		Impl->GpuPassTimestamps->EndRecording(Impl->D3D11RHI->GetDeviceContext());
+	}
+
+	void D3D11CommandContext::RDGTryConsumePreviousFrameGpuPassTimings(std::vector<std::pair<std::string, double>>& OutPassGpuMs)
+	{
+		if (!Impl->GpuPassTimestamps || !Impl->D3D11RHI)
+			return;
+		Impl->GpuPassTimestamps->TryConsume(Impl->D3D11RHI->GetDeviceContext(), OutPassGpuMs);
 	}
 
 	bool D3D11CommandContext::UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI)

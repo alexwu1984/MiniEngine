@@ -25,8 +25,12 @@ namespace Engine
 		void InitResource();
 		void LoadConfig(const nlohmann::json& Root);
 		void LoadTex(const std::wstring& FileName);
-		/** Game thread supplies primary SkyLightComponent path each frame; falls back to JSON Evn.Hdr when nullopt. */
-		void ResolveAndApplyHDRSource(std::optional<std::wstring> ComponentOverrideFullPath);
+		/**
+		 * Render thread: primary skylight source for this frame.
+		 * @param ComponentOverrideFullPath non-empty file path from SkyLightComponent when not procedural; nullopt = use JSON Evn fallback.
+		 * @param bSkyLightComponentProcedural when true, ignore path and build analytic lat-long (matches Evn.Hdr "ProceduralSky").
+		 */
+		void ResolveAndApplyHDRSource(std::optional<std::wstring> ComponentOverrideFullPath, bool bSkyLightComponentProcedural);
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 		/** Scene cut / viewport recycle: next Draw() rebuilds cubemap from current HDRTex (Resolve skips reload when HDR path unchanged). */
 		void InvalidateCapturedEnvironment();

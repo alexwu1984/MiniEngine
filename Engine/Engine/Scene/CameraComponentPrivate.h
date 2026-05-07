@@ -29,5 +29,9 @@ namespace Engine
 		bool TemporalHistoryHasLastPos = false;
 		/** Until first Tick finishes jitter: avoids PrevView=id vs CurrView=lookAt → bogus motion/TAA after scene reload. */
 		bool bTemporalPrevMatricesValid = false;
+
+		/** When true, Tick uses ExplicitLookAtWorld instead of the legacy fixed target at +Z. */
+		bool bExplicitLookAtWorld = false;
+		math::Vector3 ExplicitLookAtWorld{ 0.f, 0.f, 0.f };
 	};
 }

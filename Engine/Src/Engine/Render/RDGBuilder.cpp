@@ -3,6 +3,8 @@
 #include "RHI/RHICommandContext.h"
 #include "core/logger.h"
 #include "core/strings.h"
+#include "core/commandline.h"
+#include <chrono>
 #include <set>
 #include <sstream>
 #include <unordered_map>
@@ -377,6 +379,24 @@ namespace Engine
 	void FRDGBuilder::ExecutePassesImpl(const FRDGCompileParameters& Params, const std::vector<std::size_t>& Order)
 	{
 		std::vector<RenderCore::FRDGTextureBarrierDesc> BarrierScratch;
+		if (Params.PassCpuTimingsOut)
+			Params.PassCpuTimingsOut->clear();
+
+		const bool bWantCpuRows = (Params.PassCpuTimingsOut != nullptr);
+		const bool bGpuTimestamps =
+			bWantCpuRows && Params.RDGBarrierCommandContext != nullptr && !core::CommandLine::Get().GetName("rdg_no_gpu_timestamps");
+
+		std::unordered_map<std::string, double> GpuMsPrev;
+		std::vector<std::pair<std::string, double>> GpuConsumeScratch;
+		if (bGpuTimestamps)
+		{
+			Params.RDGBarrierCommandContext->RDGTryConsumePreviousFrameGpuPassTimings(GpuConsumeScratch);
+			GpuMsPrev.reserve(GpuConsumeScratch.size());
+			for (const auto& P : GpuConsumeScratch)
+				GpuMsPrev[P.first] = P.second;
+			Params.RDGBarrierCommandContext->RDGBeginGpuPassTimingFrame();
+		}
+
 		for (std::size_t Idx : Order)
 		{
 			const FRDGPassDescriptor& Pass = Passes[Idx];
@@ -395,8 +415,31 @@ namespace Engine
 					Params.RDGBarrierCommandContext->RDGApplyPassBeginBarriers(BarrierScratch.data(), BarrierScratch.size(), Pass.Queue);
 			}
 			if (Pass.Execute)
-				Pass.Execute();
+			{
+				if (Params.PassCpuTimingsOut)
+				{
+					const auto t0 = std::chrono::high_resolution_clock::now();
+					Pass.Execute();
+					const auto t1 = std::chrono::high_resolution_clock::now();
+					const double msCpu = std::chrono::duration<double, std::milli>(t1 - t0).count();
+					double msGpu = -1.0;
+					if (bGpuTimestamps)
+					{
+						const auto It = GpuMsPrev.find(Pass.Name);
+						if (It != GpuMsPrev.end())
+							msGpu = It->second;
+					}
+					Params.PassCpuTimingsOut->push_back(FRDGPassCpuTiming{ Pass.Name, msCpu, msGpu });
+				}
+				else
+					Pass.Execute();
+				if (bGpuTimestamps)
+					Params.RDGBarrierCommandContext->RDGWriteGpuTimestampAfterPass(Pass.Name.c_str());
+			}
 		}
+
+		if (bGpuTimestamps)
+			Params.RDGBarrierCommandContext->RDGResolveGpuPassTimingsEndOfFrame();
 
 		if (Params.bLogRenderTexturePoolStats)
 		{

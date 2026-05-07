@@ -50,6 +50,7 @@ struct FSkyLightIBLPrecomputePrivate
 	DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame);
 	DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
 	bool bInitRender = false;
+	bool bConfigProceduralSky = false;
 	std::wstring ConfigHdrFullPath;
 	std::wstring LastAppliedHdrFullPath;
 	/** Serialize HDR path + HDRTex updates vs ResolveSkyLightForFrame / LoadConfig (different render-queue commands or future game-thread readers). */

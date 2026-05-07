@@ -1,7 +1,11 @@
 ﻿#pragma once
 #include "core/color.h"
+#include "math/matrix4x4.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
+#include <atomic>
+#include <mutex>
+#include <vector>
 
 namespace RenderCore
 {
@@ -44,5 +48,15 @@ namespace Engine
 		std::atomic<uint32_t> PendingSceneFrames{ 0 };
 		/** Upper bound on concurrent PendingSceneFrames before game thread waits (recording-queue drain). 0 = unlimited. Prefer aligning with DynamicRHI::RHIRecommendedParallelFrameResourceSlots for transient rings. Default from MainEngine (CLI or RHI). */
 		std::atomic<uint32_t> MaxSceneFramesInFlight{ 2 };
+
+		/** Filled during RDG ExecutePasses (render thread); copied to LastFramePassCpuTimingsForGui after the graph completes. */
+		std::vector<FRDGPassCpuTiming> ScratchPassCpuTimings;
+		mutable std::mutex PassCpuTimingMutex;
+		std::vector<FRDGPassCpuTiming> LastFramePassCpuTimingsForGui;
+
+		math::Matrix4x4 GuiCameraViewProjForDebug{};
+		math::Matrix4x4 GuiDirLightViewProjForDebug{};
+		std::atomic<bool> bShowDirectionalLightFrustum{ false };
+		std::atomic<bool> bGuiDirLightFrustumValid{ false };
 	};
 } // namespace Engine

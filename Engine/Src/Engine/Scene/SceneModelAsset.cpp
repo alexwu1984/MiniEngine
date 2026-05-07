@@ -12,6 +12,7 @@ namespace Engine
 		std::wstring ModelRelativePath;
 		FurConfig FurConfig;
 		MaterialConfig MaterialConfig;
+		bool DisableAnimation = false;
 	};
 
 	SceneModelAsset::SceneModelAsset()
@@ -75,6 +76,8 @@ namespace Engine
 			}
 			if(d->Config.find("UseMaterial") != d->Config.end())
 				d->MaterialConfig.UseConfig = d->Config["UseMaterial"];
+			if (d->Config.find("DisableAnimation") != d->Config.end() && !d->Config["DisableAnimation"].is_null())
+				d->DisableAnimation = d->Config["DisableAnimation"].get<bool>();
 		}
 		catch (const std::exception&)
 		{
@@ -104,5 +107,11 @@ namespace Engine
 	{
 		C_P(const SceneModelAsset);
 		return d->MaterialConfig;
+	}
+
+	bool SceneModelAsset::GetDisableAnimation() const
+	{
+		C_P(const SceneModelAsset);
+		return d->DisableAnimation;
 	}
 }

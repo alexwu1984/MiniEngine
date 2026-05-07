@@ -532,6 +532,8 @@ namespace Engine
 
 			math::AABB3 Box;
 			Box.Set(math::Vector3(HalfW, 0.f, HalfD), math::Vector3(-HalfW, 0.f, -HalfD));
+			// Zero-thickness AABB breaks frustum/receiver intersection tests → directional shadow omits the floor from XY/Z fitting.
+			Box = math::ExpandAabbByMargin(Box, 0.02f);
 
 			OutResult.Meshes.clear();
 			OutResult.Meshes.emplace_back(std::make_shared<ProceduralMesh>("ProceduralFloor", Buffer, Material, Box));

@@ -20,6 +20,10 @@ namespace Engine
 		void SetViewMatrix(const math::Matrix4x4& view);
 		void SetCameraPos(const math::Vector3& Pos);
 
+		/** World-space point the camera looks at (glTF viewer–style framing). Disable to restore legacy Target = +Z. */
+		void SetExplicitLookAtWorldTarget(const math::Vector3& worldLookAt, bool bEnable);
+		float GetFovVerticalRadians() const;
+
 		math::Matrix4x4 GetViewMatrix()const;
 		math::Matrix4x4 GetPrevViewMatrix()const;
 		math::Vector3 GetCameraPos() const;

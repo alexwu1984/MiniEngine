@@ -350,6 +350,8 @@ namespace RenderCore
 			auto& FrameFence = Adapter->GetFrameFence();
 			const uint64_t endFrameFenceValue = FrameFence.FD3D12Fence::Signal(ED3D12CommandQueueType::Default);
 			Adapter->NotifyEndOfFrameFenceValue(endFrameFenceValue);
+			if (std::shared_ptr<FD3D12Device> Dev = Adapter->GetDevice())
+				Dev->NotifyGpuPassTimestampsAdapterFrameFence(endFrameFenceValue);
 		}
 
 		// D3D11 uses Present(0); we default the same. -vsync uses interval 1 (caps at display refresh / waits on VBlank).

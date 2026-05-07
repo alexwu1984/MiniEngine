@@ -114,7 +114,9 @@ namespace Engine
 			{
 				std::wstring Path = std::filesystem::path(FileName).parent_path().wstring();
 				Path += L"/" + d->Asset->GetModelRelativePath();
-				if (Path.find(L".glb") != std::wstring::npos)
+				const bool bGltfOrGlb =
+					Path.find(L".glb") != std::wstring::npos || Path.find(L".gltf") != std::wstring::npos;
+				if (bGltfOrGlb)
 				{
 					d->Model.emplace<GltfModel>();
 					if (!std::get<GltfModel>(d->Model).Load(Path, d->Asset))
@@ -169,7 +171,9 @@ namespace Engine
 		{
 			std::wstring Path = GEngine->GetModelPath();
 			Path += L"/" + d->Asset->GetModelRelativePath();
-			if (Path.find(L".glb") != std::wstring::npos)
+			const bool bGltfOrGlb =
+				Path.find(L".glb") != std::wstring::npos || Path.find(L".gltf") != std::wstring::npos;
+			if (bGltfOrGlb)
 			{
 				d->Model.emplace<GltfModel>();
 				if (!std::get<GltfModel>(d->Model).Load(Path, d->Asset))

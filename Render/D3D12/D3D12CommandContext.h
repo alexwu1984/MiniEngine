@@ -75,6 +75,10 @@ namespace RenderCore
 		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
 		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) override;
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
+		virtual void RDGBeginGpuPassTimingFrame() override;
+		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) override;
+		virtual void RDGResolveGpuPassTimingsEndOfFrame() override;
+		virtual void RDGTryConsumePreviousFrameGpuPassTimings(std::vector<std::pair<std::string, double>>& OutPassGpuMs) override;
 		virtual void BeginUserMark(const char* name) override;
 		virtual void EndUserMark() override;
 		virtual void RHIClearState() override;

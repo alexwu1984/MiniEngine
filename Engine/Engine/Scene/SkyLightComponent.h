@@ -24,6 +24,10 @@ namespace Engine
 		void SetHDRRelativePath(std::wstring InRelativePath);
 		const std::wstring& GetHDRRelativePath() const { return HdrRelativePath; }
 
+		/** When true, IBL comes from an analytic lat-long environment (no file under GLTFModel/). */
+		void SetProceduralSky(bool bInProceduralSky) { bProceduralSky = bInProceduralSky; }
+		bool IsProceduralSky() const { return bProceduralSky; }
+
 		/** Scales skylight IBL in Lit materials (UE Real-time Capture intensity analogue). */
 		void SetIBLIntensity(float InIntensity);
 		float GetIBLIntensity() const { return IBLIntensity; }
@@ -39,6 +43,7 @@ namespace Engine
 
 	private:
 		bool bEnabled = true;
+		bool bProceduralSky = false;
 		int32_t SortPriority = 0;
 		std::wstring HdrRelativePath;
 		float IBLIntensity = 1.f;

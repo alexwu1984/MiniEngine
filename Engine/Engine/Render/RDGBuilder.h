@@ -70,6 +70,14 @@ struct FRDGCompileStats
 	bool bUnresolvedSchedulingEdge = false;
 };
 
+/** CPU time spent inside each pass Execute() (render thread); GPU column from previous frame timestamps when enabled (-1 = N/A). */
+struct FRDGPassCpuTiming
+{
+	std::string Name;
+	double MsCpu = 0.0;
+	double MsGpu = -1.0;
+};
+
 struct FRDGCompileParameters
 {
 	bool bPassCullingFromSinks = true;
@@ -86,6 +94,12 @@ struct FRDGCompileParameters
 	RenderCore::RHICommandContext* RDGBarrierCommandContext = nullptr;
 	/** If false, skips RDGApplyPassBeginBarriers even when RDGBarrierCommandContext is set. */
 	bool bRDGAutoPipelineBarriers = true;
+	/**
+	 * When non-null, ExecutePassesImpl clears it then appends one entry per executed pass (MsCpu = Execute wall time;
+	 * MsGpu = previous-frame GPU segment when supported, else -1). Pass -rdg_no_gpu_timestamps to disable GPU queries.
+	 * Intended for debug HUD; points at storage cleared each frame by the caller.
+	 */
+	std::vector<FRDGPassCpuTiming>* PassCpuTimingsOut = nullptr;
 };
 
 /**

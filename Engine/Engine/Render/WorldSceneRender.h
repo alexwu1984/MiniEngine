@@ -2,6 +2,8 @@
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
+#include "math/matrix4x4.h"
+#include "Render/RDGBuilder.h"
 #include "tinygltf/json.h"
 
 namespace RenderCore
@@ -72,6 +74,13 @@ namespace Engine
 		uint32_t GetPendingSceneFramesCount() const noexcept;
 		/** Current maxrenderframes cap (GetMaxSceneFramesInFlight / SetMaxSceneFramesInFlight); 0 = unlimited. */
 		uint32_t GetMaxSceneFramesInFlight() const noexcept;
+
+		void SetShowDirectionalLightFrustum(bool bEnable) noexcept;
+		bool GetShowDirectionalLightFrustum() const noexcept;
+		/** Thread-safe copy of last completed frame's RDG pass CPU Encode timings (see HUD disclaimer). */
+		void GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const;
+		/** Valid after Shadow RDG pass when directional shadow was rendered this frame (render-thread matrices). */
+		bool TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Matrix4x4& OutCameraViewProj) const noexcept;
 
 	private:
 		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */

@@ -317,6 +317,35 @@ namespace Engine
 		return d_ptr ? d_ptr->MaxSceneFramesInFlight.load(std::memory_order_relaxed) : 0u;
 	}
 
+	void FWorldSceneRender::SetShowDirectionalLightFrustum(bool bEnable) noexcept
+	{
+		if (d_ptr)
+			d_ptr->bShowDirectionalLightFrustum.store(bEnable, std::memory_order_relaxed);
+	}
+
+	bool FWorldSceneRender::GetShowDirectionalLightFrustum() const noexcept
+	{
+		return d_ptr ? d_ptr->bShowDirectionalLightFrustum.load(std::memory_order_relaxed) : false;
+	}
+
+	void FWorldSceneRender::GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const
+	{
+		Out.clear();
+		if (!d_ptr)
+			return;
+		std::lock_guard<std::mutex> Lock(d_ptr->PassCpuTimingMutex);
+		Out = d_ptr->LastFramePassCpuTimingsForGui;
+	}
+
+	bool FWorldSceneRender::TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Matrix4x4& OutCameraViewProj) const noexcept
+	{
+		if (!d_ptr || !d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
+			return false;
+		OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
+		OutCameraViewProj = d_ptr->GuiCameraViewProjForDebug;
+		return true;
+	}
+
 	void FWorldSceneRender::EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait)
 	{
 		if (bFlushRenderQueue)
@@ -373,6 +402,8 @@ namespace Engine
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 
 		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
+		const auto primarySky = World->FindPrimarySkyLightComponent();
+		const bool skyLightProceduralIBL = primarySky && primarySky->IsProceduralSky();
 
 		{
 			const uint32_t cap = d->MaxSceneFramesInFlight.load(std::memory_order_relaxed);
@@ -396,6 +427,7 @@ namespace Engine
 			Packet.LightsForShadow = std::move(shadowLights);
 			Packet.ShadowProjectorScene = shadowProjectorScene;
 			Packet.SkyLightHdrFullPathOverride = std::move(skyLightHdrOverride);
+			Packet.bSkyLightProceduralIBL = skyLightProceduralIBL;
 			Packet.SubmissionSequence =
 				static_cast<uint64_t>(d->SubmissionSequence.fetch_add(1u, std::memory_order_relaxed)) + 1ull;
 

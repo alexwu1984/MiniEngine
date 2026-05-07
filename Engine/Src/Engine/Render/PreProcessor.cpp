@@ -51,10 +51,10 @@ namespace Engine
 		return d->GenIBL;
 	}
 
-	void PreProcessor::ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath)
+	void PreProcessor::ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath, bool bSkyLightComponentProcedural)
 	{
 		C_P(PreProcessor);
-		d->GenIBL->ResolveAndApplyHDRSource(std::move(componentOverrideFullPath));
+		d->GenIBL->ResolveAndApplyHDRSource(std::move(componentOverrideFullPath), bSkyLightComponentProcedural);
 	}
 
 	void PreProcessor::InvalidateSkyLightCapturedEnvironment()

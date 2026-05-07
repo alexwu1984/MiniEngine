@@ -232,6 +232,12 @@ namespace Engine
 		return d->SeRender;
 	}
 
+	RenderCore::RHIAPIType MainEngine::GetInitRHIApiType() const noexcept
+	{
+		C_P(const MainEngine);
+		return d->InitApiType;
+	}
+
 	void MainEngine::SetEndFrameTickCallback(std::function<void()> Callback)
 	{
 		C_P(MainEngine);

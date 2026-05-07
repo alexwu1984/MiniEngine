@@ -56,7 +56,7 @@
     },
     {
       "Model": "Model2.glb",
-      "Scale": 0.5,
+      "Scale": 1.0,
       "Position": "1.2,0.32,-2.2",
       "Material": {
         "Metallic": 1.0

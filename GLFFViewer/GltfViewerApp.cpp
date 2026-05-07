@@ -15,7 +15,64 @@
 #include "Imgui/imgui.h"
 #include "core/commandline.h"
 #include "core/strings.h"
+#include "math/matrix4x4.h"
+#include "Render/RDGBuilder.h"
+#include "RHI/DynamicRHI.h"
 #include <algorithm>
+#include <cmath>
+
+namespace
+{
+	static bool ProjectWorldToImGuiScreen(const math::Vector3& w, const math::Matrix4x4& viewProj, ImVec2& out)
+	{
+		const math::Vector4 p(w.x, w.y, w.z, 1.f);
+		const math::Vector4 c = p * viewProj;
+		if (std::fabs(c.w) < 1e-6f)
+			return false;
+		const float iw = 1.f / c.w;
+		const float ndcX = c.x * iw;
+		const float ndcY = c.y * iw;
+		const ImGuiIO& io = ImGui::GetIO();
+		out.x = (ndcX * 0.5f + 0.5f) * io.DisplaySize.x;
+		out.y = (1.f - (ndcY * 0.5f + 0.5f)) * io.DisplaySize.y;
+		return true;
+	}
+
+	static void DrawDirLightOrthoFrustumOverlay(ImDrawList* dl, const math::Matrix4x4& lightViewProj, const math::Matrix4x4& cameraViewProj,
+												ImU32 col)
+	{
+		static const int edges[12][2] = { { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 4, 5 }, { 5, 7 }, { 7, 6 }, { 6, 4 },
+										   { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
+		const math::Matrix4x4 invLP = lightViewProj.Inverse();
+		math::Vector3 c[8]{};
+		int k = 0;
+		for (int z : { 0, 1 })
+		{
+			for (int y : { -1, 1 })
+			{
+				for (int x : { -1, 1 })
+				{
+					const math::Vector4 clip((float)x, (float)y, (float)z, 1.f);
+					const math::Vector4 worldH = clip * invLP;
+					const float iw = 1.f / (std::max)(std::fabs(worldH.w), 1e-6f);
+					c[k++] = math::Vector3(worldH.x * iw, worldH.y * iw, worldH.z * iw);
+				}
+			}
+		}
+		ImVec2 s[8]{};
+		unsigned mask = 0;
+		for (int i = 0; i < 8; ++i)
+		{
+			if (ProjectWorldToImGuiScreen(c[i], cameraViewProj, s[i]))
+				mask |= (1u << i);
+		}
+		for (const auto& e : edges)
+		{
+			if ((mask & (1u << e[0])) && (mask & (1u << e[1])))
+				dl->AddLine(s[e[0]], s[e[1]], col, 2.f);
+		}
+	}
+}
 
 using namespace Engine;
 
@@ -97,6 +154,7 @@ void GltfViewApp::BuildModelList()
 		L"Model5.json",
 		L"Model4.json",
 		L"harley.json",
+		L"busterDrone.json",
 		L"Model2.json",
 		L"old_bicycle.json",
 	};
@@ -188,6 +246,14 @@ void GltfViewApp::BindImGuiToSceneRender()
 					ImGui::PopID();
 				}
 
+				ImGui::Separator();
+				if (auto srDbg = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr)
+				{
+					bool showFrustum = srDbg->GetShowDirectionalLightFrustum();
+					if (ImGui::Checkbox("Show directional light frustum (shadow ortho)", &showFrustum))
+						srDbg->SetShowDirectionalLightFrustum(showFrustum);
+				}
+
 				for (int i = 0; i < (int)pts.size(); ++i)
 				{
 					const auto& pl = pts[(size_t)i];
@@ -250,29 +316,69 @@ void GltfViewApp::BindImGuiToSceneRender()
 
 			ImGui::End();
 
-			ImGui::SetNextWindowPos(ImVec2(1, 260), ImGuiCond_FirstUseEver);
-			if (ImGui::Begin("Perf", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			ImGui::SetNextWindowPos(ImVec2(380, 1), ImGuiCond_FirstUseEver);
+			if (ImGui::Begin("Pipeline", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 			{
 				const ImGuiIO& io = ImGui::GetIO();
 				ImGui::Text("%.1f FPS   %.3f ms/frame", io.Framerate, static_cast<double>(io.DeltaTime * 1000.0f));
-				if (auto srPerf = Engine::GEngine->GetSceneRender())
-				{
-					ImGui::Separator();
-					ImGui::Text("SubmitSeq (CPU): %llu",
-								static_cast<unsigned long long>(srPerf->GetSubmissionSequence()));
-					ImGui::Text("Pending ExecFrame: %u", srPerf->GetPendingSceneFramesCount());
-					const uint32_t cap = srPerf->GetMaxSceneFramesInFlight();
-					if (cap == 0u)
-						ImGui::TextUnformatted("maxrenderframes cap: unlimited");
-					else
-						ImGui::Text("maxrenderframes cap: %u", cap);
-				}
+				ImGui::Separator();
+
+				auto srPipe = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr;
 				if (Engine::GEngine)
-					if (auto rh = Engine::GEngine->GetRHI())
-						ImGui::Text("RHI slot hint: %u", rh->RHIRecommendedParallelFrameResourceSlots());
-				ImGui::TextDisabled("SubmitSeq is enqueue ordinal, not GPU completion.");
+				{
+					const char* apiLabel =
+						Engine::GEngine->GetInitRHIApiType() == RenderCore::RHIAPIType::E_D3D11 ? "D3D11" : "D3D12";
+					ImGui::TextUnformatted(apiLabel);
+				}
+				ImGui::TextDisabled("CPU: render-thread wall clock in Execute(). GPU: prior-frame segment (timestamp queries).");
+				if (srPipe)
+				{
+					std::vector<Engine::FRDGPassCpuTiming> rows;
+					srPipe->GetLastFramePassCpuTimings(rows);
+					double sumCpu = 0.0;
+					double sumGpu = 0.0;
+					for (const auto& r : rows)
+					{
+						sumCpu += r.MsCpu;
+						if (r.MsGpu >= 0.0)
+							sumGpu += r.MsGpu;
+					}
+					ImGui::Text("RDG sum CPU: %.3f ms   GPU (prev frame): %.3f ms", sumCpu, sumGpu);
+					if (ImGui::BeginTable("rdg", 3, ImGuiTableFlags_BordersInnerV))
+					{
+						ImGui::TableSetupColumn("Pass");
+						ImGui::TableSetupColumn("ms CPU");
+						ImGui::TableSetupColumn("ms GPU");
+						ImGui::TableHeadersRow();
+						for (const auto& r : rows)
+						{
+							ImGui::TableNextRow();
+							ImGui::TableNextColumn();
+							ImGui::TextUnformatted(r.Name.c_str());
+							ImGui::TableNextColumn();
+							ImGui::Text("%.3f", r.MsCpu);
+							ImGui::TableNextColumn();
+							if (r.MsGpu >= 0.0)
+								ImGui::Text("%.3f", r.MsGpu);
+							else
+								ImGui::TextDisabled("—");
+						}
+						ImGui::EndTable();
+					}
+				}
 			}
 			ImGui::End();
+
+			if (auto srOv = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr)
+			{
+				if (srOv->GetShowDirectionalLightFrustum())
+				{
+					math::Matrix4x4 lvp;
+					math::Matrix4x4 cvp;
+					if (srOv->TryGetGuiDebugDirLightFrustum(lvp, cvp))
+						DrawDirLightOrthoFrustumOverlay(ImGui::GetForegroundDrawList(), lvp, cvp, IM_COL32(255, 220, 64, 255));
+				}
+			}
 		},
 		this);
 }

@@ -4,6 +4,9 @@
 #include "core/color.h"
 #include "RHI/RHIPipeLineState.h"
 #include "core/vec4.h"
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace RenderCore
 {
@@ -74,6 +77,11 @@ namespace RenderCore
 		 * Default implementation is a no-op (e.g. D3D11). D3D12 batches ResourceBarrier then flushes once.
 		 */
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) {}
+		/** RDG GPU segment timings (D3D12 timestamps / D3D11 disjoint); default queue / immediate context only. */
+		virtual void RDGBeginGpuPassTimingFrame() {}
+		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) {}
+		virtual void RDGResolveGpuPassTimingsEndOfFrame() {}
+		virtual void RDGTryConsumePreviousFrameGpuPassTimings(std::vector<std::pair<std::string, double>>& OutPassGpuMs) {}
 		virtual void BeginUserMark(const char* name) {};
 		virtual void EndUserMark(){};
 

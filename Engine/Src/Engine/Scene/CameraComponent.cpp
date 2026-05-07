@@ -4,6 +4,7 @@
 #include "App/AppWindow.h"
 #include "Scene/Actor.h"
 #include "math/vector2.h"
+#include <cmath>
 
 namespace Engine
 {
@@ -45,12 +46,19 @@ namespace Engine
 
 		// Compute new camera from this actor
 		math::Vector3 CameraPos = GetCameraPos();
-		math::Vector3 Target =  Vector3::UnitZ;
+		math::Vector3 Target = d->bExplicitLookAtWorld ? d->ExplicitLookAtWorld : Vector3::UnitZ;
 		math::Vector3 Up = math::Vector3::UnitY;
 
 		math::Matrix4x4 ViewMatrix = math::Matrix4x4::MatrixLookAtLH(CameraPos, Target, Up);
 		SetViewMatrix(ViewMatrix);
-		UpdateFrustum(CameraPos, Vector3(Vector3::UnitZ).Normalize(), Up);
+		math::Vector3 ViewForward = Target - CameraPos;
+		const float vfLenSq = ViewForward.GetSqrLength();
+		if (vfLenSq < 1e-12f)
+			ViewForward = Vector3::UnitZ;
+		else
+			ViewForward *= 1.f / std::sqrt(vfLenSq);
+		// UpdateFrustum expects the negated view direction (matches legacy UnitZ when Target was origin-ward).
+		UpdateFrustum(CameraPos, ViewForward * -1.f, Up);
 		
 		auto AppWin = GEngine->GetAppWindow();
 		auto Width = AppWin->GetWidth();
@@ -145,6 +153,19 @@ namespace Engine
 	{
 		C_P(CameraComponent);
 		d->CameraPos = Pos;
+	}
+
+	void CameraComponent::SetExplicitLookAtWorldTarget(const math::Vector3& worldLookAt, bool bEnable)
+	{
+		C_P(CameraComponent);
+		d->ExplicitLookAtWorld = worldLookAt;
+		d->bExplicitLookAtWorld = bEnable;
+	}
+
+	float CameraComponent::GetFovVerticalRadians() const
+	{
+		C_P(const CameraComponent);
+		return d->FovVertical;
 	}
 
 	math::Matrix4x4 CameraComponent::GetPrevProjMatrix() const

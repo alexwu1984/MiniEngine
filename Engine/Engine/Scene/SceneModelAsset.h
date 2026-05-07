@@ -23,6 +23,9 @@ namespace Engine
 		const FurConfig& GetFurConfig() const;
 		const MaterialConfig& GetMaterialConfig() const;
 
+		/** When true, skip applying glTF node TRS/weight animation (bind/rest pose only). Use for assets where animation breaks hierarchy. */
+		bool GetDisableAnimation() const;
+
 	private:
 		SceneModelAssetPrivate* d_ptr = nullptr;
 	};

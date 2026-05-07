@@ -5,6 +5,26 @@ namespace Engine
 {
 	using namespace math;
 
+	namespace
+	{
+		/**
+		 * glTF node.matrix is column-major for column-vector math v' = M * v.
+		 * Engine + HLSL use row-vector mul(pos, W) i.e. pos' = pos * W, so W = M^T for the same mapping.
+		 * (Unpack column-major to a mathematical M, then transpose for row-vector storage.)
+		 */
+		Matrix4x4 MatrixFromGltfNodeForRowVectorMultiply(const std::vector<double>& col)
+		{
+			if (col.size() != 16)
+				return Matrix4x4();
+			const Matrix4x4 M(
+				(float)col[0], (float)col[4], (float)col[8], (float)col[12],
+				(float)col[1], (float)col[5], (float)col[9], (float)col[13],
+				(float)col[2], (float)col[6], (float)col[10], (float)col[14],
+				(float)col[3], (float)col[7], (float)col[11], (float)col[15]);
+			return M.Transpose();
+		}
+	}
+
 	GltfNode::GltfNode(tinygltf::Model* Model)
 		:_Model(Model)
 	{
@@ -46,11 +66,12 @@ namespace Engine
 
 	void GltfNode::UpdateNodeParent(std::shared_ptr<GltfNodeInfo> NodeInfo)
 	{
-		// Must match InitNode(): base matrix (if any) then T, S, R — not S*R*T (that broke matrix-only nodes and static meshes once UpdateNode ran every frame).
+		// glTF local transform is M_col = T·R·S (column vectors). Engine uses row vectors p' = p·W with W = M_col^T = S^T·R^T·T^T.
+		// With our row-major translation/rotation helpers that correspond to those transposed factors, compose local TRS as S·R·T (must match InitNode).
 		Matrix4x4 NodeTransformation = NodeInfo->BaseMatrixFromGltf;
-		NodeTransformation *= Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
 		NodeTransformation *= Matrix4x4::ScaleMatrix(NodeInfo->Scale);
 		NodeTransformation *= Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
+		NodeTransformation *= Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
 		auto ParentNode = NodeInfo->ParentNode.lock();
 		if (ParentNode)
 		{
@@ -88,38 +109,34 @@ namespace Engine
 			NodeInfo->SkinID = Node.skin;
 			NodeInfo->NodeID = i;
 
-			Matrix4x4 NodeMat;
 			if (Node.matrix.size() == 16)
 			{
-				NodeMat = Matrix4x4(float(Node.matrix[0]), float(Node.matrix[1]), float(Node.matrix[2]), float(Node.matrix[3]),
-					float(Node.matrix[4]), float(Node.matrix[5]), float(Node.matrix[6]), float(Node.matrix[7]),
-					float(Node.matrix[8]), float(Node.matrix[9]), float(Node.matrix[10]), float(Node.matrix[11]),
-					float(Node.matrix[12]), float(Node.matrix[13]), float(Node.matrix[14]), float(Node.matrix[15]));
+				// glTF 2.0: matrix and TRS must not be combined — Unity exporters often emit both; ignore TRS here.
+				const Matrix4x4 NodeMat = MatrixFromGltfNodeForRowVectorMultiply(Node.matrix);
+				NodeInfo->BaseMatrixFromGltf = NodeMat;
+				NodeInfo->Translate = Vector3::Zero;
+				NodeInfo->Scale = Vector3(1.f, 1.f, 1.f);
+				NodeInfo->Rotation = Quaternion::Identity;
+				NodeInfo->FinalMeshMat = NodeMat;
 			}
-			NodeInfo->BaseMatrixFromGltf = NodeMat;
-
-			if (Node.translation.size() == 3)
+			else
 			{
-				NodeInfo->Translate = Vector3(float(Node.translation[0]), float(Node.translation[1]), float(Node.translation[2]));
-				NodeMat *= Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
-				
-			}
+				NodeInfo->BaseMatrixFromGltf.Identity();
+				if (Node.translation.size() == 3)
+					NodeInfo->Translate = Vector3(float(Node.translation[0]), float(Node.translation[1]), float(Node.translation[2]));
+				if (Node.scale.size() == 3)
+					NodeInfo->Scale = Vector3(float(Node.scale[0]), float(Node.scale[1]), float(Node.scale[2]));
+				if (Node.rotation.size() == 4)
+					NodeInfo->Rotation = Quaternion(float(Node.rotation[0]), float(Node.rotation[1]), float(Node.rotation[2]), float(Node.rotation[3]));
 
-			if (Node.scale.size() == 3)
-			{
-				NodeInfo->Scale = Vector3(float(Node.scale[0]), float(Node.scale[1]), float(Node.scale[2]));
+				Matrix4x4 NodeMat;
+				NodeMat.Identity();
 				NodeMat *= Matrix4x4::ScaleMatrix(NodeInfo->Scale);
-				
-			}
-
-			if (Node.rotation.size() == 4)
-			{
-				NodeInfo->Rotation = Quaternion(float(Node.rotation[0]), float(Node.rotation[1]), float(Node.rotation[2]), float(Node.rotation[3]));
 				NodeMat *= Matrix4x4::CreateFromQuaternion(Quaternion(NodeInfo->Rotation));
-				
-			}
+				NodeMat *= Matrix4x4::CreateFromTranslate(NodeInfo->Translate);
 
-			NodeInfo->FinalMeshMat = NodeMat;
+				NodeInfo->FinalMeshMat = NodeMat;
+			}
 
 			_Node.push_back(NodeInfo);
 		}

@@ -20,6 +20,15 @@
 
 namespace
 {
+	/** ShadowPass-PS outputs depth without alpha test; BLEND materials would write solid silhouette depth for fade meshes. */
+	static bool MeshWritesShadowMapDepth(const std::shared_ptr<Engine::MeshBase>& Mesh)
+	{
+		if (!Mesh)
+			return false;
+		const auto mat = Mesh->GetMaterial();
+		return mat && !mat->IsTransparent();
+	}
+
 	// When true: fit orthographic shadow XY to shadow casters only (keeps texel density on the character).
 	// Visible receiver bounds (FrustumBoundsMeshes) still contribute to light-space Z so ground contact shadows are not clipped.
 	static constexpr bool kPreferTightShadowFrustumFromCasters = true;
@@ -265,7 +274,7 @@ namespace Engine
 			for (size_t MeshIndex = 0; MeshIndex < MeshInfo.Meshes.size(); ++MeshIndex)
 			{
 				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
-				if (!Mesh)
+				if (!Mesh || !MeshWritesShadowMapDepth(Mesh))
 					continue;
 				auto& shadowRender = d->ShadowRenders[Mesh];
 				if (!shadowRender)
@@ -292,7 +301,7 @@ namespace Engine
 			for (size_t MeshIndex = 0; MeshIndex < MeshInfo.Meshes.size(); ++MeshIndex)
 			{
 				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
-				if (!Mesh)
+				if (!Mesh || !MeshWritesShadowMapDepth(Mesh))
 					continue;
 				auto& shadowRender = d->ShadowRenders[Mesh];
 				if (!shadowRender)
@@ -375,7 +384,7 @@ namespace Engine
 			{
 				for (const auto& Mesh : MeshInfo.Meshes)
 				{
-					if (!Mesh)
+					if (!Mesh || !MeshWritesShadowMapDepth(Mesh))
 						continue;
 					math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
 					wbox = WorldMeshBoundsForShadowFrustum(Mesh, wbox);
@@ -447,6 +456,11 @@ namespace Engine
 			math::AABB3 casterPad = math::ExpandAabbByMargin(SubjectWorldAabb, 4.f);
 			if (ReceiverWorldAabb.GetIntersect(casterPad, crop))
 				ExpandOrthoXYForWorldAabb(MainLight.LightView, crop, centerX, centerY, sizeX, sizeY);
+			else
+			{
+				// Receiver outside padded caster AABB (large ground plane): still widen XY to receivers like glTFSample-style coverage.
+				ExpandOrthoXYForWorldAabb(MainLight.LightView, ReceiverWorldAabb, centerX, centerY, sizeX, sizeY);
+			}
 		}
 
 		const math::Matrix4x4 proj = math::Matrix4x4::MatrixOrthographicOffCenterLH(centerX - sizeX, centerX + sizeX, centerY - sizeY, centerY + sizeY, nearValue, farValue);

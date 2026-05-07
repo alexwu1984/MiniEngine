@@ -50,6 +50,10 @@ namespace RenderCore
 		virtual void RHICopyResource(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex) override;
 		virtual void RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect) override;
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
+		virtual void RDGBeginGpuPassTimingFrame() override;
+		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) override;
+		virtual void RDGResolveGpuPassTimingsEndOfFrame() override;
+		virtual void RDGTryConsumePreviousFrameGpuPassTimings(std::vector<std::pair<std::string, double>>& OutPassGpuMs) override;
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI) override;
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) override;
 		virtual void RHIClearState() override;

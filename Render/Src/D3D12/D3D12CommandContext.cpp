@@ -5,6 +5,7 @@
 #include "D3D12/D3D12RHIRecording.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include "D3D12/D3D12GpuTimestampRing.h"
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12CommandList.h"
 #include "D3D12/D3D12StateCache.h"
@@ -895,6 +896,59 @@ namespace RenderCore
 		}
 
 		CommandListHandle.FlushResourceBarriers();
+	}
+
+	void D3D12CommandContext::RDGBeginGpuPassTimingFrame()
+	{
+		if (!IsDefaultContext() || IsAsyncComputeContext())
+			return;
+		std::shared_ptr<FD3D12Device> Dev = GetParentDevice();
+		FD3D12GpuTimestampRing* Ring = Dev ? Dev->GetGpuPassTimestampsRing() : nullptr;
+		if (!Ring)
+			return;
+		ID3D12GraphicsCommandList* Cmd = GetCurrentCommandListHandle().GraphicsCommandList();
+		if (!Cmd)
+			return;
+		Ring->BeginRecording(Cmd);
+	}
+
+	void D3D12CommandContext::RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8)
+	{
+		if (!IsDefaultContext() || IsAsyncComputeContext())
+			return;
+		std::shared_ptr<FD3D12Device> Dev = GetParentDevice();
+		FD3D12GpuTimestampRing* Ring = Dev ? Dev->GetGpuPassTimestampsRing() : nullptr;
+		if (!Ring)
+			return;
+		ID3D12GraphicsCommandList* Cmd = GetCurrentCommandListHandle().GraphicsCommandList();
+		if (!Cmd)
+			return;
+		Ring->AfterPass(Cmd, PassNameUtf8 ? PassNameUtf8 : "");
+	}
+
+	void D3D12CommandContext::RDGResolveGpuPassTimingsEndOfFrame()
+	{
+		if (!IsDefaultContext() || IsAsyncComputeContext())
+			return;
+		std::shared_ptr<FD3D12Device> Dev = GetParentDevice();
+		FD3D12GpuTimestampRing* Ring = Dev ? Dev->GetGpuPassTimestampsRing() : nullptr;
+		if (!Ring)
+			return;
+		ID3D12GraphicsCommandList* Cmd = GetCurrentCommandListHandle().GraphicsCommandList();
+		if (!Cmd)
+			return;
+		Ring->EndRecordingResolve(Cmd);
+	}
+
+	void D3D12CommandContext::RDGTryConsumePreviousFrameGpuPassTimings(std::vector<std::pair<std::string, double>>& OutPassGpuMs)
+	{
+		if (!IsDefaultContext() || IsAsyncComputeContext())
+			return;
+		std::shared_ptr<FD3D12Device> Dev = GetParentDevice();
+		FD3D12GpuTimestampRing* Ring = Dev ? Dev->GetGpuPassTimestampsRing() : nullptr;
+		if (!Ring)
+			return;
+		Ring->TryConsume(OutPassGpuMs);
 	}
 
 	void D3D12CommandContext::BeginUserMark(const char* name)

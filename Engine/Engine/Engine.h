@@ -51,6 +51,8 @@ namespace Engine
 		std::shared_ptr<World> GetWorld() const;
 		std::shared_ptr<GameViewportClient> GetViewportClient() const;
 		std::shared_ptr<FWorldSceneRender> GetSceneRender() const;
+		/** API selected at Init() (D3D11 vs D3D12); use for HUD / profiling labels. */
+		RenderCore::RHIAPIType GetInitRHIApiType() const noexcept;
 		/** Runs at end of each game-thread Tick after Present (after optional Resize enqueue). Safe place for ReloadSceneJson / heavy scene mutations. */
 		void SetEndFrameTickCallback(std::function<void()> Callback);
 

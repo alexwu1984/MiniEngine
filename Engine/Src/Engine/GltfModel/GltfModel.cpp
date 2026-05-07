@@ -106,7 +106,8 @@ namespace Engine
 	void GltfModel::Play(float TotalDeltaTime, float DeltaFrameTime)
 	{
 		C_P(GltfModel);
-		if (d->AnimationMgr)
+		const bool bSkipAnim = d->Asset && d->Asset->GetDisableAnimation();
+		if (!bSkipAnim && d->AnimationMgr)
 			d->AnimationMgr->Play(TotalDeltaTime);
 
 		if (d->Skeleton)

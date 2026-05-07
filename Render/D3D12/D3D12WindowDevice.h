@@ -15,6 +15,7 @@ namespace RenderCore
 	class FD3D12ResourceAllocator;
 	class FD3D12BuddyAllocator;
 	struct FDynamicDescriptorHeapPoolsPerDevice;
+	class FD3D12GpuTimestampRing;
 
 	class FD3D12Device :public std::enable_shared_from_this<FD3D12Device>,public FD3D12AdapterChild
 	{
@@ -73,6 +74,9 @@ namespace RenderCore
 		uint64_t ExecutePendingCommandLists(ED3D12CommandQueueType QueueType, bool WaitForCompletion = false);
 		bool HasPendingCommandLists(ED3D12CommandQueueType QueueType) const;
 
+		FD3D12GpuTimestampRing* GetGpuPassTimestampsRing() { return GpuPassTimestamps.get(); }
+		void NotifyGpuPassTimestampsAdapterFrameFence(uint64_t AdapterFrameFenceSignaledValue);
+
 	private:
 		void CreateCommandContexts();
 		void InitPlatformSpecific();
@@ -106,5 +110,7 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCubeCpu{};
 		FD3D12ResourceAllocator::FDescriptorAllocation NullUavAlloc{};
 		D3D12_CPU_DESCRIPTOR_HANDLE NullUavCpu{};
+
+		std::unique_ptr<FD3D12GpuTimestampRing> GpuPassTimestamps;
 	};
 }

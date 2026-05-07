@@ -16,6 +16,7 @@
 #include "core/system.h"
 #include <comdef.h>
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <limits>
 #include <string>
@@ -37,6 +38,20 @@ namespace Engine
 			return false;
 		}
 
+		static bool JsonHdrTokenIsProceduralSky(const std::string& utf8)
+		{
+			std::string lower;
+			lower.reserve(utf8.size());
+			for (unsigned char c : utf8)
+			{
+				if (c == ' ')
+					lower.push_back('_');
+				else
+					lower.push_back(char(std::tolower(c)));
+			}
+			return lower == "proceduralsky" || lower == "procedural_sky";
+		}
+
 		static void SpawnConfigSkyLightActor(const std::shared_ptr<World>& WorldSelf, const nlohmann::json& Evn)
 		{
 			if (!WorldSelf || Evn.find("Hdr") == Evn.end() || Evn["Hdr"].is_null())
@@ -44,13 +59,22 @@ namespace Engine
 			const std::string hdrUtf8 = Evn["Hdr"].get<std::string>();
 			if (hdrUtf8.empty())
 				return;
-			std::wstring rel = core::u8_ucs2(hdrUtf8);
-			if (rel.empty())
-				return;
 			auto actor = std::make_shared<Actor>(WorldSelf);
 			actor->SetActorName(L"ConfigSkyLight");
 			auto comp = std::make_shared<SkyLightComponent>(actor);
-			comp->SetHDRRelativePath(std::move(rel));
+			if (JsonHdrTokenIsProceduralSky(hdrUtf8))
+			{
+				comp->SetProceduralSky(true);
+				comp->SetHDRRelativePath(L"");
+			}
+			else
+			{
+				std::wstring rel = core::u8_ucs2(hdrUtf8);
+				if (rel.empty())
+					return;
+				comp->SetProceduralSky(false);
+				comp->SetHDRRelativePath(std::move(rel));
+			}
 			comp->SetSortPriority(0);
 			try
 			{
@@ -247,7 +271,7 @@ namespace Engine
 				auto sl = a->GetComponent<SkyLightComponent>();
 				if (!sl || !sl->IsEnabled())
 					continue;
-				if (sl->GetHDRRelativePath().empty())
+				if (sl->GetHDRRelativePath().empty() && !sl->IsProceduralSky())
 					continue;
 				const int32_t p = sl->GetSortPriority();
 				if (!best || p > bestPri)
@@ -666,13 +690,17 @@ namespace Engine
 		const auto sl = FindPrimarySkyLightComponent();
 		if (!sl)
 			return std::nullopt;
+		if (sl->IsProceduralSky())
+			return std::nullopt;
+		if (sl->GetHDRRelativePath().empty())
+			return std::nullopt;
 		return sl->ResolveHDRFullPath();
 	}
 
 	float World::GetSkyLightIBLScale() const
 	{
 		const auto sl = FindPrimarySkyLightComponent();
-		if (!sl || !sl->IsEnabled() || sl->GetHDRRelativePath().empty())
+		if (!sl || !sl->IsEnabled() || (!sl->IsProceduralSky() && sl->GetHDRRelativePath().empty()))
 			return 0.f;
 		const float i = sl->GetIBLIntensity();
 		return i > 0.f ? i : 0.f;

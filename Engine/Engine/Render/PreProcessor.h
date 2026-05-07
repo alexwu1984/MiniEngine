@@ -25,8 +25,8 @@ namespace Engine
 
 		std::shared_ptr<FSkyLightIBLPrecompute> GetSkyLightEnvironment();
 
-		/** Call on render thread before PreProcess::Draw; applies SkyLightComponent HDR or JSON fallback. */
-		void ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath);
+		/** Call on render thread before PreProcess::Draw; applies SkyLightComponent HDR / procedural or JSON fallback. */
+		void ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath, bool bSkyLightComponentProcedural);
 		/** After scene swap or scene-texture recycle: next PreProcess::Draw may re-capture IBL (same HDR path is otherwise left as “already init”). */
 		void InvalidateSkyLightCapturedEnvironment();
 

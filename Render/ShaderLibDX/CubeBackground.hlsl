@@ -37,6 +37,6 @@ VertexOut VS(VertexIn ina)
 float4 PS(VertexOut outa) : SV_Target
 {
     float3 envColor = HdrCubeMap.Sample(TrilinearFliterClamp, normalize(outa.LocalPos)).rgb;
-    envColor = envColor / (envColor + 1.0);
+    // Output HDR sky; tonemapping/bloom are handled in the unified post-process pass.
     return float4(envColor, 1.0f);
 }

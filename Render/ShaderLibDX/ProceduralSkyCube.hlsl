@@ -124,14 +124,15 @@ float4 PS_ProceduralSkyCube(VertexOutput In) : SV_Target
     float3 L0 = float3(0.1, 0.1, 0.1) * Fex;
 
     float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
-    L0 += (vSunE * 19000.0 * Fex) * sundisk;
+    // The original SkyDomeProc-style multiplier (19000) easily blows out after ACES + exposure.
+    // Keep the sun disk bright but within a range that preserves sky gradients.
+    const float SunDiskScale = 50.0;
+    L0 += (vSunE * SunDiskScale * Fex) * sundisk;
 
+    // Output linear HDR. Tonemapping/exposure are handled in the unified post-process pass.
+    // Keeping this linear avoids double-tonemapping (which washes the sky to grey).
     float3 texColor = (Lin + L0) * 0.04 + float3(0.0, 0.0003, 0.00075);
-
-    // no tonemapped (matches glTFSample)
-    float3 color = (log2(2.0 / pow(max(luminance, 1e-6), 4.0))) * texColor;
-    float3 retColor = pow(abs(color), (1.0 / (1.2 + (1.2 * vSunfade))));
-
-    return float4(retColor, 1.0);
+    texColor *= max(luminance, 0.0);
+    return float4(texColor, 1.0);
 }
 

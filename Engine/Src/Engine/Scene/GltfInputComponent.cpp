@@ -205,13 +205,16 @@ namespace Engine
 						right.Normalize();
 						const math::Vector3 camUp = math::Vector3::Cross(forward, right).Normalize();
 						const float panScale = d->OrbitDistance / 10.f;
-						d->OrbitTargetWorld += right * ((-delta.x) / 100.f) * panScale;
-						d->OrbitTargetWorld += camUp * ((delta.y) / 100.f) * panScale;
+						// Match FPS/roam feel: drag right -> pan right, drag up -> pan up.
+						d->OrbitTargetWorld += right * ((delta.x) / 100.f) * panScale;
+						d->OrbitTargetWorld += camUp * ((-delta.y) / 100.f) * panScale;
 					}
 					else
 					{
-						d->OrbitYaw -= delta.x / 100.f;
-						d->OrbitPitch += delta.y / 100.f;
+						// Match FPS/roam feel: dx increases yaw, dy decreases pitch (see FreeRoamCameraComponent).
+						const float pixelsToRadians = 1.0f / 200.f; // less sensitive than before (was /100)
+						d->OrbitYaw += delta.x * pixelsToRadians;
+						d->OrbitPitch -= delta.y * pixelsToRadians;
 						const float lim = math::MATH_PI * 0.5f - 1e-3f;
 						d->OrbitPitch = std::clamp(d->OrbitPitch, -lim, lim);
 					}

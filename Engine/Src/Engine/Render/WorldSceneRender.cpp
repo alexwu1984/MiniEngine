@@ -331,18 +331,20 @@ namespace Engine
 		if (!d_ptr)
 			return false;
 		OutCameraViewProj = d_ptr->GuiCameraViewProjForDebug;
-		if (d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
-		{
-			OutKind = EGuiShadowFrustumKind::DirectionalOrtho;
-			OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
-			OutLightDirectionTowardSource = d_ptr->GuiDirLightDirectionTowardSourceForDebug;
-			return true;
-		}
+		// Prefer spot when both are valid: many scenes use directional fill + procedural-sun spot shadow; the old
+		// "directional first" choice drew the wrong frustum while the Light panel showed the spot (e.g. harley.json).
 		if (d_ptr->bGuiSpotLightFrustumValid.load(std::memory_order_relaxed))
 		{
 			OutKind = EGuiShadowFrustumKind::SpotPerspective;
 			OutLightViewProj = d_ptr->GuiSpotLightViewProjForDebug;
 			OutLightDirectionTowardSource = d_ptr->GuiSpotLightDirectionTowardSourceForDebug;
+			return true;
+		}
+		if (d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
+		{
+			OutKind = EGuiShadowFrustumKind::DirectionalOrtho;
+			OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
+			OutLightDirectionTowardSource = d_ptr->GuiDirLightDirectionTowardSourceForDebug;
 			return true;
 		}
 		return false;

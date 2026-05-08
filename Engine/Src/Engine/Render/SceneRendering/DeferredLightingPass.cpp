@@ -63,7 +63,7 @@ namespace Engine
 			}
 			else
 				Out.Data.myPerFrame.Lights[0] = Light{};
-			if (WorldSceneRender && !View.Lights.empty())
+			if (WorldSceneRender && !View.Lights.empty() && View.Lights[0].Type == LightType_Directional)
 			{
 				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 				{
@@ -287,6 +287,7 @@ namespace Engine
 
 		// Must match CB filled above: view lights keep ShadowMapIndex == -1 (e.g. DirectionalLightComponent); shadow pass patches CB via TryGetCachedMainLightForShading.
 		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform->Data.myPerFrame.LightCount > 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[0].Type == LightType_Directional
 			&& PerFrameUniform->Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
 		// RHISetShaderTexture ignores nullptr; leaving t8 unstaged keeps whatever was bound last frame (validation / GPU faults).
 		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
@@ -376,6 +377,7 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
 		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PerFrameUniform->Data.myPerFrame.LightCount > 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[0].Type == LightType_Directional
 			&& PerFrameUniform->Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
 		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
 		if (bDeferredShadow)

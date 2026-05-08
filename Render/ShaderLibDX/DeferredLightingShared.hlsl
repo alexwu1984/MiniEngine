@@ -55,16 +55,12 @@ void GetIBLContributionSplit(MaterialInfo MaterialInfo, float3 n, float3 v, out 
 	outSpecularIBL = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
 }
 
+// Same as AMD glTFSample GLTFPBRLighting.hlsl getRangeAttenuation (KHR_lights_punctual range).
 float GetRangeAttenuation(float Range, float Distance)
 {
-	float att = 1.0;
-	if (Range > 0.0)
-	{
-		const float denom = max(Range, 1e-5);
-		const float t = saturate(Distance / denom);
-		att = max(1.0 - t, 0.0);
-	}
-	return att;
+	if (Range < 0.0)
+		return 1.0;
+	return max(lerp(1.0, 0.0, Distance / max(Range, 1e-5)), 0.0);
 }
 
 float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterConeCos, float InnerConeCos)
@@ -137,10 +133,10 @@ float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float li
 	return (zR <= zMap + bias) ? 1.0 : 0.0;
 }
 
-float DirectionalShadowHair(float4 lightClipPos, float3 geomN, float coverageAlpha)
+float DirectionalShadowHair(float4 lightClipPos, float3 geomN, float coverageAlpha, bool bDirectionalShadow)
 {
 	float visibility = 1.0f;
-	if (IsEnableShadow())
+	if (bDirectionalShadow)
 		visibility = clamp(ComputeShadowHair(lightClipPos, geomN, coverageAlpha), 0.0, 1.0);
 	return visibility;
 }
@@ -162,7 +158,7 @@ float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseCo
 	float NdotL = HairShellNdotL(geomN, L, coverageAlpha);
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
-	float visibility = DirectionalShadowHair(lightClipPos, geomN, coverageAlpha);
+	float visibility = DirectionalShadowHair(lightClipPos, geomN, coverageAlpha, light.ShadowMapIndex >= 0);
 	float specMask = saturate(NdotL * 0.55 + 0.38);
 	return light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao * visibility;
 }

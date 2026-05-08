@@ -99,7 +99,8 @@ float3 ApplyDirectionalLightDeferred(float4 lightClipPos, Light light, MaterialI
 {
     float3 shade = GetPointShade(light.Direction, materialInfo, normal, view);
     float visibility = 1.0f;
-    if (IsEnableShadow())
+    // Do not use IsEnableShadow() (keys off light[0] only): this light may be a secondary directional or shadowless.
+    if (light.ShadowMapIndex >= 0)
         visibility = clamp(ComputeShadow(lightClipPos, normal), 0.0, 1.0);
     return light.Intensity * light.Color * shade * visibility;
 }

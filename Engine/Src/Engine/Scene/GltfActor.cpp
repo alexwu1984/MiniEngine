@@ -80,6 +80,17 @@ namespace Engine
 			return;
 		}
 		//SetActorName(d->MeshComp->GetModel().GetModelConfig()->GetModelName());
+		// Apply before AddScenePrimitive so the mesh proxy is registered with the final ProjShadow flag (spot/directional depth lists).
+		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
+		{
+			try
+			{
+				d->MeshComp->SetProjectShadow(d->GltfJson["ProjShadow"].get<bool>());
+			}
+			catch (const std::exception&)
+			{
+			}
+		}
 
 		AddComponent(d->MeshComp);
 		d->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
@@ -180,11 +191,6 @@ namespace Engine
 		if (!bRoamScene && !bHasOrbitCameraJson && !bUsedJsonCameraPose)
 			ApplyDefaultFramedCameraPose();
 
-		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
-		{
-			d->MeshComp->SetProjectShadow(d->GltfJson["ProjShadow"]);
-		}
-		
 		AddComponent(d->CameraComp);
 
 		d->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());

@@ -262,11 +262,14 @@ namespace Engine
 			auto spot = std::make_shared<SpotLightComponent>(actor);
 			if (!bSyncProceduralSun)
 			{
-				math::Vector3 sunToward = Parsed.Direction;
-				if (sunToward.GetSqrLength() < 1e-10f)
-					sunToward = math::Vector3(0.f, 0.49f, 0.833f);
-				sunToward = sunToward.Normalize();
-				spot->SetWorldForward(-sunToward);
+				// KHR: light travels along local -Z; Actor::GetForward() is local +Z, so align +Z to -emission (AMD / glTFSample node convention).
+				math::Vector3 emission = Parsed.Direction;
+				if (emission.GetSqrLength() < 1e-10f)
+					emission = math::Vector3(0.f, 0.f, -1.f);
+				else
+					emission = emission.Normalize();
+				actor->RotateToNewForward(-emission);
+				spot->SetWorldForward(emission);
 			}
 			else
 			{
@@ -275,7 +278,8 @@ namespace Engine
 			}
 			spot->SetColor(Parsed.Color);
 			spot->SetIntensity(Parsed.Intensity);
-			spot->SetRange(Parsed.Range > 0.f ? Parsed.Range : 100.f);
+			// Default range 105 matches AMD GltfCommon; negative = unlimited (KHR). Treat 0 as default (avoid div-by-zero in attenuation).
+			spot->SetRange(Parsed.Range > 0.f ? Parsed.Range : (Parsed.Range < 0.f ? Parsed.Range : 105.f));
 			spot->SetInnerConeCos(Parsed.InnerConeCos);
 			spot->SetOuterConeCos(Parsed.OuterConeCos);
 			if (bSyncProceduralSun)
@@ -283,6 +287,7 @@ namespace Engine
 			spot->SetCastShadow(bCastShadow);
 			spot->SetSortPriority(400 - JsonOrderIndex);
 			actor->AddComponent(spot);
+			actor->ComputeWorldTransform(0.f);
 			WorldSelf->AddActor(actor);
 		}
 
@@ -329,19 +334,25 @@ namespace Engine
 					const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
 					if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z) < 3)
 						return false;
-					lightInfo.Range = 100.f;
+					// Default 105 matches AMD GltfCommon GetElementFloat(light, "range", 105). Negative = unlimited (KHR).
+					lightInfo.Range = 105.f;
 					if (const auto rit = lightInfoJson.find("LightRange"); rit != lightInfoJson.end() && rit->is_number())
 						lightInfo.Range = static_cast<float>(rit->get<double>());
-					float innerDeg = 16.f;
-					float outerDeg = 34.f;
-					if (const auto it = lightInfoJson.find("InnerConeDeg"); it != lightInfoJson.end() && it->is_number())
-						innerDeg = static_cast<float>(it->get<double>());
-					if (const auto it = lightInfoJson.find("OuterConeDeg"); it != lightInfoJson.end() && it->is_number())
-						outerDeg = static_cast<float>(it->get<double>());
+					// KHR half-angles in radians (same as glTF spot.innerConeAngle / outerConeAngle). Optional *Deg = half-angle in degrees.
 					const float kPi = 3.14159265358979323846f;
 					const float toRad = kPi / 180.f;
-					lightInfo.InnerConeCos = std::cos(innerDeg * toRad);
-					lightInfo.OuterConeCos = std::cos(outerDeg * toRad);
+					float innerHalfRad = 0.f;
+					float outerHalfRad = kPi * 0.25f;
+					if (const auto it = lightInfoJson.find("InnerConeAngle"); it != lightInfoJson.end() && it->is_number())
+						innerHalfRad = static_cast<float>(it->get<double>());
+					else if (const auto it = lightInfoJson.find("InnerConeDeg"); it != lightInfoJson.end() && it->is_number())
+						innerHalfRad = static_cast<float>(it->get<double>()) * toRad;
+					if (const auto it = lightInfoJson.find("OuterConeAngle"); it != lightInfoJson.end() && it->is_number())
+						outerHalfRad = static_cast<float>(it->get<double>());
+					else if (const auto it = lightInfoJson.find("OuterConeDeg"); it != lightInfoJson.end() && it->is_number())
+						outerHalfRad = static_cast<float>(it->get<double>()) * toRad;
+					lightInfo.InnerConeCos = std::cos(innerHalfRad);
+					lightInfo.OuterConeCos = std::cos(outerHalfRad);
 					if (lightInfo.OuterConeCos > lightInfo.InnerConeCos)
 						std::swap(lightInfo.OuterConeCos, lightInfo.InnerConeCos);
 					return true;
@@ -422,6 +433,8 @@ namespace Engine
 		mutable bool ShadowProjectorCacheDirty = true;
 		mutable std::weak_ptr<Actor> ShadowProjectorCache;
 		bool bLoadedSceneUsesRoamCamera = false;
+		/** When false (default): procedural sky + exactly one shadow-casting spot → treat it as sun key (position/axis from skylight sun; Evn directional may still exist for fill). */
+		bool bDisableProcSkyAutoSpotSunKey = false;
 	};
 
 	World::World()
@@ -498,6 +511,15 @@ namespace Engine
 			}
 
 			nlohmann::json evnJson = Root["Evn"];
+			d->bDisableProcSkyAutoSpotSunKey = false;
+			try
+			{
+				if (evnJson.find("DisableProcSkyAutoSpotSunKey") != evnJson.end() && evnJson["DisableProcSkyAutoSpotSunKey"].is_boolean())
+					d->bDisableProcSkyAutoSpotSunKey = evnJson["DisableProcSkyAutoSpotSunKey"].get<bool>();
+			}
+			catch (const std::exception&)
+			{
+			}
 			SpawnConfigSkyLightActor(self, evnJson);
 
 			const nlohmann::json lightJsons = evnJson["Light"];
@@ -573,6 +595,33 @@ namespace Engine
 						}
 						catch (const std::exception&)
 						{
+						}
+					}
+					// (3) First spot LightDir: propagation toward scene → skylight "toward sun" is the opposite ray.
+					if (!haveSun && lightJsons.is_array())
+					{
+						for (const auto& lj : lightJsons)
+						{
+							try
+							{
+								if (!lj.is_object() || lj.find("LightType") == lj.end() || !lj["LightType"].is_number())
+									continue;
+								if (lj["LightType"].get<int>() != LightType_Spot)
+									continue;
+								if (lj.find("LightDir") == lj.end() || !lj["LightDir"].is_string())
+									continue;
+								const std::string dirStr = lj["LightDir"].get<std::string>();
+								math::Vector3 em{};
+								if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &em.x, &em.y, &em.z) != 3 || em.GetSqrLength() < 1e-10f)
+									continue;
+								em = em.Normalize();
+								sunDir = (-em).Normalize();
+								haveSun = true;
+								break;
+							}
+							catch (const std::exception&)
+							{
+							}
 						}
 					}
 					if (haveSun)
@@ -801,27 +850,82 @@ namespace Engine
 
 		const auto slSky = FindPrimarySkyLightComponent();
 		const bool bProcSky = slSky && slSky->IsEnabled() && slSky->IsProceduralSky();
+		std::shared_ptr<SpotLightComponent> procSkyAutoSunSpot;
+		if (bProcSky && !d->bDisableProcSkyAutoSpotSunKey)
+		{
+			int shadowSpotCount = 0;
+			for (const auto& c : spotComps)
+			{
+				if (c->GetCastShadow())
+				{
+					++shadowSpotCount;
+					procSkyAutoSunSpot = c;
+				}
+			}
+			if (shadowSpotCount != 1)
+				procSkyAutoSunSpot.reset();
+		}
 		for (const auto& comp : spotComps)
 		{
 			if (out.size() >= MAX_LIGHT_INSTANCES)
 				break;
 			Light L = comp->BuildLight();
-			if (bProcSky && comp->IsProceduralSunFill())
+			const bool bPlaceAsProcSunKey = bProcSky && slSky
+				&& (comp->IsProceduralSunFill() || (procSkyAutoSunSpot && comp == procSkyAutoSunSpot && !comp->IsProceduralSunFill()));
+			if (bPlaceAsProcSunKey)
 			{
 				math::Vector3 sunDir = slSky->GetProceduralSunDirectionTowardSource();
 				if (sunDir.GetSqrLength() < 1e-10f)
 					sunDir = math::Vector3(0.f, 0.49f, 0.833f);
 				sunDir = sunDir.Normalize();
-				const math::Vector3 aim = comp->GetProceduralAimWorld();
+				const math::Vector3 aim = ResolveProceduralSunAimWorldForGather(*comp);
 				const float dist = comp->GetProceduralSunDistanceAlongRay();
 				L.Position = aim + sunDir * dist;
 				const math::Vector3 toAim = aim - L.Position;
 				math::Vector3 fwd = toAim.GetSqrLength() >= 1e-10f ? toAim.Normalize() : (-sunDir);
 				L.Direction = -fwd;
+				// JSON Range is often authored for a lamp near the scene; procedural placement moves the lamp out along the sun ray by `dist`.
+				// Shadow zFar and GetRangeAttenuation both use Range — if Range < distance to aim, receivers never receive light or shadow depth.
+				if (L.Range > 0.f)
+				{
+					const float reach = std::sqrt((std::max)(toAim.GetSqrLength(), 1e-10f));
+					const float minRange = reach * 1.05f + 2.f;
+					L.Range = (std::max)(L.Range, minRange);
+				}
 			}
 			out.push_back(std::move(L));
 		}
 		return out;
+	}
+
+	bool World::DoesSpotUseProceduralSunKeyInGather(const std::shared_ptr<SpotLightComponent>& comp) const
+	{
+		if (!comp || !comp->IsEnabled())
+			return false;
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		const auto spotComps = CollectSpotLightComponentsSorted(d->Actors, d->PendingActors);
+		const auto slSky = FindPrimarySkyLightComponent();
+		const bool bProcSky = slSky && slSky->IsEnabled() && slSky->IsProceduralSky();
+		if (!bProcSky || !slSky)
+			return false;
+		if (comp->IsProceduralSunFill())
+			return true;
+		if (d->bDisableProcSkyAutoSpotSunKey)
+			return false;
+		std::shared_ptr<SpotLightComponent> procSkyAutoSunSpot;
+		int shadowSpotCount = 0;
+		for (const auto& c : spotComps)
+		{
+			if (c->GetCastShadow())
+			{
+				++shadowSpotCount;
+				procSkyAutoSunSpot = c;
+			}
+		}
+		if (shadowSpotCount != 1 || !procSkyAutoSunSpot)
+			return false;
+		return procSkyAutoSunSpot == comp;
 	}
 
 	void World::RefreshShadowProjectorForActor(std::shared_ptr<Actor> actor)
@@ -897,6 +1001,18 @@ namespace Engine
 		out.WorldTransform = math::Matrix4x4::ms_Materix3X3WIdentity;
 		out.ModelLocalAABB = merged;
 		return out;
+	}
+
+	math::Vector3 World::ResolveProceduralSunAimWorldForGather(const SpotLightComponent& comp) const
+	{
+		math::Vector3 aim = comp.GetProceduralAimWorld();
+		if (aim.GetSqrLength() >= 1e-8f)
+			return aim;
+		const FShadowProjectorSceneData spd = BuildShadowProjectorAggregateData();
+		if (!spd.bValid)
+			return aim;
+		const math::Vector3 c = spd.ModelLocalAABB.GetCenter();
+		return math::Vector3(c.x, 0.f, c.z);
 	}
 
 	std::shared_ptr<SkyLightComponent> World::FindPrimarySkyLightComponent() const

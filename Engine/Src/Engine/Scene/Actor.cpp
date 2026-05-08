@@ -252,9 +252,13 @@ namespace Engine
 	{
 		if (!d_ptr)
 		{
-			static thread_local std::vector<std::shared_ptr<Engine::Component>> s_emptyComponents;
-			s_emptyComponents.clear();
-			return s_emptyComponents;
+			// Avoid thread_local std::vector TLS destructor ordering issues (process exit AV in __dyn_tls_dtor):
+			// heap vector is intentionally not destroyed per thread.
+			thread_local std::vector<std::shared_ptr<Engine::Component>>* s_emptyTls = nullptr;
+			if (!s_emptyTls)
+				s_emptyTls = new std::vector<std::shared_ptr<Engine::Component>>();
+			s_emptyTls->clear();
+			return *s_emptyTls;
 		}
 		C_P(Actor);
 		return d->Components;

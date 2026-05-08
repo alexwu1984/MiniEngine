@@ -6,14 +6,9 @@
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0,0,1",
+        "LightDir": "0.0,0.49,0.833",
         "LightStrength": 16.0,
-        "LightType": 2,
-        "LightPosition": "0,0.37,3.42",
-        "LightRange": 14.0,
-        "InnerConeDeg": 22,
-        "OuterConeDeg": 42,
-        "CastShadow": true
+        "LightType": 0
       }
     ],
     "EnableSSR": true,

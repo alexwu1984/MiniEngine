@@ -86,7 +86,7 @@ namespace Engine
 		/** Thread-safe copy of last completed frame's RDG pass CPU Encode timings (see HUD disclaimer). */
 		void GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const;
 		/**
-		 * Valid after Shadow RDG pass. Prefers directional ortho shadow when present; otherwise spot perspective shadow map frustum.
+		 * Valid after Shadow RDG pass. Prefers spot perspective shadow frustum when present; otherwise directional ortho.
 		 * Point lights are not included.
 		 */
 		bool TryGetGuiDebugShadowFrustum(EGuiShadowFrustumKind& OutKind, math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,

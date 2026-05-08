@@ -123,10 +123,10 @@ float4 PS_ProceduralSkyCube(VertexOutput In) : SV_Target
 
     float3 L0 = float3(0.1, 0.1, 0.1) * Fex;
 
-    float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
-    // The original SkyDomeProc-style multiplier (19000) easily blows out after ACES + exposure.
-    // Keep the sun disk bright but within a range that preserves sky gradients.
-    const float SunDiskScale = 50.0;
+    // Slightly wider smoothstep so the disk is easier to find when orbiting; still smaller than the bloom core.
+    float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00012, cosTheta);
+    // Cubemap is multiplied by 0.04 below; keep the disk clearly visible after tonemap (was easy to miss at 50).
+    const float SunDiskScale = 320.0;
     L0 += (vSunE * SunDiskScale * Fex) * sundisk;
 
     // Output linear HDR. Tonemapping/exposure are handled in the unified post-process pass.

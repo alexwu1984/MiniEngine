@@ -30,7 +30,18 @@ namespace Engine
 	{
 		C_P(SceneModelAsset);
 		d->Config = ModelJson;
-		d->ModelRelativePath = core::u8_ucs2(ModelJson["Model"]);
+		d->ModelRelativePath.clear();
+		try
+		{
+			const auto mit = ModelJson.find("Model");
+			if (mit != ModelJson.end() && mit->is_string())
+				d->ModelRelativePath = core::u8_ucs2(mit->get<std::string>());
+		}
+		catch (const std::exception&)
+		{
+		}
+		if (d->ModelRelativePath.empty())
+			return false;
 
 		try
 		{
@@ -62,16 +73,30 @@ namespace Engine
 				std::string Gravity = FurJson["Gravity"];
 				sscanf_s(Gravity.c_str(), "%f,%f,%f", &d->FurConfig.Gravity.x, &d->FurConfig.Gravity.y, &d->FurConfig.Gravity.z);
 			}
-			if (d->Config.find("Material") != d->Config.end())
+			// Allow "Material": {} — only read keys that exist and are the right JSON type (nlohmann [] on missing key yields null and can throw on .get<float>()).
+			if (d->Config.find("Material") != d->Config.end() && d->Config["Material"].is_object())
 			{
-				const auto& MaterialJson = d->Config["Material"];
-				d->MaterialConfig.Metallic = MaterialJson["Metallic"];
-				if(MaterialJson.count("Roughness"))
-					d->MaterialConfig.Roughness = MaterialJson["Roughness"];
-				if (MaterialJson.count("BaseColor"))
+				const auto& mj = d->Config["Material"];
+				auto tryFloat = [&mj](const char* key, float& out) {
+					const auto it = mj.find(key);
+					if (it == mj.end() || it->is_null() || !it->is_number())
+						return;
+					try
+					{
+						out = it->get<float>();
+					}
+					catch (const std::exception&)
+					{
+					}
+				};
+				tryFloat("Metallic", d->MaterialConfig.Metallic);
+				tryFloat("Roughness", d->MaterialConfig.Roughness);
+				const auto bcIt = mj.find("BaseColor");
+				if (bcIt != mj.end() && bcIt->is_string())
 				{
-					std::string BaseColor = MaterialJson["BaseColor"];
-					sscanf_s(BaseColor.c_str(), "%f,%f,%f,%f", &d->MaterialConfig.BaseColor.x, &d->MaterialConfig.BaseColor.y, &d->MaterialConfig.BaseColor.z, &d->MaterialConfig.BaseColor.w);
+					const std::string& BaseColor = bcIt->get<std::string>();
+					sscanf_s(BaseColor.c_str(), "%f,%f,%f,%f", &d->MaterialConfig.BaseColor.x, &d->MaterialConfig.BaseColor.y, &d->MaterialConfig.BaseColor.z,
+							 &d->MaterialConfig.BaseColor.w);
 				}
 			}
 			if(d->Config.find("UseMaterial") != d->Config.end())
@@ -82,7 +107,7 @@ namespace Engine
 		catch (const std::exception&)
 		{
 		}
-		return !d->ModelRelativePath.empty();
+		return true;
 	}
 
 	std::wstring SceneModelAsset::GetModelRelativePath() const

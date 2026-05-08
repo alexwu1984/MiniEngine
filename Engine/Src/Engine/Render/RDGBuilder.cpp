@@ -5,10 +5,9 @@
 #include "core/strings.h"
 #include "core/commandline.h"
 #include <chrono>
+#include <map>
 #include <set>
 #include <sstream>
-#include <unordered_map>
-#include <unordered_set>
 
 namespace Engine
 {
@@ -70,15 +69,16 @@ namespace Engine
 		if (N <= 0)
 			return 0;
 
-		std::unordered_set<std::string> ImportNames;
-		ImportNames.reserve(Imports.size() * 2);
+		// std::map / std::set (not unordered_*): avoids MSVC debug bucket-vector teardown AVs seen when heap is stressed
+		// or iterators get invalidated in edge cases; N is tiny (pass count).
+		std::set<std::string> ImportNames;
 		for (const FRDGPassResource& I : Imports)
 		{
 			if (ResourceNameForScheduling(I.Name))
 				ImportNames.insert(I.Name);
 		}
 
-		std::unordered_map<std::string, int> LastWriter;
+		std::map<std::string, int> LastWriter;
 
 		for (int J = 0; J < N; ++J)
 		{
@@ -386,12 +386,11 @@ namespace Engine
 		const bool bGpuTimestamps =
 			bWantCpuRows && Params.RDGBarrierCommandContext != nullptr && !core::CommandLine::Get().GetName("rdg_no_gpu_timestamps");
 
-		std::unordered_map<std::string, double> GpuMsPrev;
+		std::map<std::string, double> GpuMsPrev;
 		std::vector<std::pair<std::string, double>> GpuConsumeScratch;
 		if (bGpuTimestamps)
 		{
 			Params.RDGBarrierCommandContext->RDGTryConsumePreviousFrameGpuPassTimings(GpuConsumeScratch);
-			GpuMsPrev.reserve(GpuConsumeScratch.size());
 			for (const auto& P : GpuConsumeScratch)
 				GpuMsPrev[P.first] = P.second;
 			Params.RDGBarrierCommandContext->RDGBeginGpuPassTimingFrame();

@@ -1,53 +1,93 @@
 ﻿#include "D3D12/D3D12RHIRecording.h"
 #include "RHI/RHIThreadPolicy.h"
 #include "core/inc.h"
-#include <vector>
 
 namespace RenderCore
 {
 	namespace RecordingDetail
 	{
-		thread_local std::vector<ERHIRecordingContextScope> GRecordingContextStackTLS;
+		// Single thread_local aggregate: MSVC has had edge cases with multiple thread_local primitives in one TU
+		// (stale/garbage depth when another slot is touched first, e.g. game-thread RHIWaitForGpuIdle during reload).
+		static constexpr size_t kMaxRecordingContextDepth = 64u;
+		struct FrameRecordingTLS
+		{
+			std::array<ERHIRecordingContextScope, kMaxRecordingContextDepth> Stack{};
+			size_t Depth = 0;
+		};
+
+		inline FrameRecordingTLS& TLS()
+		{
+			thread_local FrameRecordingTLS Inst;
+			return Inst;
+		}
+
+		inline void SanitizeDepthIfCorrupt(const char* Where)
+		{
+			FrameRecordingTLS& T = TLS();
+			if (T.Depth > kMaxRecordingContextDepth)
+			{
+				ensureMsgf(false,
+						   "D3D12 RHI: recording stack depth corrupted (%zu) at %s — resetting. "
+						   "Usually extra Pop on this thread (Release asserts stripped) or TLS init ordering.",
+						   T.Depth,
+						   Where ? Where : "?");
+				T.Depth = 0;
+			}
+		}
 
 		inline bool DispatchRecordingWorkflowScopeActive()
 		{
-			return !GRecordingContextStackTLS.empty();
+			SanitizeDepthIfCorrupt("DispatchRecordingWorkflowScopeActive");
+			return TLS().Depth > 0u;
 		}
 	}
 
 	void D3D12RHI_PushRecordingContext(ERHIRecordingContextScope Scope)
 	{
-		RecordingDetail::GRecordingContextStackTLS.push_back(Scope);
+		RecordingDetail::SanitizeDepthIfCorrupt("PushRecordingContext");
+		RecordingDetail::FrameRecordingTLS& T = RecordingDetail::TLS();
+		Assert(T.Depth < RecordingDetail::kMaxRecordingContextDepth);
+		T.Stack[T.Depth++] = Scope;
 	}
 
 	void D3D12RHI_PopRecordingContext()
 	{
-		Assert(!RecordingDetail::GRecordingContextStackTLS.empty());
-		RecordingDetail::GRecordingContextStackTLS.pop_back();
+		RecordingDetail::SanitizeDepthIfCorrupt("PopRecordingContext");
+		RecordingDetail::FrameRecordingTLS& T = RecordingDetail::TLS();
+		if (T.Depth == 0u)
+		{
+			// Release: Assert elided — extra Pop would underflow size_t and destroy TLS state (reload / GpuIdle paths).
+			ensureMsgf(false, "D3D12 RHI: PopRecordingContext with empty stack (double Pop or mismatched Begin/End).");
+			return;
+		}
+		--T.Depth;
 	}
 
 	void D3D12RHI_PopRecordingContextIfTopIs(ERHIRecordingContextScope Expected)
 	{
-		if (RecordingDetail::GRecordingContextStackTLS.empty())
+		RecordingDetail::SanitizeDepthIfCorrupt("PopRecordingContextIfTopIs");
+		RecordingDetail::FrameRecordingTLS& T = RecordingDetail::TLS();
+		if (T.Depth == 0u)
 			return;
-		if (RecordingDetail::GRecordingContextStackTLS.back() != Expected)
+		if (T.Stack[T.Depth - 1u] != Expected)
 			return;
-		RecordingDetail::GRecordingContextStackTLS.pop_back();
+		--T.Depth;
 	}
 
 	bool D3D12RHI_IsRecordingContextStackActive()
 	{
-		return !RecordingDetail::GRecordingContextStackTLS.empty();
+		RecordingDetail::SanitizeDepthIfCorrupt("IsRecordingContextStackActive");
+		return RecordingDetail::TLS().Depth > 0u;
 	}
 
 	bool D3D12RHI_IsUploadBypassActive()
 	{
-		for (const ERHIRecordingContextScope Scope : RecordingDetail::GRecordingContextStackTLS)
+		RecordingDetail::SanitizeDepthIfCorrupt("IsUploadBypassActive");
+		const RecordingDetail::FrameRecordingTLS& T = RecordingDetail::TLS();
+		for (size_t i = 0; i < T.Depth; ++i)
 		{
-			if (Scope == ERHIRecordingContextScope::OutsideFrameResourceUpload)
-			{
+			if (T.Stack[i] == ERHIRecordingContextScope::OutsideFrameResourceUpload)
 				return true;
-			}
 		}
 		return false;
 	}

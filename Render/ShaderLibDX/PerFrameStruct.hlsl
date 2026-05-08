@@ -105,9 +105,10 @@ matrix GetPrevCameraViewProj()
     return myPerFrame.CameraPrevViewProj;
 }
 
+/** True only when slot 0 is a directional light that uses the 2D directional shadow map (t8). Spot/point use other paths. */
 bool IsEnableShadow()
 {
-    return myPerFrame.Lights[0].ShadowMapIndex >=0;
+    return myPerFrame.Lights[0].Type == LightType_Directional && myPerFrame.Lights[0].ShadowMapIndex >= 0;
 }
 
 matrix GetMainLightViewProj()

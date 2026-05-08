@@ -356,7 +356,22 @@ namespace Engine
 		return -1;
 	}
 
-	static void SetupSpotShadowViewProjection(Light& spotLight)
+	/** Max positive distance along spot axis (eye→scene) to AABB corners; drives zFar when lamp is far (procedural sun). */
+	static float MaxAlongAxisFromEyeToAabb(const math::Vector3& eye, const math::Vector3& axisUnit, const math::AABB3& box)
+	{
+		math::Vector3 corners[8]{};
+		box.GetPoint(corners);
+		float maxAlong = 0.f;
+		for (int i = 0; i < 8; ++i)
+		{
+			const float along = math::Vector3::Dot(corners[i] - eye, axisUnit);
+			if (along > maxAlong)
+				maxAlong = along;
+		}
+		return maxAlong;
+	}
+
+	static void SetupSpotShadowViewProjection(Light& spotLight, const math::AABB3* pSceneBoundsWorld, bool bSceneBoundsValid)
 	{
 		math::Vector3 axis = spotLight.Direction * (-1.f);
 		if (axis.GetSqrLength() < 1e-10f)
@@ -373,7 +388,18 @@ namespace Engine
 		if (fovY > 3.12f)
 			fovY = 3.12f;
 		const float zNear = 0.05f;
-		const float zFar = (std::max)(spotLight.Range, zNear + 0.1f);
+		// KHR negative range = infinite attenuation in deferred; shadow map still needs a finite clip far.
+		// Procedural "sun" spots sit far along the ray — fixed zFar or Range-only zFar can clip receivers before the map sees depth.
+		static constexpr float kSpotShadowZFarWhenRangeUnlimited = 2500.f;
+		static constexpr float kSpotShadowZFarMaxClamp = 48000.f;
+		float zFar = (spotLight.Range > 0.f) ? (std::max)(spotLight.Range, zNear + 0.1f) : kSpotShadowZFarWhenRangeUnlimited;
+		if (bSceneBoundsValid && pSceneBoundsWorld)
+		{
+			const float along = MaxAlongAxisFromEyeToAabb(eye, axis, *pSceneBoundsWorld);
+			const float need = along * 1.12f + 12.f;
+			zFar = (std::max)(zFar, need);
+		}
+		zFar = (std::min)(zFar, kSpotShadowZFarMaxClamp);
 		const math::Matrix4x4 proj = math::Matrix4x4::MatrixPerspectiveFovLH(fovY, 1.f, zNear, zFar);
 		spotLight.LightView = view;
 		spotLight.LightViewProj = view * proj;
@@ -396,17 +422,22 @@ namespace Engine
 		return !FrustumBoundsMeshes.empty() ? &FrustumBoundsMeshes : &ShadowCasterMeshes;
 	}
 
-	static void PruneStaleMeshShadowPS(ShadowRenderPassPrivate* d, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes)
+	static void PruneStaleMeshShadowPS(ShadowRenderPassPrivate* d, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
+									   const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes)
 	{
 		std::unordered_set<const MeshBase*> casterMeshPtrs;
-		for (const auto& MeshInfo : ShadowCasterMeshes)
-		{
-			for (const auto& Mesh : MeshInfo.Meshes)
+		auto insertMeshes = [&casterMeshPtrs](const std::vector<GltfSceneMeshInfo>& List) {
+			for (const auto& MeshInfo : List)
 			{
-				if (Mesh)
-					casterMeshPtrs.insert(Mesh.get());
+				for (const auto& Mesh : MeshInfo.Meshes)
+				{
+					if (Mesh)
+						casterMeshPtrs.insert(Mesh.get());
+				}
 			}
-		}
+		};
+		insertMeshes(ShadowCasterMeshes);
+		insertMeshes(FrustumBoundsMeshes);
 		for (auto it = d->ShadowRenders.begin(); it != d->ShadowRenders.end();)
 		{
 			if (!it->first || casterMeshPtrs.find(it->first.get()) == casterMeshPtrs.end())
@@ -609,7 +640,7 @@ namespace Engine
 			return;
 
 		const std::vector<GltfSceneMeshInfo>* subjectMeshList = SelectShadowSubjectMeshListForFrustum(ShadowCasterMeshes, FrustumBoundsMeshes, ShadowProjectorScene);
-		PruneStaleMeshShadowPS(d, ShadowCasterMeshes);
+		PruneStaleMeshShadowPS(d, ShadowCasterMeshes, FrustumBoundsMeshes);
 
 		const int mainDirIdx = FindFirstDirectionalLightIndex(Lights);
 		const int pointShadowIdx = FindPointShadowCubeLightIndex(Lights);
@@ -638,14 +669,34 @@ namespace Engine
 		if (pointShadowIdx >= 0 && d->PointShadowCube && !ShadowCasterMeshes.empty())
 			RenderPointLightShadowCubePass(d, RHIContext, ShadowCasterMeshes, Lights[static_cast<size_t>(pointShadowIdx)], pointShadowIdx);
 
-		if (spotShadowIdx >= 0 && d->SpotShadowBuffer && !ShadowCasterMeshes.empty())
+		// Spot depth pass must rasterize occluder geometry. DynamicShadowCastingPrimitives can be empty in edge cases
+		// (registration / cull ordering) while ShadowFrustumCullPrimitives still has the same meshes — fall back so spot
+		// shadows are not silently skipped (harley.obj + procedural sky scenes).
+		if (spotShadowIdx >= 0 && d->SpotShadowBuffer)
 		{
-			Light& spotL = Lights[static_cast<size_t>(spotShadowIdx)];
-			SetupSpotShadowViewProjection(spotL);
-			d->CachedSpotLightViewProj = spotL.LightViewProj;
-			d->CachedSpotShadowLightIndex = spotShadowIdx;
-			d->bCachedSpotShadowValid = true;
-			RenderSpotShadowMapPass(d, RHIContext, ShadowCasterMeshes, spotL);
+			const std::vector<GltfSceneMeshInfo>& spotMeshList =
+				!ShadowCasterMeshes.empty() ? ShadowCasterMeshes : FrustumBoundsMeshes;
+			if (!spotMeshList.empty())
+			{
+				Light& spotL = Lights[static_cast<size_t>(spotShadowIdx)];
+				math::AABB3 spotZFarBounds{};
+				bool spotZFarOk = false;
+				if (subjectValid)
+				{
+					spotZFarBounds = subjectWorldAabb;
+					spotZFarOk = true;
+				}
+				if (receiverValid)
+				{
+					spotZFarBounds = spotZFarOk ? spotZFarBounds.MergeAABB(receiverWorldAabb) : receiverWorldAabb;
+					spotZFarOk = true;
+				}
+				SetupSpotShadowViewProjection(spotL, spotZFarOk ? &spotZFarBounds : nullptr, spotZFarOk);
+				d->CachedSpotLightViewProj = spotL.LightViewProj;
+				d->CachedSpotShadowLightIndex = spotShadowIdx;
+				d->bCachedSpotShadowValid = true;
+				RenderSpotShadowMapPass(d, RHIContext, spotMeshList, spotL);
+			}
 		}
 	}
 

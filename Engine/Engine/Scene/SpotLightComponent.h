@@ -30,7 +30,7 @@ namespace Engine
 		void SetRange(float InRange);
 		float GetRange() const { return Range; }
 
-		/** Unit vector from lamp toward aim (into the lit cone). */
+		/** Local +Z emission axis before actor rotation; overridden per frame by BuildLight using inv(world) like AMD GltfCommon when the actor matrix is valid. */
 		void SetWorldForward(const math::Vector3& InForward);
 		const math::Vector3& GetWorldForward() const { return WorldForward; }
 
@@ -60,8 +60,9 @@ namespace Engine
 		float Intensity = 1.f;
 		float Range = 100.f;
 		math::Vector3 WorldForward{ 0.f, -1.f, 0.f };
-		float InnerConeCos{ 0.97f };
-		float OuterConeCos{ 0.88f };
+		/** Defaults match glTF KHR_lights_punctual: inner half-angle 0, outer half-angle pi/4 (cosines). */
+		float InnerConeCos{ 1.f };
+		float OuterConeCos{ 0.70710677f };
 		bool bProceduralSunFill = false;
 		float ProceduralSunDistanceAlongRay = 130.f;
 		math::Vector3 ProceduralAimWorld{ 0.f, 0.f, 0.f };

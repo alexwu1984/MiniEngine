@@ -8,6 +8,7 @@
 #include "HairShading.hlsl"
 
 static const int kPointLightCubeShadowMapIndex = 2;
+static const int kSpotLightShadowMapIndex = 3;
 
 struct MaterialInfo
 {
@@ -184,7 +185,7 @@ float3 ApplyPointLightHair(Light light, float3 baseColor, float perceptualRoughn
 }
 
 float3 ApplySpotLightHair(Light light, float3 baseColor, float perceptualRoughness, float ao,
-	float3 strandT, float3 geomN, float3 worldPos, float3 view, float coverageAlpha)
+	float3 strandT, float3 geomN, float3 worldPos, float3 view, int lightIndex, float coverageAlpha)
 {
 	float3 pointToLight = light.Position - worldPos;
 	float distance = length(pointToLight);
@@ -195,7 +196,13 @@ float3 ApplySpotLightHair(Light light, float3 baseColor, float perceptualRoughne
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
 	float specMask = saturate(NdotL * 0.55 + 0.38);
-	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao;
+	float vis = 1.0;
+	if (light.ShadowMapIndex == kSpotLightShadowMapIndex && SpotShadowEnabled != 0 && lightIndex == SpotShadowLightIndex)
+	{
+		float4 clip = mul(float4(worldPos, 1.0), SpotLightViewProj);
+		vis = SampleSpotShadowVisibility(clip, geomN, L);
+	}
+	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao * vis;
 }
 
 #endif // MINIENGINE_DEFERRED_LIGHTING_SHARED_HLSL

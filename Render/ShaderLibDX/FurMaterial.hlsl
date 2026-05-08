@@ -34,6 +34,7 @@ cbuffer cbPointShadow : register(b4)
 };
 
 #include "ShadowPCSS.hlsl"
+#include "SpotShadowSampling.hlsl"
 #include "DeferredLightingShared.hlsl"
 #include "FurForwardAccumulate.hlsl"
 

@@ -1,4 +1,4 @@
-﻿{
+{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
@@ -11,10 +11,13 @@
       },
       {
         "LightColor": "0.2,0.5,1.0",
-        "LightStrength": 120.0,
-        "LightType": 1,
-        "LightPosition": "0,1.85,-2.2",
-        "LightRange": 28.0,
+        "LightDir": "0.0,0.305,0.953",
+        "LightStrength": 95.0,
+        "LightType": 2,
+        "LightPosition": "0,1.571,2.209",
+        "LightRange": 18.0,
+        "InnerConeDeg": 20,
+        "OuterConeDeg": 38,
         "CastShadow": true
       }
     ],

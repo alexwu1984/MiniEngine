@@ -38,7 +38,7 @@ namespace Engine
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
 					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
-		/** Binds IBL + shadow SRVs (t5–t10) and cbPointShadow for fur forward pass (per-frame cbPerFrame comes from FurMaterialRender). */
+		/** Binds IBL + shadow SRVs (t5–t11) and cbPointShadow / cbSpotShadow for fur forward pass (per-frame cbPerFrame comes from FurMaterialRender). */
 		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer, FWorldSceneRender* WorldSceneRender,
 									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
@@ -47,6 +47,7 @@ namespace Engine
 		/** Created once in InitResource; avoids per-frame RHICreateUniformBuffer (failures left cb_ null → D3D11 AV). */
 		mutable std::unique_ptr<CBPerFrameWrap> PerFrameUniform;
 		mutable std::unique_ptr<CBPointShadowWrap> PointShadowUniform;
+		mutable std::unique_ptr<CBSpotShadowWrap> SpotShadowUniform;
 		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
 		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
 		/** Bound to t5/t7 when IBL cubemaps are missing so PS never samples stale 2D PBR textures as cubes. */

@@ -16,6 +16,13 @@ namespace RenderCore
 
 namespace Engine
 {
+	/** GUI shadow-volume overlay: which cached shadow frustum to draw (directional ortho vs spot perspective). */
+	enum class EGuiShadowFrustumKind : uint8_t
+	{
+		DirectionalOrtho = 0,
+		SpotPerspective = 1,
+	};
+
 	class PreProcessor;
 	class PostProcessor;
 	class World;
@@ -78,8 +85,12 @@ namespace Engine
 		bool GetShowDirectionalLightFrustum() const noexcept;
 		/** Thread-safe copy of last completed frame's RDG pass CPU Encode timings (see HUD disclaimer). */
 		void GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const;
-		/** Valid after Shadow RDG pass when directional shadow was rendered this frame (render-thread matrices). */
-		bool TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource, math::Matrix4x4& OutCameraViewProj) const noexcept;
+		/**
+		 * Valid after Shadow RDG pass. Prefers directional ortho shadow when present; otherwise spot perspective shadow map frustum.
+		 * Point lights are not included.
+		 */
+		bool TryGetGuiDebugShadowFrustum(EGuiShadowFrustumKind& OutKind, math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,
+										 math::Matrix4x4& OutCameraViewProj) const noexcept;
 
 	private:
 		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */

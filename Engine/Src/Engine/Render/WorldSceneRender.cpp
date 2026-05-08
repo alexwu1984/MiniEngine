@@ -325,15 +325,27 @@ namespace Engine
 		Out = d_ptr->LastFramePassCpuTimingsForGui;
 	}
 
-	bool FWorldSceneRender::TryGetGuiDebugDirLightFrustum(math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,
-														  math::Matrix4x4& OutCameraViewProj) const noexcept
+	bool FWorldSceneRender::TryGetGuiDebugShadowFrustum(EGuiShadowFrustumKind& OutKind, math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,
+														math::Matrix4x4& OutCameraViewProj) const noexcept
 	{
-		if (!d_ptr || !d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
+		if (!d_ptr)
 			return false;
-		OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
-		OutLightDirectionTowardSource = d_ptr->GuiDirLightDirectionTowardSourceForDebug;
 		OutCameraViewProj = d_ptr->GuiCameraViewProjForDebug;
-		return true;
+		if (d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
+		{
+			OutKind = EGuiShadowFrustumKind::DirectionalOrtho;
+			OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
+			OutLightDirectionTowardSource = d_ptr->GuiDirLightDirectionTowardSourceForDebug;
+			return true;
+		}
+		if (d_ptr->bGuiSpotLightFrustumValid.load(std::memory_order_relaxed))
+		{
+			OutKind = EGuiShadowFrustumKind::SpotPerspective;
+			OutLightViewProj = d_ptr->GuiSpotLightViewProjForDebug;
+			OutLightDirectionTowardSource = d_ptr->GuiSpotLightDirectionTowardSourceForDebug;
+			return true;
+		}
+		return false;
 	}
 
 	void FWorldSceneRender::EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait)

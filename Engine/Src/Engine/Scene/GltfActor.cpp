@@ -109,7 +109,7 @@ namespace Engine
 			return dist;
 		};
 
-		auto ApplyDefaultFramedMainCameraPose = [&]()
+		auto ApplyDefaultFramedCameraPose = [&]()
 		{
 			if (!d->CameraComp)
 				return;
@@ -120,7 +120,7 @@ namespace Engine
 			d->CameraComp->SetCameraPos(eye);
 		};
 
-		// Apply transform before MainCamera distance: GetModelBox() is local; actor Scale scales the mesh in world.
+		// Apply transform before camera distance: GetModelBox() is local; actor Scale scales the mesh in world.
 		if (d->GltfJson.find("Scale") != d->GltfJson.end())
 		{
 			SetScale(d->GltfJson["Scale"]);
@@ -134,54 +134,51 @@ namespace Engine
 			SetPosition(Pos);
 		}
 
+		const bool bRoamScene = GetWorldPin() && GetWorldPin()->UsesRoamCameraScene();
 		const bool bHasOrbitCameraJson = d->GltfJson.find("OrbitCamera") != d->GltfJson.end() && d->GltfJson["OrbitCamera"].is_object();
-		const bool bMainCam = d->GltfJson.find("MainCamera") != d->GltfJson.end() && d->GltfJson["MainCamera"].get<bool>();
 
-		if (d->GltfJson.find("MainCamera") != d->GltfJson.end())
+		// Non-roam scenes: this actor's camera is always the world main camera (viewer; no JSON MainCamera flag).
+		if (!bRoamScene)
+			if (auto w = GetWorldPin())
+				w->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
+
+		ComputeWorldTransform(0.f);
+		const math::Matrix4x4& W = GetWorldTransform();
+
+		bool bUsedJsonCameraPose = false;
+		if (!bRoamScene && !bHasOrbitCameraJson && d->GltfJson.find("Camera") != d->GltfJson.end() && d->GltfJson["Camera"].is_object())
 		{
-			if (d->GltfJson["MainCamera"])
+			try
 			{
-				if (auto w = GetWorldPin())
-					w->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
-				ComputeWorldTransform(0.f);
-				const math::Matrix4x4& W = GetWorldTransform();
-				bool bUsedJsonCamera = false;
-				if (!bHasOrbitCameraJson && d->GltfJson.find("Camera") != d->GltfJson.end() && d->GltfJson["Camera"].is_object())
+				const auto& CamJ = d->GltfJson["Camera"];
+				auto parseVec3 = [](const nlohmann::json& Ar, math::Vector3& Out) -> bool
 				{
-					try
-					{
-						const auto& CamJ = d->GltfJson["Camera"];
-						auto parseVec3 = [](const nlohmann::json& Ar, math::Vector3& Out) -> bool
-						{
-							if (!Ar.is_array() || Ar.size() < 3)
-								return false;
-							Out.x = Ar.at(0).get<float>();
-							Out.y = Ar.at(1).get<float>();
-							Out.z = Ar.at(2).get<float>();
-							return true;
-						};
-						math::Vector3 LocalFrom;
-						math::Vector3 LocalTo;
-						if (CamJ.find("defaultFrom") != CamJ.end() && CamJ.find("defaultTo") != CamJ.end()
-							&& parseVec3(CamJ["defaultFrom"], LocalFrom) && parseVec3(CamJ["defaultTo"], LocalTo))
-						{
-							const math::Vector3 WorldFrom = W.TransformPosition(LocalFrom);
-							const math::Vector3 WorldTo = W.TransformPosition(LocalTo);
-							d->CameraComp->SetExplicitLookAtWorldTarget(WorldTo, true);
-							d->CameraComp->SetCameraPos(WorldFrom);
-							bUsedJsonCamera = true;
-						}
-					}
-					catch (const std::exception&)
-					{
-					}
-				}
-				if (!bHasOrbitCameraJson && !bUsedJsonCamera)
+					if (!Ar.is_array() || Ar.size() < 3)
+						return false;
+					Out.x = Ar.at(0).get<float>();
+					Out.y = Ar.at(1).get<float>();
+					Out.z = Ar.at(2).get<float>();
+					return true;
+				};
+				math::Vector3 LocalFrom;
+				math::Vector3 LocalTo;
+				if (CamJ.find("defaultFrom") != CamJ.end() && CamJ.find("defaultTo") != CamJ.end() && parseVec3(CamJ["defaultFrom"], LocalFrom)
+					&& parseVec3(CamJ["defaultTo"], LocalTo))
 				{
-					ApplyDefaultFramedMainCameraPose();
+					const math::Vector3 WorldFrom = W.TransformPosition(LocalFrom);
+					const math::Vector3 WorldTo = W.TransformPosition(LocalTo);
+					d->CameraComp->SetExplicitLookAtWorldTarget(WorldTo, true);
+					d->CameraComp->SetCameraPos(WorldFrom);
+					bUsedJsonCameraPose = true;
 				}
 			}
+			catch (const std::exception&)
+			{
+			}
 		}
+
+		if (!bRoamScene && !bHasOrbitCameraJson && !bUsedJsonCameraPose)
+			ApplyDefaultFramedCameraPose();
 
 		if (d->GltfJson.find("ProjShadow") != d->GltfJson.end())
 		{
@@ -193,23 +190,20 @@ namespace Engine
 		d->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
 		d->InputComp->InitResource();
 
-		auto EnableDefaultOrbitForMainCamera = [&]()
+		auto EnableDefaultOrbitFromModelBounds = [&]()
 		{
 			if (!d->InputComp || !d->CameraComp)
 				return;
-			if (auto w = GetWorldPin())
-			{
-				if (w->UsesRoamCameraScene())
-					return;
-			}
 			const auto [worldCenter, radius] = ComputeWorldCenterRadius();
 			const float dist = ComputeOrbitDistanceForRadius(radius);
 			d->InputComp->EnableOrbitCamera(true, worldCenter, dist, 0.f, 0.f);
 			d->InputComp->SnapOrbitToCamera(d->CameraComp.get());
 			d->InputComp->SetMouseRotateModelEnabled(false);
 		};
+
+		if (!bRoamScene)
 		{
-			if (bHasOrbitCameraJson && bMainCam)
+			if (bHasOrbitCameraJson)
 			{
 				try
 				{
@@ -237,27 +231,20 @@ namespace Engine
 				}
 				catch (const std::exception&)
 				{
-					bool bMouseRotateModel = !GetWorld()->UsesRoamCameraScene();
-					if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
-						bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
-					d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+					EnableDefaultOrbitFromModelBounds();
 				}
 			}
 			else
 			{
-				// Default interaction: orbit camera for the main camera (glTFSample-style).
-				if (bMainCam)
-				{
-					EnableDefaultOrbitForMainCamera();
-				}
-				else
-				{
-					bool bMouseRotateModel = !GetWorldPin() || !GetWorldPin()->UsesRoamCameraScene();
-					if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
-						bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
-					d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
-				}
+				EnableDefaultOrbitFromModelBounds();
 			}
+		}
+		else
+		{
+			bool bMouseRotateModel = !GetWorldPin() || !GetWorldPin()->UsesRoamCameraScene();
+			if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
+				bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
+			d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
 		}
 		AddComponent(d->InputComp);
 	}

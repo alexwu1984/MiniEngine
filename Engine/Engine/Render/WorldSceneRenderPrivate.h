@@ -59,7 +59,11 @@ namespace Engine
 		math::Matrix4x4 GuiDirLightViewProjForDebug{};
 		/** Matches Light.Direction in shaders: world-space unit vector toward the directional light source. */
 		math::Vector3 GuiDirLightDirectionTowardSourceForDebug{};
+		math::Matrix4x4 GuiSpotLightViewProjForDebug{};
+		/** Spot Light.Direction (toward source / opposite cone axis); same convention as deferred. */
+		math::Vector3 GuiSpotLightDirectionTowardSourceForDebug{};
 		std::atomic<bool> bShowDirectionalLightFrustum{ false };
 		std::atomic<bool> bGuiDirLightFrustumValid{ false };
+		std::atomic<bool> bGuiSpotLightFrustumValid{ false };
 	};
 } // namespace Engine

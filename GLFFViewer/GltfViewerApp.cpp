@@ -5,6 +5,7 @@
 #include "Scene/SkyLightComponent.h"
 #include "Engine/Scene/DirectionalLightComponent.h"
 #include "Scene/PointLightComponent.h"
+#include "Scene/SpotLightComponent.h"
 #include "Scene/SceneMeshComponent.h"
 #include "core/system.h"
 #include "Scene/CameraComponent.h"
@@ -17,6 +18,7 @@
 #include "core/strings.h"
 #include "math/matrix4x4.h"
 #include "math/vector3.h"
+#include "math/vector4.h"
 #include <cfloat>
 #include "Render/RDGBuilder.h"
 #include "RHI/DynamicRHI.h"
@@ -107,7 +109,9 @@ namespace
 		const float diag = (mx - mn).GetLength();
 		const float axisHalf = (std::max)(diag * 0.55f, 0.35f);
 
-		const math::Vector3 dir = lightDirTowardSource.Normalize();
+		// glTFSample-style debug arrow points along light rays (from light to the scene).
+		// Our Light.Direction is stored as "toward source" (toward the sun), so flip it for visualization.
+		const math::Vector3 dir = (-lightDirTowardSource).Normalize();
 		if (dir.GetSqrLength() < 1e-12f)
 			return;
 
@@ -131,6 +135,121 @@ namespace
 				const float hw = 7.f;
 				const ImVec2 tip = pSun;
 				const ImVec2 base(pSun.x - vx * ah, pSun.y - vy * ah);
+				const ImVec2 perp(-vy * hw, vx * hw);
+				dl->AddTriangleFilled(tip, ImVec2(base.x + perp.x, base.y + perp.y), ImVec2(base.x - perp.x, base.y - perp.y), axisCol);
+			}
+		}
+	}
+
+	/** Spot shadow map frustum in world space from inverse(LightViewProj) * NDC clip corners; near/far plane grids in screen overlay. */
+	static void DrawSpotShadowFrustumWithGridOverlay(ImDrawList* dl, const math::Matrix4x4& lightViewProj, const math::Vector3& lightDirTowardSource,
+													 const math::Matrix4x4& cameraViewProj, ImU32 wireCol, ImU32 gridCol)
+	{
+		static const int edges[12][2] = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },
+										   { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
+		const float detVp = lightViewProj.Determinant();
+		if (std::fabs(detVp) < 1e-24f)
+			return;
+		const math::Matrix4x4 invLP = lightViewProj.Inverse();
+		const math::Vector4 clipCorners[8] = {
+			math::Vector4(-1.f, -1.f, 0.f, 1.f), math::Vector4(1.f, -1.f, 0.f, 1.f), math::Vector4(1.f, 1.f, 0.f, 1.f), math::Vector4(-1.f, 1.f, 0.f, 1.f),
+			math::Vector4(-1.f, -1.f, 1.f, 1.f), math::Vector4(1.f, -1.f, 1.f, 1.f), math::Vector4(1.f, 1.f, 1.f, 1.f), math::Vector4(-1.f, 1.f, 1.f, 1.f),
+		};
+		math::Vector3 c[8]{};
+		for (int i = 0; i < 8; ++i)
+		{
+			const math::Vector4 worldH = clipCorners[i] * invLP;
+			const float w = worldH.w;
+			if (std::fabs(w) < 1e-8f)
+				c[i] = math::Vector3(worldH.x, worldH.y, worldH.z);
+			else
+			{
+				const float iw = 1.f / w;
+				c[i] = math::Vector3(worldH.x * iw, worldH.y * iw, worldH.z * iw);
+			}
+		}
+		ImVec2 s[8]{};
+		unsigned mask = 0;
+		for (int i = 0; i < 8; ++i)
+		{
+			if (ProjectWorldToImGuiScreen(c[i], cameraViewProj, s[i]))
+				mask |= (1u << i);
+		}
+		for (const auto& e : edges)
+		{
+			if ((mask & (1u << e[0])) && (mask & (1u << e[1])))
+				dl->AddLine(s[e[0]], s[e[1]], wireCol, 2.f);
+		}
+
+		auto drawGridOnQuad = [&](int a, int b, int cidx, int didx, int divisions)
+		{
+			if (divisions < 1)
+				return;
+			for (int i = 1; i < divisions; ++i)
+			{
+				const float t = static_cast<float>(i) / static_cast<float>(divisions);
+				const math::Vector3 p0 = c[a] + (c[b] - c[a]) * t;
+				const math::Vector3 p1 = c[didx] + (c[cidx] - c[didx]) * t;
+				ImVec2 u0{}, u1{};
+				if (ProjectWorldToImGuiScreen(p0, cameraViewProj, u0) && ProjectWorldToImGuiScreen(p1, cameraViewProj, u1))
+					dl->AddLine(u0, u1, gridCol, 1.f);
+			}
+			for (int j = 1; j < divisions; ++j)
+			{
+				const float t = static_cast<float>(j) / static_cast<float>(divisions);
+				const math::Vector3 p0 = c[a] + (c[didx] - c[a]) * t;
+				const math::Vector3 p1 = c[b] + (c[cidx] - c[b]) * t;
+				ImVec2 u0{}, u1{};
+				if (ProjectWorldToImGuiScreen(p0, cameraViewProj, u0) && ProjectWorldToImGuiScreen(p1, cameraViewProj, u1))
+					dl->AddLine(u0, u1, gridCol, 1.f);
+			}
+		};
+		constexpr int kGridDiv = 8;
+		drawGridOnQuad(0, 1, 2, 3, kGridDiv);
+		drawGridOnQuad(4, 5, 6, 7, kGridDiv);
+
+		math::Vector3 center(0.f, 0.f, 0.f);
+		for (const auto& p : c)
+			center = center + p;
+		center = center * (1.f / 8.f);
+
+		math::Vector3 mn(FLT_MAX, FLT_MAX, FLT_MAX);
+		math::Vector3 mx(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		for (const auto& p : c)
+		{
+			mn.x = (std::min)(mn.x, p.x);
+			mn.y = (std::min)(mn.y, p.y);
+			mn.z = (std::min)(mn.z, p.z);
+			mx.x = (std::max)(mx.x, p.x);
+			mx.y = (std::max)(mx.y, p.y);
+			mx.z = (std::max)(mx.z, p.z);
+		}
+		const float diag = (mx - mn).GetLength();
+		const float axisHalf = (std::max)(diag * 0.35f, 0.25f);
+
+		const math::Vector3 dir = (-lightDirTowardSource).Normalize();
+		if (dir.GetSqrLength() < 1e-12f)
+			return;
+
+		const math::Vector3 tipW = center + dir * axisHalf;
+		const math::Vector3 baseW = center - dir * axisHalf * 0.35f;
+
+		ImVec2 pTip{}, pBase{};
+		if (ProjectWorldToImGuiScreen(tipW, cameraViewProj, pTip) && ProjectWorldToImGuiScreen(baseW, cameraViewProj, pBase))
+		{
+			const ImU32 axisCol = IM_COL32(255, 200, 80, 255);
+			dl->AddLine(pBase, pTip, axisCol, 3.f);
+			float vx = pTip.x - pBase.x;
+			float vy = pTip.y - pBase.y;
+			const float len = std::sqrt(vx * vx + vy * vy);
+			if (len > 6.f)
+			{
+				vx /= len;
+				vy /= len;
+				const float ah = 14.f;
+				const float hw = 6.f;
+				const ImVec2 tip = pTip;
+				const ImVec2 base(pTip.x - vx * ah, pTip.y - vy * ah);
 				const ImVec2 perp(-vy * hw, vx * hw);
 				dl->AddTriangleFilled(tip, ImVec2(base.x + perp.x, base.y + perp.y), ImVec2(base.x - perp.x, base.y - perp.y), axisCol);
 			}
@@ -270,8 +389,9 @@ void GltfViewApp::BindImGuiToSceneRender()
 				const std::vector<std::shared_ptr<DirectionalLightComponent>> dirs =
 					Scene->GetDirectionalLightsForEditingSorted();
 				const std::vector<std::shared_ptr<PointLightComponent>> pts = Scene->GetPointLightsForEditingSorted();
-				if (dirs.empty() && pts.empty())
-					ImGui::TextDisabled("(No DirectionalLight / PointLight components)");
+				const std::vector<std::shared_ptr<SpotLightComponent>> spts = Scene->GetSpotLightsForEditingSorted();
+				if (dirs.empty() && pts.empty() && spts.empty())
+					ImGui::TextDisabled("(No DirectionalLight / PointLight / SpotLight components)");
 
 				for (int i = 0; i < (int)dirs.size(); ++i)
 				{
@@ -308,13 +428,11 @@ void GltfViewApp::BindImGuiToSceneRender()
 				if (auto srDbg = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr)
 				{
 					bool showFrustum = srDbg->GetShowDirectionalLightFrustum();
-					if (ImGui::Checkbox("Show directional shadow ortho volume (screen overlay)", &showFrustum))
+					if (ImGui::Checkbox("Show shadow volume (screen overlay)", &showFrustum))
 						srDbg->SetShowDirectionalLightFrustum(showFrustum);
-					if (showFrustum)
-						ImGui::TextWrapped(
-							"Yellow box matches AMD glTFSample WireframeBox light frustum (inverse(LightViewProj) × NDC box "
-							"vCenter/radius). Cyan arrow: Light.Direction (toward source). Screen projection still uses the scene "
-							"perspective camera.");
+					if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+						ImGui::SetTooltip("Auto by light type: directional ortho frustum if directional shadow is active; "
+										 "otherwise spotlight perspective frustum with near/far grid. Point lights are not used.");
 				}
 
 				for (int i = 0; i < (int)pts.size(); ++i)
@@ -355,6 +473,72 @@ void GltfViewApp::BindImGuiToSceneRender()
 						float rng = pl->GetRange();
 						if (ImGui::DragFloat("Attenuation range", &rng, 0.25f, 0.05f, 256.f))
 							pl->SetRange((std::max)(rng, 0.01f));
+
+						ImGui::TreePop();
+					}
+					ImGui::PopID();
+				}
+
+				for (int i = 0; i < (int)spts.size(); ++i)
+				{
+					const auto& sp = spts[(size_t)i];
+					const auto Owner = sp ? sp->GetOwner() : nullptr;
+					ImGui::PushID(300000 + i);
+					const std::string titleSp = std::string("Spot: ") + ActorNameOrFallbackUtf8(Owner, "SpotLight", i);
+					if (ImGui::TreeNodeEx(titleSp.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+					{
+						if (sp->IsProceduralSunFill())
+						{
+							ImGui::TextDisabled("Procedural sun fill: position / axis follow primary procedural skylight + Evn.SunSpot.");
+							float dist = sp->GetProceduralSunDistanceAlongRay();
+							if (ImGui::DragFloat("Sun distance along ray", &dist, 1.f, 1.f, 2000.f))
+								sp->SetProceduralPlacement(dist, sp->GetProceduralAimWorld());
+							math::Vector3 aim = sp->GetProceduralAimWorld();
+							if (ImGui::DragFloat3("Aim (world)", &aim.x, 0.05f))
+								sp->SetProceduralPlacement(sp->GetProceduralSunDistanceAlongRay(), aim);
+						}
+						else if (Owner)
+						{
+							math::Vector3 wp = Owner->GetPosition();
+							if (ImGui::DragFloat3("World position", &wp.x, 0.03f))
+								Owner->SetPosition(wp);
+							math::Vector3 f = sp->GetWorldForward();
+							if (ImGui::DragFloat3("Forward (into cone, world)", &f.x, 0.02f))
+							{
+								f.Normalize();
+								if (f.GetSqrLength() >= 1e-10f)
+									sp->SetWorldForward(f);
+							}
+						}
+
+						math::Vector3 cols = sp->GetColor();
+						if (ImGui::DragFloat3("Color RGB (linear)", &cols.x, 0.03f, 0.f, 32.f))
+							sp->SetColor(cols);
+
+						float st = sp->GetIntensity();
+						if (ImGui::DragFloat("Intensity", &st, 0.25f, 0.f, 200.f))
+							sp->SetIntensity((std::max)(st, 0.f));
+
+						float rngs = sp->GetRange();
+						if (ImGui::DragFloat("Range", &rngs, 0.5f, 0.05f, 2000.f))
+							sp->SetRange((std::max)(rngs, 0.01f));
+
+						bool bCastSh = sp->GetCastShadow();
+						if (ImGui::Checkbox("Cast shadow (spot depth map)", &bCastSh))
+							sp->SetCastShadow(bCastSh);
+
+						float ic = sp->GetInnerConeCos();
+						float oc = sp->GetOuterConeCos();
+						if (ImGui::DragFloat("Inner cone cos", &ic, 0.005f, -1.f, 1.f))
+						{
+							ic = (std::max)(-1.f, (std::min)(1.f, ic));
+							sp->SetInnerConeCos(ic);
+						}
+						if (ImGui::DragFloat("Outer cone cos", &oc, 0.005f, -1.f, 1.f))
+						{
+							oc = (std::max)(-1.f, (std::min)(1.f, oc));
+							sp->SetOuterConeCos(oc);
+						}
 
 						ImGui::TreePop();
 					}
@@ -425,11 +609,18 @@ void GltfViewApp::BindImGuiToSceneRender()
 			{
 				if (srOv->GetShowDirectionalLightFrustum())
 				{
+					Engine::EGuiShadowFrustumKind kind{};
 					math::Matrix4x4 lvp;
 					math::Vector3 lightDir;
 					math::Matrix4x4 cvp;
-					if (srOv->TryGetGuiDebugDirLightFrustum(lvp, lightDir, cvp))
-						DrawDirLightOrthoFrustumOverlay(ImGui::GetForegroundDrawList(), lvp, lightDir, cvp, IM_COL32(255, 220, 64, 255));
+					if (srOv->TryGetGuiDebugShadowFrustum(kind, lvp, lightDir, cvp))
+					{
+						ImDrawList* fg = ImGui::GetForegroundDrawList();
+						if (kind == Engine::EGuiShadowFrustumKind::DirectionalOrtho)
+							DrawDirLightOrthoFrustumOverlay(fg, lvp, lightDir, cvp, IM_COL32(255, 255, 255, 255));
+						else
+							DrawSpotShadowFrustumWithGridOverlay(fg, lvp, lightDir, cvp, IM_COL32(255, 255, 255, 255), IM_COL32(120, 200, 255, 200));
+					}
 				}
 			}
 		},

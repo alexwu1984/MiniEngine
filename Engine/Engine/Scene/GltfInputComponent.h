@@ -20,7 +20,7 @@ namespace Engine
 		void SetMouseRotateModelEnabled(bool bEnabled);
 		bool GetMouseRotateModelEnabled() const;
 
-		/** AMD glTFSample-style orbit: LMB orbit, Ctrl+LMB pan, wheel zoom (requires MainCamera on owner). */
+		/** AMD glTFSample-style orbit: LMB orbit, Ctrl+LMB pan, wheel zoom (owner must have CameraComponent). */
 		void EnableOrbitCamera(bool bEnable, const math::Vector3& targetWorld, float distance, float yawRadians, float pitchRadians);
 		bool IsOrbitCameraEnabled() const;
 		void SnapOrbitToCamera(CameraComponent* Cam);

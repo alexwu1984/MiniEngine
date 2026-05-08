@@ -16,6 +16,8 @@ namespace Engine
 
 	/** Deferred + shadow pass: punctual lights that own the single cubemap shadow use this ShadowMapIndex (not the directional map). */
 	static constexpr int kPointLightCubeShadowMapIndex = 2;
+	/** Single 2D spotlight depth map (perspective frustum); sampled in deferred / fur forward. */
+	static constexpr int kSpotLightShadowMapIndex = 3;
 
 	struct Light
 	{
@@ -95,6 +97,18 @@ namespace Engine
 	};
 	static_assert(sizeof(CBPointShadow) % 16u == 0u, "cbPointShadow must be 16-byte aligned");
 	using CBPointShadowWrap = RenderCore::TUniformBufferBinding<CBPointShadow, 4u>;
+
+	/** Matches DeferredLighting.hlsl / FurMaterial.hlsl cbSpotShadow (register b5). */
+	struct CBSpotShadow
+	{
+		math::Matrix4x4 SpotLightViewProj{};
+		int32_t SpotShadowEnabled = 0;
+		int32_t SpotShadowLightIndex = -1;
+		uint32_t _Pad0[2]{};
+		uint32_t _Pad1[4]{};
+	};
+	static_assert(sizeof(CBSpotShadow) % 16u == 0u, "cbSpotShadow must be 16-byte aligned");
+	using CBSpotShadowWrap = RenderCore::TUniformBufferBinding<CBSpotShadow, 5u>;
 
 	struct CBPerObject
 	{

@@ -1,4 +1,4 @@
-﻿{
+{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
@@ -43,7 +43,6 @@
       "Material": {
         "Metallic": 1.0
       },
-      "MainCamera": true,
       "ProjShadow": true,
       "FurMaterial": {
         "Name": "TuEr_fur",

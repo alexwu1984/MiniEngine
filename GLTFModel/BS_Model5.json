@@ -22,7 +22,6 @@
       "Material": {
         "Metallic": 0.0
       },
-      "MainCamera": true,
       "ProjShadow": true
     }
   ],

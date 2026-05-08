@@ -11,6 +11,7 @@ namespace Engine
 	class SkyLightComponent;
 	class DirectionalLightComponent;
 	class PointLightComponent;
+	class SpotLightComponent;
 	class FScene;
 	struct WorldPrivate;
 
@@ -59,6 +60,8 @@ namespace Engine
 		std::vector<std::shared_ptr<DirectionalLightComponent>> GetDirectionalLightsForEditingSorted() const;
 		/** All enabled point lights, same sort order as GatherLightsForView (priority high → low). */
 		std::vector<std::shared_ptr<PointLightComponent>> GetPointLightsForEditingSorted() const;
+		/** All enabled spot lights, same sort order as GatherLightsForView (priority high → low). */
+		std::vector<std::shared_ptr<SpotLightComponent>> GetSpotLightsForEditingSorted() const;
 
 		std::vector<Light> GatherLightsForView() const;
 

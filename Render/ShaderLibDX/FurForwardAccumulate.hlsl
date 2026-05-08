@@ -25,7 +25,7 @@ float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT
 		else if (light.Type == LightType_Point)
 			color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, worldPos, view, i, coverageAlpha);
 		else if (light.Type == LightType_Spot)
-			color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, worldPos, view, coverageAlpha);
+			color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, worldPos, view, i, coverageAlpha);
 	}
 
 	// Forward shells: avoid split-sum IBL (irradiance + BRDF LUT + prefiltered cube). Zoomed shells are

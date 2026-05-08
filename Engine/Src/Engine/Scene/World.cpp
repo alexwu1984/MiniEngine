@@ -6,6 +6,7 @@
 #include "Scene/SkyLightComponent.h"
 #include "Scene/DirectionalLightComponent.h"
 #include "Scene/PointLightComponent.h"
+#include "Scene/SpotLightComponent.h"
 #include "Scene/RoamCameraActor.h"
 #include "Scene/FScene.h"
 #include "Engine.h"
@@ -18,6 +19,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cmath>
 #include <limits>
 #include <string>
 
@@ -202,6 +204,88 @@ namespace Engine
 			WorldSelf->AddActor(actor);
 		}
 
+		/** Optional Evn.SunSpot: aim + distance along procedural sun ray (and optional cone overrides) for SyncProceduralSun spots. */
+		static void ApplySunSpotOverridesFromEvn(SpotLightComponent& spot, const nlohmann::json& Evn)
+		{
+			float dist = spot.GetProceduralSunDistanceAlongRay();
+			math::Vector3 aim = spot.GetProceduralAimWorld();
+			try
+			{
+				if (Evn.find("SunSpot") != Evn.end() && Evn["SunSpot"].is_object())
+				{
+					const auto& sj = Evn["SunSpot"];
+					if (sj.find("Aim") != sj.end() && sj["Aim"].is_string())
+					{
+						const std::string s = sj["Aim"].get<std::string>();
+						std::sscanf(s.c_str(), "%f,%f,%f", &aim.x, &aim.y, &aim.z);
+					}
+					if (sj.find("Distance") != sj.end() && sj["Distance"].is_number())
+						dist = static_cast<float>(sj["Distance"].get<double>());
+					if (sj.find("InnerConeDeg") != sj.end() && sj["InnerConeDeg"].is_number())
+					{
+						const float deg = static_cast<float>(sj["InnerConeDeg"].get<double>());
+						spot.SetInnerConeCos(std::cos(deg * (3.14159265358979323846f / 180.f)));
+					}
+					if (sj.find("OuterConeDeg") != sj.end() && sj["OuterConeDeg"].is_number())
+					{
+						const float deg = static_cast<float>(sj["OuterConeDeg"].get<double>());
+						spot.SetOuterConeCos(std::cos(deg * (3.14159265358979323846f / 180.f)));
+					}
+				}
+			}
+			catch (const std::exception&)
+			{
+			}
+			spot.SetProceduralPlacement(dist, aim);
+			float ic = spot.GetInnerConeCos();
+			float oc = spot.GetOuterConeCos();
+			if (oc > ic)
+			{
+				const float t = oc;
+				oc = ic;
+				ic = t;
+				spot.SetInnerConeCos(ic);
+				spot.SetOuterConeCos(oc);
+			}
+		}
+
+		static void SpawnConfigSpotLightActor(const std::shared_ptr<World>& WorldSelf, const Light& Parsed, int32_t JsonOrderIndex, bool bCastShadow,
+											  bool bSyncProceduralSun, const nlohmann::json& EvnRoot)
+		{
+			if (!WorldSelf)
+				return;
+			auto actor = std::make_shared<Actor>(WorldSelf);
+			actor->SetActorName(std::wstring(L"ConfigSpotLight_") + std::to_wstring(JsonOrderIndex));
+			actor->SetState(Actor::EActive);
+			if (!bSyncProceduralSun)
+				actor->SetPosition(Parsed.Position);
+			auto spot = std::make_shared<SpotLightComponent>(actor);
+			if (!bSyncProceduralSun)
+			{
+				math::Vector3 sunToward = Parsed.Direction;
+				if (sunToward.GetSqrLength() < 1e-10f)
+					sunToward = math::Vector3(0.f, 0.49f, 0.833f);
+				sunToward = sunToward.Normalize();
+				spot->SetWorldForward(-sunToward);
+			}
+			else
+			{
+				spot->SetProceduralSunFill(true);
+				spot->SetWorldForward(math::Vector3(0.f, -1.f, 0.f));
+			}
+			spot->SetColor(Parsed.Color);
+			spot->SetIntensity(Parsed.Intensity);
+			spot->SetRange(Parsed.Range > 0.f ? Parsed.Range : 100.f);
+			spot->SetInnerConeCos(Parsed.InnerConeCos);
+			spot->SetOuterConeCos(Parsed.OuterConeCos);
+			if (bSyncProceduralSun)
+				ApplySunSpotOverridesFromEvn(*spot, EvnRoot);
+			spot->SetCastShadow(bCastShadow);
+			spot->SetSortPriority(400 - JsonOrderIndex);
+			actor->AddComponent(spot);
+			WorldSelf->AddActor(actor);
+		}
+
 		/** Evn.Light[] KHR-style strings; used only at scene load to spawn light actors. */
 		static bool ParseEvnLightJsonEntry(const nlohmann::json& lightInfoJson, Light& lightInfo)
 		{
@@ -227,16 +311,76 @@ namespace Engine
 					lightInfo.Direction = math::Vector3(0.f, -1.f, 0.f);
 					return true;
 				}
-
-				const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
-				if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z) < 3)
-					return false;
-				return true;
+				if (lightInfo.Type == LightType_Directional)
+				{
+					const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
+					if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z) < 3)
+						return false;
+					return true;
+				}
+				if (lightInfo.Type == LightType_Spot)
+				{
+					lightInfo.Position = math::Vector3(0.f, 0.f, 0.f);
+					if (const auto pit = lightInfoJson.find("LightPosition"); pit != lightInfoJson.end() && pit->is_string())
+					{
+						const std::string posStr = pit->get<std::string>();
+						std::sscanf(posStr.c_str(), "%f,%f,%f", &lightInfo.Position.x, &lightInfo.Position.y, &lightInfo.Position.z);
+					}
+					const std::string dirStr = lightInfoJson.at("LightDir").get<std::string>();
+					if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &lightInfo.Direction.x, &lightInfo.Direction.y, &lightInfo.Direction.z) < 3)
+						return false;
+					lightInfo.Range = 100.f;
+					if (const auto rit = lightInfoJson.find("LightRange"); rit != lightInfoJson.end() && rit->is_number())
+						lightInfo.Range = static_cast<float>(rit->get<double>());
+					float innerDeg = 16.f;
+					float outerDeg = 34.f;
+					if (const auto it = lightInfoJson.find("InnerConeDeg"); it != lightInfoJson.end() && it->is_number())
+						innerDeg = static_cast<float>(it->get<double>());
+					if (const auto it = lightInfoJson.find("OuterConeDeg"); it != lightInfoJson.end() && it->is_number())
+						outerDeg = static_cast<float>(it->get<double>());
+					const float kPi = 3.14159265358979323846f;
+					const float toRad = kPi / 180.f;
+					lightInfo.InnerConeCos = std::cos(innerDeg * toRad);
+					lightInfo.OuterConeCos = std::cos(outerDeg * toRad);
+					if (lightInfo.OuterConeCos > lightInfo.InnerConeCos)
+						std::swap(lightInfo.OuterConeCos, lightInfo.InnerConeCos);
+					return true;
+				}
+				return false;
 			}
 			catch (const std::exception&)
 			{
 				return false;
 			}
+		}
+
+		static std::vector<std::shared_ptr<SpotLightComponent>> CollectSpotLightComponentsSorted(
+			const std::vector<std::shared_ptr<Actor>>& Actors, const std::vector<std::shared_ptr<Actor>>& PendingActors)
+		{
+			std::vector<std::pair<int32_t, std::shared_ptr<SpotLightComponent>>> pairs;
+			auto append = [&pairs](const std::vector<std::shared_ptr<Actor>>& List) {
+				for (const auto& a : List)
+				{
+					if (!a || !a->IsActorPrivateAllocated())
+						continue;
+					if (a->GetState() != Actor::EActive)
+						continue;
+					auto sp = a->GetComponent<SpotLightComponent>();
+					if (!sp || !sp->IsEnabled())
+						continue;
+					pairs.emplace_back(sp->GetSortPriority(), sp);
+				}
+			};
+			append(Actors);
+			append(PendingActors);
+			std::sort(pairs.begin(), pairs.end(),
+					  [](const std::pair<int32_t, std::shared_ptr<SpotLightComponent>>& A,
+						 const std::pair<int32_t, std::shared_ptr<SpotLightComponent>>& B) { return A.first > B.first; });
+			std::vector<std::shared_ptr<SpotLightComponent>> out;
+			out.reserve(pairs.size());
+			for (auto& p : pairs)
+				out.push_back(std::move(p.second));
+			return out;
 		}
 
 		static std::shared_ptr<SkyLightComponent> FindBestSkyLightInList(const std::vector<std::shared_ptr<Actor>>& Actors)
@@ -359,6 +503,7 @@ namespace Engine
 			const nlohmann::json lightJsons = evnJson["Light"];
 			int32_t directionalJsonOrder = 0;
 			int32_t pointJsonOrder = 0;
+			int32_t spotJsonOrder = 0;
 			for (const auto& lightInfoJson : lightJsons)
 			{
 				Light lightInfo{};
@@ -381,6 +526,57 @@ namespace Engine
 					SpawnConfigPointLightActor(self, lightInfo, pointJsonOrder, attachName, castShadow);
 					++pointJsonOrder;
 					continue;
+				}
+				if (lightInfo.Type == LightType_Spot)
+				{
+					bool castShadow = false;
+					if (const auto cs = lightInfoJson.find("CastShadow"); cs != lightInfoJson.end() && cs->is_boolean())
+						castShadow = cs->get<bool>();
+					bool syncProc = false;
+					if (const auto sp = lightInfoJson.find("SyncProceduralSun"); sp != lightInfoJson.end() && sp->is_boolean())
+						syncProc = sp->get<bool>();
+					SpawnConfigSpotLightActor(self, lightInfo, spotJsonOrder, castShadow, syncProc, evnJson);
+					++spotJsonOrder;
+					continue;
+				}
+			}
+
+			// Procedural sky: sun direction from (1) primary directional in Evn.Light[], else (2) Evn.SunDirection "x,y,z" string.
+			if (const auto sl = self->FindPrimarySkyLightComponent())
+			{
+				if (sl->IsProceduralSky())
+				{
+					math::Vector3 sunDir{};
+					bool haveSun = false;
+					if (const auto dir0 = self->GetPrimaryDirectionalLightForEditing())
+					{
+						sunDir = dir0->GetWorldDirection();
+						if (sunDir.GetSqrLength() >= 1e-10f)
+						{
+							sunDir = sunDir.Normalize();
+							haveSun = true;
+						}
+					}
+					if (!haveSun)
+					{
+						try
+						{
+							if (evnJson.find("SunDirection") != evnJson.end() && evnJson["SunDirection"].is_string())
+							{
+								const std::string s = evnJson["SunDirection"].get<std::string>();
+								if (std::sscanf(s.c_str(), "%f,%f,%f", &sunDir.x, &sunDir.y, &sunDir.z) == 3 && sunDir.GetSqrLength() >= 1e-10f)
+								{
+									sunDir = sunDir.Normalize();
+									haveSun = true;
+								}
+							}
+						}
+						catch (const std::exception&)
+						{
+						}
+					}
+					if (haveSun)
+						sl->SetProceduralSunDirectionTowardSource(sunDir);
 				}
 			}
 		}
@@ -552,14 +748,23 @@ namespace Engine
 		return CollectPointLightComponentsSorted(d->Actors, d->PendingActors);
 	}
 
+	std::vector<std::shared_ptr<SpotLightComponent>> World::GetSpotLightsForEditingSorted() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		return CollectSpotLightComponentsSorted(d->Actors, d->PendingActors);
+	}
+
 	std::vector<Light> World::GatherLightsForView() const
 	{
 		C_P(const World);
 		std::lock_guard<std::recursive_mutex> l(d->lock);
 		const auto dirComps = CollectDirectionalLightComponentsSorted(d->Actors, d->PendingActors);
 		const auto pointComps = CollectPointLightComponentsSorted(d->Actors, d->PendingActors);
+		const auto spotComps = CollectSpotLightComponentsSorted(d->Actors, d->PendingActors);
 		std::vector<Light> out;
-		out.reserve((std::min)(static_cast<size_t>(MAX_LIGHT_INSTANCES), dirComps.size() + pointComps.size()));
+		out.reserve((std::min)(static_cast<size_t>(MAX_LIGHT_INSTANCES),
+							   dirComps.size() + pointComps.size() + spotComps.size()));
 		for (const auto& comp : dirComps)
 		{
 			if (out.size() >= MAX_LIGHT_INSTANCES)
@@ -592,6 +797,29 @@ namespace Engine
 			if (out.size() >= MAX_LIGHT_INSTANCES)
 				break;
 			out.push_back(comp->BuildLight());
+		}
+
+		const auto slSky = FindPrimarySkyLightComponent();
+		const bool bProcSky = slSky && slSky->IsEnabled() && slSky->IsProceduralSky();
+		for (const auto& comp : spotComps)
+		{
+			if (out.size() >= MAX_LIGHT_INSTANCES)
+				break;
+			Light L = comp->BuildLight();
+			if (bProcSky && comp->IsProceduralSunFill())
+			{
+				math::Vector3 sunDir = slSky->GetProceduralSunDirectionTowardSource();
+				if (sunDir.GetSqrLength() < 1e-10f)
+					sunDir = math::Vector3(0.f, 0.49f, 0.833f);
+				sunDir = sunDir.Normalize();
+				const math::Vector3 aim = comp->GetProceduralAimWorld();
+				const float dist = comp->GetProceduralSunDistanceAlongRay();
+				L.Position = aim + sunDir * dist;
+				const math::Vector3 toAim = aim - L.Position;
+				math::Vector3 fwd = toAim.GetSqrLength() >= 1e-10f ? toAim.Normalize() : (-sunDir);
+				L.Direction = -fwd;
+			}
+			out.push_back(std::move(L));
 		}
 		return out;
 	}

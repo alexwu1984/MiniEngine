@@ -1,4 +1,4 @@
-#include "Render/SkyLightEnvironment.h"
+﻿#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "Render/RDGBuilder.h"
 #include "RHI/RHICommandContext.h"

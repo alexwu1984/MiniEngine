@@ -33,6 +33,7 @@ namespace Engine
 
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetShadowMap() const;
 		std::shared_ptr<RenderCore::RHITextureCube> GetPointShadowCube() const;
+		std::shared_ptr<RenderCore::RHIRenderTarget> GetSpotShadowMap() const;
 
 		/** Clears cached directional + point cubemap shadow data when the shadow pass is skipped or invalidated. */
 		void InvalidateCachedMainLightForShading();
@@ -41,6 +42,9 @@ namespace Engine
 
 		/** Fills FaceVP / Light index / xyz+range.w after point cubemap shadow render; false if no cached cube pass. */
 		bool TryGetCachedPointShadowForDeferred(int& OutLightIndex, math::Matrix4x4 OutFaceVp[6], math::Vector4& OutPosRange) const;
+
+		/** After spotlight depth pass: light list index + view-projection used for deferred PCF (row-vector world * VP). */
+		bool TryGetCachedSpotShadowForDeferred(int& OutLightIndex, math::Matrix4x4& OutSpotLightViewProj) const;
 
 		/** Drop per-mesh ShadowPS instances (VS/IL tied to vertex layout). Call after full scene swaps so layouts cannot alias recycled meshes. */
 		void ClearCachedMeshShadowPasses();

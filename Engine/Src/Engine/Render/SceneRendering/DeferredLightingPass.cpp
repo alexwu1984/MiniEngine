@@ -36,7 +36,8 @@ namespace Engine
 			return Init;
 		}
 
-		static void FillPerFrameFromView(CBPerFrameWrap& Out, CBPointShadowWrap* OutPointShadow, const FSceneViewData& View, PreProcessor* Pre, FWorldSceneRender* WorldSceneRender)
+		static void FillPerFrameFromView(CBPerFrameWrap& Out, CBPointShadowWrap* OutPointShadow, CBSpotShadowWrap* OutSpotShadow, const FSceneViewData& View, PreProcessor* Pre,
+										 FWorldSceneRender* WorldSceneRender)
 		{
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProj = View.CurrViewProjMatrix;
@@ -124,6 +125,45 @@ namespace Engine
 						Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
 				}
 			}
+			if (OutSpotShadow)
+			{
+				OutSpotShadow->Data.SpotShadowEnabled = 0;
+				OutSpotShadow->Data.SpotShadowLightIndex = -1;
+				if (WorldSceneRender)
+				{
+					if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+					{
+						int li = -1;
+						math::Matrix4x4 spotVp{};
+						if (ShadowPass->TryGetCachedSpotShadowForDeferred(li, spotVp) && ShadowPass->GetSpotShadowMap())
+						{
+							const std::shared_ptr<RHIRenderTarget> spotRt = ShadowPass->GetSpotShadowMap();
+							if (spotRt && spotRt->GetTex())
+							{
+								OutSpotShadow->Data.SpotLightViewProj = spotVp;
+								OutSpotShadow->Data.SpotShadowEnabled = 1;
+								OutSpotShadow->Data.SpotShadowLightIndex = li;
+							}
+						}
+					}
+				}
+				if (OutSpotShadow->Data.SpotShadowEnabled == 0)
+				{
+					for (int32_t i = 0; i < n; ++i)
+					{
+						if (Out.Data.myPerFrame.Lights[i].ShadowMapIndex == kSpotLightShadowMapIndex)
+							Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
+					}
+				}
+			}
+			else
+			{
+				for (int32_t i = 0; i < n; ++i)
+				{
+					if (Out.Data.myPerFrame.Lights[i].ShadowMapIndex == kSpotLightShadowMapIndex)
+						Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
+				}
+			}
 			if (Pre)
 			{
 				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
@@ -166,6 +206,9 @@ namespace Engine
 			PointShadowUniform = std::make_unique<CBPointShadowWrap>(RHI);
 			if (!PointShadowUniform->GetRHIBuffer())
 				PointShadowUniform.reset();
+			SpotShadowUniform = std::make_unique<CBSpotShadowWrap>(RHI);
+			if (!SpotShadowUniform->GetRHIBuffer())
+				SpotShadowUniform.reset();
 		}
 	}
 
@@ -201,7 +244,8 @@ namespace Engine
 		if (WorldSceneRender)
 			Pre = WorldSceneRender->GetPreProcessor().get();
 
-		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, *ViewData, Pre, WorldSceneRender);
+		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData, Pre,
+							 WorldSceneRender);
 
 		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
 		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
@@ -210,6 +254,8 @@ namespace Engine
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PerFrameUniform);
 		if (PointShadowUniform && PointShadowUniform->GetRHIBuffer())
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
+		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer())
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *SpotShadowUniform);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
@@ -271,6 +317,16 @@ namespace Engine
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 10, pointShadowSrv);
 
+		std::shared_ptr<RHITexture2D> spotShadowSrv = FallbackBrdfLut;
+		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer() && SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (const std::shared_ptr<RHIRenderTarget> srt = ShadowPass->GetSpotShadowMap())
+					if (std::shared_ptr<RHITexture2D> st = srt->GetTex())
+						spotShadowSrv = std::move(st);
+		}
+		RHIContext.RHISetShaderTexture(SF_Pixel, 11, spotShadowSrv);
+
 		RHIContext.Draw(3);
 	}
 
@@ -287,10 +343,14 @@ namespace Engine
 		if (!TargetBuffer || !ViewData)
 			return;
 		PreProcessor* Pre = WorldSceneRender ? WorldSceneRender->GetPreProcessor().get() : nullptr;
-		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PointShadowUniform && PointShadowUniform->GetRHIBuffer())
+		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer())
 		{
-			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform.get(), *ViewData, Pre, WorldSceneRender);
-			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
+			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData, Pre,
+								 WorldSceneRender);
+			if (PointShadowUniform && PointShadowUniform->GetRHIBuffer())
+				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
+			if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer())
+				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *SpotShadowUniform);
 		}
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
@@ -339,5 +399,15 @@ namespace Engine
 					pointShadowSrv = std::move(pc);
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 10, pointShadowSrv);
+
+		std::shared_ptr<RHITexture2D> spotShadowSrvFur = FallbackBrdfLut;
+		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer() && SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (const std::shared_ptr<RHIRenderTarget> srt = ShadowPass->GetSpotShadowMap())
+					if (std::shared_ptr<RHITexture2D> st = srt->GetTex())
+						spotShadowSrvFur = std::move(st);
+		}
+		RHIContext.RHISetShaderTexture(SF_Pixel, 11, spotShadowSrvFur);
 	}
 }

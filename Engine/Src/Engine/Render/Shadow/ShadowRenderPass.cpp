@@ -1,4 +1,4 @@
-#include "Render/Shadow/ShadowRenderPass.h"
+﻿#include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/FurMaterial.h"
@@ -230,6 +230,7 @@ namespace Engine
 		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<ShadowPS>> ShadowRenders;
 		std::shared_ptr<ShadowMapManager> ShadowMgr;
 		std::shared_ptr<RenderCore::RHIRenderTarget> DepthRenderBuffer;
+		std::shared_ptr<RenderCore::RHIRenderTarget> SpotShadowBuffer;
 		std::shared_ptr<RenderCore::RHITextureCube> PointShadowCube;
 		Light CachedMainLightForShading{};
 		bool bCachedMainLightValid = false;
@@ -239,6 +240,10 @@ namespace Engine
 		float CachedPointLightRange = 0.f;
 		int CachedPointShadowLightIndex = -1;
 		bool bCachedPointShadowValid = false;
+
+		math::Matrix4x4 CachedSpotLightViewProj{};
+		int CachedSpotShadowLightIndex = -1;
+		bool bCachedSpotShadowValid = false;
 
 		ShadowRenderPassPrivate(RenderCore::DynamicRHI* _RHI)
 			: RHI(_RHI)
@@ -338,6 +343,40 @@ namespace Engine
 				return i;
 		}
 		return -1;
+	}
+
+	static int FindSpotShadowLightIndex(const std::vector<Light>& Lights)
+	{
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			const Light& L = Lights[static_cast<size_t>(i)];
+			if (L.Type == LightType_Spot && L.ShadowMapIndex == kSpotLightShadowMapIndex)
+				return i;
+		}
+		return -1;
+	}
+
+	static void SetupSpotShadowViewProjection(Light& spotLight)
+	{
+		math::Vector3 axis = spotLight.Direction * (-1.f);
+		if (axis.GetSqrLength() < 1e-10f)
+			axis = math::Vector3(0.f, -1.f, 0.f);
+		axis = axis.Normalize();
+		const math::Vector3 eye = spotLight.Position;
+		const math::Vector3 at = eye + axis;
+		math::Vector3 up = math::Vector3::UnitY;
+		if (math::Abs(math::Vector3::Dot(axis, up)) > 0.98f)
+			up = math::Vector3(0.f, 0.f, 1.f);
+		const math::Matrix4x4 view = math::Matrix4x4::MatrixLookAtLH(eye, at, up);
+		const float outerCos = math::Clamp(spotLight.OuterConeCos, -1.f, 1.f);
+		float fovY = 2.f * std::acos(outerCos) + 0.12f;
+		if (fovY > 3.12f)
+			fovY = 3.12f;
+		const float zNear = 0.05f;
+		const float zFar = (std::max)(spotLight.Range, zNear + 0.1f);
+		const math::Matrix4x4 proj = math::Matrix4x4::MatrixPerspectiveFovLH(fovY, 1.f, zNear, zFar);
+		spotLight.LightView = view;
+		spotLight.LightViewProj = view * proj;
 	}
 
 	/** Mesh list that drives orthographic frustum fitting (UE-ish "subject bounds" source vs full receiver set). */
@@ -481,6 +520,14 @@ namespace Engine
 		DrawShadowCasterMeshesDirectional(d, RHIContext, ShadowCasterMeshes, MainLight, d->DepthRenderBuffer);
 	}
 
+	static void RenderSpotShadowMapPass(ShadowRenderPassPrivate* d, RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& SpotLight)
+	{
+		RHIContext.Clear(d->SpotShadowBuffer, core::FLinearColor::White, 1.f, 0);
+		const auto TargetSize = d->SpotShadowBuffer->GetSize();
+		RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
+		DrawShadowCasterMeshesDirectional(d, RHIContext, ShadowCasterMeshes, SpotLight, d->SpotShadowBuffer);
+	}
+
 	static void RenderPointLightShadowCubePass(ShadowRenderPassPrivate* d, RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& PointLight,
 											   int PointLightIndex)
 	{
@@ -521,6 +568,9 @@ namespace Engine
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 		if (!d->PointShadowCube)
 			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_R32_FLOAT, kPointShadowCubeSize, kPointShadowCubeSize, 1, false);
+		const int32_t kSpotShadowSize = 2048;
+		if (!d->SpotShadowBuffer)
+			d->SpotShadowBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, kSpotShadowSize, kSpotShadowSize, 1, false, true);
 	}
 
 	void ShadowRenderPass::InvalidateCachedMainLightForShading()
@@ -528,6 +578,7 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->bCachedPointShadowValid = false;
+		d->bCachedSpotShadowValid = false;
 	}
 
 	bool ShadowRenderPass::TryGetCachedMainLightForShading(Light& OutLight)
@@ -551,6 +602,7 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->bCachedPointShadowValid = false;
+		d->bCachedSpotShadowValid = false;
 		d->ShadowMgr->Update(Lights, ShadowProjectorScene);
 
 		if (ShadowCasterMeshes.empty() && !ShadowProjectorScene.bValid)
@@ -561,6 +613,7 @@ namespace Engine
 
 		const int mainDirIdx = FindFirstDirectionalLightIndex(Lights);
 		const int pointShadowIdx = FindPointShadowCubeLightIndex(Lights);
+		const int spotShadowIdx = FindSpotShadowLightIndex(Lights);
 
 		math::AABB3 subjectWorldAabb;
 		bool subjectValid = false;
@@ -584,6 +637,16 @@ namespace Engine
 
 		if (pointShadowIdx >= 0 && d->PointShadowCube && !ShadowCasterMeshes.empty())
 			RenderPointLightShadowCubePass(d, RHIContext, ShadowCasterMeshes, Lights[static_cast<size_t>(pointShadowIdx)], pointShadowIdx);
+
+		if (spotShadowIdx >= 0 && d->SpotShadowBuffer && !ShadowCasterMeshes.empty())
+		{
+			Light& spotL = Lights[static_cast<size_t>(spotShadowIdx)];
+			SetupSpotShadowViewProjection(spotL);
+			d->CachedSpotLightViewProj = spotL.LightViewProj;
+			d->CachedSpotShadowLightIndex = spotShadowIdx;
+			d->bCachedSpotShadowValid = true;
+			RenderSpotShadowMapPass(d, RHIContext, ShadowCasterMeshes, spotL);
+		}
 	}
 
 	std::shared_ptr<RenderCore::RHIRenderTarget> ShadowRenderPass::GetShadowMap() const
@@ -607,6 +670,22 @@ namespace Engine
 			OutFaceVp[i] = d->CachedPointFaceVP[i];
 		OutLightIndex = d->CachedPointShadowLightIndex;
 		OutPosRange = math::Vector4(d->CachedPointLightPos.x, d->CachedPointLightPos.y, d->CachedPointLightPos.z, d->CachedPointLightRange);
+		return true;
+	}
+
+	std::shared_ptr<RenderCore::RHIRenderTarget> ShadowRenderPass::GetSpotShadowMap() const
+	{
+		C_P(ShadowRenderPass);
+		return d->SpotShadowBuffer;
+	}
+
+	bool ShadowRenderPass::TryGetCachedSpotShadowForDeferred(int& OutLightIndex, math::Matrix4x4& OutSpotLightViewProj) const
+	{
+		C_P(ShadowRenderPass);
+		if (!d->bCachedSpotShadowValid)
+			return false;
+		OutLightIndex = d->CachedSpotShadowLightIndex;
+		OutSpotLightViewProj = d->CachedSpotLightViewProj;
 		return true;
 	}
 

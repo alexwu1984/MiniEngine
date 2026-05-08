@@ -28,6 +28,8 @@ cbuffer cbPointShadow : register(b4)
     uint2 PointShadowPad;
 };
 
+#include "SpotShadowSampling.hlsl"
+
 #include "DeferredLightingShared.hlsl"
 
 struct PSInput
@@ -114,14 +116,21 @@ float3 ApplyPointLight(Light light, MaterialInfo materialInfo, float3 normal, fl
     return attenuation * light.Intensity * light.Color * shade * vis;
 }
 
-float3 ApplySpotLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view)
+float3 ApplySpotLight(Light light, MaterialInfo materialInfo, float3 normal, float3 worldPos, float3 view, int lightIndex)
 {
 	float3 pointToLight = light.Position - worldPos;
 	float distance = length(pointToLight);
 	float rangeAttenuation = GetRangeAttenuation(light.Range, distance);
 	float spotAttenuation = GetSpotAttenuation(pointToLight, -light.Direction, light.OuterConeCos, light.InnerConeCos);
 	float3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
-	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * shade;
+	float vis = 1.0;
+	if (light.ShadowMapIndex == kSpotLightShadowMapIndex && SpotShadowEnabled != 0 && lightIndex == SpotShadowLightIndex)
+	{
+		float4 clip = mul(float4(worldPos, 1.0), SpotLightViewProj);
+		float3 L = pointToLight / max(distance, 1e-5);
+		vis = SampleSpotShadowVisibility(clip, normal, L);
+	}
+	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * shade * vis;
 }
 
 float3 ReconstructWorldPosition(float2 uv, float depthHw)
@@ -209,7 +218,7 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 			else if (light.Type == LightType_Point)
 				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i, baseSample.a);
 			else if (light.Type == LightType_Spot)
-				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, baseSample.a);
+				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i, baseSample.a);
 		}
 		else
 		{
@@ -221,7 +230,7 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 			else if (light.Type == LightType_Point)
 				color += ApplyPointLight(light, materialInfo, normal, worldPos, view, i);
 			else if (light.Type == LightType_Spot)
-				color += ApplySpotLight(light, materialInfo, normal, worldPos, view);
+				color += ApplySpotLight(light, materialInfo, normal, worldPos, view, i);
 		}
 	}
 

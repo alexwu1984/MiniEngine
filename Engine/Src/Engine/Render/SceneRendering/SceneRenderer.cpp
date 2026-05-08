@@ -71,6 +71,7 @@ namespace Engine
 
 		d->GuiCameraViewProjForDebug = ViewConst->CurrViewProjMatrix;
 		d->bGuiDirLightFrustumValid.store(false, std::memory_order_relaxed);
+		d->bGuiSpotLightFrustumValid.store(false, std::memory_order_relaxed);
 
 		FRDGBuilder Graph;
 		auto TB = d->TargetBuffer;
@@ -101,13 +102,23 @@ namespace Engine
 				{},
 				[d, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved)]() mutable
 				{
-					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, std::move(ShadowPassLights), ShadowProjectorScene);
+					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorScene);
 					Light Dir{};
 					if (d->ShadowRender && d->ShadowRender->TryGetCachedMainLightForShading(Dir))
 					{
 						d->GuiDirLightViewProjForDebug = Dir.LightViewProj;
 						d->GuiDirLightDirectionTowardSourceForDebug = Dir.Direction;
 						d->bGuiDirLightFrustumValid.store(true, std::memory_order_relaxed);
+					}
+					int spotIdx = -1;
+					math::Matrix4x4 spotVp{};
+					if (d->ShadowRender && d->ShadowRender->TryGetCachedSpotShadowForDeferred(spotIdx, spotVp) && spotIdx >= 0
+						&& spotIdx < static_cast<int>(ShadowPassLights.size()))
+					{
+						const Light& SL = ShadowPassLights[static_cast<size_t>(spotIdx)];
+						d->GuiSpotLightViewProjForDebug = spotVp;
+						d->GuiSpotLightDirectionTowardSourceForDebug = SL.Direction;
+						d->bGuiSpotLightFrustumValid.store(true, std::memory_order_relaxed);
 					}
 				}});
 		}

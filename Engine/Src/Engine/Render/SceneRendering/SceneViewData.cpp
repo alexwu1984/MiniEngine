@@ -3,7 +3,7 @@
 
 namespace Engine
 {
-	void FSceneViewData::BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, float EnvPitchDeg, float EnvYawDeg, bool bUseHaltonProjectionJitterInViewMatrices,
+	void FSceneViewData::BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, bool bUseHaltonProjectionJitterInViewMatrices,
 										 int32_t ViewRectX, int32_t ViewRectY, int32_t ViewRectW, int32_t ViewRectH)
 	{
 		ViewFrustum = Camera.GetFrustum();
@@ -19,8 +19,6 @@ namespace Engine
 		FrameIndex = Camera.GetFrameIndex();
 		TemporalHistoryGeneration = Camera.GetTemporalHistoryGeneration();
 		Lights = std::move(InLights);
-		EnvironmentRotatePitchDegrees = EnvPitchDeg;
-		EnvironmentRotateYawDegrees = EnvYawDeg;
 		bHaltonProjectionJitterForMainPass = bUseHaltonProjectionJitterInViewMatrices;
 		ViewRectMinX = ViewRectX;
 		ViewRectMinY = ViewRectY;

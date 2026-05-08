@@ -32,16 +32,6 @@ namespace Engine
 		IBLIntensity = InIntensity;
 	}
 
-	void SkyLightComponent::SetIBLRotationPitchDegrees(float InPitchDeg)
-	{
-		IBLRotationPitchDegrees = InPitchDeg;
-	}
-
-	void SkyLightComponent::SetIBLRotationYawDegrees(float InYawDeg)
-	{
-		IBLRotationYawDegrees = InYawDeg;
-	}
-
 	std::wstring SkyLightComponent::ResolveHDRFullPath() const
 	{
 		return core::process_directory().wstring() + L"/GLTFModel/" + HdrRelativePath;
@@ -58,6 +48,10 @@ namespace Engine
 		if (bProceduralSky)
 		{
 			out.Type = ESkyLightSourceType::Procedural;
+			math::Vector3 dir = ProceduralSunDirectionTowardSource;
+			if (dir.GetSqrLength() < 1e-10f)
+				dir = math::Vector3(0.f, 0.49f, 0.833f);
+			out.ProceduralSunDirectionTowardSource = dir.Normalize();
 			return out;
 		}
 		if (HdrRelativePath.empty())

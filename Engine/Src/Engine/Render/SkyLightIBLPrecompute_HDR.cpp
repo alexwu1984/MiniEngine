@@ -27,36 +27,6 @@ namespace Engine
 			}
 			return lower == "proceduralsky" || lower == "procedural_sky";
 		}
-
-		static bool TryParseFirstDirectionalLightDir(const nlohmann::json& EvnJson, float& sx, float& sy, float& sz)
-		{
-			try
-			{
-				const auto& arr = EvnJson.at("Light");
-				if (!arr.is_array())
-					return false;
-				for (const auto& lj : arr)
-				{
-					if (!lj.is_object() || lj.find("LightType") == lj.end() || !lj.at("LightType").is_number_integer())
-						continue;
-					if (lj.at("LightType").get<int>() != LightType_Directional)
-						continue;
-					const std::string dirStr = lj.at("LightDir").get<std::string>();
-					float x = 0.f, y = 0.f, z = 0.f;
-					if (std::sscanf(dirStr.c_str(), "%f,%f,%f", &x, &y, &z) != 3)
-						return false;
-					sx = x;
-					sy = y;
-					sz = z;
-					return true;
-				}
-			}
-			catch (const std::exception&)
-			{
-			}
-			return false;
-		}
-
 	} // namespace
 
 	void FSkyLightIBLPrecompute::LoadConfig(const nlohmann::json& Root)
@@ -71,17 +41,7 @@ namespace Engine
 			{
 				d->ConfigSource.Type = ESkyLightSourceType::Procedural;
 				d->ConfigSource.HdrFileFullPath.clear();
-				float sx = 0.f, sy = 0.49f, sz = 0.833f;
-				float px = sx, py = sy, pz = sz;
-				if (TryParseFirstDirectionalLightDir(EvnJson, px, py, pz))
-				{
-					sx = px;
-					sy = py;
-					sz = pz;
-				}
-				d->ProceduralSunDirX = sx;
-				d->ProceduralSunDirY = sy;
-				d->ProceduralSunDirZ = sz;
+				d->ConfigSource.ProceduralSunDirectionTowardSource = math::Vector3(0.f, 0.49f, 0.833f);
 			}
 			else
 			{
@@ -117,6 +77,16 @@ namespace Engine
 
 			d->CurrentSource = Desired;
 			d->bProceduralSkyActive = (Desired.Type == ESkyLightSourceType::Procedural);
+			if (d->bProceduralSkyActive)
+			{
+				math::Vector3 dir = Desired.ProceduralSunDirectionTowardSource;
+				if (dir.GetSqrLength() < 1e-10f)
+					dir = math::Vector3(0.f, 0.49f, 0.833f);
+				dir = dir.Normalize();
+				d->ProceduralSunDirX = dir.x;
+				d->ProceduralSunDirY = dir.y;
+				d->ProceduralSunDirZ = dir.z;
+			}
 
 			if (Desired.Type == ESkyLightSourceType::HdrFile && !Desired.HdrFileFullPath.empty())
 				d->HDRTex = d->RHI->RHICreateHDRTexture2D(Desired.HdrFileFullPath);

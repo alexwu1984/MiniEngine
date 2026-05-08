@@ -33,6 +33,4 @@ private:
 	std::vector<std::wstring> ModelFiles;
 	std::vector<std::string> ModelLabelsUtf8;
 	std::shared_ptr<Engine::SimplePostProcessor> _Demo;
-	float xHDRRotate{ 16.875f };
-	float yHDRRotate{ -114.375f };
 };

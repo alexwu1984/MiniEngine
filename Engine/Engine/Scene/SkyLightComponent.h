@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Scene/Component.h"
 #include "Render/SkyLightEnvironment.h"
+#include "math/vector3.h"
 
 namespace Engine
 {
@@ -33,11 +34,9 @@ namespace Engine
 		void SetIBLIntensity(float InIntensity);
 		float GetIBLIntensity() const { return IBLIntensity; }
 
-		/** Degrees; applied to IBL reflection + sky cubemap (same convention as legacy SetIBLRotate / CubeBackground). */
-		void SetIBLRotationPitchDegrees(float InPitchDeg);
-		void SetIBLRotationYawDegrees(float InYawDeg);
-		float GetIBLRotationPitchDegrees() const { return IBLRotationPitchDegrees; }
-		float GetIBLRotationYawDegrees() const { return IBLRotationYawDegrees; }
+		/** Used when ProceduralSky is enabled: directional light + sun disk share this sun direction (world toward sun). */
+		void SetProceduralSunDirectionTowardSource(const math::Vector3& InDir) { ProceduralSunDirectionTowardSource = InDir; }
+		const math::Vector3& GetProceduralSunDirectionTowardSource() const { return ProceduralSunDirectionTowardSource; }
 
 		/** Absolute path passed to RHI HDR load (process_directory/GLTFModel/ + relative). */
 		std::wstring ResolveHDRFullPath() const;
@@ -51,8 +50,7 @@ namespace Engine
 		int32_t SortPriority = 0;
 		std::wstring HdrRelativePath;
 		float IBLIntensity = 1.f;
-		float IBLRotationPitchDegrees = 0.f;
-		float IBLRotationYawDegrees = 0.f;
+		math::Vector3 ProceduralSunDirectionTowardSource{ 0.f, 0.49f, 0.833f };
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(SkyLightComponent);
 }

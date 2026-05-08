@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "math/matrix4x4.h"
 
 namespace RenderCore
 {
@@ -21,11 +22,12 @@ namespace Engine
 		~CubeBackground();
 
 		void InitResource();
-		void Render(RenderCore::RHICommandContext& RHIContext, 
-					const std::vector <std::shared_ptr<RenderCore::RHITexture2D>>& Targets, 
-					std::shared_ptr<RenderCore::RHITexture2D> Depth);
+		void Render(RenderCore::RHICommandContext& RHIContext,
+					const std::vector<std::shared_ptr<RenderCore::RHITexture2D>>& Targets,
+					std::shared_ptr<RenderCore::RHITexture2D> Depth,
+					const math::Matrix4x4& ViewMatrix,
+					const math::Matrix4x4& ProjMatrix);
 		void SetTextureCube(std::shared_ptr<RenderCore::RHITextureCube> TexCube);
-		void SetRotate(float xRotate, float yRotate);
 	private:
 		void InitShader();
 	private:

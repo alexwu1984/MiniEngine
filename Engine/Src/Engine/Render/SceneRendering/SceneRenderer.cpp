@@ -167,8 +167,7 @@ namespace Engine
 					auto SkyLightEnv = d->PreProcess->GetSkyLightEnvironment();
 					auto SkyCube = SkyLightEnv ? SkyLightEnv->GetSkyLightCubemap() : nullptr;
 					d->BackgroundRender->SetTextureCube(SkyCube);
-					d->BackgroundRender->SetRotate(ViewConst->EnvironmentRotatePitchDegrees, ViewConst->EnvironmentRotateYawDegrees);
-					d->BackgroundRender->Render(*CommandContext, Targets, d->TargetBuffer->GetDepth());
+					d->BackgroundRender->Render(*CommandContext, Targets, d->TargetBuffer->GetDepth(), ViewConst->ViewMatrix, ViewConst->ProjMatrix);
 				}
 				else
 				{

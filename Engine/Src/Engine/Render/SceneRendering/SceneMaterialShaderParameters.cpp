@@ -41,9 +41,7 @@ namespace Engine
 		Out.TemporalAAJitter = ViewData->TemporalAAJitter;
 		Out.HasSkin = Mesh->HasSkin();
 		Out.preProcessor = WorldSceneRender->GetPreProcessor();
-		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(ViewData->EnvironmentRotatePitchDegrees));
-		Rotate *= math::Matrix4x4::RotateY(math::Radians(ViewData->EnvironmentRotateYawDegrees));
-		Out.RotateIBL = Rotate;
+		Out.RotateIBL = math::Matrix4x4::ms_Materix3X3WIdentity;
 		Out.TargetBuffer = TargetBuffer;
 		Out.DrawMeshBuffer = Mesh->GetMeshBuffer();
 		Out.bUnlit = ViewData->bUnlit;

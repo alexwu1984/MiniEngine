@@ -72,6 +72,7 @@ namespace Engine
 		Actor::InitResouce();
 		C_P(GltfActor);
 		ApplyActorDisplayNameFromSceneJson(*this, d->GltfJson);
+		auto GetWorldPin = [this]() -> std::shared_ptr<World> { return GetWorld(); };
 		d->MeshComp = std::make_shared<SceneMeshComponent>(this->shared_from_this());
 		bool bLoad = d->MeshComp->Load(d->GltfJson);
 		if (!bLoad)
@@ -83,6 +84,41 @@ namespace Engine
 		AddComponent(d->MeshComp);
 		d->CameraComp = std::make_shared<CameraComponent>(this->shared_from_this());
 		d->CameraComp->InitResource();
+
+		// Camera helpers (avoid duplicated box/framing/orbit computations).
+		auto ComputeWorldCenterRadius = [&]() -> std::pair<math::Vector3, float>
+		{
+			ComputeWorldTransform(0.f);
+			const math::Matrix4x4& W = GetWorldTransform();
+			const math::AABB3 box = d->MeshComp ? d->MeshComp->GetModelBox() : math::AABB3{};
+			const math::Vector3 localCenter = box.GetCenter();
+			const math::Vector3 halfExtents = (box.GetMaxPoint() - box.GetMinPoint()) * 0.5f;
+			float radius = halfExtents.GetLength();
+			radius = std::max(radius, 1e-3f);
+			const math::Vector3 worldCenter = W.TransformPosition(localCenter);
+			return { worldCenter, radius };
+		};
+
+		auto ComputeOrbitDistanceForRadius = [&](float radius) -> float
+		{
+			const float fovY = d->CameraComp ? d->CameraComp->GetFovVerticalRadians() : (0.5f * math::MATH_PI);
+			const float tanHalf = std::tan(fovY * 0.5f);
+			static constexpr float kViewerFrameMargin = 1.18f;
+			float dist = (radius / std::max(tanHalf, 1e-4f)) * kViewerFrameMargin;
+			dist = std::max(dist, radius + 0.05f);
+			return dist;
+		};
+
+		auto ApplyDefaultFramedMainCameraPose = [&]()
+		{
+			if (!d->CameraComp)
+				return;
+			const auto [worldCenter, radius] = ComputeWorldCenterRadius();
+			const float dist = ComputeOrbitDistanceForRadius(radius);
+			const math::Vector3 eye = worldCenter + math::Vector3(0.f, 0.f, dist);
+			d->CameraComp->SetExplicitLookAtWorldTarget(worldCenter, true);
+			d->CameraComp->SetCameraPos(eye);
+		};
 
 		// Apply transform before MainCamera distance: GetModelBox() is local; actor Scale scales the mesh in world.
 		if (d->GltfJson.find("Scale") != d->GltfJson.end())
@@ -99,12 +135,14 @@ namespace Engine
 		}
 
 		const bool bHasOrbitCameraJson = d->GltfJson.find("OrbitCamera") != d->GltfJson.end() && d->GltfJson["OrbitCamera"].is_object();
+		const bool bMainCam = d->GltfJson.find("MainCamera") != d->GltfJson.end() && d->GltfJson["MainCamera"].get<bool>();
 
 		if (d->GltfJson.find("MainCamera") != d->GltfJson.end())
 		{
 			if (d->GltfJson["MainCamera"])
 			{
-				GetWorld()->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
+				if (auto w = GetWorldPin())
+					w->SetMainCamera(std::static_pointer_cast<CameraComponent>(d->CameraComp));
 				ComputeWorldTransform(0.f);
 				const math::Matrix4x4& W = GetWorldTransform();
 				bool bUsedJsonCamera = false;
@@ -140,20 +178,7 @@ namespace Engine
 				}
 				if (!bHasOrbitCameraJson && !bUsedJsonCamera)
 				{
-					const math::AABB3 Box = d->MeshComp->GetModelBox();
-					const math::Vector3 LocalCenter = Box.GetCenter();
-					const math::Vector3 HalfExtents = (Box.GetMaxPoint() - Box.GetMinPoint()) * 0.5f;
-					float Radius = HalfExtents.GetLength();
-					Radius = std::max(Radius, 1e-3f);
-					const math::Vector3 WorldCenter = W.TransformPosition(LocalCenter);
-					const float FovY = d->CameraComp->GetFovVerticalRadians();
-					const float TanHalf = std::tan(FovY * 0.5f);
-					static constexpr float kViewerFrameMargin = 1.18f;
-					float Dist = (Radius / std::max(TanHalf, 1e-4f)) * kViewerFrameMargin;
-					Dist = std::max(Dist, Radius + 0.05f);
-					const math::Vector3 Eye = WorldCenter + math::Vector3(0.f, 0.f, Dist);
-					d->CameraComp->SetExplicitLookAtWorldTarget(WorldCenter, true);
-					d->CameraComp->SetCameraPos(Eye);
+					ApplyDefaultFramedMainCameraPose();
 				}
 			}
 		}
@@ -167,8 +192,23 @@ namespace Engine
 
 		d->InputComp = std::make_shared<GltfDeviceInputComponent>(this->shared_from_this());
 		d->InputComp->InitResource();
+
+		auto EnableDefaultOrbitForMainCamera = [&]()
 		{
-			const bool bMainCam = d->GltfJson.find("MainCamera") != d->GltfJson.end() && d->GltfJson["MainCamera"].get<bool>();
+			if (!d->InputComp || !d->CameraComp)
+				return;
+			if (auto w = GetWorldPin())
+			{
+				if (w->UsesRoamCameraScene())
+					return;
+			}
+			const auto [worldCenter, radius] = ComputeWorldCenterRadius();
+			const float dist = ComputeOrbitDistanceForRadius(radius);
+			d->InputComp->EnableOrbitCamera(true, worldCenter, dist, 0.f, 0.f);
+			d->InputComp->SnapOrbitToCamera(d->CameraComp.get());
+			d->InputComp->SetMouseRotateModelEnabled(false);
+		};
+		{
 			if (bHasOrbitCameraJson && bMainCam)
 			{
 				try
@@ -205,10 +245,18 @@ namespace Engine
 			}
 			else
 			{
-				bool bMouseRotateModel = !GetWorld()->UsesRoamCameraScene();
-				if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
-					bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
-				d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+				// Default interaction: orbit camera for the main camera (glTFSample-style).
+				if (bMainCam)
+				{
+					EnableDefaultOrbitForMainCamera();
+				}
+				else
+				{
+					bool bMouseRotateModel = !GetWorldPin() || !GetWorldPin()->UsesRoamCameraScene();
+					if (d->GltfJson.find("MouseRotateModel") != d->GltfJson.end() && !d->GltfJson["MouseRotateModel"].is_null())
+						bMouseRotateModel = d->GltfJson["MouseRotateModel"].get<bool>();
+					d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
+				}
 			}
 		}
 		AddComponent(d->InputComp);

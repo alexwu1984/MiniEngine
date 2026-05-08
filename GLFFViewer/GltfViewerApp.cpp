@@ -191,12 +191,6 @@ bool GltfViewApp::Init()
 		Camera->SetCameraPos(CameraPos);
 	}
 
-	if (const auto sl = Scene->FindPrimarySkyLightComponent())
-	{
-		xHDRRotate = sl->GetIBLRotationPitchDegrees();
-		yHDRRotate = sl->GetIBLRotationYawDegrees();
-	}
-
 	if (Engine::GEngine)
 	{
 		Engine::GEngine->SetEndFrameTickCallback([this]() { FlushPendingModelReload(); });
@@ -369,18 +363,7 @@ void GltfViewApp::BindImGuiToSceneRender()
 
 				ImGui::Separator();
 				ImGui::TextUnformatted("SkyLight / IBL");
-
-				if (const auto sl = Scene->FindPrimarySkyLightComponent())
-				{
-					ImGui::SliderFloat("xHDRRotate", &xHDRRotate, -180, 180);
-					ImGui::SliderFloat("yHDRRotate", &yHDRRotate, -180, 180);
-					sl->SetIBLRotationPitchDegrees(xHDRRotate);
-					sl->SetIBLRotationYawDegrees(yHDRRotate);
-				}
-				else
-				{
-					ImGui::TextUnformatted("No SkyLight (IBL rotation disabled)");
-				}
+				ImGui::TextDisabled("HDR rotation removed (default orbit camera).");
 			}
 
 			ImGui::End();
@@ -478,11 +461,7 @@ void GltfViewApp::ReloadScene(int32_t NewIndex)
 	if (!Scene)
 		return;
 
-	if (const auto sl = Scene->FindPrimarySkyLightComponent())
-	{
-		xHDRRotate = sl->GetIBLRotationPitchDegrees();
-		yHDRRotate = sl->GetIBLRotationYawDegrees();
-	}
+	// HDR rotation removed.
 }
 
 void GltfViewApp::ShutDown()

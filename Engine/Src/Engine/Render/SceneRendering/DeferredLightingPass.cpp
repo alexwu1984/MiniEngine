@@ -41,9 +41,7 @@ namespace Engine
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProj = View.CurrViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProjInverse = View.CurrViewProjInverseMatrix;
-			math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(View.EnvironmentRotatePitchDegrees));
-			Rotate *= math::Matrix4x4::RotateY(math::Radians(View.EnvironmentRotateYawDegrees));
-			Out.Data.myPerFrame.RotateIBL = Rotate;
+			Out.Data.myPerFrame.RotateIBL = math::Matrix4x4::ms_Materix3X3WIdentity;
 			Out.Data.myPerFrame.CameraPos = View.CameraPos;
 			Out.Data.myPerFrame.TemporalAAJitter = View.TemporalAAJitter;
 			if (View.ViewRectSizeX > 0 && View.ViewRectSizeY > 0)

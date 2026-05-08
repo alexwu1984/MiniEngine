@@ -33,8 +33,6 @@ namespace Engine
 		int32_t FrameIndex = 0;
 		uint32_t TemporalHistoryGeneration = 0;
 		std::vector<Light> Lights;
-		float EnvironmentRotatePitchDegrees = 0.f;
-		float EnvironmentRotateYawDegrees = 0.f;
 		/** True when main pass used jittered projection matrices for temporal resolve (driven by post AA policy). */
 		bool bHaltonProjectionJitterForMainPass = false;
 		int32_t ViewRectMinX = 0;
@@ -48,7 +46,7 @@ namespace Engine
 		/** 0 = no skylight IBL (UE Skylight off); primary SkyLightComponent drives HDR path and intensity. */
 		float SkyLightIBLScale = 0.f;
 
-		void BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, float EnvPitchDeg, float EnvYawDeg, bool bUseHaltonProjectionJitterInViewMatrices,
+		void BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, bool bUseHaltonProjectionJitterInViewMatrices,
 							 int32_t ViewRectX, int32_t ViewRectY, int32_t ViewRectW, int32_t ViewRectH);
 	};
 }

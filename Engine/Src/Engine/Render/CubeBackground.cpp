@@ -27,8 +27,6 @@ namespace Engine
 		std::shared_ptr< RHIVertexShader> VertexShader;
 		std::shared_ptr< RHIPixelShader> PixelShader;
 		std::shared_ptr<RHITextureCube> TexCube;
-		float xHDRRotate{ 0.f };
-		float yHDRRotate{ 0.f };
 
 		CubeBackgroundPrivate(RenderCore::DynamicRHI* _RHI)
 			:RHI(_RHI),
@@ -72,7 +70,9 @@ namespace Engine
 
 	void CubeBackground::Render(RenderCore::RHICommandContext& RHIContext, 
 								const std::vector <std::shared_ptr<RenderCore::RHITexture2D>>& Targets, 
-								std::shared_ptr<RenderCore::RHITexture2D> Depth)
+								std::shared_ptr<RenderCore::RHITexture2D> Depth,
+								const math::Matrix4x4& ViewMatrix,
+								const math::Matrix4x4& ProjMatrix)
 	{
 		C_P(CubeBackground);
 		if (!d->TexCube)
@@ -93,13 +93,14 @@ namespace Engine
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
-		math::Matrix4x4 View = math::Matrix4x4::MatrixLookAtLH(math::Vector3::Zero, math::Vector3::NegUnitZ, math::Vector3::UnitY);
-		math::Matrix4x4 Rotate = math::Matrix4x4::RotateX(math::Radians(d->xHDRRotate));
-		Rotate *= math::Matrix4x4::RotateY(math::Radians(-d->yHDRRotate));
-		math::Matrix4x4 Proj = math::Matrix4x4::MatrixPerspectiveFovLH(math::Radians(45.f), static_cast<float>(w) / h, 0, 100);
+		// Use the camera view rotation (no translation) so the sky rotates with orbit/roam like glTFSample.
+		math::Matrix4x4 View = ViewMatrix;
+		View._30 = 0.f;
+		View._31 = 0.f;
+		View._32 = 0.f;
 
-		d->GET_UNIFORMDATA(CBMatrix).Proj = Proj;
-		d->GET_UNIFORMDATA(CBMatrix).View = View * Rotate;
+		d->GET_UNIFORMDATA(CBMatrix).Proj = ProjMatrix;
+		d->GET_UNIFORMDATA(CBMatrix).View = View;
 		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBMatrix), RenderCore::SF_Vertex);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->TexCube);
 		d->CubeR->Render(RHIContext);
@@ -111,10 +112,4 @@ namespace Engine
 		d->TexCube = TexCube;
 	}
 
-	void CubeBackground::SetRotate(float xRotate, float yRotate)
-	{
-		C_P(CubeBackground);
-		d->xHDRRotate = xRotate;
-		d->yHDRRotate = yRotate;
-	}
 }

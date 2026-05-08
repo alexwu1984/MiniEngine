@@ -203,28 +203,6 @@ namespace Engine
 		}
 
 		/** Evn.Light[] KHR-style strings; used only at scene load to spawn light actors. */
-		/** Evn.RotateIBL: "pitchDeg,yawDeg" — authoritative on primary SkyLightComponent (UE-style). */
-		static void ApplyEvnRotateIBL(const std::shared_ptr<World>& world, const nlohmann::json& evnJson)
-		{
-			try
-			{
-				if (!world || evnJson.find("RotateIBL") == evnJson.end() || !evnJson["RotateIBL"].is_string())
-					return;
-				const std::string s = evnJson["RotateIBL"].get<std::string>();
-				float x = 0.f, y = 0.f;
-				if (std::sscanf(s.c_str(), "%f,%f", &x, &y) < 2)
-					return;
-				const auto sl = world->FindPrimarySkyLightComponent();
-				if (!sl)
-					return;
-				sl->SetIBLRotationPitchDegrees(x);
-				sl->SetIBLRotationYawDegrees(y);
-			}
-			catch (const std::exception&)
-			{
-			}
-		}
-
 		static bool ParseEvnLightJsonEntry(const nlohmann::json& lightInfoJson, Light& lightInfo)
 		{
 			try
@@ -377,7 +355,6 @@ namespace Engine
 
 			nlohmann::json evnJson = Root["Evn"];
 			SpawnConfigSkyLightActor(self, evnJson);
-			ApplyEvnRotateIBL(self, evnJson);
 
 			const nlohmann::json lightJsons = evnJson["Light"];
 			int32_t directionalJsonOrder = 0;
@@ -589,6 +566,27 @@ namespace Engine
 				break;
 			out.push_back(comp->BuildLight());
 		}
+		// If procedural sky is active, bind the primary directional light direction to the procedural sun direction
+		// so shadows + sun disk stay aligned (do not rely on JSON LightDir in this mode).
+		if (!out.empty())
+		{
+			const auto sl = FindPrimarySkyLightComponent();
+			if (sl && sl->IsEnabled() && sl->IsProceduralSky())
+			{
+				math::Vector3 sunDir = sl->GetProceduralSunDirectionTowardSource();
+				if (sunDir.GetSqrLength() < 1e-10f)
+					sunDir = math::Vector3(0.f, 0.49f, 0.833f);
+				sunDir = sunDir.Normalize();
+				for (auto& L : out)
+				{
+					if (L.Type == LightType_Directional)
+					{
+						L.Direction = sunDir;
+						break;
+					}
+				}
+			}
+		}
 		for (const auto& comp : pointComps)
 		{
 			if (out.size() >= MAX_LIGHT_INSTANCES)
@@ -717,13 +715,9 @@ namespace Engine
 
 	void World::GetPrimarySkyLightIBLRotationDegrees(float& outPitchDeg, float& outYawDeg) const
 	{
+		// HDR rotation removed: always 0,0.
 		outPitchDeg = 0.f;
 		outYawDeg = 0.f;
-		const auto sl = FindPrimarySkyLightComponent();
-		if (!sl)
-			return;
-		outPitchDeg = sl->GetIBLRotationPitchDegrees();
-		outYawDeg = sl->GetIBLRotationYawDegrees();
 	}
 
 	bool World::UsesRoamCameraScene() const

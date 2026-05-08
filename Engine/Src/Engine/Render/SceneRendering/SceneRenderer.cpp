@@ -61,8 +61,7 @@ namespace Engine
 		std::vector<Light> ShadowPassLights = std::move(Packet.LightsForShadow);
 		FShadowProjectorSceneData ShadowProjectorSceneMoved = std::move(Packet.ShadowProjectorScene);
 		std::shared_ptr<FScene> WorldSceneForFrame = std::move(Packet.WorldScene);
-		std::optional<std::wstring> SkyLightHdrMove = std::move(Packet.SkyLightHdrFullPathOverride);
-		const bool skyProcIBL = Packet.bSkyLightProceduralIBL;
+		FSkyLightSourceDesc SkyLightSrc = std::move(Packet.SkyLightSource);
 
 		std::shared_ptr<RHICommandContext> CommandContext = RHI->GetDefaultCommandContext();
 		if (!CommandContext)
@@ -79,7 +78,7 @@ namespace Engine
 		// (Debug ensures; Release no-op check — wrong thread/stack can spiral into device removal / handled _com_error on Present).
 		RHI->RHIBeginFrame();
 		if (d->PreProcess)
-			d->PreProcess->ResolveSkyLightForFrame(std::move(SkyLightHdrMove), skyProcIBL);
+			d->PreProcess->ResolveSkyLightForFrame(SkyLightSrc);
 		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
 			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 

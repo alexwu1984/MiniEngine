@@ -1,4 +1,4 @@
-﻿#include "Render/SkyLightEnvironment.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIShaderDefine.h"
@@ -17,7 +17,8 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "SkyLight_CaptureCubemap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShaderLongLatToCube ? d->VertexShaderLongLatToCube : d->VertexShader;
-		Init.PixelShader = d->PSLongLatToCube;
+		const bool bProc = d->bProceduralSkyActive && d->PSProceduralSkyCube;
+		Init.PixelShader = bProc ? d->PSProceduralSkyCube : d->PSLongLatToCube;
 		if (!Init.VertexShader || !Init.PixelShader)
 		{
 			core::LOG(core::log_err, L"CaptureSkyLightCubemap skipped: vertex or pixel shader not created.");
@@ -34,6 +35,36 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = Matrix4x4();
 		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject), RenderCore::SF_Vertex);
 
+		if (bProc)
+		{
+			if (!d->ProceduralSkyPSCB)
+				d->ProceduralSkyPSCB = d->RHI->RHICreateUniformBuffer(64);
+
+			// Match glTFSample UI defaults.
+			struct alignas(16) FProcSkyPSParams
+			{
+				float vSunDirection[3];
+				float padding0;
+				float rayleigh;
+				float turbidity;
+				float mieCoefficient;
+				float luminance;
+				float mieDirectionalG;
+				float pad1[3];
+			};
+			FProcSkyPSParams p{};
+			p.vSunDirection[0] = d->ProceduralSunDirX;
+			p.vSunDirection[1] = d->ProceduralSunDirY;
+			p.vSunDirection[2] = d->ProceduralSunDirZ;
+			p.rayleigh = 2.0f;
+			p.turbidity = 10.0f;
+			p.mieCoefficient = 0.005f;
+			p.luminance = 1.0f;
+			p.mieDirectionalG = 0.8f;
+			RHIContext.RHIUpdateUniformBuffer(d->ProceduralSkyPSCB, &p);
+			RHIContext.RHISetShaderUniformBuffer(RenderCore::SF_Pixel, 4, d->ProceduralSkyPSCB);
+		}
+
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
@@ -44,7 +75,8 @@ namespace Engine
 			RHIContext.Clear(d->EvnCube, IndexView, 0, core::FLinearColor::Black);
 
 			RHIContext.SetViewPort(0, 0, d->EvnCube->GetSize().cx, d->EvnCube->GetSize().cy);
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
+			if (!bProc)
+				RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->HDRTex);
 			RenderCube(RHIContext);
 		}
 		RHIContext.GenerateMips(d->EvnCube);

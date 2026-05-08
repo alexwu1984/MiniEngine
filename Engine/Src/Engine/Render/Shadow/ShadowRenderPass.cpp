@@ -1,4 +1,4 @@
-﻿#include "Render/Shadow/ShadowRenderPass.h"
+#include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/FurMaterial.h"
@@ -87,7 +87,7 @@ namespace
 
 	// When kPreferTightShadowFrustumFromCasters: XY (and baseline Z) come from caster AABB only.
 	// Extend light-space Z to include visible receivers (ground); otherwise contact shadows on the floor
-	// clip at a hard frustum boundary → ear/body shadows look "broken" along a box edge.
+	// clip at a hard frustum boundary -> ear/body shadows look "broken" along a box edge.
 	static void ExpandOrthoDepthForReceiverBounds(const math::Matrix4x4& lightView, const math::AABB3& receiverWorldAabb,
 												float& nearValue, float& farValue)
 	{
@@ -114,7 +114,7 @@ namespace
 	}
 
 	// Widen ortho XY using receiver geometry near the caster (intersection with padded caster AABB).
-	// Otherwise top-down views: ear shadows on the floor extend in light-space XY past the caster-only fit → hard clip (horizontal "break").
+	// Otherwise top-down views: ear shadows on the floor extend in light-space XY past the caster-only fit -> hard clip (horizontal "break").
 	static void ExpandOrthoXYForWorldAabb(const math::Matrix4x4& lightView, const math::AABB3& worldAabb, float& centerX, float& centerY,
 										  float& sizeX, float& sizeY)
 	{
@@ -198,7 +198,11 @@ namespace
 
 namespace Engine
 {
-	static constexpr float LIGHT_DISTANCE = 4.0f;
+	// Note: glTFSample derives directional-light "position" from a scene node transform.
+	// Our engine does not have a directional-light node position, so for shadow view we
+	// place the light along its direction far enough to stably cover the subject bounds.
+	// Using a fixed small distance breaks across different scene scales.
+	static constexpr float kMinDirectionalLightDistance = 4.0f;
 	static constexpr int32_t kPointShadowCubeSize = 512;
 
 	static math::Matrix4x4 ComputePointShadowFaceViewProj(const math::Vector3& lightPos, int face, float zNear, float zFar)
@@ -336,7 +340,7 @@ namespace Engine
 		return -1;
 	}
 
-	/** Mesh list that drives orthographic frustum fitting (UE-ish “subject bounds” source vs full receiver set). */
+	/** Mesh list that drives orthographic frustum fitting (UE-ish "subject bounds" source vs full receiver set). */
 	static const std::vector<GltfSceneMeshInfo>* SelectShadowSubjectMeshListForFrustum(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
 																					   const FShadowProjectorSceneData& ShadowProjectorScene)
 	{
@@ -373,7 +377,7 @@ namespace Engine
 		}
 	}
 
-	/** World-space union AABB for shadow “subject” geometry (casters / frustum driver), including fur shell margin; projector fallback if empty. */
+	/** World-space union AABB for shadow "subject" geometry (casters / frustum driver), including fur shell margin; projector fallback if empty. */
 	static void BuildMergedShadowSubjectWorldAabb(const std::vector<GltfSceneMeshInfo>* SubjectMeshList, const FShadowProjectorSceneData& ShadowProjectorScene, math::AABB3& OutSubjectWorldAabb,
 												  bool& OutSubjectValid)
 	{
@@ -425,7 +429,9 @@ namespace Engine
 
 		const math::Vector3 lightLookAt = SubjectWorldAabb.GetCenter();
 		math::Vector3 lightUp = math::Vector3::UnitY;
-		MainLight.Position = lightLookAt + (MainLight.Direction * LIGHT_DISTANCE);
+		const float subjectRadius = (std::max)(SubjectWorldAabb.GetRadius(), 0.01f);
+		const float lightDistance = (std::max)(kMinDirectionalLightDistance, subjectRadius * 2.0f);
+		MainLight.Position = lightLookAt + (MainLight.Direction * lightDistance);
 
 		math::Vector3 zAxis = (lightLookAt - MainLight.Position).Normalize();
 		if (math::Abs(math::Vector3::Dot(zAxis, lightUp)) > 0.999f)

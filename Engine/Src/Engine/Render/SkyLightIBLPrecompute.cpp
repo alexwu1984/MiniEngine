@@ -44,7 +44,17 @@ namespace Engine
 		C_P(FSkyLightIBLPrecompute);
 		{
 			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
-			if (!d->HDRTex || d->bInitRender)
+			if (d->bInitRender)
+				return;
+			if (!d->bProceduralSkyActive && !d->HDRTex)
+				return;
+		}
+
+		{
+			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
+			if (d->bInitRender)
+				return;
+			if (!d->bProceduralSkyActive && !d->HDRTex)
 				return;
 			d->bInitRender = true;
 		}

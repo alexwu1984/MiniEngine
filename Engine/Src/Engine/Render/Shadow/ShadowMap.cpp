@@ -1,10 +1,12 @@
-﻿#include "Render/Shadow/ShadowMap.h"
+#include "Render/Shadow/ShadowMap.h"
 #include "Render/MaterialPreFrame.h"
 #include "Scene/CameraComponent.h"
 
 namespace Engine
 {
-	static constexpr float LIGHT_DISTANCE = 4.0f;
+	// Directional "light position" used only for projecting near/far along the light direction.
+	// Keep it scale-aware; a fixed small distance breaks when the projector scene is large.
+	static constexpr float kMinDirectionalLightDistance = 4.0f;
 
 	static math::Vector3 ShadowFirstDirectionOrDefault(const std::vector<Light>& lights)
 	{
@@ -62,7 +64,10 @@ namespace Engine
 		modelBox.GetPoint(wsSceneCorners);
 		const math::Vector3 lightDir = ShadowFirstDirectionOrDefault(lights);
 
-		math::Vector3 lightPos = math::Vector3() + ((lightDir * -1) * LIGHT_DISTANCE);
+		const math::AABB3 wsAabb = modelBox.Transform(toWsMat);
+		const float subjectRadius = (std::max)(wsAabb.GetRadius(), 0.01f);
+		const float lightDistance = (std::max)(kMinDirectionalLightDistance, subjectRadius * 2.0f);
+		const math::Vector3 lightPos = wsAabb.GetCenter() + (lightDir * lightDistance);
 		float disMin = FLT_MAX, disMax = -FLT_MAX;
 		for (size_t i = 0; i < _ARRAYSIZE(wsSceneCorners); i++)
 		{

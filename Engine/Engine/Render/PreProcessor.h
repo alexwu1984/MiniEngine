@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
+#include "Render/SkyLightEnvironment.h"
 
 namespace RenderCore
 {
@@ -25,8 +26,8 @@ namespace Engine
 
 		std::shared_ptr<FSkyLightIBLPrecompute> GetSkyLightEnvironment();
 
-		/** Call on render thread before PreProcess::Draw; applies SkyLightComponent HDR / procedural or JSON fallback. */
-		void ResolveSkyLightForFrame(std::optional<std::wstring> componentOverrideFullPath, bool bSkyLightComponentProcedural);
+		/** Call on render thread before PreProcess::Draw; chooses the active skylight source for this frame. */
+		void ResolveSkyLightForFrame(const FSkyLightSourceDesc& Source);
 		/** After scene swap or scene-texture recycle: next PreProcess::Draw may re-capture IBL (same HDR path is otherwise left as “already init”). */
 		void InvalidateSkyLightCapturedEnvironment();
 

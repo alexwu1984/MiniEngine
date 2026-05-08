@@ -61,6 +61,7 @@ namespace Engine
 				return;
 			auto actor = std::make_shared<Actor>(WorldSelf);
 			actor->SetActorName(L"ConfigSkyLight");
+			actor->SetState(Actor::EActive);
 			auto comp = std::make_shared<SkyLightComponent>(actor);
 			if (JsonHdrTokenIsProceduralSky(hdrUtf8))
 			{
@@ -94,6 +95,7 @@ namespace Engine
 				return;
 			auto actor = std::make_shared<Actor>(WorldSelf);
 			actor->SetActorName(std::wstring(L"ConfigDirectionalLight_") + std::to_wstring(JsonOrderIndex));
+			actor->SetState(Actor::EActive);
 			auto dir = std::make_shared<DirectionalLightComponent>(actor);
 			dir->SetUseActorForward(false);
 			dir->SetWorldDirection(Parsed.Direction);
@@ -188,6 +190,7 @@ namespace Engine
 
 			auto actor = std::make_shared<Actor>(WorldSelf);
 			actor->SetActorName(std::wstring(L"ConfigPointLight_") + std::to_wstring(JsonOrderIndex));
+			actor->SetState(Actor::EActive);
 			actor->SetPosition(Parsed.Position);
 			auto pt = std::make_shared<PointLightComponent>(actor);
 			pt->SetColor(Parsed.Color);
@@ -695,6 +698,12 @@ namespace Engine
 		if (sl->GetHDRRelativePath().empty())
 			return std::nullopt;
 		return sl->ResolveHDRFullPath();
+	}
+
+	FSkyLightSourceDesc World::ResolvePrimarySkyLightSource() const
+	{
+		const auto sl = FindPrimarySkyLightComponent();
+		return sl ? sl->BuildSkyLightSourceDesc() : FSkyLightSourceDesc{};
 	}
 
 	float World::GetSkyLightIBLScale() const

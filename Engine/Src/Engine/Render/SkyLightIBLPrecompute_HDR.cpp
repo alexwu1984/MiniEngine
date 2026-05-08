@@ -14,8 +14,6 @@ namespace Engine
 {
 	namespace
 	{
-		static constexpr wchar_t kProcSkySentinel[] = L"\x01SKY_PROC_IBL";
-
 		static bool JsonHdrTokenIsProceduralSky(const std::string& utf8)
 		{
 			std::string lower;
@@ -59,65 +57,6 @@ namespace Engine
 			return false;
 		}
 
-		static std::shared_ptr<RenderCore::RHITexture2D> CreateProceduralSkyLatLong(RenderCore::DynamicRHI* RHI, float sunX, float sunY, float sunZ)
-		{
-			if (!RHI)
-				return {};
-			constexpr int W = 2048;
-			constexpr int H = 1024;
-			const DXGI_FORMAT fmt = DXGI_FORMAT_R32G32B32A32_FLOAT;
-			size_t rowPitch = 0;
-			size_t slicePitch = 0;
-			DirectX::ComputePitch(fmt, W, H, rowPitch, slicePitch);
-			std::vector<uint8_t> staging(slicePitch, 0);
-
-			const float pi = 3.14159265358979323846f;
-			// Sun direction = Evn first directional LightDir (world toward light); matches Model*.json convention & directional shadows.
-			float sx = sunX, sy = sunY, sz = sunZ;
-			const float lenSq = sx * sx + sy * sy + sz * sz;
-			const float invLen = lenSq > 1e-12f ? (1.f / std::sqrt(lenSq)) : 1.f;
-			sx *= invLen;
-			sy *= invLen;
-			sz *= invLen;
-
-			for (int y = 0; y < H; ++y)
-			{
-				float* row = reinterpret_cast<float*>(staging.data() + static_cast<size_t>(y) * rowPitch);
-				for (int x = 0; x < W; ++x)
-				{
-					const float lon = (static_cast<float>(x) + 0.5f) / static_cast<float>(W) * (2.f * pi);
-					const float lat = (static_cast<float>(y) + 0.5f) / static_cast<float>(H) * pi;
-					const float sinLat = std::sin(lat);
-					const float dx = sinLat * std::sin(lon);
-					const float dy = std::cos(lat);
-					const float dz = sinLat * std::cos(lon);
-
-					const float elev = std::max(dy, 0.f);
-					const float horizonBlend = std::pow(elev, 0.48f);
-					float r = 0.76f + (0.22f - 0.76f) * horizonBlend;
-					float g = 0.82f + (0.48f - 0.82f) * horizonBlend;
-					float b = 0.92f + (0.95f - 0.92f) * horizonBlend;
-
-					const float sunDot = dx * sx + dy * sy + dz * sz;
-					// Tight core + wide corona (pre-filter still leaves a visible sun for bloom / specular).
-					const float sunCore = std::pow(std::max(sunDot, 0.f), 2048.f) * 85.f;
-					const float sunGlow = std::pow(std::max(sunDot, 0.f), 96.f) * 14.f;
-					const float sunHalo = std::pow(std::max(sunDot, 0.f), 28.f) * 2.8f;
-					const float sun = sunCore + sunGlow + sunHalo;
-					r += sun * 1.05f;
-					g += sun * 0.98f;
-					b += sun * 0.85f;
-
-					row[x * 4 + 0] = r;
-					row[x * 4 + 1] = g;
-					row[x * 4 + 2] = b;
-					row[x * 4 + 3] = 1.f;
-				}
-			}
-
-			return RHI->RHICreateTexture2D(RenderCore::PF_A32B32G32R32F, RenderCore::TexCreate_ShaderResource, W, H, 1,
-										   staging.data(), 0);
-		}
 	} // namespace
 
 	void FSkyLightIBLPrecompute::LoadConfig(const nlohmann::json& Root)
@@ -130,8 +69,8 @@ namespace Engine
 			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
 			if (JsonHdrTokenIsProceduralSky(hdrUtf8))
 			{
-				d->bConfigProceduralSky = true;
-				d->ConfigHdrFullPath.clear();
+				d->ConfigSource.Type = ESkyLightSourceType::Procedural;
+				d->ConfigSource.HdrFileFullPath.clear();
 				float sx = 0.f, sy = 0.49f, sz = 0.833f;
 				float px = sx, py = sy, pz = sz;
 				if (TryParseFirstDirectionalLightDir(EvnJson, px, py, pz))
@@ -143,67 +82,48 @@ namespace Engine
 				d->ProceduralSunDirX = sx;
 				d->ProceduralSunDirY = sy;
 				d->ProceduralSunDirZ = sz;
-				d->HDRTex = CreateProceduralSkyLatLong(d->RHI, sx, sy, sz);
-				d->LastAppliedHdrFullPath = kProcSkySentinel;
 			}
 			else
 			{
-				d->bConfigProceduralSky = false;
-				std::wstring HdrFile = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(hdrUtf8);
-				d->ConfigHdrFullPath = HdrFile;
-				d->HDRTex = d->RHI->RHICreateHDRTexture2D(HdrFile);
-				d->LastAppliedHdrFullPath = HdrFile;
+				d->ConfigSource.Type = ESkyLightSourceType::HdrFile;
+				d->ConfigSource.HdrFileFullPath = core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(hdrUtf8);
 			}
 			d->bInitRender = false;
+			d->CurrentSource = {}; // force Resolve() to apply config next frame
 		}
 		catch (const std::exception&)
 		{
 		}
 	}
 
-	void FSkyLightIBLPrecompute::ResolveAndApplyHDRSource(std::optional<std::wstring> ComponentOverrideFullPath,
-														 bool bSkyLightComponentProcedural)
+	void FSkyLightIBLPrecompute::ResolveAndApplyHDRSource(const FSkyLightSourceDesc& Source)
 	{
 		C_P(FSkyLightIBLPrecompute);
-
-		bool wantProc = false;
-		std::wstring filePath;
+		FSkyLightSourceDesc Desired{};
+		{
+			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
+			Desired = Source;
+			// None means "use config fallback" (keeps external call-site simple).
+			if (Desired.Type == ESkyLightSourceType::None)
+				Desired = d->ConfigSource;
+		}
 
 		{
 			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
-			if (bSkyLightComponentProcedural)
-				wantProc = true;
-			else if (ComponentOverrideFullPath && !ComponentOverrideFullPath->empty())
-				filePath = *ComponentOverrideFullPath;
-			else if (d->bConfigProceduralSky)
-				wantProc = true;
+			const bool sameType = (Desired.Type == d->CurrentSource.Type);
+			const bool samePath = (Desired.HdrFileFullPath == d->CurrentSource.HdrFileFullPath);
+			if (sameType && samePath && d->bInitRender)
+				return;
+
+			d->CurrentSource = Desired;
+			d->bProceduralSkyActive = (Desired.Type == ESkyLightSourceType::Procedural);
+
+			if (Desired.Type == ESkyLightSourceType::HdrFile && !Desired.HdrFileFullPath.empty())
+				d->HDRTex = d->RHI->RHICreateHDRTexture2D(Desired.HdrFileFullPath);
 			else
-				filePath = d->ConfigHdrFullPath;
-		}
+				d->HDRTex.reset();
 
-		if (wantProc)
-		{
-			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
-			if (d->LastAppliedHdrFullPath == kProcSkySentinel && d->HDRTex)
-				return;
-
-			d->HDRTex = CreateProceduralSkyLatLong(d->RHI, d->ProceduralSunDirX, d->ProceduralSunDirY, d->ProceduralSunDirZ);
-			d->LastAppliedHdrFullPath = kProcSkySentinel;
 			d->bInitRender = false;
-			return;
-		}
-
-		if (filePath.empty())
-			return;
-
-		{
-			std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
-			if (filePath == d->LastAppliedHdrFullPath && d->HDRTex)
-				return;
-
-			d->HDRTex = d->RHI->RHICreateHDRTexture2D(filePath);
-			d->bInitRender = false;
-			d->LastAppliedHdrFullPath = std::move(filePath);
 		}
 	}
 
@@ -211,9 +131,11 @@ namespace Engine
 	{
 		C_P(FSkyLightIBLPrecompute);
 		std::lock_guard<std::mutex> Lock(d->HdrStateMutex);
-		d->HDRTex = d->RHI->RHICreateHDRTexture2D(FileName);
-		d->LastAppliedHdrFullPath = FileName;
-		d->bConfigProceduralSky = false;
+		d->ConfigSource.Type = ESkyLightSourceType::HdrFile;
+		d->ConfigSource.HdrFileFullPath = FileName;
+		d->CurrentSource = {};
+		d->HDRTex.reset();
+		d->bProceduralSkyActive = false;
 		d->bInitRender = false;
 	}
 

@@ -2,6 +2,7 @@
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowMap.h"
+#include "Render/SkyLightEnvironment.h"
 
 namespace Engine
 {
@@ -76,6 +77,8 @@ namespace Engine
 		std::shared_ptr<SkyLightComponent> FindPrimarySkyLightComponent() const;
 		/** Full HDR path for the primary skylight, or nullopt if no valid component override this frame. */
 		std::optional<std::wstring> ResolvePrimarySkyLightHDRFullPath() const;
+		/** Full skylight source description for this frame (procedural/file/none). Prefer over ResolvePrimarySkyLightHDRFullPath. */
+		FSkyLightSourceDesc ResolvePrimarySkyLightSource() const;
 		/** 0 when no enabled primary skylight or empty HDR; else primary component IBL intensity (clamped >= 0). */
 		float GetSkyLightIBLScale() const;
 		/** Primary skylight IBL environment rotation (degrees); (0,0) when no skylight. */

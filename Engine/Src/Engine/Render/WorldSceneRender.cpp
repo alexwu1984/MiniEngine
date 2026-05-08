@@ -403,9 +403,7 @@ namespace Engine
 
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 
-		std::optional<std::wstring> skyLightHdrOverride = World->ResolvePrimarySkyLightHDRFullPath();
-		const auto primarySky = World->FindPrimarySkyLightComponent();
-		const bool skyLightProceduralIBL = primarySky && primarySky->IsProceduralSky();
+		FSkyLightSourceDesc skyLightSrc = World->ResolvePrimarySkyLightSource();
 
 		{
 			const uint32_t cap = d->MaxSceneFramesInFlight.load(std::memory_order_relaxed);
@@ -428,8 +426,7 @@ namespace Engine
 			Packet.ShadowFrustumBounds = std::move(shadowFrustumBounds);
 			Packet.LightsForShadow = std::move(shadowLights);
 			Packet.ShadowProjectorScene = shadowProjectorScene;
-			Packet.SkyLightHdrFullPathOverride = std::move(skyLightHdrOverride);
-			Packet.bSkyLightProceduralIBL = skyLightProceduralIBL;
+			Packet.SkyLightSource = std::move(skyLightSrc);
 			Packet.SubmissionSequence =
 				static_cast<uint64_t>(d->SubmissionSequence.fetch_add(1u, std::memory_order_relaxed)) + 1ull;
 

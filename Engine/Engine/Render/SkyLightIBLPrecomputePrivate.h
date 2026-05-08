@@ -5,6 +5,8 @@
 #include "RHI/RHITextureCube.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIShdader.h"
+#include "RHI/RHIUniformBuffer.h"
+#include "Render/SkyLightEnvironment.h"
 #include "math/matrix4x4.h"
 
 namespace Engine
@@ -34,6 +36,7 @@ struct FSkyLightIBLPrecomputePrivate
 	std::shared_ptr<RenderCore::RHIPixelShader> IrrPixelShader;
 	std::shared_ptr<RenderCore::RHIPixelShader> PSLongLatToCube;
 	std::shared_ptr<RenderCore::RHIPixelShader> PSGenPrefiltered;
+	std::shared_ptr<RenderCore::RHIPixelShader> PSProceduralSkyCube;
 	std::shared_ptr<CubeRender> CubeR;
 	RenderCore::DynamicRHI* RHI = nullptr;
 	std::array<math::Matrix4x4, 6> CaptureViews{};
@@ -50,13 +53,15 @@ struct FSkyLightIBLPrecomputePrivate
 	DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame);
 	DECLARE_SHADER_STRUCT_MEMBER(CBPerObject);
 	bool bInitRender = false;
-	bool bConfigProceduralSky = false;
+	/** Resolved active mode for the current frame's source (procedural vs file HDR). */
+	bool bProceduralSkyActive = false;
 	/** Evn first directional LightDir (world toward sun); procedural lat-long sun disk + shadows stay aligned. */
 	float ProceduralSunDirX = 0.f;
 	float ProceduralSunDirY = 0.49f;
 	float ProceduralSunDirZ = 0.833f;
-	std::wstring ConfigHdrFullPath;
-	std::wstring LastAppliedHdrFullPath;
+	std::shared_ptr<RenderCore::RHIUniformBuffer> ProceduralSkyPSCB;
+	FSkyLightSourceDesc ConfigSource{};
+	FSkyLightSourceDesc CurrentSource{};
 	/** Serialize HDR path + HDRTex updates vs ResolveSkyLightForFrame / LoadConfig (different render-queue commands or future game-thread readers). */
 	mutable std::mutex HdrStateMutex;
 };

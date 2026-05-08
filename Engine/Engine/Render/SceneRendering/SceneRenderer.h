@@ -2,6 +2,7 @@
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/Shadow/ShadowMap.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Scene/SceneMeshComponent.h"
 #include <memory>
 #include <optional>
@@ -35,8 +36,7 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> ShadowFrustumBounds;
 		std::vector<Light> LightsForShadow;
 		FShadowProjectorSceneData ShadowProjectorScene{};
-		std::optional<std::wstring> SkyLightHdrFullPathOverride;
-		bool bSkyLightProceduralIBL = false;
+		FSkyLightSourceDesc SkyLightSource{};
 		/** Matches FWorldSceneRenderPrivate::SubmissionSequence for this enqueue; carried so ExecuteFrame / profiling need not dereference viewport state. Starts at 1 for the first queued frame. */
 		uint64_t SubmissionSequence = 0;
 	};

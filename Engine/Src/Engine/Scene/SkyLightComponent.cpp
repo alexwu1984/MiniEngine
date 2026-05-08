@@ -46,4 +46,33 @@ namespace Engine
 	{
 		return core::process_directory().wstring() + L"/GLTFModel/" + HdrRelativePath;
 	}
+
+	FSkyLightSourceDesc SkyLightComponent::BuildSkyLightSourceDesc() const
+	{
+		FSkyLightSourceDesc out{};
+		if (!bEnabled)
+		{
+			out.Type = ESkyLightSourceType::None;
+			return out;
+		}
+		if (bProceduralSky)
+		{
+			out.Type = ESkyLightSourceType::Procedural;
+			return out;
+		}
+		if (HdrRelativePath.empty())
+		{
+			out.Type = ESkyLightSourceType::None;
+			return out;
+		}
+		const std::wstring full = ResolveHDRFullPath();
+		if (full.empty())
+		{
+			out.Type = ESkyLightSourceType::None;
+			return out;
+		}
+		out.Type = ESkyLightSourceType::HdrFile;
+		out.HdrFileFullPath = full;
+		return out;
+	}
 }

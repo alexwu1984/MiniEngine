@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Scene/Component.h"
+#include "Render/SkyLightEnvironment.h"
 
 namespace Engine
 {
@@ -40,6 +41,9 @@ namespace Engine
 
 		/** Absolute path passed to RHI HDR load (process_directory/GLTFModel/ + relative). */
 		std::wstring ResolveHDRFullPath() const;
+
+		/** Convert this component into a skylight source description for rendering. */
+		FSkyLightSourceDesc BuildSkyLightSourceDesc() const;
 
 	private:
 		bool bEnabled = true;

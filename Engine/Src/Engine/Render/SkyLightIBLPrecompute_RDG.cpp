@@ -1,4 +1,4 @@
-﻿#include "Render/SkyLightEnvironment.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "Render/RDGBuilder.h"
 #include "RHI/RHICommandContext.h"
@@ -8,7 +8,9 @@ namespace Engine
 	void FSkyLightIBLPrecompute::AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(FSkyLightIBLPrecompute);
-		if (!d->HDRTex || d->bInitRender)
+		if (d->bInitRender)
+			return;
+		if (!d->bProceduralSkyActive && !d->HDRTex)
 			return;
 
 		Graph.AddPass(FRDGPassDescriptor{

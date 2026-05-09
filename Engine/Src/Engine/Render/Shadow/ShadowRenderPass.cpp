@@ -20,13 +20,20 @@
 
 namespace
 {
-	/** ShadowPass-PS outputs depth without alpha test; BLEND materials would write solid silhouette depth for fade meshes. */
+	/**
+	 * ShadowPass-PS: opaque and MASK paths output depth unchanged. BLEND without sampling would paint a solid depth hull;
+	 * when a base-color map exists we compile SHADOW_ALPHA_CLIP and discard by texture alpha (see ShadowPass-PS.hlsl).
+	 */
 	static bool MeshWritesShadowMapDepth(const std::shared_ptr<Engine::MeshBase>& Mesh)
 	{
 		if (!Mesh)
 			return false;
 		const auto mat = Mesh->GetMaterial();
-		return mat && !mat->IsTransparent();
+		if (!mat)
+			return false;
+		if (!mat->IsTransparent())
+			return true;
+		return mat->GetBaseColorTexture() != nullptr;
 	}
 
 	// When true: fit orthographic shadow XY to shadow casters only (keeps texel density on the character).

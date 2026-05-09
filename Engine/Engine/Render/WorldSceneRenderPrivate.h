@@ -4,6 +4,7 @@
 #include "math/vector3.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
+#include "Render/ShadowDebugWireRenderer.h"
 #include <atomic>
 #include <mutex>
 #include <vector>
@@ -32,6 +33,7 @@ namespace Engine
 		std::shared_ptr<CubeBackground> BackgroundRender;
 		std::shared_ptr<SceneTextures> TargetBuffer;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
+		std::shared_ptr<FShadowDebugWireRenderer> ShadowDebugWire;
 		std::shared_ptr<DeferredLightingPass> DeferredLighting;
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
@@ -55,15 +57,7 @@ namespace Engine
 		mutable std::mutex PassCpuTimingMutex;
 		std::vector<FRDGPassCpuTiming> LastFramePassCpuTimingsForGui;
 
-		math::Matrix4x4 GuiCameraViewProjForDebug{};
-		math::Matrix4x4 GuiDirLightViewProjForDebug{};
-		/** Matches Light.Direction in shaders: world-space unit vector toward the directional light source. */
-		math::Vector3 GuiDirLightDirectionTowardSourceForDebug{};
-		math::Matrix4x4 GuiSpotLightViewProjForDebug{};
-		/** Spot Light.Direction (toward source / opposite cone axis); same convention as deferred. */
-		math::Vector3 GuiSpotLightDirectionTowardSourceForDebug{};
-		std::atomic<bool> bShowDirectionalLightFrustum{ false };
-		std::atomic<bool> bGuiDirLightFrustumValid{ false };
-		std::atomic<bool> bGuiSpotLightFrustumValid{ false };
+		/** UE-style shadow frustum / point-bounds wire overlay (filled after Shadow RDG pass). */
+		FShadowDebugWireSubmit ShadowDebugSubmit{};
 	};
 } // namespace Engine

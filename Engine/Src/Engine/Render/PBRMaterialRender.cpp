@@ -212,6 +212,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLFactor = d->RenderParam.SkyLightIBLScale;
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)d->RenderParam.lightInfos.size();
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.PrimaryDirectionalLightIndex = d->RenderParam.PrimaryDirectionalLightIndex;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.bUnlit = d->RenderParam.bUnlit ? 1 : 0;
 		for (int32_t index = 0; index < (int32_t)d->RenderParam.lightInfos.size(); ++index)
 		{

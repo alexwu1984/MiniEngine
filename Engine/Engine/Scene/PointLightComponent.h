@@ -37,6 +37,10 @@ namespace Engine
 		void SetCastShadow(bool bInCastShadow);
 		bool GetCastShadow() const { return bCastShadow; }
 
+		/** Overlay: cube shadow bounds (only when this point light owns the cubemap atlas). */
+		void SetShowShadowFrustumDebug(bool bIn) { bShowShadowFrustumDebug = bIn; }
+		bool GetShowShadowFrustumDebug() const { return bShowShadowFrustumDebug; }
+
 		Light BuildLight() const;
 
 	private:
@@ -47,6 +51,7 @@ namespace Engine
 		float Range = 10.f;
 		math::Vector3 LocalOffset{};
 		bool bCastShadow = false;
+		bool bShowShadowFrustumDebug = false;
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(PointLightComponent);
 }

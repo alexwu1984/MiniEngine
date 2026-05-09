@@ -27,6 +27,8 @@ namespace Engine
 		bool HasSkin = false;
 		std::weak_ptr<PreProcessor> preProcessor;
 		std::vector< Light> lightInfos;
+		/** Matches cbPerFrame.PrimaryDirectionalLightIndex; first directional in lightInfos, or -1. */
+		int32_t PrimaryDirectionalLightIndex = -1;
 		std::shared_ptr<SceneTextures> TargetBuffer;
 		/** Buffers for this draw: must match the same MeshBase as bone/skin updates (see DeferredBasePassMeshDispatch). */
 		std::shared_ptr<GltfMeshBuffer> DrawMeshBuffer;

@@ -2,8 +2,6 @@
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
-#include "math/matrix4x4.h"
-#include "math/vector3.h"
 #include "Render/RDGBuilder.h"
 #include "tinygltf/json.h"
 
@@ -16,13 +14,6 @@ namespace RenderCore
 
 namespace Engine
 {
-	/** GUI shadow-volume overlay: which cached shadow frustum to draw (directional ortho vs spot perspective). */
-	enum class EGuiShadowFrustumKind : uint8_t
-	{
-		DirectionalOrtho = 0,
-		SpotPerspective = 1,
-	};
-
 	class PreProcessor;
 	class PostProcessor;
 	class World;
@@ -81,17 +72,8 @@ namespace Engine
 		/** Current maxrenderframes cap (GetMaxSceneFramesInFlight / SetMaxSceneFramesInFlight); 0 = unlimited. */
 		uint32_t GetMaxSceneFramesInFlight() const noexcept;
 
-		void SetShowDirectionalLightFrustum(bool bEnable) noexcept;
-		bool GetShowDirectionalLightFrustum() const noexcept;
 		/** Thread-safe copy of last completed frame's RDG pass CPU Encode timings (see HUD disclaimer). */
 		void GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const;
-		/**
-		 * Valid after Shadow RDG pass. Prefers spot perspective shadow frustum when present; otherwise directional ortho.
-		 * Point lights are not included.
-		 */
-		bool TryGetGuiDebugShadowFrustum(EGuiShadowFrustumKind& OutKind, math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,
-										 math::Matrix4x4& OutCameraViewProj) const noexcept;
-
 	private:
 		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */
 		void SubmitSceneForRendering(float DeltaTime);

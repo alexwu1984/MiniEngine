@@ -56,6 +56,7 @@ namespace RenderCore
 		virtual void RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues = 0) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) override;
+		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, uint32_t VertexCount, uint32_t StartVertexLocation) override;
 		virtual void DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void DrawPrimitiveInstanced(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount, uint32_t StartInstanceLocation = 0) override;
 		virtual void DrawPrimitiveInstanced(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI, uint32_t InstanceCount,

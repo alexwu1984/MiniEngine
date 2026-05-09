@@ -259,19 +259,17 @@ namespace Engine
 			actor->SetState(Actor::EActive);
 			if (!bSyncProceduralSun)
 				actor->SetPosition(Parsed.Position);
-			auto spot = std::make_shared<SpotLightComponent>(actor);
+			math::Vector3 coneAxisFromJson{};
 			if (!bSyncProceduralSun)
 			{
-				// KHR: light travels along local -Z; Actor::GetForward() is local +Z, so align +Z to -emission (AMD / glTFSample node convention).
-				math::Vector3 emission = Parsed.Direction;
-				if (emission.GetSqrLength() < 1e-10f)
-					emission = math::Vector3(0.f, 0.f, -1.f);
+				coneAxisFromJson = Parsed.Direction;
+				if (coneAxisFromJson.GetSqrLength() < 1e-10f)
+					coneAxisFromJson = math::Vector3(0.f, 0.f, -1.f);
 				else
-					emission = emission.Normalize();
-				actor->RotateToNewForward(-emission);
-				spot->SetWorldForward(emission);
+					coneAxisFromJson = coneAxisFromJson.Normalize();
 			}
-			else
+			auto spot = std::make_shared<SpotLightComponent>(actor);
+			if (bSyncProceduralSun)
 			{
 				spot->SetProceduralSunFill(true);
 				spot->SetWorldForward(math::Vector3(0.f, -1.f, 0.f));
@@ -287,6 +285,9 @@ namespace Engine
 			spot->SetCastShadow(bCastShadow);
 			spot->SetSortPriority(400 - JsonOrderIndex);
 			actor->AddComponent(spot);
+			// After AddComponent: cone axis drives rotation + first GatherLights BuildLight (before Tick).
+			if (!bSyncProceduralSun)
+				spot->SetConeAxisWorld(coneAxisFromJson);
 			actor->ComputeWorldTransform(0.f);
 			WorldSelf->AddActor(actor);
 		}

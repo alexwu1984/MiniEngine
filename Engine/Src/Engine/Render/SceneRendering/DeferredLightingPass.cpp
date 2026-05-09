@@ -56,6 +56,16 @@ namespace Engine
 			const int32_t n = (std::min)(static_cast<int32_t>(View.Lights.size()), static_cast<int32_t>(MAX_LIGHT_INSTANCES));
 			Out.Data.myPerFrame.LightCount = n;
 			Out.Data.myPerFrame.bUnlit = 0;
+			int32_t primaryDirIdx = -1;
+			for (int32_t i = 0; i < n; ++i)
+			{
+				if (View.Lights[(size_t)i].Type == LightType_Directional)
+				{
+					primaryDirIdx = i;
+					break;
+				}
+			}
+			Out.Data.myPerFrame.PrimaryDirectionalLightIndex = primaryDirIdx;
 			if (n > 0)
 			{
 				for (int32_t i = 0; i < n; ++i)
@@ -63,28 +73,38 @@ namespace Engine
 			}
 			else
 				Out.Data.myPerFrame.Lights[0] = Light{};
-			if (WorldSceneRender && !View.Lights.empty() && View.Lights[0].Type == LightType_Directional)
+			if (WorldSceneRender && primaryDirIdx >= 0)
 			{
 				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 				{
 					Light L{};
 					if (ShadowPass->TryGetCachedMainLightForShading(L))
 					{
-						Out.Data.myPerFrame.Lights[0].LightView = L.LightView;
-						Out.Data.myPerFrame.Lights[0].LightViewProj = L.LightViewProj;
-						Out.Data.myPerFrame.Lights[0].ShadowMapIndex = L.ShadowMapIndex;
-						Out.Data.myPerFrame.Lights[0].Position = L.Position;
+						Light& Slot = Out.Data.myPerFrame.Lights[primaryDirIdx];
+						Slot.LightView = L.LightView;
+						Slot.LightViewProj = L.LightViewProj;
+						Slot.ShadowMapIndex = L.ShadowMapIndex;
+						Slot.Position = L.Position;
 					}
 				}
 			}
 			// CB says shadow on but no map bound -> PS would sample undefined t8 (hang / corruption).
-			if (WorldSceneRender && Out.Data.myPerFrame.Lights[0].ShadowMapIndex >= 0)
+			if (WorldSceneRender && primaryDirIdx >= 0 && Out.Data.myPerFrame.Lights[primaryDirIdx].ShadowMapIndex >= 0)
 			{
 				if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 				{
 					const std::shared_ptr<RHIRenderTarget> ShadowRt = ShadowPass->GetShadowMap();
 					if (!ShadowRt || !ShadowRt->GetTex())
-						Out.Data.myPerFrame.Lights[0].ShadowMapIndex = -1;
+						Out.Data.myPerFrame.Lights[primaryDirIdx].ShadowMapIndex = -1;
+				}
+			}
+			// Single directional shadow map (t8): only PrimaryDirectionalLightIndex may reference it; extra directionals stay analytic-only.
+			if (primaryDirIdx >= 0)
+			{
+				for (int32_t i = 0; i < n; ++i)
+				{
+					if (i != primaryDirIdx && Out.Data.myPerFrame.Lights[(size_t)i].Type == LightType_Directional)
+						Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex = -1;
 				}
 			}
 			if (OutPointShadow)
@@ -112,8 +132,19 @@ namespace Engine
 				{
 					for (int32_t i = 0; i < n; ++i)
 					{
-						if (Out.Data.myPerFrame.Lights[i].ShadowMapIndex == kPointLightCubeShadowMapIndex)
-							Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
+						if (Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex == kPointLightCubeShadowMapIndex)
+							Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex = -1;
+					}
+				}
+				else
+				{
+					const int32_t cubeOwner = OutPointShadow->Data.LightIndex;
+					for (int32_t i = 0; i < n; ++i)
+					{
+						if (Out.Data.myPerFrame.Lights[(size_t)i].Type != LightType_Point)
+							continue;
+						if (Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex == kPointLightCubeShadowMapIndex && i != cubeOwner)
+							Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex = -1;
 					}
 				}
 			}
@@ -151,8 +182,19 @@ namespace Engine
 				{
 					for (int32_t i = 0; i < n; ++i)
 					{
-						if (Out.Data.myPerFrame.Lights[i].ShadowMapIndex == kSpotLightShadowMapIndex)
-							Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
+						if (Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex == kSpotLightShadowMapIndex)
+							Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex = -1;
+					}
+				}
+				else
+				{
+					const int32_t spotOwner = OutSpotShadow->Data.SpotShadowLightIndex;
+					for (int32_t i = 0; i < n; ++i)
+					{
+						if (Out.Data.myPerFrame.Lights[(size_t)i].Type != LightType_Spot)
+							continue;
+						if (Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex == kSpotLightShadowMapIndex && i != spotOwner)
+							Out.Data.myPerFrame.Lights[(size_t)i].ShadowMapIndex = -1;
 					}
 				}
 			}
@@ -286,9 +328,10 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
 		// Must match CB filled above: view lights keep ShadowMapIndex == -1 (e.g. DirectionalLightComponent); shadow pass patches CB via TryGetCachedMainLightForShading.
-		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform->Data.myPerFrame.LightCount > 0
-			&& PerFrameUniform->Data.myPerFrame.Lights[0].Type == LightType_Directional
-			&& PerFrameUniform->Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
+		const int32_t pdi = PerFrameUniform->Data.myPerFrame.PrimaryDirectionalLightIndex;
+		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform->Data.myPerFrame.LightCount > 0 && pdi >= 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].Type == LightType_Directional
+			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].ShadowMapIndex >= 0;
 		// RHISetShaderTexture ignores nullptr; leaving t8 unstaged keeps whatever was bound last frame (validation / GPU faults).
 		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
 		if (bDeferredShadow)
@@ -376,9 +419,10 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
-		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PerFrameUniform->Data.myPerFrame.LightCount > 0
-			&& PerFrameUniform->Data.myPerFrame.Lights[0].Type == LightType_Directional
-			&& PerFrameUniform->Data.myPerFrame.Lights[0].ShadowMapIndex >= 0;
+		const int32_t pdiFur = PerFrameUniform ? PerFrameUniform->Data.myPerFrame.PrimaryDirectionalLightIndex : -1;
+		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PerFrameUniform->Data.myPerFrame.LightCount > 0 && pdiFur >= 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[pdiFur].Type == LightType_Directional
+			&& PerFrameUniform->Data.myPerFrame.Lights[pdiFur].ShadowMapIndex >= 0;
 		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
 		if (bDeferredShadow)
 		{

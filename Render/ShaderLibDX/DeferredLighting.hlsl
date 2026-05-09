@@ -173,66 +173,47 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	const float aoDiffuse = max(aoRaw, 1e-4);
 	const float aoSpec = max(aoRaw, 0.2);
 
+	float4 auxSample = MaterialAuxGBuffer.Sample(SampleLinear, uv);
+	uint smid = DecodeShadingModelId(auxSample.r);
+	// Hair SM: lit only in forward fur pass (FurMaterial / FurForwardAccumulate); skip deferred to avoid double lighting.
+	if (IsHairShadingModel(smid))
+		return float4(baseColor + emiss.rgb, alpha);
+
 	float3 viewVec = myPerFrame.CameraPos.xyz - worldPos;
 	float vLen = length(viewVec);
 	float3 view = (vLen > 1e-5) ? (viewVec / vLen) : float3(0.0, 0.0, 1.0);
 	MaterialInfo materialInfo;
 	DecodeMaterialFromGBuffer(baseColor, metallic, perceptualRoughness, materialInfo);
 
-	float4 auxSample = MaterialAuxGBuffer.Sample(SampleLinear, uv);
-	uint smid = DecodeShadingModelId(auxSample.r);
-	const bool bHair = IsHairShadingModel(smid);
-	float3 strandT = DecodeHairTangentOctPacked(auxSample.gb);
-	// MatAux .a is blended with shell coverage (SrcAlpha MRT); do not use as packed ibl scale for hair.
-	float hairIblDiffuseScale = bHair ? 1.0f : saturate(auxSample.a);
-
 	// Fur/shell edges: SrcAlpha-blended normals between strands and contact geometry crush N·L on default-lit GGX. Nudge toward
-	// world up for dielectric, high-roughness semi-transparent pixels (not hair SM — aux channel must stay interpretable).
-	if (!bHair && baseSample.a < 0.999f && baseSample.a > 1e-3f && metallic < 0.05f && perceptualRoughness > 0.5f)
+	// world up for dielectric, high-roughness semi-transparent pixels.
+	if (baseSample.a < 0.999f && baseSample.a > 1e-3f && metallic < 0.05f && perceptualRoughness > 0.5f)
 	{
 		float edge = saturate((1.0f - baseSample.a) * 3.0f);
 		float3 upW = float3(0.0f, 1.0f, 0.0f);
 		normal = normalize(lerp(normal, upW, edge * 0.45f));
 	}
-	// Hair/fur: same blended-geomN issue on floor; sky often skips lighting (depth early-out). Nudge for IBL + shadow axes.
-	if (bHair && baseSample.a < 0.999f && baseSample.a > 1e-3f)
-	{
-		float edge = saturate((1.0f - baseSample.a) * 3.0f);
-		float3 upW = float3(0.0f, 1.0f, 0.0f);
-		normal = normalize(lerp(normal, upW, edge * 0.42f));
-	}
 
 	float3 color = float3(0, 0, 0);
-	float4 mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[0].LightViewProj);
+	int mdi = myPerFrame.PrimaryDirectionalLightIndex;
+	// One directional shadow map (t8): DeferredLightingPass.cpp merges VP only into PrimaryDirectionalLightIndex and forces ShadowMapIndex=-1 on other directionals.
+	float4 mainLightClip = float4(0, 0, 0, 1);
+	if (mdi >= 0 && mdi < MAX_LIGHT_INSTANCES && myPerFrame.Lights[mdi].ShadowMapIndex >= 0)
+		mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[mdi].LightViewProj);
 
 	[loop]
 	for (int i = 0; i < myPerFrame.LightCount; ++i)
 	{
 		Light light = myPerFrame.Lights[i];
-		if (bHair)
+		if (light.Type == LightType_Directional)
 		{
-			if (light.Type == LightType_Directional)
-			{
-				float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
-				color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, view, baseSample.a);
-			}
-			else if (light.Type == LightType_Point)
-				color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i, baseSample.a);
-			else if (light.Type == LightType_Spot)
-				color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, normal, worldPos, view, i, baseSample.a);
+			float4 lc = (light.ShadowMapIndex >= 0) ? mainLightClip : float4(0, 0, 0, 1);
+			color += ApplyDirectionalLightDeferred(lc, light, materialInfo, normal, view);
 		}
-		else
-		{
-			if (light.Type == LightType_Directional)
-			{
-				float4 lc = (i == 0) ? mainLightClip : mul(float4(worldPos, 1.0), light.LightViewProj);
-				color += ApplyDirectionalLightDeferred(lc, light, materialInfo, normal, view);
-			}
-			else if (light.Type == LightType_Point)
-				color += ApplyPointLight(light, materialInfo, normal, worldPos, view, i);
-			else if (light.Type == LightType_Spot)
-				color += ApplySpotLight(light, materialInfo, normal, worldPos, view, i);
-		}
+		else if (light.Type == LightType_Point)
+			color += ApplyPointLight(light, materialInfo, normal, worldPos, view, i);
+		else if (light.Type == LightType_Spot)
+			color += ApplySpotLight(light, materialInfo, normal, worldPos, view, i);
 	}
 
 	float3 iblDiffuse, iblSpecular;
@@ -241,14 +222,7 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	float specOccPowBase = max(NdotVao + aoSpec - 0.0001, 1e-5);
 	float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + aoSpec);
 
-	if (bHair)
-	{
-		float kkIbDiffuseMul = lerp(0.32, 0.72, perceptualRoughness);
-		color += iblDiffuse * aoDiffuse * hairIblDiffuseScale * kkIbDiffuseMul * myPerFrame.IBLFactor;
-		color += iblSpecular * specOcc * 0.14 * myPerFrame.IBLFactor;
-	}
-	else
-		color += (iblDiffuse * aoDiffuse + iblSpecular * specOcc) * myPerFrame.IBLFactor;
+	color += (iblDiffuse * aoDiffuse + iblSpecular * specOcc) * myPerFrame.IBLFactor;
 
 	color += emiss.rgb;
 

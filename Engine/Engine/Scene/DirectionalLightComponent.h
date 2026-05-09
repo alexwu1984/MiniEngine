@@ -38,6 +38,10 @@ namespace Engine
 		void SetWorldDirection(const math::Vector3& InDir);
 		const math::Vector3& GetWorldDirection() const { return WorldDirection; }
 
+		/** Overlay: orthogonal shadow-map frustum (only draws when shadow pass assigns this directional the main map). */
+		void SetShowShadowFrustumDebug(bool bIn) { bShowShadowFrustumDebug = bIn; }
+		bool GetShowShadowFrustumDebug() const { return bShowShadowFrustumDebug; }
+
 		Light BuildLight() const;
 
 	private:
@@ -48,6 +52,7 @@ namespace Engine
 		float DepthBias = 0.f;
 		bool bUseActorForward = true;
 		math::Vector3 WorldDirection{ 0.f, 1.f, 0.f };
+		bool bShowShadowFrustumDebug = false;
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(DirectionalLightComponent);
 }

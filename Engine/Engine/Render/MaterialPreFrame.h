@@ -14,9 +14,13 @@ namespace Engine
 	static const int LightType_Point = 1;
 	static const int LightType_Spot = 2;
 
-	/** Deferred + shadow pass: punctual lights that own the single cubemap shadow use this ShadowMapIndex (not the directional map). */
+	/**
+	 * Shadow slot markers on `Light::ShadowMapIndex` (actual textures are bound separately in deferred).
+	 * Policy: one directional shadow map → **first** directional in the view list (`PrimaryDirectionalLightIndex`);
+	 * one cubemap + one spot depth → **first** point / spot that opts into shadow in traverse order (see ShadowRenderPass).
+	 * All lights still participate in analytic shading up to `MAX_LIGHT_INSTANCES`.
+	 */
 	static constexpr int kPointLightCubeShadowMapIndex = 2;
-	/** Single 2D spotlight depth map (perspective frustum); sampled in deferred / fur forward. */
 	static constexpr int kSpotLightShadowMapIndex = 3;
 
 	struct Light
@@ -49,26 +53,41 @@ namespace Engine
 
 	struct PerFrame
 	{
+		// View / camera matrices
 		math::Matrix4x4     CameraCurrViewProj;
 		math::Matrix4x4     CameraPrevViewProj;
 		math::Matrix4x4     CameraCurrViewProjInverse;
 		math::Matrix4x4     RotateIBL;
+
+		// View / camera parameters
 		math::Vector4       CameraPos;
-		float				IBLFactor{ 0.f };
-		float				EmissiveFactor{ 100.f };
 		math::Vector2       InvScreenResolution;
-		math::Vector4       WireframeOptions;
-		float				LodBias{ 0.f };
-		float				IBLMIpCount{ 1.f };
-		int32_t				LightCount{ 0 };
-		/** Packed 0/1; mirrors FSceneViewData::bUnlit (UE-style view unlit). */
-		int32_t				bUnlit{ 0 };
-		math::Vector4		TemporalAAJitter{ 1.f, 1.f, 1.f, 1.f };
-		/** Matches deferred fullscreen reconstruct; must stay in sync with PerFrameStruct.hlsl. */
 		float				CameraNearZ{ 0.1f };
 		float				CameraFarZ{ 1000.f };
-		uint32_t			PerFramePadBeforeLights[2]{};
+
+		// IBL / material globals
+		float				IBLFactor{ 0.f };
+		float				EmissiveFactor{ 100.f };
+		float				LodBias{ 0.f };
+		float				IBLMIpCount{ 1.f };
+
+		// Debug / view flags
+		math::Vector4       WireframeOptions;
+		int32_t				LightCount{ 0 };
+		/**
+		 * Index into Lights[] for the single directional shadow map (t8) / GetMainLightViewProj in base pass.
+		 * Always the first directional in GatherLightsForView order (highest SortPriority among directionals). -1 if no directional.
+		 */
+		int32_t				PrimaryDirectionalLightIndex{ -1 };
+		/** Packed 0/1; mirrors FSceneViewData::bUnlit (UE-style view unlit). */
+		int32_t				bUnlit{ 0 };
+		int32_t				_PadPerFrameLightHeader{ 0 };
+		math::Vector4		TemporalAAJitter{ 1.f, 1.f, 1.f, 1.f };
+
 		Light				Lights[MAX_LIGHT_INSTANCES];
+
+		/** Trailing 16B: keeps sizeof(CBPerFrame) % 16 == 0. */
+		uint32_t			PerFramePadAfterLights[4]{};
 	};
 
 	struct CBPerFrame

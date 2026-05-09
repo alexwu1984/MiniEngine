@@ -27,6 +27,7 @@
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/SceneRendering/SceneViewFamily.h"
 #include "Render/SceneRendering/SceneRenderer.h"
+#include "Render/ShadowDebugWireRenderer.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "core/logger.h"
 
@@ -133,6 +134,10 @@ namespace Engine
 				if (!dLife->ShadowRender)
 					dLife->ShadowRender = std::make_shared<ShadowRenderPass>(RHI);
 				dLife->ShadowRender->InitResource();
+
+				if (!dLife->ShadowDebugWire)
+					dLife->ShadowDebugWire = std::make_shared<FShadowDebugWireRenderer>(RHI);
+				dLife->ShadowDebugWire->InitResource();
 
 				if (!dLife->DeferredLighting)
 					dLife->DeferredLighting = std::make_shared<DeferredLightingPass>(RHI);
@@ -305,17 +310,6 @@ namespace Engine
 		return d_ptr ? d_ptr->MaxSceneFramesInFlight.load(std::memory_order_relaxed) : 0u;
 	}
 
-	void FWorldSceneRender::SetShowDirectionalLightFrustum(bool bEnable) noexcept
-	{
-		if (d_ptr)
-			d_ptr->bShowDirectionalLightFrustum.store(bEnable, std::memory_order_relaxed);
-	}
-
-	bool FWorldSceneRender::GetShowDirectionalLightFrustum() const noexcept
-	{
-		return d_ptr ? d_ptr->bShowDirectionalLightFrustum.load(std::memory_order_relaxed) : false;
-	}
-
 	void FWorldSceneRender::GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const
 	{
 		Out.clear();
@@ -323,31 +317,6 @@ namespace Engine
 			return;
 		std::lock_guard<std::mutex> Lock(d_ptr->PassCpuTimingMutex);
 		Out = d_ptr->LastFramePassCpuTimingsForGui;
-	}
-
-	bool FWorldSceneRender::TryGetGuiDebugShadowFrustum(EGuiShadowFrustumKind& OutKind, math::Matrix4x4& OutLightViewProj, math::Vector3& OutLightDirectionTowardSource,
-														math::Matrix4x4& OutCameraViewProj) const noexcept
-	{
-		if (!d_ptr)
-			return false;
-		OutCameraViewProj = d_ptr->GuiCameraViewProjForDebug;
-		// Prefer spot when both are valid: many scenes use directional fill + procedural-sun spot shadow; the old
-		// "directional first" choice drew the wrong frustum while the Light panel showed the spot (e.g. harley.json).
-		if (d_ptr->bGuiSpotLightFrustumValid.load(std::memory_order_relaxed))
-		{
-			OutKind = EGuiShadowFrustumKind::SpotPerspective;
-			OutLightViewProj = d_ptr->GuiSpotLightViewProjForDebug;
-			OutLightDirectionTowardSource = d_ptr->GuiSpotLightDirectionTowardSourceForDebug;
-			return true;
-		}
-		if (d_ptr->bGuiDirLightFrustumValid.load(std::memory_order_relaxed))
-		{
-			OutKind = EGuiShadowFrustumKind::DirectionalOrtho;
-			OutLightViewProj = d_ptr->GuiDirLightViewProjForDebug;
-			OutLightDirectionTowardSource = d_ptr->GuiDirLightDirectionTowardSourceForDebug;
-			return true;
-		}
-		return false;
 	}
 
 	void FWorldSceneRender::EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait)

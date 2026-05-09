@@ -11,17 +11,27 @@
       },
       {
         "LightColor": "1.0,0.84,0.6",
-        "LightDir": "0.754,-0.166,-0.636",
+        "LightDir": "0.652,-0.547,-0.525",
         "LightStrength": 14.0,
         "LightType": 2,
         "LightPosition": "0.33,1.28,-1.5",
-        "LightRange": 68.5,
-        "InnerConeDeg": 35.5,
-        "OuterConeDeg": 74.0,
+        "LightRange": 12.0,
+        "InnerConeDeg": 25.0,
+        "OuterConeDeg": 55.0,
         "CastShadow": true
+      },
+      {
+        "LightColor": "0.6,0.84,1.0",
+        "LightDir": "-0.512,-0.753,-0.412",
+        "LightStrength": 14.0,
+        "LightType": 2,
+        "LightPosition": "-0.33,1.28,-1.5",
+        "LightRange": 12.0,
+        "InnerConeDeg": 25.0,
+        "OuterConeDeg": 55.0,
+        "CastShadow": false
       }
     ],
-
     "RotateIBL": "0,0"
   },
   "Modles": [

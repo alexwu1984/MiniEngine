@@ -5,7 +5,8 @@
 #define MINIENGINE_SHADOW_PCSS_HLSL
 
 static const float kPCSSBlockerSearchRadiusUV = 0.010;
-static const float kPCSSMinFilterRadiusUV = 0.00022;
+// Wider minimum PCF radius reduces shimmering / moire on large receivers (e.g. dense tessellated floors).
+static const float kPCSSMinFilterRadiusUV = 0.00065;
 static const float kPCSSMaxFilterRadiusUV = 0.0045;
 static const float kPCSSPenumbraMul = 14.0;
 
@@ -24,8 +25,8 @@ float ShadowDepthBiasPCSS(float3 Normal)
 	float3 L = normalize(GetMainLight().Direction);
 	float3 n = normalize(Normal);
 	float NdotL = abs(dot(n, L));
-	const float baseBias = 0.00025;
-	const float slopeBias = 0.0009;
+	const float baseBias = 0.00038;
+	const float slopeBias = 0.00135;
 	return baseBias + slopeBias * (1.0 - NdotL);
 }
 

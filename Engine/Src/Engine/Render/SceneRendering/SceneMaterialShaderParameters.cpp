@@ -17,17 +17,27 @@ namespace Engine
 			return Out;
 
 		Out.lightInfos = ViewData->Lights;
-		if (!Out.lightInfos.empty() && Out.lightInfos[0].Type == LightType_Directional)
+		Out.PrimaryDirectionalLightIndex = -1;
+		for (int32_t i = 0; i < static_cast<int32_t>(Out.lightInfos.size()); ++i)
+		{
+			if (Out.lightInfos[(size_t)i].Type == LightType_Directional)
+			{
+				Out.PrimaryDirectionalLightIndex = i;
+				break;
+			}
+		}
+		if (Out.PrimaryDirectionalLightIndex >= 0)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
 			{
 				Light L{};
 				if (ShadowPass->TryGetCachedMainLightForShading(L))
 				{
-					Out.lightInfos[0].LightView = L.LightView;
-					Out.lightInfos[0].LightViewProj = L.LightViewProj;
-					Out.lightInfos[0].ShadowMapIndex = L.ShadowMapIndex;
-					Out.lightInfos[0].Position = L.Position;
+					Light& Slot = Out.lightInfos[(size_t)Out.PrimaryDirectionalLightIndex];
+					Slot.LightView = L.LightView;
+					Slot.LightViewProj = L.LightViewProj;
+					Slot.ShadowMapIndex = L.ShadowMapIndex;
+					Slot.Position = L.Position;
 				}
 			}
 		}

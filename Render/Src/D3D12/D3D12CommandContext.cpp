@@ -583,7 +583,17 @@ namespace RenderCore
 
 	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
 	{
-		if (!CurrentStateCache)
+		if (!VertexBufferRHI)
+			return;
+		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		if (!VertexBuffer)
+			return;
+		DrawPrimitive(VertexBufferRHI, static_cast<uint32_t>(VertexBuffer->GetCount()), 0u);
+	}
+
+	void D3D12CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, uint32_t VertexCount, uint32_t StartVertexLocation)
+	{
+		if (!CurrentStateCache || VertexCount == 0u)
 			return;
 
 		D3D12VertexBffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
@@ -597,7 +607,7 @@ namespace RenderCore
 		if (!CurrentStateCache->ApplyGraphicState(CommandListHandle))
 			return;
 		CommandListHandle.FlushResourceBarriers();
-		CommandListHandle->DrawInstanced(VertexBuffer->GetCount(),1,0,0);
+		CommandListHandle->DrawInstanced(VertexCount, 1u, StartVertexLocation, 0u);
 		++numDraws;
 	}
 

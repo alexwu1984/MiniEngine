@@ -234,6 +234,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITextureCube> PointShadowCube;
 		Light CachedMainLightForShading{};
 		bool bCachedMainLightValid = false;
+		int CachedMainDirectionalShadowLightListIndex = -1;
 
 		math::Matrix4x4 CachedPointFaceVP[6]{};
 		math::Vector3 CachedPointLightPos{};
@@ -242,6 +243,7 @@ namespace Engine
 		bool bCachedPointShadowValid = false;
 
 		math::Matrix4x4 CachedSpotLightViewProj{};
+		math::Matrix4x4 CachedSpotLightView{};
 		int CachedSpotShadowLightIndex = -1;
 		bool bCachedSpotShadowValid = false;
 
@@ -324,6 +326,7 @@ namespace Engine
 		}
 	}
 
+	/** Orthographic cascaded/map shadow applies to the **first** directional only (`GatherLightsForView` lists all dirs first). */
 	static int FindFirstDirectionalLightIndex(const std::vector<Light>& Lights)
 	{
 		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
@@ -334,6 +337,10 @@ namespace Engine
 		return -1;
 	}
 
+	/**
+	 * One cubemap shadow target: first point light that requested cube shadow (`ShadowMapIndex == kPointLightCubeShadowMapIndex`).
+	 * Any number of point lights still contribute analytic shading; only this index pairs with `PointShadowLightIndex` in deferred.
+	 */
 	static int FindPointShadowCubeLightIndex(const std::vector<Light>& Lights)
 	{
 		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
@@ -345,6 +352,10 @@ namespace Engine
 		return -1;
 	}
 
+	/**
+	 * One spotlight depth texture: first spot with `CastShadow` (`ShadowMapIndex == kSpotLightShadowMapIndex`).
+	 * Order follows `GatherLightsForView` (spots sorted by component SortPriority, descending). Others stay lit without this depth map.
+	 */
 	static int FindSpotShadowLightIndex(const std::vector<Light>& Lights)
 	{
 		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
@@ -608,16 +619,19 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
+		d->CachedMainDirectionalShadowLightListIndex = -1;
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 	}
 
-	bool ShadowRenderPass::TryGetCachedMainLightForShading(Light& OutLight)
+	bool ShadowRenderPass::TryGetCachedMainLightForShading(Light& OutLight, int* OutLightListIndexInLastShadowPassLights)
 	{
 		C_P(ShadowRenderPass);
 		if (!d->bCachedMainLightValid)
 			return false;
 		OutLight = d->CachedMainLightForShading;
+		if (OutLightListIndexInLastShadowPassLights)
+			*OutLightListIndexInLastShadowPassLights = d->CachedMainDirectionalShadowLightListIndex;
 		return true;
 	}
 
@@ -632,11 +646,13 @@ namespace Engine
 	{
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
+		d->CachedMainDirectionalShadowLightListIndex = -1;
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 		d->ShadowMgr->Update(Lights, ShadowProjectorScene);
 
-		if (ShadowCasterMeshes.empty() && !ShadowProjectorScene.bValid)
+		// FrustumBoundsMeshes may contain receivers/floor when caster list is empty; still needed for spot depth + ortho fitting.
+		if (ShadowCasterMeshes.empty() && FrustumBoundsMeshes.empty() && !ShadowProjectorScene.bValid)
 			return;
 
 		const std::vector<GltfSceneMeshInfo>* subjectMeshList = SelectShadowSubjectMeshListForFrustum(ShadowCasterMeshes, FrustumBoundsMeshes, ShadowProjectorScene);
@@ -662,6 +678,7 @@ namespace Engine
 			const bool bReceiverRelativeFrustumAdjust = receiverValid && kPreferTightShadowFrustumFromCasters && subjectMeshList == &ShadowCasterMeshes;
 			SetupDirectionalShadowViewProjection(mainLight, subjectWorldAabb, bReceiverRelativeFrustumAdjust, receiverWorldAabb, smSize);
 			d->CachedMainLightForShading = mainLight;
+			d->CachedMainDirectionalShadowLightListIndex = mainDirIdx;
 			d->bCachedMainLightValid = true;
 			RenderDirectionalShadowMapPass(d, RHIContext, ShadowCasterMeshes, mainLight);
 		}
@@ -693,6 +710,7 @@ namespace Engine
 				}
 				SetupSpotShadowViewProjection(spotL, spotZFarOk ? &spotZFarBounds : nullptr, spotZFarOk);
 				d->CachedSpotLightViewProj = spotL.LightViewProj;
+				d->CachedSpotLightView = spotL.LightView;
 				d->CachedSpotShadowLightIndex = spotShadowIdx;
 				d->bCachedSpotShadowValid = true;
 				RenderSpotShadowMapPass(d, RHIContext, spotMeshList, spotL);
@@ -730,13 +748,15 @@ namespace Engine
 		return d->SpotShadowBuffer;
 	}
 
-	bool ShadowRenderPass::TryGetCachedSpotShadowForDeferred(int& OutLightIndex, math::Matrix4x4& OutSpotLightViewProj) const
+	bool ShadowRenderPass::TryGetCachedSpotShadowForDeferred(int& OutLightIndex, math::Matrix4x4& OutSpotLightViewProj, math::Matrix4x4* OutOptionalLightView) const
 	{
 		C_P(ShadowRenderPass);
 		if (!d->bCachedSpotShadowValid)
 			return false;
 		OutLightIndex = d->CachedSpotShadowLightIndex;
 		OutSpotLightViewProj = d->CachedSpotLightViewProj;
+		if (OutOptionalLightView)
+			*OutOptionalLightView = d->CachedSpotLightView;
 		return true;
 	}
 

@@ -1,6 +1,5 @@
 ﻿#include "Scene/SpotLightComponent.h"
 #include "Scene/Actor.h"
-#include "math/vector4.h"
 
 namespace Engine
 {
@@ -43,6 +42,22 @@ namespace Engine
 		WorldForward = InForward;
 	}
 
+	void SpotLightComponent::SetConeAxisWorld(const math::Vector3& InAxis)
+	{
+		math::Vector3 a = InAxis;
+		if (a.GetSqrLength() < 1e-10f)
+			a = math::Vector3(0.f, 0.f, 1.f);
+		else
+			a = a.Normalize();
+		ConeAxisWorld = a;
+		WorldForward = a;
+		if (const auto owner = GetOwner())
+		{
+			owner->RotateToNewForward(-a);
+			owner->ComputeWorldTransform(0.f);
+		}
+	}
+
 	void SpotLightComponent::SetProceduralPlacement(float sunDistanceAlongRay, const math::Vector3& aimWorld)
 	{
 		ProceduralSunDistanceAlongRay = sunDistanceAlongRay > 0.f ? sunDistanceAlongRay : 1.f;
@@ -76,40 +91,22 @@ namespace Engine
 		L.LightView.Identity();
 		L.LightViewProj.Identity();
 
-		L.Position = math::Vector3{};
 		const auto owner = GetOwner();
-		if (owner)
-			L.Position = owner->GetPosition();
-
-		// AMD GltfCommon::SetPerFrameData: direction from transpose(lightView) * (0,0,1,0) with lightView = inv(light world mat).
-		// Row-vector engine: (0,0,1,0) * lightView equals the same 3-vector (see glTFSample math layout).
+		math::Vector3 cone = ConeAxisWorld;
+		if (cone.GetSqrLength() < 1e-10f)
+			cone = math::Vector3(0.f, 0.f, 1.f);
+		else
+			cone = cone.Normalize();
+		// Deferred: SpotDirection = -L.Direction == cone (world emission). L.Direction = -cone.
 		if (owner)
 		{
-			const math::Matrix4x4& W = owner->GetWorldTransform();
-			const math::Matrix4x4 lightView = W.Inverse();
-			const math::Vector4 d4 = math::Vector4(0.f, 0.f, 1.f, 0.f) * lightView;
-			math::Vector3 dir(d4.x, d4.y, d4.z);
-			if (dir.GetSqrLength() > 1e-14f)
-				L.Direction = dir.Normalize();
-			else
-			{
-				math::Vector3 fwd = WorldForward;
-				const math::Vector3 localF = fwd;
-				const math::Vector3 row0(W._00, W._01, W._02);
-				const math::Vector3 row1(W._10, W._11, W._12);
-				const math::Vector3 row2(W._20, W._21, W._22);
-				fwd = math::Vector3(row0.Dot(localF), row1.Dot(localF), row2.Dot(localF)).Normalize();
-				if (fwd.GetSqrLength() < 1e-10f)
-					fwd = math::Vector3(0.f, -1.f, 0.f);
-				L.Direction = -fwd;
-			}
+			L.Position = owner->GetPosition();
+			L.Direction = (-cone).Normalize();
 		}
 		else
 		{
-			math::Vector3 fwd = WorldForward.Normalize();
-			if (fwd.GetSqrLength() < 1e-10f)
-				fwd = math::Vector3(0.f, -1.f, 0.f);
-			L.Direction = -fwd;
+			L.Position = math::Vector3{};
+			L.Direction = (-cone).Normalize();
 		}
 
 		L.InnerConeCos = InnerConeCos;

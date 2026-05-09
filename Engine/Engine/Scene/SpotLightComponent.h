@@ -30,9 +30,13 @@ namespace Engine
 		void SetRange(float InRange);
 		float GetRange() const { return Range; }
 
-		/** Local +Z emission axis before actor rotation; overridden per frame by BuildLight using inv(world) like AMD GltfCommon when the actor matrix is valid. */
+		/** Legacy field; kept in sync with cone axis for older call sites. */
 		void SetWorldForward(const math::Vector3& InForward);
 		const math::Vector3& GetWorldForward() const { return WorldForward; }
+
+		/** World-space unit vector along which the spot emits (same as deferred SpotDirection). Drives actor rotation via +Z -> -axis. */
+		void SetConeAxisWorld(const math::Vector3& InAxis);
+		const math::Vector3& GetConeAxisWorld() const { return ConeAxisWorld; }
 
 		void SetInnerConeCos(float InCos);
 		void SetOuterConeCos(float InCos);
@@ -51,6 +55,10 @@ namespace Engine
 		void SetCastShadow(bool bIn);
 		bool GetCastShadow() const { return bCastShadow; }
 
+		/** ImGui: draw this lamp's cached shadow-map frustum wire (only when this spot owns the shadow atlas). */
+		void SetShowShadowFrustumDebug(bool bIn) { bShowShadowFrustumDebug = bIn; }
+		bool GetShowShadowFrustumDebug() const { return bShowShadowFrustumDebug; }
+
 		Light BuildLight() const;
 
 	private:
@@ -67,6 +75,9 @@ namespace Engine
 		float ProceduralSunDistanceAlongRay = 130.f;
 		math::Vector3 ProceduralAimWorld{ 0.f, 0.f, 0.f };
 		bool bCastShadow = false;
+		bool bShowShadowFrustumDebug = false;
+		/** Default +Z until SetConeAxisWorld (JSON/UI); BuildLight uses this so frame-0 Gather has a valid direction before Tick. */
+		math::Vector3 ConeAxisWorld{ 0.f, 0.f, 1.f };
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(SpotLightComponent);
 }

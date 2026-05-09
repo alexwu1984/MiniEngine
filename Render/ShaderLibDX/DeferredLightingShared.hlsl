@@ -55,26 +55,36 @@ void GetIBLContributionSplit(MaterialInfo MaterialInfo, float3 n, float3 v, out 
 	outSpecularIBL = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
 }
 
-// Same as AMD glTFSample GLTFPBRLighting.hlsl getRangeAttenuation (KHR_lights_punctual range).
+// Inverse-squared attenuation aligned with UE4 punctual radial path (see UE DeferredLightingCommon.usf):
+//   DistanceAttenuation = rcp(DistanceSqr + 1) * Square(saturate(1 - Square(DistanceSqr * Square(InvRadius))));
+// Unlimited range (MiniEngine convention Range < 0): skip radius mask — softened inverse-square only (no hard rim).
 float GetRangeAttenuation(float Range, float Distance)
 {
+	float d = max(Distance, 0.0);
+	float d2 = d * d;
+	float distanceAttenuation = rcp(max(d2, 1e-8) + 1.0);
 	if (Range < 0.0)
-		return 1.0;
-	return max(lerp(1.0, 0.0, Distance / max(Range, 1e-5)), 0.0);
+		return distanceAttenuation;
+	float r = max(Range, 1e-4);
+	float invR = 1.0 / r;
+	float dd = max(d2 * (invR * invR), 0.0);
+	float dd4 = dd * dd;
+	float lightRadiusMaskSq = saturate(1.0 - dd4);
+	float lightRadiusMask = lightRadiusMaskSq * lightRadiusMaskSq;
+	return distanceAttenuation * lightRadiusMask;
 }
 
 float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterConeCos, float InnerConeCos)
 {
-	float att = 0.0;
-	float actualCos = dot(normalize(SpotDirection), normalize(-PointToLight));
-	if (actualCos > OuterConeCos)
-	{
-		if (actualCos < InnerConeCos)
-			att = smoothstep(OuterConeCos, InnerConeCos, actualCos);
-		else
-			att = 1.0;
-	}
-	return att;
+	// KHR half-angles: inner < outer (degrees) => InnerConeCos > OuterConeCos. Some paths may swap; normalize order.
+	float lo = min(OuterConeCos, InnerConeCos);
+	float hi = max(OuterConeCos, InnerConeCos);
+	float3 ax = normalize(SpotDirection);
+	float3 toSurf = normalize(-PointToLight);
+	float cosTheta = dot(ax, toSurf);
+	if (hi - lo < 1e-5)
+		return cosTheta >= lo - 1e-5 ? 1.0 : 0.0;
+	return saturate(smoothstep(lo, hi, cosTheta));
 }
 
 float ComputeShadow(float4 ShadowCoord, float3 Normal)

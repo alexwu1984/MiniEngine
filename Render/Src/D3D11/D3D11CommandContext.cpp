@@ -750,6 +750,18 @@ namespace RenderCore
 
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI)
 	{
+		if (!VertexBufferRHI)
+			return;
+		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
+		if (!VertexBuffer)
+			return;
+		DrawPrimitive(VertexBufferRHI, static_cast<uint32_t>(VertexBuffer->GetCount()), 0u);
+	}
+
+	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, uint32_t VertexCount, uint32_t StartVertexLocation)
+	{
+		if (VertexCount == 0u)
+			return;
 		D3D11VertexBuffer* VertexBuffer = RHIResourceCast(VertexBufferRHI.get());
 		if (!VertexBuffer)
 			return;
@@ -757,7 +769,7 @@ namespace RenderCore
 
 		StateCache.SetStreamSource(VertexBuffer->GetNativeBuffer(), 0, VertexBuffer->GetStride(), 0);
 		StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
-		Impl->D3D11RHI->GetDeviceContext()->Draw(VertexBuffer->GetCount(), 0);
+		Impl->D3D11RHI->GetDeviceContext()->Draw(VertexCount, StartVertexLocation);
 	}
 
 	void D3D11CommandContext::DrawPrimitive(const std::array<std::shared_ptr<RHIVertexBuffer>, VT_Max>& VertexBufferArrayRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)

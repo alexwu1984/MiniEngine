@@ -14,7 +14,14 @@
 #include "Render/SceneRendering/DeferredShadingBasePassRenderer.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Render/SceneRendering/DeferredBasePassDrawContext.h"
+#include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowRenderPass.h"
+#include "Render/ShadowDebugWireRenderer.h"
+#include "Scene/World.h"
+#include "Scene/Actor.h"
+#include "Scene/DirectionalLightComponent.h"
+#include "Scene/PointLightComponent.h"
+#include "Scene/SpotLightComponent.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHICommandContext.h"
@@ -28,6 +35,16 @@ namespace Engine
 {
 	namespace
 	{
+		static int IndexOfFirstLightOfType(const std::vector<Light>& lights, int type)
+		{
+			for (int li = 0; li < static_cast<int>(lights.size()); ++li)
+			{
+				if (lights[static_cast<size_t>(li)].Type == type)
+					return li;
+			}
+			return -1;
+		}
+
 		std::vector<FRDGPassResource> GatherSceneTexturesPassResources(const std::shared_ptr<SceneTextures>& TB)
 		{
 			if (!TB)
@@ -69,9 +86,17 @@ namespace Engine
 
 		auto MeshesForDraw = std::make_shared<std::vector<GltfSceneMeshInfo>>(std::move(MeshesInfoCopy));
 
-		d->GuiCameraViewProjForDebug = ViewConst->CurrViewProjMatrix;
-		d->bGuiDirLightFrustumValid.store(false, std::memory_order_relaxed);
-		d->bGuiSpotLightFrustumValid.store(false, std::memory_order_relaxed);
+		d->ShadowDebugSubmit = {};
+
+		bool bAnyShadowLight = false;
+		for (const Light& L : ShadowPassLights)
+		{
+			if (L.ShadowMapIndex >= 0)
+			{
+				bAnyShadowLight = true;
+				break;
+			}
+		}
 
 		FRDGBuilder Graph;
 		auto TB = d->TargetBuffer;
@@ -93,32 +118,98 @@ namespace Engine
 					d->PreProcess->Draw(*CommandContext);
 			}});
 
-		const bool bScheduleShadowPass = !shadowCasters.empty() || ShadowProjectorSceneMoved.bValid;
+		// Must run when frustumBounds-only receivers exist (no ProjShadow casters) or any light requests a shadow map; otherwise spot/optional dir depth never renders.
+		const bool bScheduleShadowPass =
+			!shadowCasters.empty() || !shadowFrustumBounds.empty() || ShadowProjectorSceneMoved.bValid || bAnyShadowLight;
 		if (bScheduleShadowPass)
 		{
 			Graph.AddPass(FRDGPassDescriptor{
 				"Shadow",
 				{},
 				{},
-				[d, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved)]() mutable
+				[d, Self, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved)]() mutable
 				{
 					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorScene);
+
+					std::shared_ptr<World> W = Self ? Self->GetWorld() : nullptr;
+
 					Light Dir{};
-					if (d->ShadowRender && d->ShadowRender->TryGetCachedMainLightForShading(Dir))
+					int dirLi = -1;
+					if (W && d->ShadowRender && d->ShadowRender->TryGetCachedMainLightForShading(Dir, &dirLi) && dirLi >= 0)
 					{
-						d->GuiDirLightViewProjForDebug = Dir.LightViewProj;
-						d->GuiDirLightDirectionTowardSourceForDebug = Dir.Direction;
-						d->bGuiDirLightFrustumValid.store(true, std::memory_order_relaxed);
+						const int firstD = IndexOfFirstLightOfType(ShadowPassLights, LightType_Directional);
+						if (firstD >= 0 && dirLi >= firstD)
+						{
+							const int subDir = dirLi - firstD;
+							const auto dirComps = W->GetDirectionalLightsForEditingSorted();
+							if (subDir >= 0 && subDir < static_cast<int>(dirComps.size()) && dirComps[static_cast<size_t>(subDir)]
+								&& dirComps[static_cast<size_t>(subDir)]->GetShowShadowFrustumDebug())
+							{
+								if (d->ShadowDebugSubmit.NumDir < FShadowDebugWireSubmit::kMaxDebugLights)
+								{
+									const auto comp = dirComps[static_cast<size_t>(subDir)];
+									const auto owner = comp ? comp->GetOwner() : nullptr;
+									FShadowDebugWireSubmit::FDirArrow a{};
+									a.Origin = owner ? owner->GetPosition() : math::Vector3(0.f, 0.f, 0.f);
+									a.DirectionTowardSource = comp ? comp->GetWorldDirection() : math::Vector3(0.f, 1.f, 0.f);
+									a.Length = 2.5f;
+									d->ShadowDebugSubmit.Dir[d->ShadowDebugSubmit.NumDir++] = a;
+								}
+							}
+						}
 					}
+
 					int spotIdx = -1;
 					math::Matrix4x4 spotVp{};
-					if (d->ShadowRender && d->ShadowRender->TryGetCachedSpotShadowForDeferred(spotIdx, spotVp) && spotIdx >= 0
-						&& spotIdx < static_cast<int>(ShadowPassLights.size()))
+					math::Matrix4x4 spotView{};
+					if (W && d->ShadowRender && d->ShadowRender->TryGetCachedSpotShadowForDeferred(spotIdx, spotVp, &spotView) && spotIdx >= 0)
 					{
-						const Light& SL = ShadowPassLights[static_cast<size_t>(spotIdx)];
-						d->GuiSpotLightViewProjForDebug = spotVp;
-						d->GuiSpotLightDirectionTowardSourceForDebug = SL.Direction;
-						d->bGuiSpotLightFrustumValid.store(true, std::memory_order_relaxed);
+						const int firstS = IndexOfFirstLightOfType(ShadowPassLights, LightType_Spot);
+						if (firstS >= 0 && spotIdx >= firstS)
+						{
+							const int subS = spotIdx - firstS;
+							const auto spots = W->GetSpotLightsForEditingSorted();
+							if (subS >= 0 && subS < static_cast<int>(spots.size()) && spots[static_cast<size_t>(subS)]
+								&& spots[static_cast<size_t>(subS)]->GetShowShadowFrustumDebug())
+							{
+								if (d->ShadowDebugSubmit.NumSpot < FShadowDebugWireSubmit::kMaxDebugLights)
+								{
+									const auto comp = spots[static_cast<size_t>(subS)];
+									const auto owner = comp ? comp->GetOwner() : nullptr;
+									FShadowDebugWireSubmit::FSpotCone c{};
+									c.Apex = owner ? owner->GetPosition() : math::Vector3(0.f, 0.f, 0.f);
+									c.ConeAxis = comp ? comp->GetConeAxisWorld() : math::Vector3(0.f, 0.f, 1.f);
+									c.Range = comp ? comp->GetRange() : 10.f;
+									c.OuterConeCos = comp ? comp->GetOuterConeCos() : 0.70710677f;
+									d->ShadowDebugSubmit.Spot[d->ShadowDebugSubmit.NumSpot++] = c;
+								}
+							}
+						}
+					}
+
+					int pointIdx = -1;
+					math::Matrix4x4 pointFaceVp[6]{};
+					math::Vector4 pointPosRange{};
+					if (W && d->ShadowRender && d->ShadowRender->TryGetCachedPointShadowForDeferred(pointIdx, pointFaceVp, pointPosRange)
+						&& pointIdx >= 0)
+					{
+						const int firstP = IndexOfFirstLightOfType(ShadowPassLights, LightType_Point);
+						if (firstP >= 0 && pointIdx >= firstP)
+						{
+							const int subP = pointIdx - firstP;
+							const auto points = W->GetPointLightsForEditingSorted();
+							if (subP >= 0 && subP < static_cast<int>(points.size()) && points[static_cast<size_t>(subP)]
+								&& points[static_cast<size_t>(subP)]->GetShowShadowFrustumDebug())
+							{
+								if (d->ShadowDebugSubmit.NumPoint < FShadowDebugWireSubmit::kMaxDebugLights)
+								{
+									FShadowDebugWireSubmit::FPointSphere s{};
+									s.Center = math::Vector3(pointPosRange.x, pointPosRange.y, pointPosRange.z);
+									s.Radius = pointPosRange.w;
+									d->ShadowDebugSubmit.Point[d->ShadowDebugSubmit.NumPoint++] = s;
+								}
+							}
+						}
 					}
 				}});
 		}
@@ -274,6 +365,21 @@ namespace Engine
 		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->TargetBuffer, d->MainViewPort, ViewConst);
 
 		Graph.AddPass(FRDGPassDescriptor{
+			"ShadowDebugWire",
+			{},
+			{},
+			[d, CommandContext, ViewConst]()
+			{
+				if (d->ShadowDebugSubmit.NumDir <= 0 && d->ShadowDebugSubmit.NumSpot <= 0 && d->ShadowDebugSubmit.NumPoint <= 0)
+					return;
+				if (!d->ShadowDebugWire)
+					return;
+				FShadowDebugWireSubmit sub = d->ShadowDebugSubmit;
+				sub.OverlayWorldToClip = ViewConst->SsrViewProjMatrix;
+				d->ShadowDebugWire->Render(*CommandContext, *d->MainViewPort, sub);
+			}});
+
+		Graph.AddPass(FRDGPassDescriptor{
 			"UIPresent",
 			{},
 			{},
@@ -302,8 +408,9 @@ namespace Engine
 			Graph.AddPassDependency("RenderFurForward", "Tonemapping");
 		}
 
-		// After TonemappingPass::BuildDesc ("Tonemapping"): composite ImGui then submit/present.
-		Graph.AddPassDependency("Tonemapping", "UIPresent");
+		// After tonemapping: optional shadow debug lines, then ImGui composite and present.
+		Graph.AddPassDependency("Tonemapping", "ShadowDebugWire");
+		Graph.AddPassDependency("ShadowDebugWire", "UIPresent");
 
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();

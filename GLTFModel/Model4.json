@@ -1,4 +1,4 @@
-{
+﻿{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
@@ -35,7 +35,8 @@
           "Roughness": 0.62,
           "BaseColor": "0.65,0.68,0.72,1.0"
         }
-      }
+      },
+      "ProjShadow": true
     },
     {
       "Model": "Model4.glb",

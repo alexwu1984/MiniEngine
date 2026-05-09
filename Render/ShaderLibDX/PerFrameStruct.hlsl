@@ -41,24 +41,37 @@ struct MaterialPerFrame
 
 struct PerFrame
 {
+    // View / camera matrices
     matrix        CameraCurrViewProj;
     matrix        CameraPrevViewProj;
     matrix        CameraCurrViewProjInverse;
     matrix        RotateIBL;
+
+    // View / camera parameters
     float4        CameraPos;
-    float         IBLFactor;
-    float         EmissiveFactor;
     float2        InvScreenResolution;
-    float4        WireframeOptions;
-    float         LodBias;
-    float         IBLMIpCount;
-    int           LightCount;
-    int           bUnlit;
-    float4        TemporalAAJitter;
     float         CameraNearZ;
     float         CameraFarZ;
-    uint2         _PerFramePadBeforeLights;
+
+    // IBL / material globals
+    float         IBLFactor;
+    float         EmissiveFactor;
+    float         LodBias;
+    float         IBLMIpCount;
+
+    // Debug / view flags
+    float4        WireframeOptions;
+    int           LightCount;
+    /** First directional in view light list (shadow map / main dir); -1 if none. */
+    int           PrimaryDirectionalLightIndex;
+    int           bUnlit;
+    int           _PadPerFrameLightHeader;
+    float4        TemporalAAJitter;
+
     Light         Lights[MAX_LIGHT_INSTANCES];
+
+    /** Trailing pad: keep sizeof(cbPerFrame) % 16 == 0. */
+    uint4         _PerFramePadAfterLights;
 };
 
 cbuffer cbPerFrame : register(b0)
@@ -105,20 +118,28 @@ matrix GetPrevCameraViewProj()
     return myPerFrame.CameraPrevViewProj;
 }
 
-/** True only when slot 0 is a directional light that uses the 2D directional shadow map (t8). Spot/point use other paths. */
+/** True when the primary directional slot uses the 2D directional shadow map (t8). Spot/point use other paths. */
 bool IsEnableShadow()
 {
-    return myPerFrame.Lights[0].Type == LightType_Directional && myPerFrame.Lights[0].ShadowMapIndex >= 0;
+    int idx = myPerFrame.PrimaryDirectionalLightIndex;
+    return idx >= 0 && idx < MAX_LIGHT_INSTANCES
+        && myPerFrame.Lights[idx].Type == LightType_Directional && myPerFrame.Lights[idx].ShadowMapIndex >= 0;
 }
 
 matrix GetMainLightViewProj()
 {
-    return myPerFrame.Lights[0].LightViewProj;
+    int idx = myPerFrame.PrimaryDirectionalLightIndex;
+    if (idx < 0 || idx >= MAX_LIGHT_INSTANCES)
+        return myPerFrame.Lights[0].LightViewProj;
+    return myPerFrame.Lights[idx].LightViewProj;
 }
 
 Light GetMainLight()
 {
-    return myPerFrame.Lights[0];
+    int idx = myPerFrame.PrimaryDirectionalLightIndex;
+    if (idx < 0 || idx >= MAX_LIGHT_INSTANCES)
+        return myPerFrame.Lights[0];
+    return myPerFrame.Lights[idx];
 }
 
 #endif

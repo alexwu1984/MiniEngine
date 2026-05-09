@@ -111,7 +111,10 @@ namespace Engine
 		Init.VertexShader = d->VertexShader;
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		// Spot frustum often grazes large planes (e.g. floor): back-face cull drops receivers from the depth map.
+		Init.RasterizerState = (mainLight.Type == LightType_Spot)
+			? RHICachedStates::RasterizerStateCullNone
+			: RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.SetRenderTarget(renderTarget);
 		RHIContext.RHISetGraphicsPipelineState(Init);
@@ -119,6 +122,8 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject));
 
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = 1;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.PrimaryDirectionalLightIndex = 0;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0] = mainLight;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 		if (d->HasSkin)
@@ -150,6 +155,8 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = WorldTransform;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerObject));
 
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = 1;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.PrimaryDirectionalLightIndex = -1;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.Lights[0] = faceLight;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 		if (d->HasSkin)

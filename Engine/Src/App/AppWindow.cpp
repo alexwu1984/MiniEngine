@@ -131,9 +131,11 @@ namespace Engine
 		C_P(AppWindow);
 		if (!core::CommandLine::Get().GetName("noimgui"))
 		{
-			auto ImguiRet = ::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
-			if (ImguiRet)
-				return ImguiRet;
+			// Always forward messages to ImGui, but do not early-return.
+			// ImGui's Win32 backend may return "handled" for messages (including WM_SIZE),
+			// yet we still need to update our viewport and dispatch engine events to keep
+			// rendering and input coordinates consistent.
+			::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
 		}
 		
 		if (ImGui::GetCurrentContext())

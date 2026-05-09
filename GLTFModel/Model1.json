@@ -15,8 +15,36 @@
   },
   "Modles": [
     {
+      "ProceduralFloor": {
+        "Finish": "frosted",
+        "Size": "60,60",
+        "Segments": "200,200",
+        "UVScale": 10.0,
+        "BrushedMetal": { "Enable": false },
+        "Frosted": {
+          "Enable": true,
+          "TextureSize": 512,
+          "NoiseScale": 520.0,
+          "NormalStrength": 0.10,
+          "RoughnessBase": 0.62,
+          "RoughnessVariation": 0.10
+        },
+        "Material": {
+          "Metallic": 1.0,
+          "Roughness": 0.62,
+          "BaseColor": "0.65,0.68,0.72,1.0"
+        }
+      },
+      "Position": "0.0,-0.15,0.0",
+      "ProjShadow": true
+    },
+    {
       "Model": "Model1.glb",
       "Scale": 1.0,
+      "Position": "0.0,0.50,0.0",
+      "EnableRotationUI": true,
+      "YawDeg": 0.0,
+      "PitchDeg": 0.0,
       "Material": {
         "Metallic": 1.0
       },
@@ -39,6 +67,15 @@
           "UpdateScale": 1.0
         }
       ]
+    },
+    {
+      "RoamCamera": {
+        "Position": "0,1.65,3.2",
+        "LookAt": "0,0.65,0",
+        "MainCamera": true,
+        "MoveSpeed": 6.0,
+        "LookSensitivity": 0.12
+      }
     }
   ],
   "Tonemapping": {

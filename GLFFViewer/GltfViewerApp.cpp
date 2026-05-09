@@ -129,7 +129,7 @@ void GltfViewApp::BuildModelList()
 		L"Model1.json",
 		L"spotlight_test.json",
 		L"Model5.json",
-		L"Model4.json",
+		L"Model4_fur.json",
 		L"harley.json",
 		L"busterDrone.json",
 		L"Model2.json",
@@ -362,6 +362,45 @@ void GltfViewApp::BindImGuiToSceneRender()
 				ImGui::Separator();
 				ImGui::TextUnformatted("SkyLight / IBL");
 				ImGui::TextDisabled("HDR rotation removed (default orbit camera).");
+
+				ImGui::Separator();
+				ImGui::TextUnformatted("Scene model transform");
+				{
+					const auto actors = Scene->GetAllActors();
+					int modelUiIdx = 0;
+					for (const auto& a : actors)
+					{
+						if (!a)
+							continue;
+						const auto sm = a->GetComponent<SceneMeshComponent>();
+						if (!sm || !sm->IsRotationEditableInUi())
+							continue;
+						ImGui::PushID(400000 + modelUiIdx);
+						++modelUiIdx;
+						const std::string title = std::string("Model: ") + ActorNameOrFallbackUtf8(a, "Model", modelUiIdx - 1);
+						if (ImGui::TreeNodeEx(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							math::Vector3 wp = a->GetPosition();
+							if (ImGui::DragFloat3("World position", &wp.x, 0.03f))
+								a->SetPosition(wp);
+
+							float yawDeg = 0.f, pitchDeg = 0.f;
+							ConeAxisToYawPitchDeg(a->GetForward(), yawDeg, pitchDeg);
+							const bool yawCh = ImGui::DragFloat("Yaw deg (model forward)", &yawDeg, 0.5f, -180.f, 180.f);
+							const bool pitchCh = ImGui::DragFloat("Pitch deg (model forward)", &pitchDeg, 0.5f, -85.f, 85.f);
+							if (yawCh || pitchCh)
+							{
+								a->RotateToNewForward(YawPitchDegToConeAxis(yawDeg, pitchDeg));
+								a->ComputeWorldTransform(0.f);
+							}
+
+							ImGui::TreePop();
+						}
+						ImGui::PopID();
+					}
+					if (modelUiIdx == 0)
+						ImGui::TextDisabled("(No models with EnableRotationUI=true)");
+				}
 			}
 
 			ImGui::End();
@@ -411,7 +450,7 @@ void GltfViewApp::BindImGuiToSceneRender()
 							if (r.MsGpu >= 0.0)
 								ImGui::Text("%.3f", r.MsGpu);
 							else
-								ImGui::TextDisabled("—");
+								ImGui::TextDisabled("-");
 						}
 						ImGui::EndTable();
 					}

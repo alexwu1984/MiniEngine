@@ -12,6 +12,19 @@ namespace Engine
 {
 	namespace
 	{
+		static math::Vector3 YawPitchDegToForward(const float yawDeg, const float pitchDeg)
+		{
+			static constexpr float kPi = 3.14159265f;
+			const float yr = yawDeg * (kPi / 180.f);
+			const float pr = pitchDeg * (kPi / 180.f);
+			const float cy = std::cos(yr), sy = std::sin(yr);
+			const float cp = std::cos(pr), sp = std::sin(pr);
+			math::Vector3 v(sy * cp, sp, cy * cp);
+			if (v.GetSqrLength() < 1e-10f)
+				return math::Vector3(0.f, 0.f, 1.f);
+			return v.Normalize();
+		}
+
 		static void ApplyActorDisplayNameFromSceneJson(Actor& ActorRef, const nlohmann::json& GltfJson)
 		{
 			try
@@ -143,6 +156,23 @@ namespace Engine
 			math::Vector3 Pos;
 			std::sscanf(PosStr.c_str(), "%f,%f,%f", &Pos.x, &Pos.y, &Pos.z);
 			SetPosition(Pos);
+		}
+
+		// Optional: authorable model rotation (viewer/debug). Stored as yaw/pitch degrees for convenience.
+		// Applied before camera framing so bounds-derived framing reflects final orientation when desired.
+		try
+		{
+			const bool hasYaw = d->GltfJson.find("YawDeg") != d->GltfJson.end() && d->GltfJson["YawDeg"].is_number();
+			const bool hasPitch = d->GltfJson.find("PitchDeg") != d->GltfJson.end() && d->GltfJson["PitchDeg"].is_number();
+			if (hasYaw || hasPitch)
+			{
+				const float yawDeg = hasYaw ? static_cast<float>(d->GltfJson["YawDeg"].get<double>()) : 0.f;
+				const float pitchDeg = hasPitch ? static_cast<float>(d->GltfJson["PitchDeg"].get<double>()) : 0.f;
+				RotateToNewForward(YawPitchDegToForward(yawDeg, pitchDeg));
+			}
+		}
+		catch (const std::exception&)
+		{
 		}
 
 		const bool bRoamScene = GetWorldPin() && GetWorldPin()->UsesRoamCameraScene();

@@ -1,4 +1,4 @@
-﻿{
+{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
@@ -41,6 +41,10 @@
     {
       "Model": "Model4.glb",
       "Scale": 1.0,
+      "Position": "0.0,0.25,0.0",
+      "EnableRotationUI": true,
+      "YawDeg": 0.0,
+      "PitchDeg": 0.0,
       "Material": {
         "Metallic": 1.0
       },

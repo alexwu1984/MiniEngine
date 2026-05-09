@@ -57,6 +57,9 @@ namespace Engine
 		void SetProjectShadow(bool projShadow);
 		bool IsProjectShadow() const;
 
+		/** When true, viewer UI will expose yaw/pitch model rotation controls for the owning Actor. */
+		bool IsRotationEditableInUi() const;
+
 	private:
 		SceneMeshComponentPrivate* d_ptr = nullptr;
 	};

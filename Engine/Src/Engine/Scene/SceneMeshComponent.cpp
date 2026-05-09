@@ -38,6 +38,7 @@ namespace Engine
 		float TotalDeltaTime = 0.f;
 		std::shared_ptr<SceneModelAsset> Asset;
 		bool bProjectShadow = false;
+		bool bRotationEditableInUi = false;
 	};
 
 	namespace
@@ -146,6 +147,20 @@ namespace Engine
 	{
 		C_P(SceneMeshComponent);
 
+		// Optional viewer-only flag: allows exposing rotation UI for this Actor's mesh.
+		try
+		{
+			const auto it = ModelJson.find("EnableRotationUI");
+			if (it != ModelJson.end() && it->is_boolean())
+				d->bRotationEditableInUi = it->get<bool>();
+			else
+				d->bRotationEditableInUi = false;
+		}
+		catch (...)
+		{
+			d->bRotationEditableInUi = false;
+		}
+
 		// Procedural floor path: replaces external floor.glb
 		try
 		{
@@ -191,6 +206,12 @@ namespace Engine
 		{
 			return false;
 		}
+	}
+
+	bool SceneMeshComponent::IsRotationEditableInUi() const
+	{
+		C_P(const SceneMeshComponent);
+		return d->bRotationEditableInUi;
 	}
 
 	GltfModel& SceneMeshComponent::GetModel() const

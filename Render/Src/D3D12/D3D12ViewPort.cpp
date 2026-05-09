@@ -417,6 +417,17 @@ namespace RenderCore
 			return;
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
+		// High-DPI: keep Win32 mouse coordinates in client units; only provide framebuffer scaling.
+		if (ImGui::GetCurrentContext())
+		{
+			ImGuiIO& io = ImGui::GetIO();
+			const core::vec2u fb = GetSize();
+			const float dispW = (io.DisplaySize.x > 0.0f) ? io.DisplaySize.x : 1.0f;
+			const float dispH = (io.DisplaySize.y > 0.0f) ? io.DisplaySize.y : 1.0f;
+			const float sx = (fb.x > 0u) ? (static_cast<float>(fb.x) / dispW) : 1.0f;
+			const float sy = (fb.y > 0u) ? (static_cast<float>(fb.y) / dispH) : 1.0f;
+			io.DisplayFramebufferScale = ImVec2(sx, sy);
+		}
 		ImGui::NewFrame();
 	}
 

@@ -1,4 +1,4 @@
-﻿#include "Engine/Render/PBRMaterialRender.h"
+#include "Engine/Render/PBRMaterialRender.h"
 #include <algorithm>
 #include "Engine.h"
 #include "Material/MaterialBase.h"
@@ -10,7 +10,7 @@
 #include "core/system.h"
 #include "core/logger.h"
 #include "Render/MaterialPreFrame.h"
-#include "Engine/Render/PreProcessor.h"
+#include "Engine/Render/SkyLightEnvironment.h"
 #include "Engine/Render/SkyLightEnvironment.h"
 #include "Engine/Render/WorldSceneRender.h"
 #include "Render/SceneTextures.h"
@@ -168,7 +168,7 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
+	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
 		C_P(PBRMaterialRender);
 		GraphicsPipelineStateInitializer Init;
@@ -191,9 +191,9 @@ namespace Engine
 		}
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
 
-		std::vector <std::shared_ptr<RenderCore::RHITexture2D>> Targets = { TargetBuffer->GetSceneColor(),TargetBuffer->GetMotionVector(),TargetBuffer->GetNormalBuffer(),
-					TargetBuffer->GetEmissiveBuffer(),TargetBuffer->GetMetallicRoughnessBuffer() };
-		RHIContext.SetRenderTarget(Targets, TargetBuffer->GetDepth());
+		std::vector <std::shared_ptr<RenderCore::RHITexture2D>> Targets = { SceneTextures->GetSceneColor(),SceneTextures->GetMotionVector(),SceneTextures->GetNormalBuffer(),
+					SceneTextures->GetEmissiveBuffer(),SceneTextures->GetMetallicRoughnessBuffer() };
+		RHIContext.SetRenderTarget(Targets, SceneTextures->GetDepth());
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
@@ -245,16 +245,13 @@ namespace Engine
 	void PBRMaterialRender::RefreshIBLMipAndRebindPerFrame(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
 		C_P(PBRMaterialRender);
-		if (!RenderParam.preProcessor.expired())
+		if (!RenderParam.skyLightIBLPrecompute.expired())
 		{
-			if (auto Pre = RenderParam.preProcessor.lock())
+			if (auto IBL = RenderParam.skyLightIBLPrecompute.lock())
 			{
-				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
-				{
-					if (auto SpecCube = SkyLightEnv->GetSpecularReflectionCubemap())
-						d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount =
-							static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
-				}
+				if (auto SpecCube = IBL->GetSpecularReflectionCubemap())
+					d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount =
+						static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
 			}
 		}
 		else
@@ -276,7 +273,7 @@ namespace Engine
 													  FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
 	{
 		C_P(PBRMaterialRender);
-		if (!d->MeshMaterial || !d->MeshMaterial->IsTransparent() || !RenderParam.TargetBuffer || !GetPBRVertexShader())
+		if (!d->MeshMaterial || !d->MeshMaterial->IsTransparent() || !RenderParam.SceneTextures || !GetPBRVertexShader())
 			return;
 		if (!d->TranslucentForwardPixelShader)
 		{
@@ -292,8 +289,8 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "TranslucentPBRForward");
 		StoreRenderParam(RenderParam);
 
-		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.TargetBuffer->GetSceneColor() };
-		RHIContext.SetRenderTarget(Rt, RenderParam.TargetBuffer->GetDepth());
+		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.SceneTextures->GetSceneColor() };
+		RHIContext.SetRenderTarget(Rt, RenderParam.SceneTextures->GetDepth());
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
@@ -304,7 +301,7 @@ namespace Engine
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
 		if (DeferredLighting && WorldSceneRender && ViewData)
-			DeferredLighting->BindFurForwardSharedSRVs(RHIContext, RenderParam.TargetBuffer, WorldSceneRender, ViewData);
+			DeferredLighting->BindFurForwardSharedSRVs(RHIContext, RenderParam.SceneTextures, WorldSceneRender, ViewData);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
@@ -322,7 +319,7 @@ namespace Engine
 		C_P(PBRMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPass");
 		d->RenderParam = RenderParam;
-		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
+		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
 
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 		BindDeferredBaseMaterialTextures(RHIContext);
@@ -335,7 +332,7 @@ namespace Engine
 		C_P(PBRMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPassBatchBegin");
 		d->RenderParam = RenderParam;
-		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
+		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 		BindDeferredBaseMaterialTextures(RHIContext);
 		DrawMesh(RHIContext);
@@ -365,7 +362,7 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPrePass");
 		d->RenderParam = RenderParam;
 
-		SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
+		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		PreDrawMesh(RHIContext);
 	}

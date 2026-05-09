@@ -1,4 +1,4 @@
-﻿#include "D3D11/D3D11ViewPort.h"
+#include "D3D11/D3D11ViewPort.h"
 #include "win/com_ptr.h"
 #include "D3D11/D3D11RHI.h"
 #include "core/logger.h"
@@ -107,6 +107,9 @@ namespace RenderCore
 		d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable , InSizeX, InSizeY);
 
 		::ImGui_ImplWin32_Init(InWindowHandle);
+		ImGuiIO& io = ImGui::GetIO();
+		io.FontGlobalScale = ::GetDpiForWindow(InWindowHandle) / 96.0f;
+		io.FontAllowUserScaling = true;
 	}
 
 	D3D11ViewPort::~D3D11ViewPort()
@@ -142,18 +145,8 @@ namespace RenderCore
 	{
 		ImGui_ImplDX11_NewFrame();
 		ImGui_ImplWin32_NewFrame();
-		// High-DPI: keep Win32 mouse coordinates in client units; only provide framebuffer scaling.
-		// Renderer backend must apply io.DisplayFramebufferScale when setting the GPU viewport.
 		if (ImGui::GetCurrentContext())
-		{
-			ImGuiIO& io = ImGui::GetIO();
-			const core::vec2u fb = GetSize();
-			const float dispW = (io.DisplaySize.x > 0.0f) ? io.DisplaySize.x : 1.0f;
-			const float dispH = (io.DisplaySize.y > 0.0f) ? io.DisplaySize.y : 1.0f;
-			const float sx = (fb.x > 0u) ? (static_cast<float>(fb.x) / dispW) : 1.0f;
-			const float sy = (fb.y > 0u) ? (static_cast<float>(fb.y) / dispH) : 1.0f;
-			io.DisplayFramebufferScale = ImVec2(sx, sy);
-		}
+			ImGui::GetIO().DisplayFramebufferScale = ImVec2(1.f, 1.f);
 		ImGui::NewFrame();
 	}
 

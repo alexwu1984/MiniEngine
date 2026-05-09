@@ -1,4 +1,4 @@
-﻿#include "Render/FXAA.h"
+#include "Render/FXAA.h"
 #include "core/system.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIPipeLineState.h"
@@ -78,13 +78,13 @@ namespace RenderCore
 			Tex->GetPixelFormat(), Sz.x, Sz.y, 1, false, false, std::move(d->FxaaRT));
 	}
 
-	void FXAA::Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> TargetBuffer)
+	void FXAA::Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> SourceTexture)
 	{
 		C_P(FXAA);
 		RHICommandMark Mark(RHIContext, "FXAA");
-		if (!TargetBuffer)
+		if (!SourceTexture)
 			return;
-		const auto InSize = TargetBuffer->GetSize();
+		const auto InSize = SourceTexture->GetSize();
 		if (d->FxaaRT)
 		{
 			auto Tex = d->FxaaRT->GetTex();
@@ -93,7 +93,7 @@ namespace RenderCore
 			else
 			{
 				auto OutSz = Tex->GetSize();
-				if (OutSz.x != InSize.x || OutSz.y != InSize.y || Tex->GetPixelFormat() != TargetBuffer->GetPixelFormat())
+				if (OutSz.x != InSize.x || OutSz.y != InSize.y || Tex->GetPixelFormat() != SourceTexture->GetPixelFormat())
 				{
 					Engine::RenderTexturePool::Get().ReleaseRenderTarget(
 						Tex->GetPixelFormat(), OutSz.x, OutSz.y, 1, false, false, std::move(d->FxaaRT));
@@ -102,7 +102,7 @@ namespace RenderCore
 		}
 		if (!d->FxaaRT)
 			d->FxaaRT = Engine::RenderTexturePool::Get().AcquireRenderTarget(
-				d->RHI, TargetBuffer->GetPixelFormat(), InSize.x, InSize.y, 1, false, false);
+				d->RHI, SourceTexture->GetPixelFormat(), InSize.x, InSize.y, 1, false, false);
 
 		RHIContext.SetRenderTarget(d->FxaaRT);
 		const auto OutSz = d->FxaaRT->GetTex()->GetSize();
@@ -117,9 +117,9 @@ namespace RenderCore
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampPointSampler);
-		RHIContext.RHISetShaderTexture(SF_Pixel, 0, TargetBuffer);
-		d->GET_UNIFORMDATA(ShaderParameter).FXAATexelSize = { 1.0f/static_cast<float>(TargetBuffer->GetSize().x),
-															  1.0f/static_cast<float>(TargetBuffer->GetSize().y) };
+		RHIContext.RHISetShaderTexture(SF_Pixel, 0, SourceTexture);
+		d->GET_UNIFORMDATA(ShaderParameter).FXAATexelSize = { 1.0f/static_cast<float>(SourceTexture->GetSize().x),
+															  1.0f/static_cast<float>(SourceTexture->GetSize().y) };
 		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThresholdMin = 0.0156f;
 		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThreshold = 0.0312f;
 		d->GET_UNIFORMDATA(ShaderParameter).FXAASubpix = 1.0f;

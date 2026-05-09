@@ -11,7 +11,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct PostProcessorPrivate;
-	class SceneTextures;
+	class FSceneTextures;
 
 	class SimplePostProcessor
 	{

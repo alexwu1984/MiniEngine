@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "DemoRunner/Demos/IDemo.h"
 
@@ -47,6 +47,7 @@ namespace DemoRunner
 	private:
 		void GenerateIBLMaps();
 		void ShowTexture2D(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITexture2D>& Texture2D);
+		void ShowCubeAsLongLat(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITextureCube>& Cube);
 		void ShowSHCubeMapDebugView(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITextureCube>& Cube);
 
 	private:
@@ -58,8 +59,11 @@ namespace DemoRunner
 		std::shared_ptr<Engine::CubeMapCrossRender> CubeCross;
 
 		std::vector<std::string> AllHDRFiles;
-		int ChooseHDR = 0;
-		int CurrentHDR = -1;
+		/** 0 = procedural generated cubemap; 1 + i = AllHDRFiles[i]. */
+		int ChooseEnvironment = 0;
+		int AppliedEnvironment = -1;
+		math::Vector3 ProceduralSunDirection{ 1.f, 0.05f, 0.f };
+		math::Vector3 AppliedProceduralSun{};
 
 		enum ShowMode
 		{
@@ -76,6 +80,7 @@ namespace DemoRunner
 
 		std::shared_ptr<RenderCore::RHIVertexShader> ShowTexture2DVS;
 		std::shared_ptr<RenderCore::RHIPixelShader> ShowTexture2DPS;
+		std::shared_ptr<RenderCore::RHIPixelShader> ShowCubeEquirectPS;
 		std::shared_ptr<RenderCore::RHIVertexShader> CubeCrossVS;
 		std::shared_ptr<RenderCore::RHIPixelShader> CubeCrossPS;
 

@@ -1,4 +1,4 @@
-﻿#include "D3D12/D3D12RHI.h"
+#include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "RHIPrivate/D3D12RHIPrivate.h"
 #include "D3D12/D3D12WindowDevice.h"
@@ -20,7 +20,6 @@
 #include "Imgui/imgui_impl_win32.h"
 #include "Imgui/imgui_impl_dx12.h"
 #include "common/crc.h"
-#include "core/commandline.h"
 #include "core/logger.h"
 
 namespace RenderCore
@@ -404,16 +403,13 @@ namespace RenderCore
 	{
 		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::GpuDrainIdle);
 		RHICachedStates::DestroyAll();
-		const bool bUseImGui = !core::CommandLine::Get().GetName("noimgui");
 		if (D3D12Adapter)
 		{
 			D3D12Adapter->BlockUntilIdle();
-			if (bUseImGui)
-				::ImGui_ImplDX12_Shutdown();
+			::ImGui_ImplDX12_Shutdown();
 			D3D12Adapter->Cleanup();
 		}
-		if (bUseImGui)
-			::ImGui_ImplWin32_Shutdown();
+		::ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 	}
 

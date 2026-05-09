@@ -1,4 +1,4 @@
-﻿#include "Scene/CameraComponent.h"
+#include "Scene/CameraComponent.h"
 #include "Scene/CameraComponentPrivate.h"
 #include "Engine/Engine.h"
 #include "App/AppWindow.h"
@@ -10,6 +10,9 @@ namespace Engine
 {
 	namespace
 	{
+		/** UE4 default r.TemporalAASamples == 8: Halton(2,3) subpixel jitter cycle. */
+		static constexpr int32_t kTemporalAASampleCount = 8;
+
 		void SnapTemporalPrevToCurrent(CameraComponentPrivate* d)
 		{
 			d->PreviousView = d->View;
@@ -298,9 +301,8 @@ namespace Engine
 		d->FrameIndex++;
 		d->FrameIndexMod2 = d->FrameIndex % 2;
 
-		// Match Filament's default HALTON_23_X16 pattern. The 409 offset keeps
-		// the short sequence centered around 0.5 and avoids an obvious first sample.
-		const int32_t JitterIndex = static_cast<int32_t>((d->FrameIndex - 1) % 16) + 409;
+		// +1 skips Halton(0,*) degenerate origin; index wraps 1..kTemporalAASampleCount (UE-style 8-tap cycle).
+		const int32_t JitterIndex = static_cast<int32_t>((d->FrameIndex - 1) % kTemporalAASampleCount) + 1;
 		const float JitterX = Halton(JitterIndex, 2) - 0.5f;
 		const float JitterY = Halton(JitterIndex, 3) - 0.5f;
 

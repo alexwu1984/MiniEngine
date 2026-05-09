@@ -106,7 +106,7 @@ namespace Engine
 		}
 	}
 
-	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,std::shared_ptr<RHIViewPort> ViewPort,
+	void SSRProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,std::shared_ptr<RHIViewPort> ViewPort,
 							std::shared_ptr<RHITexture2D> HistorySceneColor,
 		                    std::shared_ptr<const FSceneViewData> ViewData)
 	{
@@ -148,11 +148,11 @@ namespace Engine
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RenderCore::RHICachedStates::ClampPointSampler);
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, TargetBuffer->GetNormalBuffer());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, TargetBuffer->GetMetallicRoughnessBuffer());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, TargetBuffer->GetDepth());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SceneTextures->GetNormalBuffer());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, SceneTextures->GetMetallicRoughnessBuffer());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, SceneTextures->GetDepth());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, HistorySceneColor);
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, TargetBuffer->GetMotionVector());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, SceneTextures->GetMotionVector());
 		{
 			std::shared_ptr<RHITexture2D> PrevSSR = d->SSRHistoryBuffer[d->FrameIndexMod2];
 			if (!PrevSSR)

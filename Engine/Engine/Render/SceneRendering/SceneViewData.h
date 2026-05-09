@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "math/frustum.h"
 #include "math/matrix4x4.h"
 #include "math/vector3.h"
@@ -25,6 +25,8 @@ namespace Engine
 		math::Matrix4x4 PrevViewProjInverseMatrix{};
 		math::Matrix4x4 SsrViewProjMatrix{};
 		math::Matrix4x4 SsrInvViewProjMatrix{};
+		/** inverse(ViewSky * ProjDraw): ViewSky = view with translation cleared; ProjDraw matches main pass (incl. TAA jitter). */
+		math::Matrix4x4 SkyInverseViewProj{};
 		math::Vector3 CameraPos{};
 		float CameraNearZ = 0.1f;
 		float CameraFarZ = 1000.f;

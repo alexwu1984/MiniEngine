@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
+#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
@@ -10,7 +10,7 @@ namespace Engine
 {
 	MaterialRenderParam FSceneMaterialShaderParameters::BuildForDeferredBasePass(const FWorldSceneRender* WorldSceneRender, const FSceneViewData* ViewData, const MeshBase* Mesh,
 																				 const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
-																				 const std::shared_ptr<SceneTextures>& TargetBuffer)
+																				 const std::shared_ptr<FSceneTextures>& SceneTextures)
 	{
 		MaterialRenderParam Out;
 		if (!ViewData || !WorldSceneRender || !Mesh)
@@ -50,9 +50,9 @@ namespace Engine
 		Out.PrevViewProjInverseMatrix = ViewData->PrevViewProjInverseMatrix;
 		Out.TemporalAAJitter = ViewData->TemporalAAJitter;
 		Out.HasSkin = Mesh->HasSkin();
-		Out.preProcessor = WorldSceneRender->GetPreProcessor();
+		Out.skyLightIBLPrecompute = WorldSceneRender->GetSkyLightIBLPrecompute();
 		Out.RotateIBL = math::Matrix4x4::ms_Materix3X3WIdentity;
-		Out.TargetBuffer = TargetBuffer;
+		Out.SceneTextures = SceneTextures;
 		Out.DrawMeshBuffer = Mesh->GetMeshBuffer();
 		Out.bUnlit = ViewData->bUnlit;
 		Out.SkyLightIBLScale = ViewData->SkyLightIBLScale;

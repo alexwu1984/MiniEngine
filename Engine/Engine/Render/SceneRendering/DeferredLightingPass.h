@@ -16,7 +16,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class SceneTextures;
+	class FSceneTextures;
 	class FWorldSceneRender;
 	struct FSceneViewData;
 
@@ -29,17 +29,17 @@ namespace Engine
 		void InitResource();
 
 		/** RDG pass 1: SceneColor → SceneColorPreLighting (base-pass HDR before lighting). */
-		void CopySceneColorToPreLighting(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer) const;
+		void CopySceneColorToPreLighting(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures) const;
 		/** RDG pass 2: fullscreen deferred lighting into SceneColor (reads PreLighting + scene textures). */
-		void ExecuteRaster(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
+		void ExecuteRaster(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 						   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 		/** Copy then raster (single submission path). */
-		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
+		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 		/** Binds IBL + shadow SRVs (t5–t11) and cbPointShadow / cbSpotShadow for fur forward pass (per-frame cbPerFrame comes from FurMaterialRender). */
-		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer, FWorldSceneRender* WorldSceneRender,
+		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures, FWorldSceneRender* WorldSceneRender,
 									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 	private:

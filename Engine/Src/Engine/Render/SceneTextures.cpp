@@ -1,4 +1,4 @@
-﻿#include "Render/SceneTextures.h"
+#include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIUnorderedAccessView.h"
@@ -8,7 +8,7 @@ using namespace RenderCore;
 
 namespace Engine
 {
-	struct SceneTexturesPrivate
+	struct FSceneTexturesPrivate
 	{
 		DynamicRHI* RHI = nullptr;
 		std::shared_ptr<RHITexture2D> Depth;
@@ -35,7 +35,7 @@ namespace Engine
 			Tex.reset();
 		}
 
-		void ReleaseAllSceneTexturesResources(SceneTexturesPrivate* d)
+		void ReleaseAllSceneTexturesResources(FSceneTexturesPrivate* d)
 		{
 			if (!d)
 				return;
@@ -66,28 +66,28 @@ namespace Engine
 		}
 	} // namespace
 
-	SceneTextures::SceneTextures(DynamicRHI* RHI)
-		:d_ptr(new SceneTexturesPrivate())
+	FSceneTextures::FSceneTextures(DynamicRHI* RHI)
+		:d_ptr(new FSceneTexturesPrivate())
 	{
-		C_P(SceneTextures);
+		C_P(FSceneTextures);
 		d->RHI = RHI;
 	}
 
-	SceneTextures::~SceneTextures()
+	FSceneTextures::~FSceneTextures()
 	{
 		ReleaseAllSceneTexturesResources(d_ptr);
 		delete d_ptr;
 	}
 
-	void SceneTextures::InitResource(ESceneTexturesFlags Flags, uint32_t Width, uint32_t Height)
+	void FSceneTextures::InitResource(EFSceneTexturesFlags Flags, uint32_t Width, uint32_t Height)
 	{
-		C_P(SceneTextures);
+		C_P(FSceneTextures);
 		ReleaseAllSceneTexturesResources(d);
 
 		RenderTexturePool& Pool = RenderTexturePool::Get();
 		const uint32_t F = static_cast<uint32_t>(Flags);
 
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::SceneDepth))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::SceneDepth))
 		{
 			d->Depth = Pool.AcquireTexture2D(
 				d->RHI,
@@ -97,7 +97,7 @@ namespace Engine
 				(int32_t)Height,
 				1);
 		}
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::SceneVelocity))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::SceneVelocity))
 		{
 			d->MotionVector = Pool.AcquireTexture2D(
 				d->RHI,
@@ -107,7 +107,7 @@ namespace Engine
 				(int32_t)Height,
 				1);
 		}
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::SceneColor))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::SceneColor))
 		{
 			d->SceneColor = Pool.AcquireTexture2D(
 				d->RHI,
@@ -141,7 +141,7 @@ namespace Engine
 				(int32_t)Height,
 				1);
 		}
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::DeferredNormals))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::DeferredNormals))
 		{
 			d->NormalBuffer = Pool.AcquireTexture2D(
 				d->RHI,
@@ -151,7 +151,7 @@ namespace Engine
 				(int32_t)Height,
 				1);
 		}
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::DeferredEmissive))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::DeferredEmissive))
 		{
 			d->EmissiveBuffer = Pool.AcquireTexture2D(
 				d->RHI,
@@ -161,7 +161,7 @@ namespace Engine
 				(int32_t)Height,
 				1);
 		}
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::DeferredMetallicRoughness))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::DeferredMetallicRoughness))
 		{
 			d->MetallicSpecularRoughness = Pool.AcquireTexture2D(
 				d->RHI,
@@ -171,7 +171,7 @@ namespace Engine
 				(int32_t)Height,
 				1);
 		}
-		if (F & static_cast<uint32_t>(ESceneTexturesFlags::DeferredMaterialAux))
+		if (F & static_cast<uint32_t>(EFSceneTexturesFlags::DeferredMaterialAux))
 		{
 			d->MaterialAux = Pool.AcquireTexture2D(
 				d->RHI,
@@ -183,81 +183,81 @@ namespace Engine
 		}
 	}
 
-	void SceneTextures::InitDefaultSceneTargets(uint32_t Width, uint32_t Height)
+	void FSceneTextures::InitDefaultSceneTargets(uint32_t Width, uint32_t Height)
 	{
-		InitResource(static_cast<ESceneTexturesFlags>(static_cast<uint32_t>(ESceneTexturesFlags::SceneDepth)
-													  | static_cast<uint32_t>(ESceneTexturesFlags::SceneVelocity)
-													  | static_cast<uint32_t>(ESceneTexturesFlags::SceneColor)
-													  | static_cast<uint32_t>(ESceneTexturesFlags::DeferredNormals)
-													  | static_cast<uint32_t>(ESceneTexturesFlags::DeferredEmissive)
-													  | static_cast<uint32_t>(ESceneTexturesFlags::DeferredMetallicRoughness)
-													  | static_cast<uint32_t>(ESceneTexturesFlags::DeferredMaterialAux)),
+		InitResource(static_cast<EFSceneTexturesFlags>(static_cast<uint32_t>(EFSceneTexturesFlags::SceneDepth)
+													  | static_cast<uint32_t>(EFSceneTexturesFlags::SceneVelocity)
+													  | static_cast<uint32_t>(EFSceneTexturesFlags::SceneColor)
+													  | static_cast<uint32_t>(EFSceneTexturesFlags::DeferredNormals)
+													  | static_cast<uint32_t>(EFSceneTexturesFlags::DeferredEmissive)
+													  | static_cast<uint32_t>(EFSceneTexturesFlags::DeferredMetallicRoughness)
+													  | static_cast<uint32_t>(EFSceneTexturesFlags::DeferredMaterialAux)),
 					 Width, Height);
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetDepth() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetDepth() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->Depth;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetSceneColor() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetSceneColor() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->SceneColor;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetSceneColorWithSSR() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetSceneColorWithSSR() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->SceneColorWithSSR;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetSceneColorWithBloom() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetSceneColorWithBloom() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->SceneColorWithBloom;
 	}
 
-	std::shared_ptr<RHIUnorderedAccessView> SceneTextures::GetSceneColorUAV() const
+	std::shared_ptr<RHIUnorderedAccessView> FSceneTextures::GetSceneColorUAV() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->SceneColorUAV;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetMotionVector() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetMotionVector() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->MotionVector;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetNormalBuffer() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetNormalBuffer() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->NormalBuffer;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetEmissiveBuffer() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetEmissiveBuffer() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->EmissiveBuffer;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetMetallicRoughnessBuffer() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetMetallicRoughnessBuffer() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->MetallicSpecularRoughness;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetMaterialAuxBuffer() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetMaterialAuxBuffer() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->MaterialAux;
 	}
 
-	std::shared_ptr<RHITexture2D> SceneTextures::GetSceneColorPreLighting() const
+	std::shared_ptr<RHITexture2D> FSceneTextures::GetSceneColorPreLighting() const
 	{
-		C_P(const SceneTextures);
+		C_P(const FSceneTextures);
 		return d->SceneColorPreLighting;
 	}
 

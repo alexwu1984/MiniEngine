@@ -13,7 +13,7 @@ namespace Engine
 	{
 		const FSceneViewData* ViewData = DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr;
 		MaterialRenderParam Params = FSceneMaterialShaderParameters::BuildForDeferredBasePass(DrawContext.WorldSceneRender, ViewData, Mesh.get(), WorldTransform, PrevWorldTransform,
-																							   DrawContext.TargetBuffer);
+																							   DrawContext.SceneTextures);
 
 		// Skinning VS reads cbPerSkeleton whenever the mesh has weights. PrePass used to skip uploads and left stale / zero matrices (garbage verts).
 		if (Mesh->HasSkin())

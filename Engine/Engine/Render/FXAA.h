@@ -1,9 +1,8 @@
-﻿#pragma once
+#pragma once
 #include "RHI/RHIShaderDefine.h"
 
 namespace RenderCore
 {
-	class SceneTextures;
 	class RHICommandContext;
 	class DynamicRHI;
 	class RHITexture2D;
@@ -16,7 +15,7 @@ namespace RenderCore
 		~FXAA();
 		void InitResource();
 		void InvalidateTransientResources();
-		void Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> TargetBuffer);
+		void Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> SourceTexture);
 		std::shared_ptr<RHITexture2D> GetResult() const;
 	private:
 		FXAAPrivate* d_ptr;

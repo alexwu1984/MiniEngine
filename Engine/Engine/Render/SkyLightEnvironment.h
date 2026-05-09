@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
 #include "math/vector3.h"
@@ -33,7 +33,7 @@ namespace Engine
 		/** Full path to HDR file when Type==HdrFile. */
 		std::wstring HdrFileFullPath;
 		/** World-space direction toward the sun/light source when Type==Procedural. */
-		math::Vector3 ProceduralSunDirectionTowardSource{ 0.f, 0.49f, 0.833f };
+		math::Vector3 ProceduralSunDirectionTowardSource{ 1.f, 0.05f, 0.f };
 	};
 
 	/** Skylight environment: precompute HDR → cubemap, diffuse irradiance, specular prefilter, BRDF LUT (FSkyLightIBLPrecompute). */

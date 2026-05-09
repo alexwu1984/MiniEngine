@@ -13,7 +13,7 @@ namespace Engine
 {
 	struct SSRProcessorPrivate;
 	struct FSceneViewData;
-	class SceneTextures;
+	class FSceneTextures;
 
 	class SSRProcessor
 	{
@@ -23,7 +23,7 @@ namespace Engine
 
 		void InitResource();
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 				  std::shared_ptr<RenderCore::RHITexture2D> HistorySceneColor,
 			      std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetSSRBuffer() const;

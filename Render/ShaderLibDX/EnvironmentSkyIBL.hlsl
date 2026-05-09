@@ -10,19 +10,22 @@ EnvironmentVertexOut VS_SkyCube(EnvironmentVertexIN In)
 {
     EnvironmentVertexOut Out;
     Out.LocalDirection = In.Position;
-    Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    float4 h = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    Out.HClip = h;
+    Out.Position = h;
     return Out;
 }
 
 float4 PS_SkyCube(EnvironmentVertexOut In) : SV_Target
 {
-    float4 Sample = CubeEnvironment.Sample(LinearSampler, In.LocalDirection);
+    float3 dir = SkyCubeDirectionFromHClip(In.HClip);
+    float4 Sample = CubeEnvironment.Sample(LinearSampler, dir);
     return float4(Sample.xyz * Exposure, 1.0);
 }
 
 float4 PS_GenIrradiance(EnvironmentVertexOut In) : SV_Target
 {
-    float3 Normal = normalize(In.LocalDirection);
+    float3 Normal = SkyCubeDirectionFromHClip(In.HClip);
     float3 Irradiance = { 0.0, 0.0, 0.0 };
 
     float3 Up = { 0.0, 1.0, 0.0 };
@@ -93,7 +96,7 @@ float4 PS_GenPrefiltered(EnvironmentVertexOut In, float4 SvPosition : SV_POSITIO
     int2 PixelPos = int2(SvPosition.xy);
     uint2 Random = Rand3DPCG16(uint3(PixelPos, In.Position.x * 1024)).xy;
 
-    float3 R = normalize(In.LocalDirection);
+    float3 R = SkyCubeDirectionFromHClip(In.HClip);
     float Roughness = ComputeReflectionCaptureRoughnessFromMip(MipLevel, MaxMipLevel - 1.0);
     float3 Prefiltered = PrefilterEnvMap(Random, Roughness, R);
     return float4(Prefiltered, 1.0);

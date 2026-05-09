@@ -626,7 +626,12 @@ namespace Engine
 						}
 					}
 					if (haveSun)
+					{
 						sl->SetProceduralSunDirectionTowardSource(sunDir);
+						// Keep primary directional WorldDirection identical to procedural sun (IBL capture + shadow + deferred use one vector).
+						if (const auto dir0 = self->GetPrimaryDirectionalLightForEditing())
+							dir0->SetWorldDirection(sunDir);
+					}
 				}
 			}
 		}
@@ -830,7 +835,7 @@ namespace Engine
 			{
 				math::Vector3 sunDir = sl->GetProceduralSunDirectionTowardSource();
 				if (sunDir.GetSqrLength() < 1e-10f)
-					sunDir = math::Vector3(0.f, 0.49f, 0.833f);
+					sunDir = math::Vector3(1.f, 0.05f, 0.f);
 				sunDir = sunDir.Normalize();
 				for (auto& L : out)
 				{
@@ -877,7 +882,7 @@ namespace Engine
 			{
 				math::Vector3 sunDir = slSky->GetProceduralSunDirectionTowardSource();
 				if (sunDir.GetSqrLength() < 1e-10f)
-					sunDir = math::Vector3(0.f, 0.49f, 0.833f);
+					sunDir = math::Vector3(1.f, 0.05f, 0.f);
 				sunDir = sunDir.Normalize();
 				const math::Vector3 aim = ResolveProceduralSunAimWorldForGather(*comp);
 				const float dist = comp->GetProceduralSunDistanceAlongRay();

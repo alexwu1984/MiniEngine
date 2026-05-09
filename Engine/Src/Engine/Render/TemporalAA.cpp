@@ -78,7 +78,7 @@ namespace Engine
 		d->LastTemporalHistoryGeneration = ~0u;
 	}
 
-	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData)
+	void TemporallAA::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures, std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(TemporallAA);
 		if (!ViewData)
@@ -95,7 +95,7 @@ namespace Engine
 			d->First = true;
 		}
 
-		auto SceneColor = TargetBuffer->GetSceneColorWithBloom();
+		auto SceneColor = SceneTextures->GetSceneColorWithBloom();
 		const auto ScSize = SceneColor->GetSize();
 		const float width = static_cast<float>(ScSize.w);
 		const float height = static_cast<float>(ScSize.h);
@@ -152,8 +152,8 @@ namespace Engine
 			RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::BoderLinerSampler);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneColor);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 1, d->TemporalColor[d->FrameIndexMod2]->GetTexture2D());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 2, TargetBuffer->GetMotionVector());
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 3, TargetBuffer->GetDepth());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 2, SceneTextures->GetMotionVector());
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 3, SceneTextures->GetDepth());
 			RHIContext.RHISetUAVParameter(0, d->TemporalColor[Dst]);
 			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(TAAContants), RenderCore::SF_Compute);
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
@@ -165,7 +165,7 @@ namespace Engine
 			Init.ComputeShader = d->TAASharpener;
 			RHIContext.RHISetComputePipelineState(Init);
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->TemporalColor[Dst]->GetTexture2D());
-			RHIContext.RHISetUAVParameter(0, TargetBuffer->GetSceneColorUAV());
+			RHIContext.RHISetUAVParameter(0, SceneTextures->GetSceneColorUAV());
 
 			RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 		}

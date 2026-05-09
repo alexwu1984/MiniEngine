@@ -143,7 +143,7 @@ namespace Engine
 				{
 					MaterialRenderParam P0 = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 						DrawContext.WorldSceneRender, DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr, LeadMesh, Key.WorldTransform, Key.PrevWorldTransform,
-						DrawContext.TargetBuffer);
+						DrawContext.SceneTextures);
 					strictPBR->BeginDeferredOpaqueDrawBatch(*DrawContext.RHICmdList, P0);
 					for (size_t j = i + 1; j < end; ++j)
 					{
@@ -151,7 +151,7 @@ namespace Engine
 						MeshBase* Mj = Kj.Mesh.get();
 						MaterialRenderParam Pj = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 							DrawContext.WorldSceneRender, DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr, Mj, Kj.WorldTransform, Kj.PrevWorldTransform,
-							DrawContext.TargetBuffer);
+							DrawContext.SceneTextures);
 						strictPBR->DrawDeferredOpaqueBatchInstance(*DrawContext.RHICmdList, Pj);
 					}
 					i = end;

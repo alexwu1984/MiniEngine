@@ -1,7 +1,5 @@
 ﻿#pragma once
 #include "Scene/SceneMeshComponent.h"
-#include <memory>
-#include <vector>
 
 namespace Engine
 {

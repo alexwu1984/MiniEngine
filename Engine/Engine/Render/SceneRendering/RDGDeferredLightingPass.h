@@ -1,11 +1,11 @@
-﻿#pragma once
+#pragma once
 #include "Render/RDGBuilder.h"
 #include <memory>
 #include <vector>
 
 namespace Engine
 {
-	class SceneTextures;
+	class FSceneTextures;
 
 	/**
 	 * Deferred lighting in two RDG passes so scheduling matches GPU semantics:
@@ -16,13 +16,13 @@ namespace Engine
 	{
 		static constexpr const char* PassNameCopySceneToPreLighting = "DeferredLighting_CopySceneColor";
 		static constexpr const char* PassNameRaster = "DeferredLighting";
-		/** RDG name for SceneTextures::GetSceneColorPreLighting() (copy of SceneColor before fullscreen lighting). */
+		/** RDG name for FSceneTextures::GetSceneColorPreLighting() (copy of SceneColor before fullscreen lighting). */
 		static constexpr const char* TextureNameSceneColorPreLighting = "SceneColorPreLighting";
 
-		static std::vector<FRDGPassResource> GatherCopyPassInputs(const std::shared_ptr<SceneTextures>& TargetTextures);
-		static std::vector<FRDGPassResource> GatherCopyPassOutputs(const std::shared_ptr<SceneTextures>& TargetTextures);
+		static std::vector<FRDGPassResource> GatherCopyPassInputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
+		static std::vector<FRDGPassResource> GatherCopyPassOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
 
-		static std::vector<FRDGPassResource> GatherRasterPassInputs(const std::shared_ptr<SceneTextures>& TargetTextures);
-		static std::vector<FRDGPassResource> GatherRasterPassOutputs(const std::shared_ptr<SceneTextures>& TargetTextures);
+		static std::vector<FRDGPassResource> GatherRasterPassInputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
+		static std::vector<FRDGPassResource> GatherRasterPassOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
 	};
 } // namespace Engine

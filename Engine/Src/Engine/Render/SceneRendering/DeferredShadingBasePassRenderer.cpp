@@ -25,7 +25,7 @@ namespace Engine
 																					   DeferredLightingPass* DeferredLighting)
 	{
 		(void)RHI;
-		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.TargetBuffer || !DrawContext.WorldSceneRender)
+		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender)
 			return;
 		if (DrawContext.ViewData->bUnlit || !DeferredLighting)
 			return;
@@ -35,7 +35,7 @@ namespace Engine
 		FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
 
 		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
-		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.TargetBuffer->GetSceneColor());
+		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.SceneTextures->GetSceneColor());
 
 		for (const auto& Key : SortedKeys)
 		{
@@ -50,7 +50,7 @@ namespace Engine
 			if (!pbr)
 				continue;
 			MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
-				DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.TargetBuffer);
+				DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
 			pbr->DrawTranslucentForwardLit(Cmd, P, DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 		}
 	}
@@ -129,7 +129,7 @@ namespace Engine
 																				 DeferredLightingPass* DeferredLighting)
 	{
 		(void)RHI;
-		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.TargetBuffer || !DrawContext.WorldSceneRender)
+		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender)
 			return;
 		if (DrawContext.ViewData->bUnlit || !DeferredLighting)
 			return;
@@ -157,7 +157,7 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
-		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.TargetBuffer->GetSceneColor());
+		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.SceneTextures->GetSceneColor());
 
 		for (const auto& Key : Flat)
 		{
@@ -169,7 +169,7 @@ namespace Engine
 			if (auto* fur = dynamic_cast<FurMaterialRender*>(Mat.get()))
 			{
 				MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
-					DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.TargetBuffer);
+					DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
 				fur->DrawForwardFur(Cmd, P, DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 			}
 		}

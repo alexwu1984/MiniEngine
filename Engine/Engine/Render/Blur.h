@@ -14,7 +14,7 @@ namespace RenderCore
 namespace Engine
 {
 	struct BlurPSPrivate;
-	class SceneTextures;
+	class FSceneTextures;
 
 	class BlurPS
 	{

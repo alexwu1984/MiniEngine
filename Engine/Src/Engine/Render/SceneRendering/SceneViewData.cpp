@@ -1,4 +1,4 @@
-﻿#include "Render/SceneRendering/SceneViewData.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "Scene/CameraComponent.h"
 
 namespace Engine
@@ -40,5 +40,12 @@ namespace Engine
 		}
 		CurrViewProjInverseMatrix = CurrViewProjMatrix.Inverse();
 		PrevViewProjInverseMatrix = PrevViewProjMatrix.Inverse();
+
+		math::Matrix4x4 ViewSky = ViewMatrix;
+		ViewSky._30 = ViewSky._31 = ViewSky._32 = 0.f;
+		math::Matrix4x4 ProjForSky = ProjMatrix;
+		if (bUseHaltonProjectionJitterInViewMatrices)
+			ProjForSky = Camera.HackAddTemporalAAProjectionJitter(false);
+		SkyInverseViewProj = (ViewSky * ProjForSky).Inverse();
 	}
 }

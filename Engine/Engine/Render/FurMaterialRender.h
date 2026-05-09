@@ -25,7 +25,7 @@ namespace Engine
 							FWorldSceneRender* WorldSceneRender = nullptr, const std::shared_ptr<const FSceneViewData>& ViewData = {});
 
 	protected:
-		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer) override;
+		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures) override;
 		virtual bool WantsRHIBindless() const override { return false; }
 		bool ShouldCompileTranslucentForwardPixelShader() const override { return false; }
 

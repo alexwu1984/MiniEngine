@@ -70,11 +70,11 @@ namespace Engine
 		}
 	}
 
-	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
+	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
 		C_P(Bloom);
 		RenderCore::RHICommandMark Mark(RHIContext, "Bloom");
-		auto ScreenSize = TargetBuffer->GetSceneColor()->GetSize();
+		auto ScreenSize = SceneTextures->GetSceneColor()->GetSize();
 		bool NeedAlloc = !d->BloomBuffers[0];
 		if (!NeedAlloc)
 		{
@@ -103,7 +103,7 @@ namespace Engine
 
 		//	RHIContext.RHISetComputePipelineState(Init);
 		//	RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampPointSampler);
-		//	RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, TargetBuffer->GetSceneColor());
+		//	RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneTextures->GetSceneColor());
 		//	RHIContext.RHISetUAVParameter(0, d->BloomBuffers[0]);
 
 		//	//d->GET_UNIFORMDATA(BloomContants).BloomIntensity = 3.0;
@@ -123,7 +123,7 @@ namespace Engine
 				
 				if (Index == 0)
 				{
-					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, TargetBuffer->GetEmissiveBuffer());
+					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneTextures->GetEmissiveBuffer());
 				}
 				else
 				{

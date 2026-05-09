@@ -11,9 +11,9 @@ namespace RenderCore
 
 namespace Engine
 {
-	struct SceneTexturesPrivate;
+	struct FSceneTexturesPrivate;
 
-	enum class ESceneTexturesFlags : uint32_t
+	enum class EFSceneTexturesFlags : uint32_t
 	{
 		None = 0,
 		SceneDepth = 0x1,
@@ -25,13 +25,13 @@ namespace Engine
 		DeferredMaterialAux = 0x40,
 	};
 
-	class SceneTextures
+	class FSceneTextures
 	{
 	public:
-		SceneTextures(RenderCore::DynamicRHI* RHI);
-		~SceneTextures();
+		FSceneTextures(RenderCore::DynamicRHI* RHI);
+		~FSceneTextures();
 
-		void InitResource(ESceneTexturesFlags Flags, uint32_t Width, uint32_t Height);
+		void InitResource(EFSceneTexturesFlags Flags, uint32_t Width, uint32_t Height);
 		void InitDefaultSceneTargets(uint32_t Width, uint32_t Height);
 		std::shared_ptr<RenderCore::RHITexture2D> GetDepth() const;
 		std::shared_ptr<RenderCore::RHITexture2D> GetSceneColor() const;
@@ -46,6 +46,6 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITexture2D> GetSceneColorPreLighting() const;
 
 	private:
-		SceneTexturesPrivate* d_ptr = nullptr;
+		FSceneTexturesPrivate* d_ptr = nullptr;
 	};
 }

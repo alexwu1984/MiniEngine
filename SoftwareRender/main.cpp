@@ -1,4 +1,4 @@
-﻿#include "win/win32.h"
+#include "win/win32.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"
@@ -105,16 +105,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 			viewPort->Clear(core::FLinearColor(cc.R, cc.G, cc.B, cc.A));
 			viewPort->Prepare();
 
-			if (!core::CommandLine::Get().GetName("noimgui"))
+			ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
+			ImGui::SetNextWindowSize(ImVec2(320, 80), ImGuiCond_Once);
+			if (ImGui::Begin("SoftwareRender", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 			{
-				ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
-				ImGui::SetNextWindowSize(ImVec2(320, 80), ImGuiCond_Once);
-				if (ImGui::Begin("SoftwareRender", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-				{
-					ImGui::Text("dt: %.3f ms", dt * 1000.0f);
-				}
-				ImGui::End();
+				ImGui::Text("dt: %.3f ms", dt * 1000.0f);
 			}
+			ImGui::End();
 
 			auto ctx = RHI->GetDefaultCommandContext();
 			if (!ctx)

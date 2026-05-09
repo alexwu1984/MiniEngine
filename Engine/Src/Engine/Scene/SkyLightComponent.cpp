@@ -1,4 +1,4 @@
-﻿#include "Scene/SkyLightComponent.h"
+#include "Scene/SkyLightComponent.h"
 #include "Scene/Actor.h"
 #include "core/system.h"
 
@@ -50,7 +50,7 @@ namespace Engine
 			out.Type = ESkyLightSourceType::Procedural;
 			math::Vector3 dir = ProceduralSunDirectionTowardSource;
 			if (dir.GetSqrLength() < 1e-10f)
-				dir = math::Vector3(0.f, 0.49f, 0.833f);
+				dir = math::Vector3(1.f, 0.05f, 0.f);
 			out.ProceduralSunDirectionTowardSource = dir.Normalize();
 			return out;
 		}

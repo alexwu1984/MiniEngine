@@ -76,21 +76,21 @@ namespace Engine
 		});
 	}
 
-	void FurMaterialRender::SetPipeLineState(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
+	void FurMaterialRender::SetPipeLineState(RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
-		PBRMaterialRender::SetPipeLineState(RHIContext, TargetBuffer);
-		if (!TargetBuffer)
+		PBRMaterialRender::SetPipeLineState(RHIContext, SceneTextures);
+		if (!SceneTextures)
 			return;
 
 		std::vector<std::shared_ptr<RHITexture2D>> Targets = {
-			TargetBuffer->GetSceneColor(),
-			TargetBuffer->GetMotionVector(),
-			TargetBuffer->GetNormalBuffer(),
-			TargetBuffer->GetEmissiveBuffer(),
-			TargetBuffer->GetMetallicRoughnessBuffer(),
-			TargetBuffer->GetMaterialAuxBuffer(),
+			SceneTextures->GetSceneColor(),
+			SceneTextures->GetMotionVector(),
+			SceneTextures->GetNormalBuffer(),
+			SceneTextures->GetEmissiveBuffer(),
+			SceneTextures->GetMetallicRoughnessBuffer(),
+			SceneTextures->GetMaterialAuxBuffer(),
 		};
-		RHIContext.SetRenderTarget(Targets, TargetBuffer->GetDepth());
+		RHIContext.SetRenderTarget(Targets, SceneTextures->GetDepth());
 	}
 
 	std::wstring FurMaterialRender::GetShaderFileName() const
@@ -107,10 +107,10 @@ namespace Engine
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurInnerBase");
-		if (!RenderParam.TargetBuffer || !d->InnerBasePixelShader || !GetPBRVertexShader())
+		if (!RenderParam.SceneTextures || !d->InnerBasePixelShader || !GetPBRVertexShader())
 			return;
 		StoreRenderParam(RenderParam);
-		PBRMaterialRender::SetPipeLineState(RHIContext, RenderParam.TargetBuffer);
+		PBRMaterialRender::SetPipeLineState(RHIContext, RenderParam.SceneTextures);
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
 		Init.PixelShader = d->InnerBasePixelShader;
@@ -144,7 +144,7 @@ namespace Engine
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurForward");
-		if (!RenderParam.TargetBuffer || !GetPBRVertexShader())
+		if (!RenderParam.SceneTextures || !GetPBRVertexShader())
 			return;
 		if (!GetPBRPixelShader())
 		{
@@ -158,8 +158,8 @@ namespace Engine
 		}
 
 		StoreRenderParam(RenderParam);
-		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.TargetBuffer->GetSceneColor() };
-		RHIContext.SetRenderTarget(Rt, RenderParam.TargetBuffer->GetDepth());
+		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.SceneTextures->GetSceneColor() };
+		RHIContext.SetRenderTarget(Rt, RenderParam.SceneTextures->GetDepth());
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
@@ -175,7 +175,7 @@ namespace Engine
 
 		// D3D12: changing pixel shader clears staged SRV table; bind IBL + shadow (t5–t10) after PSO.
 		if (FurSharedBind && WorldSceneRender && ViewData)
-			FurSharedBind->BindFurForwardSharedSRVs(RHIContext, RenderParam.TargetBuffer, WorldSceneRender, ViewData);
+			FurSharedBind->BindFurForwardSharedSRVs(RHIContext, RenderParam.SceneTextures, WorldSceneRender, ViewData);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);

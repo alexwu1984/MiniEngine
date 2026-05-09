@@ -2,11 +2,11 @@
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
-    "SunDirection": "0.0,0.49,0.833",
+    "SunDirection": "1.0,0.05,0.0",
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.0,0.49,0.833",
+        "LightDir": "1.0,0.05,0.0",
         "LightStrength": 16.0,
         "LightType": 0
       }

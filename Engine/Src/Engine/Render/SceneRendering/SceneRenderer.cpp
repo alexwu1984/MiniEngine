@@ -1,12 +1,11 @@
-﻿#include "Render/SceneRendering/SceneRenderer.h"
+#include "Render/SceneRendering/SceneRenderer.h"
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Scene/FScene.h"
-#include "Render/PreProcessor.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Render/PostProcessor.h"
-#include "Render/CubeBackground.h"
+#include "Render/SkyLightRenderPass.h"
 #include "Render/SceneTextures.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/RDGDeferredLightingPass.h"
@@ -45,19 +44,19 @@ namespace Engine
 			return -1;
 		}
 
-		std::vector<FRDGPassResource> GatherSceneTexturesPassResources(const std::shared_ptr<SceneTextures>& TB)
+		std::vector<FRDGPassResource> GatherSceneTexturesPassResources(const std::shared_ptr<FSceneTextures>& SceneTextures)
 		{
-			if (!TB)
+			if (!SceneTextures)
 				return {};
 			using A = FRDGResourceAccess;
 			return {
-				{ "SceneColor", [TB]() { return TB->GetSceneColor(); }, true, A::RTV },
-				{ "MotionVector", [TB]() { return TB->GetMotionVector(); }, true, A::RTV },
-				{ "Normal", [TB]() { return TB->GetNormalBuffer(); }, true, A::RTV },
-				{ "Emissive", [TB]() { return TB->GetEmissiveBuffer(); }, true, A::RTV },
-				{ "MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); }, true, A::RTV },
-				{ "MaterialAux", [TB]() { return TB->GetMaterialAuxBuffer(); }, true, A::RTV },
-				{ "Depth", [TB]() { return TB->GetDepth(); }, true, A::DSV },
+				{ "SceneColor", [SceneTextures]() { return SceneTextures->GetSceneColor(); }, true, A::RTV },
+				{ "MotionVector", [SceneTextures]() { return SceneTextures->GetMotionVector(); }, true, A::RTV },
+				{ "Normal", [SceneTextures]() { return SceneTextures->GetNormalBuffer(); }, true, A::RTV },
+				{ "Emissive", [SceneTextures]() { return SceneTextures->GetEmissiveBuffer(); }, true, A::RTV },
+				{ "MetallicRoughness", [SceneTextures]() { return SceneTextures->GetMetallicRoughnessBuffer(); }, true, A::RTV },
+				{ "MaterialAux", [SceneTextures]() { return SceneTextures->GetMaterialAuxBuffer(); }, true, A::RTV },
+				{ "Depth", [SceneTextures]() { return SceneTextures->GetDepth(); }, true, A::DSV },
 			};
 		}
 	} // namespace
@@ -99,23 +98,23 @@ namespace Engine
 		}
 
 		FRDGBuilder Graph;
-		auto TB = d->TargetBuffer;
+		auto SceneTextures = d->SceneTextures;
 		// RHICreateHDRTexture2D → upload uses D3D12 recording TLS; must run after RHIBeginFrame's RHIFrameBoundary push
 		// (Debug ensures; Release no-op check — wrong thread/stack can spiral into device removal / handled _com_error on Present).
 		RHI->RHIBeginFrame();
-		if (d->PreProcess)
-			d->PreProcess->ResolveSkyLightForFrame(SkyLightSrc);
+		if (d->SkyLightIBLPrecompute)
+			d->SkyLightIBLPrecompute->ResolveAndApplyHDRSource(SkyLightSrc);
 		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
 			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
 		Graph.AddPass(FRDGPassDescriptor{
-			"PreProcess",
+			"UpdateSkyLightCaptures",
 			{},
 			{},
 			[d, CommandContext]()
 			{
-				if (d->PreProcess)
-					d->PreProcess->Draw(*CommandContext);
+				if (d->SkyLightIBLPrecompute)
+					d->SkyLightIBLPrecompute->Draw(*CommandContext);
 			}});
 
 		// Must run when frustumBounds-only receivers exist (no ProjShadow casters) or any light requests a shadow map; otherwise spot/optional dir depth never renders.
@@ -218,8 +217,8 @@ namespace Engine
 			d->ShadowRender->InvalidateCachedMainLightForShading();
 		}
 
-		const std::vector<FRDGPassResource> SceneTexturesIO = GatherSceneTexturesPassResources(TB);
-		const bool bDeferTranslucentToForwardPass = d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit;
+		const std::vector<FRDGPassResource> SceneTexturesIO = GatherSceneTexturesPassResources(SceneTextures);
+		const bool bDeferTranslucentToForwardPass = d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit;
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"ClearSceneTextures",
@@ -234,13 +233,13 @@ namespace Engine
 				int32_t height = GEngine->GetAppWindow()->GetHeight();
 				CommandContext->SetViewPort(0, 0, width, height);
 
-				auto DepthTex = d->TargetBuffer->GetDepth();
-				auto SceneCol = d->TargetBuffer->GetSceneColor();
-				auto Motion = d->TargetBuffer->GetMotionVector();
-				auto Emissive = d->TargetBuffer->GetEmissiveBuffer();
-				auto Normal = d->TargetBuffer->GetNormalBuffer();
-				auto MR = d->TargetBuffer->GetMetallicRoughnessBuffer();
-				auto MatAux = d->TargetBuffer->GetMaterialAuxBuffer();
+				auto DepthTex = d->SceneTextures->GetDepth();
+				auto SceneCol = d->SceneTextures->GetSceneColor();
+				auto Motion = d->SceneTextures->GetMotionVector();
+				auto Emissive = d->SceneTextures->GetEmissiveBuffer();
+				auto Normal = d->SceneTextures->GetNormalBuffer();
+				auto MR = d->SceneTextures->GetMetallicRoughnessBuffer();
+				auto MatAux = d->SceneTextures->GetMaterialAuxBuffer();
 				// Black-only clear for motion/emissive/scene is fine. Normal+MR must use neutral dielectric defaults: SrcAlpha-
 				// blended fur shells were lerping toward black (ao=0, roughness=0), which zeros IBL diffuse (iblDiffuse*ao) and
 				// causes black fringes against the sky.
@@ -253,7 +252,7 @@ namespace Engine
 					CommandContext->Clear(MatAux, nullptr, core::FLinearColor(1.f / 255.f, 0.f, 0.f, 0.f), 1.f, 0);
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {SceneCol, Motion, Normal, Emissive, MR};
 				// Clear() uses CPU RTV handles only (no OM bind). Establish scene textures as active RTs + depth for subsequent passes.
-				CommandContext->SetRenderTarget(Targets, d->TargetBuffer->GetDepth());
+				CommandContext->SetRenderTarget(Targets, d->SceneTextures->GetDepth());
 			}});
 
 		Graph.AddPass(FRDGPassDescriptor{
@@ -263,18 +262,17 @@ namespace Engine
 			[d, CommandContext, ViewConst]()
 			{
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
-					d->TargetBuffer->GetSceneColor(), d->TargetBuffer->GetMotionVector(), d->TargetBuffer->GetNormalBuffer(),
-					d->TargetBuffer->GetEmissiveBuffer(), d->TargetBuffer->GetMetallicRoughnessBuffer()};
-				if (ViewConst && ViewConst->SkyLightIBLScale > 0.f && d->PreProcess)
+					d->SceneTextures->GetSceneColor(), d->SceneTextures->GetMotionVector(), d->SceneTextures->GetNormalBuffer(),
+					d->SceneTextures->GetEmissiveBuffer(), d->SceneTextures->GetMetallicRoughnessBuffer()};
+				if (ViewConst && ViewConst->SkyLightIBLScale > 0.f && d->SkyLightIBLPrecompute)
 				{
-					auto SkyLightEnv = d->PreProcess->GetSkyLightEnvironment();
-					auto SkyCube = SkyLightEnv ? SkyLightEnv->GetSkyLightCubemap() : nullptr;
-					d->BackgroundRender->SetTextureCube(SkyCube);
-					d->BackgroundRender->Render(*CommandContext, Targets, d->TargetBuffer->GetDepth(), ViewConst->ViewMatrix, ViewConst->ProjMatrix);
+					auto SkyCube = d->SkyLightIBLPrecompute->GetSkyLightCubemap();
+					d->SkyLightPass->SetTextureCube(SkyCube);
+					d->SkyLightPass->Render(*CommandContext, Targets, d->SceneTextures->GetDepth(), ViewConst->SkyInverseViewProj);
 				}
 				else
 				{
-					d->BackgroundRender->SetTextureCube(nullptr);
+					d->SkyLightPass->SetTextureCube(nullptr);
 				}
 			}});
 
@@ -289,7 +287,7 @@ namespace Engine
 				{
 					FDeferredBasePassDrawContext DrawContext;
 					DrawContext.ViewData = ViewConst;
-					DrawContext.TargetBuffer = d->TargetBuffer;
+					DrawContext.SceneTextures = d->SceneTextures;
 					DrawContext.WorldSceneRender = Self;
 					DrawContext.RHICmdList = CommandContext.get();
 					FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RHI, *MeshesForDraw, DrawContext, *MeshCache);
@@ -309,24 +307,24 @@ namespace Engine
 				{
 					FDeferredBasePassDrawContext DrawContext;
 					DrawContext.ViewData = ViewConst;
-					DrawContext.TargetBuffer = d->TargetBuffer;
+					DrawContext.SceneTextures = d->SceneTextures;
 					DrawContext.WorldSceneRender = Self;
 					DrawContext.RHICmdList = CommandContext.get();
 					FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RHI, *MeshesForDraw, DrawContext, *MeshCache);
 				}
 			}});
 
-		if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+		if (d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit)
 		{
 			Graph.AddPass(FRDGPassDescriptor{
 				FRDGDeferredLightingPass::PassNameCopySceneToPreLighting,
-				FRDGDeferredLightingPass::GatherCopyPassInputs(TB),
-				FRDGDeferredLightingPass::GatherCopyPassOutputs(TB),
-				[d, CommandContext, TB]()
+				FRDGDeferredLightingPass::GatherCopyPassInputs(SceneTextures),
+				FRDGDeferredLightingPass::GatherCopyPassOutputs(SceneTextures),
+				[d, CommandContext, SceneTextures]()
 				{
 					if (!d->DeferredLighting)
 						return;
-					d->DeferredLighting->CopySceneColorToPreLighting(*CommandContext, TB);
+					d->DeferredLighting->CopySceneColorToPreLighting(*CommandContext, SceneTextures);
 				},
 				true,
 				RDG_Copy,
@@ -334,13 +332,13 @@ namespace Engine
 				true});
 			Graph.AddPass(FRDGPassDescriptor{
 				FRDGDeferredLightingPass::PassNameRaster,
-				FRDGDeferredLightingPass::GatherRasterPassInputs(TB),
-				FRDGDeferredLightingPass::GatherRasterPassOutputs(TB),
-				[d, Self, CommandContext, ViewConst, TB]()
+				FRDGDeferredLightingPass::GatherRasterPassInputs(SceneTextures),
+				FRDGDeferredLightingPass::GatherRasterPassOutputs(SceneTextures),
+				[d, Self, CommandContext, ViewConst, SceneTextures]()
 				{
 					if (!d->DeferredLighting || !d->MainViewPort)
 						return;
-					d->DeferredLighting->ExecuteRaster(*CommandContext, d->MainViewPort, TB, Self, ViewConst);
+					d->DeferredLighting->ExecuteRaster(*CommandContext, d->MainViewPort, SceneTextures, Self, ViewConst);
 				},
 				true,
 				RDG_Raster,
@@ -357,7 +355,7 @@ namespace Engine
 					{
 						FDeferredBasePassDrawContext DrawContext;
 						DrawContext.ViewData = ViewConst;
-						DrawContext.TargetBuffer = d->TargetBuffer;
+						DrawContext.SceneTextures = d->SceneTextures;
 						DrawContext.WorldSceneRender = Self;
 						DrawContext.RHICmdList = CommandContext.get();
 						FDeferredShadingBasePassRenderer::RenderTranslucentForwardAfterDeferredLighting(RHI, *MeshesForDraw, DrawContext, *MeshCache, d->DeferredLighting.get());
@@ -367,14 +365,14 @@ namespace Engine
 				"RenderFurForward",
 				SceneTexturesIO,
 				SceneTexturesIO,
-				[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame, TB]()
+				[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame, SceneTextures]()
 				{
 					FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
 					if (!MeshesForDraw->empty() && MeshCache && d->DeferredLighting)
 					{
 						FDeferredBasePassDrawContext DrawContext;
 						DrawContext.ViewData = ViewConst;
-						DrawContext.TargetBuffer = d->TargetBuffer;
+						DrawContext.SceneTextures = d->SceneTextures;
 						DrawContext.WorldSceneRender = Self;
 						DrawContext.RHICmdList = CommandContext.get();
 						FDeferredShadingBasePassRenderer::RenderFurForwardAfterDeferredLighting(RHI, *MeshesForDraw, DrawContext, *MeshCache, d->DeferredLighting.get());
@@ -382,7 +380,7 @@ namespace Engine
 				}});
 		}
 
-		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->TargetBuffer, d->MainViewPort, ViewConst);
+		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->SceneTextures, d->MainViewPort, ViewConst);
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"ShadowDebugWire",
@@ -418,14 +416,14 @@ namespace Engine
 			Graph.AddPassDependency("Shadow", "ClearSceneTextures");
 			Graph.AddPassDependency("Shadow", "RenderBasePass");
 			Graph.AddPassDependency("Shadow", "RenderTranslucency");
-			if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+			if (d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit)
 			{
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
 				Graph.AddPassDependency("Shadow", "RenderTranslucentForward");
 			}
 		}
 
-		if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+		if (d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit)
 		{
 			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
 			Graph.AddPassDependency("RenderTranslucentForward", "RenderFurForward");

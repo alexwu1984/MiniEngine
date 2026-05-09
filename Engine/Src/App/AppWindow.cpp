@@ -1,9 +1,8 @@
-﻿#include "App/AppWindow.h"
+#include "App/AppWindow.h"
 #include "App/MiniEngineWinResources.h"
 #include "Engine/ComErrorLog.h"
 #include "Imgui/imgui_impl_win32.h"
 #include "RHI/DynamicRHI.h"
-#include "core/commandline.h"
 
 namespace Engine
 {
@@ -71,6 +70,14 @@ namespace Engine
 	bool AppWindow::CreateAppWindow(int32_t width, int32_t height)
 	{
 		C_P(AppWindow);
+		// Before any HWND: per-monitor v2 so client sizes / mouse / swapchain stay in physical pixels.
+		static bool sDpiAwarenessEnabled = false;
+		if (!sDpiAwarenessEnabled)
+		{
+			::ImGui_ImplWin32_EnableDpiAwareness();
+			sDpiAwarenessEnabled = true;
+		}
+
 		int32_t ScreenX = ::GetSystemMetrics(SM_CXSCREEN);
 		int32_t ScreenY = ::GetSystemMetrics(SM_CYSCREEN);
 
@@ -118,6 +125,13 @@ namespace Engine
 		{
 			::SetPropW(d->_hWnd, WINDOW_PROP_THIS_PTR, (void*)(AppWindow*)this);
 			::SetWindowPos(d->_hWnd, HWND_TOP, (ScreenX - width) / 2, (ScreenY - height) / 2, width, height, SWP_SHOWWINDOW);
+			// CreateWindow/SetWindowPos use outer size; RHI + ImGui must agree on **client** pixels (avoid ImGui DisplayFramebufferScale hacks).
+			RECT clientRc{};
+			if (::GetClientRect(d->_hWnd, &clientRc))
+			{
+				d->_width = clientRc.right - clientRc.left;
+				d->_height = clientRc.bottom - clientRc.top;
+			}
 			return true;
 		}
 		return false;
@@ -129,15 +143,9 @@ namespace Engine
 	int64_t AppWindow::WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam)
 	{
 		C_P(AppWindow);
-		if (!core::CommandLine::Get().GetName("noimgui"))
-		{
-			// Always forward messages to ImGui, but do not early-return.
-			// ImGui's Win32 backend may return "handled" for messages (including WM_SIZE),
-			// yet we still need to update our viewport and dispatch engine events to keep
-			// rendering and input coordinates consistent.
-			::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
-		}
-		
+		// Always forward messages to ImGui, but do not early-return.
+		::ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(pWnd), message, wParam, lParam);
+
 		if (ImGui::GetCurrentContext())
 		{
 			const ImGuiIO& io = ImGui::GetIO();

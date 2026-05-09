@@ -10,7 +10,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class SceneTextures;
+	class FSceneTextures;
 	struct DownSamplePSPrivate;
 
 	class DownSamplePS
@@ -20,7 +20,7 @@ namespace Engine
 		~DownSamplePS();
 
 		void InitResource();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures);
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetDownSampleTarget();
 	private:
 		DownSamplePSPrivate* d_ptr = nullptr;

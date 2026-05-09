@@ -1,4 +1,4 @@
-﻿#include "Render/PostProcessor.h"
+#include "Render/PostProcessor.h"
 #include "core/logger.h"
 #include "core/system.h"
 #include <cmath>
@@ -21,9 +21,6 @@
 #include "Render/PostProcessPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/SceneViewData.h"
-#include "Engine/Render/PreProcessor.h"
-#include "Engine/Render/SkyLightEnvironment.h"
-
 namespace Engine
 {
 	using namespace RenderCore;
@@ -49,15 +46,15 @@ namespace Engine
 		}
 	} // namespace
 
-	static void RegisterPostOnlySceneTexturesImports(FRDGBuilder& Graph, std::shared_ptr<SceneTextures> TB)
+	static void RegisterPostOnlySceneTexturesImports(FRDGBuilder& Graph, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
-		if (!TB)
+		if (!SceneTextures)
 			return;
-		Graph.ImportTexture("SceneColor", [TB]() { return TB->GetSceneColor(); }, false);
-		Graph.ImportTexture("MotionVector", [TB]() { return TB->GetMotionVector(); }, false);
-		Graph.ImportTexture("Normal", [TB]() { return TB->GetNormalBuffer(); }, false);
-		Graph.ImportTexture("MetallicRoughness", [TB]() { return TB->GetMetallicRoughnessBuffer(); }, false);
-		Graph.ImportTexture("Depth", [TB]() { return TB->GetDepth(); }, false);
+		Graph.ImportTexture("SceneColor", [SceneTextures]() { return SceneTextures->GetSceneColor(); }, false);
+		Graph.ImportTexture("MotionVector", [SceneTextures]() { return SceneTextures->GetMotionVector(); }, false);
+		Graph.ImportTexture("Normal", [SceneTextures]() { return SceneTextures->GetNormalBuffer(); }, false);
+		Graph.ImportTexture("MetallicRoughness", [SceneTextures]() { return SceneTextures->GetMetallicRoughnessBuffer(); }, false);
+		Graph.ImportTexture("Depth", [SceneTextures]() { return SceneTextures->GetDepth(); }, false);
 	}
 
 	struct PostProcessorPrivate
@@ -79,6 +76,8 @@ namespace Engine
 		float ExposureStops = 0.f;
 		/** Scales blurred emissive stack blended in ApplyBloom (see Evn.BloomIntensity). */
 		float BloomIntensity = 1.f;
+		/** Bloom extract threshold in linear luminance units (see Evn.BloomThreshold). */
+		float BloomThreshold = 0.72f;
 
 		PostProcessorPrivate(DynamicRHI* _RHI) :
 			GET_SHADER_STRUCT_MEMBER(BloomContants)(_RHI)
@@ -121,6 +120,7 @@ namespace Engine
 			d->EnableSSR = EvnJson.value("EnableSSR", false);
 			d->ExposureStops = EvnJson.value("ExposureStops", 0.f);
 			d->BloomIntensity = EvnJson.value("BloomIntensity", 1.f);
+			d->BloomThreshold = EvnJson.value("BloomThreshold", 0.72f);
 
 			EPostProcessorAAType ConfigAAType = d->AAType;
 			if (EvnJson.find("AAType") != EvnJson.end())
@@ -208,13 +208,13 @@ namespace Engine
 			d->FXaa->InvalidateTransientResources();
 	}
 
-	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<RHIViewPort> ViewPort,
+	void PostProcessor::Draw(RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures, std::shared_ptr<RHIViewPort> ViewPort,
 						   std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(PostProcessor);
 		FRDGBuilder Graph;
-		RegisterPostOnlySceneTexturesImports(Graph, TargetBuffer);
-		AddFramePasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData);
+		RegisterPostOnlySceneTexturesImports(Graph, SceneTextures);
+		AddFramePasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData);
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = &RHIContext;
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))
@@ -226,7 +226,7 @@ namespace Engine
 			Graph.ExecutePasses(RDGExecParams);
 	}
 
-	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+	void PostProcessor::AddFramePasses(FRDGBuilder& Graph, RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 									   std::shared_ptr<RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData)
 	{
 		C_P(PostProcessor);
@@ -237,20 +237,21 @@ namespace Engine
 			auto& BloomData = d->GET_UNIFORMDATA(BloomContants);
 			BloomData.PostExposureLinear = powf(2.f, d->ExposureStops);
 			BloomData.BloomIntensity = d->BloomIntensity;
+			BloomData.BloomThreshold = d->BloomThreshold;
 			d->GET_SHADER_STRUCT_MEMBER(BloomContants).UpdateUniformBuffer(RHIContext);
 		}
 
 		PostProcessPassInputs PassInputs;
-		PassInputs.AntiAliasingColor = TargetBuffer->GetSceneColorWithBloom();
+		PassInputs.AntiAliasingColor = SceneTextures->GetSceneColorWithBloom();
 		switch (d->AAType)
 		{
 		case EPostProcessorAAType::TAA:
 			PassInputs.SSRReflectionColor = d->TAA->GetHistoryBuffer();
 			if (!PassInputs.SSRReflectionColor)
-				PassInputs.SSRReflectionColor = TargetBuffer->GetSceneColor();
+				PassInputs.SSRReflectionColor = SceneTextures->GetSceneColor();
 			break;
 		case EPostProcessorAAType::FXAA:
-			PassInputs.SSRReflectionColor = TargetBuffer->GetSceneColor();
+			PassInputs.SSRReflectionColor = SceneTextures->GetSceneColor();
 			break;
 		}
 
@@ -261,13 +262,13 @@ namespace Engine
 		}
 
 		const bool UseSSRComposite = d->EnableSSR && d->SSREffect && PassInputs.SSRReflectionColor;
-		BuildSSRPasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData, PassInputs.SSRReflectionColor);
-		BuildBloomPasses(Graph, RHIContext, TargetBuffer, ViewPort, UseSSRComposite);
-		BuildAAPasses(Graph, RHIContext, TargetBuffer, ViewPort, ViewData, PassInputs.AntiAliasingColor);
-		BuildTonemappingPass(Graph, RHIContext, TargetBuffer, ViewPort);
+		BuildSSRPasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData, PassInputs.SSRReflectionColor);
+		BuildBloomPasses(Graph, RHIContext, SceneTextures, ViewPort, UseSSRComposite);
+		BuildAAPasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData, PassInputs.AntiAliasingColor);
+		BuildTonemappingPass(Graph, RHIContext, SceneTextures, ViewPort);
 	}
 
-	void PostProcessor::BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+	void PostProcessor::BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 									   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 									   std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor)
 	{
@@ -277,7 +278,7 @@ namespace Engine
 
 		SSRPass SSRPassNode(
 			RHIContext,
-			TargetBuffer,
+			SceneTextures,
 			ViewPort,
 			ViewData,
 			d->SSREffect,
@@ -286,34 +287,34 @@ namespace Engine
 
 		Graph.AddPass(d->ApplySSR->BuildDesc(
 			RHIContext,
-			TargetBuffer,
+			SceneTextures,
 			ViewPort,
 			[d]() { return d->SSREffect ? d->SSREffect->GetSSRBuffer() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+	void PostProcessor::BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 										 std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite)
 	{
 		C_P(PostProcessor);
 		const std::string bloomSceneInput = UseSSRComposite ? "SceneColorWithSSR" : "SceneColor";
 		BloomPass BloomPassNode(
 			RHIContext,
-			TargetBuffer,
+			SceneTextures,
 			d->BloomEffect,
-			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); },
+			[SceneTextures, UseSSRComposite]() { return UseSSRComposite ? SceneTextures->GetSceneColorWithSSR() : SceneTextures->GetSceneColor(); },
 			bloomSceneInput);
 		Graph.AddPass(BloomPassNode.BuildDesc());
 
 		Graph.AddPass(d->ApplyBloom->BuildDesc(
 			RHIContext,
-			TargetBuffer,
+			SceneTextures,
 			ViewPort,
 			bloomSceneInput,
-			[TargetBuffer, UseSSRComposite]() { return UseSSRComposite ? TargetBuffer->GetSceneColorWithSSR() : TargetBuffer->GetSceneColor(); },
+			[SceneTextures, UseSSRComposite]() { return UseSSRComposite ? SceneTextures->GetSceneColorWithSSR() : SceneTextures->GetSceneColor(); },
 			[d]() { return d->BloomEffect ? d->BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }));
 	}
 
-	void PostProcessor::BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+	void PostProcessor::BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 									  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 									  std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor)
 	{
@@ -322,7 +323,7 @@ namespace Engine
 		{
 		case EPostProcessorAAType::TAA:
 		{
-			TAAPass Pass(RHIContext, TargetBuffer, ViewData, d->TAA, [AntiAliasingColor]() { return AntiAliasingColor; });
+			TAAPass Pass(RHIContext, SceneTextures, ViewData, d->TAA, [AntiAliasingColor]() { return AntiAliasingColor; });
 			Graph.AddPass(Pass.BuildDesc());
 			break;
 		}
@@ -338,16 +339,16 @@ namespace Engine
 		}
 	}
 
-	void PostProcessor::BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+	void PostProcessor::BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);
 		const std::string tonemapInput = (d->AAType == EPostProcessorAAType::FXAA && d->FXaa) ? "FXAAResult" : "SceneColor";
 		Graph.AddPass(d->Tonemapping->BuildDesc(
 			RHIContext,
-			TargetBuffer,
+			SceneTextures,
 			ViewPort,
-			[d, TargetBuffer]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : TargetBuffer->GetSceneColor(); },
+			[d, SceneTextures]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : SceneTextures->GetSceneColor(); },
 			tonemapInput));
 	}
 

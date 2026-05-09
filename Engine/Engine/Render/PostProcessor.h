@@ -14,7 +14,7 @@ namespace Engine
 {
 	struct PostProcessorPrivate;
 	struct FSceneViewData;
-	class SceneTextures;
+	class FSceneTextures;
 
 	enum class EPostProcessorAAType : uint8_t
 	{
@@ -32,9 +32,9 @@ namespace Engine
 		void InitResource();
 		// After swapchain / scene texture resolution change: drop intermediate targets only (no shader recompile).
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures, std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 				  std::shared_ptr<const FSceneViewData> ViewData);
-		void AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+		void AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetSSRBuffer() const;
 		EPostProcessorAAType GetPostProcessorAAType() const;
@@ -46,15 +46,15 @@ namespace Engine
 		bool WantsHaltonProjectionJitterForMainPass() const;
 
 	private:
-		void BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+		void BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 							std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor);
-		void BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+		void BuildBloomPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 							  std::shared_ptr<RenderCore::RHIViewPort> ViewPort, bool UseSSRComposite);
-		void BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+		void BuildAAPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 						   std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,
 						   std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor);
-		void BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer,
+		void BuildTonemappingPass(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 								  std::shared_ptr<RenderCore::RHIViewPort> ViewPort);
 	private:
 		PostProcessorPrivate* d_ptr = nullptr;

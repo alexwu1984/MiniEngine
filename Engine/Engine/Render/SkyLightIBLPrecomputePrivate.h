@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "RHI/DynamicRHI.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/CubeRender.h"
@@ -56,9 +56,9 @@ struct FSkyLightIBLPrecomputePrivate
 	/** Resolved active mode for the current frame's source (procedural vs file HDR). */
 	bool bProceduralSkyActive = false;
 	/** Evn first directional LightDir (world toward sun); procedural lat-long sun disk + shadows stay aligned. */
-	float ProceduralSunDirX = 0.f;
-	float ProceduralSunDirY = 0.49f;
-	float ProceduralSunDirZ = 0.833f;
+	float ProceduralSunDirX = 1.f;
+	float ProceduralSunDirY = 0.05f;
+	float ProceduralSunDirZ = 0.f;
 	std::shared_ptr<RenderCore::RHIUniformBuffer> ProceduralSkyPSCB;
 	FSkyLightSourceDesc ConfigSource{};
 	FSkyLightSourceDesc CurrentSource{};

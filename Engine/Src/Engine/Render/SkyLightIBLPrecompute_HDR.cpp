@@ -1,10 +1,9 @@
-﻿#include "Render/SkyLightEnvironment.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "core/system.h"
 #include "RHI/RHIDefinitions.h"
 #include <DirectXTex.h>
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <string>
@@ -41,7 +40,7 @@ namespace Engine
 			{
 				d->ConfigSource.Type = ESkyLightSourceType::Procedural;
 				d->ConfigSource.HdrFileFullPath.clear();
-				d->ConfigSource.ProceduralSunDirectionTowardSource = math::Vector3(0.f, 0.49f, 0.833f);
+				d->ConfigSource.ProceduralSunDirectionTowardSource = math::Vector3(1.f, 0.05f, 0.f);
 			}
 			else
 			{
@@ -81,7 +80,7 @@ namespace Engine
 			{
 				math::Vector3 dir = Desired.ProceduralSunDirectionTowardSource;
 				if (dir.GetSqrLength() < 1e-10f)
-					dir = math::Vector3(0.f, 0.49f, 0.833f);
+					dir = math::Vector3(1.f, 0.05f, 0.f);
 				dir = dir.Normalize();
 				d->ProceduralSunDirX = dir.x;
 				d->ProceduralSunDirY = dir.y;

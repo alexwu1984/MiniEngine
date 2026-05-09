@@ -1,4 +1,4 @@
-﻿#include "Render/WorldSceneRender.h"
+#include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Scene/World.h"
 #include "Scene/SkyLightComponent.h"
@@ -10,10 +10,9 @@
 #include "Engine.h"
 #include "RHI/DynamicRHI.h"
 #include "App/AppWindow.h"
-#include "Render/PreProcessor.h"
 #include "GltfModel/GltfMesh.h"
 #include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
-#include "Render/CubeBackground.h"
+#include "Render/SkyLightRenderPass.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Render/PostProcessor.h"
 #include "Render/RDGBuilder.h"
@@ -60,12 +59,12 @@ namespace Engine
 		{
 			if (!d || W == 0 || H == 0)
 				return;
-			if (d->TargetBuffer)
-				d->TargetBuffer->InitDefaultSceneTargets(W, H);
+			if (d->SceneTextures)
+				d->SceneTextures->InitDefaultSceneTargets(W, H);
 			if (d->PostProcess)
 				d->PostProcess->InvalidateTransientResources();
-			if (d->PreProcess)
-				d->PreProcess->InvalidateSkyLightCapturedEnvironment();
+			if (d->SkyLightIBLPrecompute)
+				d->SkyLightIBLPrecompute->InvalidateCapturedEnvironment();
 		}
 
 		/** Render thread: swapchain / viewport resolution + scene targets. */
@@ -114,22 +113,22 @@ namespace Engine
 			{
 				(void)SelfPin;
 				FWorldSceneRenderPrivate* dLife = Resources;
-				if (!dLife->PreProcess)
-					dLife->PreProcess = std::make_shared<PreProcessor>(RHI);
-				dLife->PreProcess->InitResource();
+				if (!dLife->SkyLightIBLPrecompute)
+					dLife->SkyLightIBLPrecompute = std::make_shared<FSkyLightIBLPrecompute>(RHI);
+				dLife->SkyLightIBLPrecompute->InitResource();
 
 				if (!dLife->PostProcess)
 					dLife->PostProcess = std::make_shared<PostProcessor>(RHI);
 				dLife->PostProcess->InitResource();
 
-				if (!dLife->BackgroundRender)
-					dLife->BackgroundRender = std::make_shared<CubeBackground>(RHI);
-				dLife->BackgroundRender->InitResource();
+				if (!dLife->SkyLightPass)
+					dLife->SkyLightPass = std::make_shared<SkyLightRenderPass>(RHI);
+				dLife->SkyLightPass->InitResource();
 
-				if (!dLife->TargetBuffer)
-					dLife->TargetBuffer = std::make_shared<SceneTextures>(RHI);
+				if (!dLife->SceneTextures)
+					dLife->SceneTextures = std::make_shared<FSceneTextures>(RHI);
 				auto Size = dLife->MainViewPort->GetSize();
-				dLife->TargetBuffer->InitDefaultSceneTargets(Size.cx, Size.cy);
+				dLife->SceneTextures->InitDefaultSceneTargets(Size.cx, Size.cy);
 
 				if (!dLife->ShadowRender)
 					dLife->ShadowRender = std::make_shared<ShadowRenderPass>(RHI);
@@ -168,8 +167,8 @@ namespace Engine
 			[SelfPin = std::move(SelfPin), d, Root](RenderCore::DynamicRHI* RHI)
 			{
 				(void)SelfPin;
-				if (d->PreProcess)
-					d->PreProcess->LoadConfig(Root);
+				if (d->SkyLightIBLPrecompute)
+					d->SkyLightIBLPrecompute->LoadConfig(Root);
 				if (d->PostProcess)
 					d->PostProcess->LoadConfig(Root);
 			});
@@ -205,9 +204,9 @@ namespace Engine
 		SubmitSceneForRendering(DeltaTime);
 	}
 
-	std::shared_ptr<PreProcessor> FWorldSceneRender::GetPreProcessor() const
+	std::shared_ptr<FSkyLightIBLPrecompute> FWorldSceneRender::GetSkyLightIBLPrecompute() const
 	{
-		return d_ptr->PreProcess;
+		return d_ptr->SkyLightIBLPrecompute;
 	}
 
 	std::shared_ptr<PostProcessor> FWorldSceneRender::GetPostProcessor() const

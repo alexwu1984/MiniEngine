@@ -23,8 +23,8 @@ cbuffer CB0 : register(b0)
 
 //------------------------------------------------------- PARAMETERS
 static const float Exposure = 10;
-// Filament default feedback: current-frame contribution.
-static const float Feedback = 0.08f;
+// UE4-style temporal blend: lower current weight => heavier history (approx. r.TemporalAACurrentFrameWeight sense).
+static const float Feedback = 0.04f;
 static const float VarianceGamma = 1.0f;
 // Reference diagonal ~2203px @ 1920x1080; scale so high-speed rejection matches other resolutions.
 static const float2 kVelocityRefResolution = float2(1920.0f, 1080.0f);

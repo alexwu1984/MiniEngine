@@ -41,6 +41,23 @@ float4 PS_ShowTexture2DNormal(in VertexOutput_Texture2D In) : SV_Target0
     return float4(Color, 1.0);
 }
 
+/** Inverse of IBLLongLatToCube SampleSphericalMap: UV [0,1]^2 -> unit direction (Y-up, matches cube capture). */
+float3 DirectionFromLongLatUV(float2 uv)
+{
+    float phi = (uv.x - 0.5f) * 2.f * PI;
+    float y = sin((0.5f - uv.y) * PI);
+    float xzLen = sqrt(max(1.f - y * y, 1e-8f));
+    return float3(xzLen * cos(phi), y, xzLen * sin(phi));
+}
+
+/** Procedural / cube-only env: preview as equirectangular (same layout as file HDR LongLat). */
+float4 PS_ShowCubeEquirect(in VertexOutput_Texture2D In) : SV_Target0
+{
+    float3 dir = DirectionFromLongLatUV(In.Tex);
+    float3 Color = CubeEnvironment.SampleLevel(LinearSampler, dir, MipLevel).xyz;
+    return float4(ToneMapping(Color * Exposure), 1.0);
+}
+
 //-------------------------------------------------------
 // CubeMap Cross View
 //-------------------------------------------------------
@@ -55,7 +72,9 @@ VertexOutput VS_CubeMapCross(VertexIN_CubeMapCross In)
 {
     VertexOutput Out;
     Out.LocalDirection = In.Normal;
-    Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    float4 h = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    Out.HClip = h;
+    Out.Position = h;
     return Out;
 }
 

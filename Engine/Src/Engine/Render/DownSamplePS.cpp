@@ -71,11 +71,11 @@ namespace Engine
 		d->PixelShader = d->RHI->RHICreatePixelShader(ShaderPath, "PS_DownSample", {});
 	}
 
-	void DownSamplePS::Draw(RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer)
+	void DownSamplePS::Draw(RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
 		C_P(DownSamplePS);
 
-		auto SceneColor = TargetBuffer->GetSceneColor();
+		auto SceneColor = SceneTextures->GetSceneColor();
 		d->Size = SceneColor->GetSize();
 		const int32_t HalfW = d->Size.cx >> 1;
 		const int32_t HalfH = d->Size.cy >> 1;
@@ -104,7 +104,7 @@ namespace Engine
 			d->GET_UNIFORMDATA(DownSampleParam).MipLevel = IndexMip;
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).UpdateUniformBuffer(RHIContext);
 			d->GET_SHADER_STRUCT_MEMBER(DownSampleParam).SetShaderUniformBuffer(RHIContext, RenderCore::SF_Pixel);
-			Engine::RenderUtil::RenderFullQuad(RHIContext, TargetBuffer->GetSceneColor(), d->VertexShader, d->PixelShader);	
+			Engine::RenderUtil::RenderFullQuad(RHIContext, SceneTextures->GetSceneColor(), d->VertexShader, d->PixelShader);	
 		}
 	}
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Scene/Component.h"
 #include "Render/SkyLightEnvironment.h"
 #include "math/vector3.h"
@@ -50,7 +50,8 @@ namespace Engine
 		int32_t SortPriority = 0;
 		std::wstring HdrRelativePath;
 		float IBLIntensity = 1.f;
-		math::Vector3 ProceduralSunDirectionTowardSource{ 0.f, 0.49f, 0.833f };
+		/** Matches glTFSample SkyDomeProc: Renderer passes vSunDirection (1, 0.05, 0); normalized when applied. */
+		math::Vector3 ProceduralSunDirectionTowardSource{ 1.f, 0.05f, 0.f };
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(SkyLightComponent);
 }

@@ -12,7 +12,7 @@ namespace Engine
 {
 	struct TemporallAAPrivate;
 	struct FSceneViewData;
-	class SceneTextures;
+	class FSceneTextures;
 
 	class TemporallAA
 	{
@@ -22,7 +22,7 @@ namespace Engine
 
 		void InitResource();
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer, std::shared_ptr<const FSceneViewData> ViewData);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures, std::shared_ptr<const FSceneViewData> ViewData);
 		std::shared_ptr<RenderCore::RHITexture2D> GetHistoryBuffer();
 	private:
 		TemporallAAPrivate* d_ptr = nullptr;

@@ -12,7 +12,8 @@ struct VertexIN
 struct VertexOutput
 {
     float4 Position : SV_Position;
-    float3 LocalDirection : TEXCOORD;
+    float3 LocalDirection : TEXCOORD0;
+    float4 HClip : TEXCOORD1;
 };
 
 SamplerState LinearSampler : register(s0);
@@ -22,7 +23,9 @@ VertexOutput VS_SkyCube(VertexIN In)
 {
     VertexOutput Out;
     Out.LocalDirection = In.Position;
-    Out.Position = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    float4 h = mul(mul(float4(In.Position, 1.0), GetWorldMatrix()), GetCameraViewProj());
+    Out.HClip = h;
+    Out.Position = h;
     return Out;
 }
 
@@ -38,5 +41,6 @@ float2 SampleSphericalMap(float3 Direction)
 
 float4 PS_LongLatToCube(VertexOutput In) : SV_Target
 {
-    return LongLatEnvironment.Sample(LinearSampler, SampleSphericalMap(In.LocalDirection.xyz));
+    float3 dir = SkyCubeDirectionFromHClip(In.HClip);
+    return LongLatEnvironment.Sample(LinearSampler, SampleSphericalMap(dir));
 }

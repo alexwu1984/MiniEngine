@@ -1,4 +1,4 @@
-﻿#include "GltfViewerApp.h"
+#include "GltfViewerApp.h"
 #include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/World.h"
@@ -14,7 +14,6 @@
 #include "Render/MaterialPreFrame.h"
 #include "RHI/DynamicRHI.h"
 #include "Imgui/imgui.h"
-#include "core/commandline.h"
 #include "core/strings.h"
 #include "math/vector3.h"
 #include "Render/RDGBuilder.h"
@@ -156,9 +155,6 @@ void GltfViewApp::BindImGuiToSceneRender()
 	sr->sigGuiEvent.unbind(this);
 	sr->sigGuiEvent.bind(
 		[this] {
-			if (core::CommandLine::Get().GetName("noimgui"))
-				return;
-
 			auto Scene = Engine::GEngine ? Engine::GEngine->GetWorld() : nullptr;
 			if (!Scene)
 				return;

@@ -1,4 +1,4 @@
-﻿#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
+#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
 
 #include "RHI/RHIShaderDefine.h"
 #include "Engine/Render/SkyLightEnvironment.h"
@@ -48,9 +48,13 @@ void SkyLightEnvironmentDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
 			AllHDRFiles.push_back(p);
 	}
 
+	if (!AllHDRFiles.empty())
+		ChooseEnvironment = 1;
+
 	std::wstring shaderPath = core::process_directory().wstring() + L"/ShaderLibDX/EnvironmentShaders.hlsl";
 	ShowTexture2DVS = RHI->RHICreateVertexShader(shaderPath, "VS_ShowTexture2D", {}, {});
 	ShowTexture2DPS = RHI->RHICreatePixelShader(shaderPath, "PS_ShowTexture2D", {});
+	ShowCubeEquirectPS = RHI->RHICreatePixelShader(shaderPath, "PS_ShowCubeEquirect", {});
 
 	{
 		RenderCore::RHIVertexDeclare vd;
@@ -68,15 +72,18 @@ void SkyLightEnvironmentDemoRunner::OnGui()
 	ImGui::SliderFloat("Exposure", &Exposure, 0.f, 10.f, "%.1f");
 
 	ImGui::Separator();
-	ImGui::Text("HDR files");
+	ImGui::Text("Environment source");
 	ImGui::Indent(16);
+	ImGui::RadioButton("Procedural sky (generated cubemap / IBL)", &ChooseEnvironment, 0);
 	for (int i = 0; i < (int)AllHDRFiles.size(); ++i)
 	{
 		std::filesystem::path p = AllHDRFiles[i];
 		const std::string fileName = p.filename().string();
-		ImGui::RadioButton(fileName.c_str(), &ChooseHDR, i);
+		ImGui::RadioButton(fileName.c_str(), &ChooseEnvironment, i + 1);
 	}
 	ImGui::Unindent(16);
+	if (ChooseEnvironment == 0)
+		ImGui::SliderFloat3("Sun dir (toward light)", &ProceduralSunDirection.x, -1.f, 1.f);
 
 	ImGui::Separator();
 	ImGui::Text("Show Mode");
@@ -88,7 +95,9 @@ void SkyLightEnvironmentDemoRunner::OnGui()
 
 	if (SkyLightEnv)
 	{
-		if (Mode == SM_CubeCross && SkyLightEnv->GetSkyLightCubemap())
+		if (Mode == SM_LongLat && ChooseEnvironment == 0 && SkyLightEnv->GetSkyLightCubemap())
+			ImGui::SliderInt("Mip Level", &MipLevel, 0, SkyLightEnv->GetSkyLightCubemap()->GetNumMips() - 1);
+		else if (Mode == SM_CubeCross && SkyLightEnv->GetSkyLightCubemap())
 			ImGui::SliderInt("Mip Level", &MipLevel, 0, SkyLightEnv->GetSkyLightCubemap()->GetNumMips() - 1);
 		else if (Mode == SM_Irradiance && SkyLightEnv->GetDiffuseIrradianceCubemap())
 			ImGui::SliderInt("Mip Level", &MipLevel, 0, SkyLightEnv->GetDiffuseIrradianceCubemap()->GetNumMips() - 1);
@@ -110,7 +119,10 @@ void SkyLightEnvironmentDemoRunner::Draw(RenderCore::RHICommandContext& Ctx,
 	switch (Mode)
 	{
 	case SM_LongLat:
-		ShowTexture2D(Ctx, SkyLightEnv->GetSkyLightSourceHDR());
+		if (auto hdr = SkyLightEnv->GetSkyLightSourceHDR())
+			ShowTexture2D(Ctx, hdr);
+		else if (auto cube = SkyLightEnv->GetSkyLightCubemap())
+			ShowCubeAsLongLat(Ctx, cube);
 		break;
 	case SM_CubeCross:
 		ShowSHCubeMapDebugView(Ctx, SkyLightEnv->GetSkyLightCubemap());
@@ -131,15 +143,37 @@ void SkyLightEnvironmentDemoRunner::GenerateIBLMaps()
 {
 	if (!SkyLightEnv)
 		return;
-	if (AllHDRFiles.empty())
+
+	const bool bProcedural = (ChooseEnvironment == 0);
+	math::Vector3 sun = ProceduralSunDirection;
+	if (sun.GetSqrLength() < 1e-10f)
+		sun = math::Vector3(1.f, 0.05f, 0.f);
+	const bool sunDirty =
+		bProcedural && (sun - AppliedProceduralSun).GetSqrLength() > 1e-10f;
+	const bool envDirty = (ChooseEnvironment != AppliedEnvironment) || sunDirty;
+	if (!envDirty)
 		return;
 
-	if (CurrentHDR != ChooseHDR)
+	if (bProcedural)
 	{
-		CurrentHDR = ChooseHDR;
-		CurrentHDR = std::max(0, std::min(CurrentHDR, (int)AllHDRFiles.size() - 1));
-		SkyLightEnv->LoadTex(core::u8_ucs2(AllHDRFiles[CurrentHDR]));
+		Engine::FSkyLightSourceDesc Desc{};
+		Desc.Type = Engine::ESkyLightSourceType::Procedural;
+		Desc.ProceduralSunDirectionTowardSource = sun;
+		SkyLightEnv->InvalidateCapturedEnvironment();
+		SkyLightEnv->ResolveAndApplyHDRSource(Desc);
+		AppliedEnvironment = 0;
+		AppliedProceduralSun = sun;
+		return;
 	}
+
+	const int hdrIndex = ChooseEnvironment - 1;
+	if (hdrIndex < 0 || hdrIndex >= (int)AllHDRFiles.size())
+		return;
+
+	SkyLightEnv->LoadTex(core::u8_ucs2(AllHDRFiles[hdrIndex]));
+	SkyLightEnv->InvalidateCapturedEnvironment();
+	SkyLightEnv->ResolveAndApplyHDRSource({});
+	AppliedEnvironment = ChooseEnvironment;
 }
 
 void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, const std::shared_ptr<RenderCore::RHITexture2D>& Texture2D)
@@ -168,6 +202,37 @@ void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext&
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
 	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = 0;
+	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), RenderCore::SF_Pixel);
+	Ctx.Draw(3);
+}
+
+void SkyLightEnvironmentDemoRunner::ShowCubeAsLongLat(RenderCore::RHICommandContext& Ctx,
+	const std::shared_ptr<RenderCore::RHITextureCube>& Cube)
+{
+	if (!Cube || !ShowCubeEquirectPS || !ShowTexture2DVS || !ViewPort || !Window)
+		return;
+
+	const int maxW = Window->GetWidth();
+	const int maxH = Window->GetHeight();
+	int H = std::min(maxH, maxW / 2);
+	int W = std::min(maxW, H * 2);
+	H = std::max(1, W / 2);
+	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
+
+	RenderCore::GraphicsPipelineStateInitializer Init;
+	Init.VertexShader = ShowTexture2DVS;
+	Init.PixelShader = ShowCubeEquirectPS;
+	Init.BlendState = RenderCore::RHICachedStates::BlendDisable;
+	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
+	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
+	Ctx.RHISetGraphicsPipelineState(Init);
+
+	ViewPort->SetRenderTarget();
+
+	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
+	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Cube);
+	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = Exposure;
+	GET_UNIFORMDATA(PSRenderDemoContant).MipLevel = std::max(0, std::min(MipLevel, (int)Cube->GetNumMips() - 1));
 	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), RenderCore::SF_Pixel);
 	Ctx.Draw(3);
 }

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "RHI/RHIShaderDefine.h"
 #include "math/vector2.h"
 
@@ -12,12 +12,13 @@ namespace RenderCore
 namespace Engine
 {
 	struct BloomPrivate;
-	class SceneTextures;
+	class FSceneTextures;
 
 	struct BloomContants
 	{
 		float BloomIntensity{ 0.5f };
-		float BloomThreshold{ 1.0f };
+		/** Linear luminance threshold before bloom extract (scaled by PostExposureLinear). Lower = easier sun/sky bloom. */
+		float BloomThreshold{ 0.72f };
 		/** exp2(exposure stops): applied to linear scene before tonemap; scales bloom extract threshold (see PostProcess.hlsl). */
 		float PostExposureLinear{ 1.0f };
 		float Pad0{ 0.0f };
@@ -33,7 +34,7 @@ namespace Engine
 		void InitResource();
 		// Drop UAV mips (e.g. after scene texture resize). Shaders stay valid.
 		void InvalidateTransientResources();
-		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer);
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures);
 		std::shared_ptr<RenderCore::RHITexture2D> GetResult() const;
 	private:
 		BloomPrivate* d_ptr = nullptr;

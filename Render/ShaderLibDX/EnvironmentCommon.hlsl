@@ -13,7 +13,8 @@ struct EnvironmentVertexIN
 struct EnvironmentVertexOut
 {
     float4 Position : SV_Position;
-    float3 LocalDirection : TEXCOORD;
+    float3 LocalDirection : TEXCOORD0;
+    float4 HClip : TEXCOORD1;
 };
 
 cbuffer PSContant : register(b5)

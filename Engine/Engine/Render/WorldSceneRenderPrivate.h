@@ -1,13 +1,10 @@
-﻿#pragma once
+#pragma once
 #include "core/color.h"
 #include "math/matrix4x4.h"
 #include "math/vector3.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
 #include "Render/ShadowDebugWireRenderer.h"
-#include <atomic>
-#include <mutex>
-#include <vector>
 
 namespace RenderCore
 {
@@ -17,10 +14,10 @@ namespace RenderCore
 namespace Engine
 {
 	class World;
-	class PreProcessor;
+	class FSkyLightIBLPrecompute;
 	class PostProcessor;
-	class CubeBackground;
-	class SceneTextures;
+	class SkyLightRenderPass;
+	class FSceneTextures;
 	class ShadowRenderPass;
 	class DeferredLightingPass;
 
@@ -28,10 +25,10 @@ namespace Engine
 	{
 		std::weak_ptr<World> Owner;
 		std::shared_ptr<RenderCore::RHIViewPort> MainViewPort;
-		std::shared_ptr<PreProcessor> PreProcess;
+		std::shared_ptr<FSkyLightIBLPrecompute> SkyLightIBLPrecompute;
 		std::shared_ptr<PostProcessor> PostProcess;
-		std::shared_ptr<CubeBackground> BackgroundRender;
-		std::shared_ptr<SceneTextures> TargetBuffer;
+		std::shared_ptr<SkyLightRenderPass> SkyLightPass;
+		std::shared_ptr<FSceneTextures> SceneTextures;
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
 		std::shared_ptr<FShadowDebugWireRenderer> ShadowDebugWire;
 		std::shared_ptr<DeferredLightingPass> DeferredLighting;

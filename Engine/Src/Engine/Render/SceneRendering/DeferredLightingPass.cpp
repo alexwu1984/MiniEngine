@@ -1,9 +1,8 @@
-﻿#include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/RDGUtils.h"
 #include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
-#include "Render/PreProcessor.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/MaterialPreFrame.h"
@@ -36,8 +35,8 @@ namespace Engine
 			return Init;
 		}
 
-		static void FillPerFrameFromView(CBPerFrameWrap& Out, CBPointShadowWrap* OutPointShadow, CBSpotShadowWrap* OutSpotShadow, const FSceneViewData& View, PreProcessor* Pre,
-										 FWorldSceneRender* WorldSceneRender)
+		static void FillPerFrameFromView(CBPerFrameWrap& Out, CBPointShadowWrap* OutPointShadow, CBSpotShadowWrap* OutSpotShadow, const FSceneViewData& View,
+										 FSkyLightIBLPrecompute* SkyLightIBL, FWorldSceneRender* WorldSceneRender)
 		{
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProj = View.CurrViewProjMatrix;
@@ -206,15 +205,10 @@ namespace Engine
 						Out.Data.myPerFrame.Lights[i].ShadowMapIndex = -1;
 				}
 			}
-			if (Pre)
+			if (SkyLightIBL)
 			{
-				if (auto SkyLightEnv = Pre->GetSkyLightEnvironment())
-				{
-					if (auto SpecCube = SkyLightEnv->GetSpecularReflectionCubemap())
-						Out.Data.myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
-					else
-						Out.Data.myPerFrame.IBLMIpCount = 1.f;
-				}
+				if (auto SpecCube = SkyLightIBL->GetSpecularReflectionCubemap())
+					Out.Data.myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
 				else
 					Out.Data.myPerFrame.IBLMIpCount = 1.f;
 			}
@@ -254,12 +248,12 @@ namespace Engine
 		}
 	}
 
-	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer) const
+	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures) const
 	{
-		if (!TargetBuffer)
+		if (!SceneTextures)
 			return;
-		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = TargetBuffer->GetSceneColorPreLighting();
-		const std::shared_ptr<RHITexture2D> SceneColor = TargetBuffer->GetSceneColor();
+		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = SceneTextures->GetSceneColorPreLighting();
+		const std::shared_ptr<RHITexture2D> SceneColor = SceneTextures->GetSceneColor();
 		if (!SceneColorPreLighting || !SceneColor)
 			return;
 
@@ -268,26 +262,26 @@ namespace Engine
 		RHIContext.RHICopyResource(SceneColorPreLighting, SceneColor);
 	}
 
-	void DeferredLightingPass::ExecuteRaster(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
+	void DeferredLightingPass::ExecuteRaster(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 											 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
-		if (!RHI || !VertexShader || !PixelShader || !TargetBuffer || !ViewData || !ViewPort)
+		if (!RHI || !VertexShader || !PixelShader || !SceneTextures || !ViewData || !ViewPort)
 			return;
 		if (!PerFrameUniform || !PerFrameUniform->GetRHIBuffer())
 			return;
-		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = TargetBuffer->GetSceneColorPreLighting();
-		const std::shared_ptr<RHITexture2D> SceneColor = TargetBuffer->GetSceneColor();
+		const std::shared_ptr<RHITexture2D> SceneColorPreLighting = SceneTextures->GetSceneColorPreLighting();
+		const std::shared_ptr<RHITexture2D> SceneColor = SceneTextures->GetSceneColor();
 		if (!SceneColorPreLighting || !SceneColor)
 			return;
 
 		RHICommandMark Mark(RHIContext, "DeferredLighting");
 
-		PreProcessor* Pre = nullptr;
+		FSkyLightIBLPrecompute* SkyLightIBL = nullptr;
 		if (WorldSceneRender)
-			Pre = WorldSceneRender->GetPreProcessor().get();
+			SkyLightIBL = WorldSceneRender->GetSkyLightIBLPrecompute().get();
 
-		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData, Pre,
-							 WorldSceneRender);
+		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData,
+							 SkyLightIBL, WorldSceneRender);
 
 		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
 		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
@@ -303,25 +297,22 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
 
 		RHIContext.RHISetShaderTexture(SF_Pixel, 0, SceneColorPreLighting);
-		RHIContext.RHISetShaderTexture(SF_Pixel, 1, TargetBuffer->GetNormalBuffer());
-		RHIContext.RHISetShaderTexture(SF_Pixel, 2, TargetBuffer->GetEmissiveBuffer());
-		RHIContext.RHISetShaderTexture(SF_Pixel, 3, TargetBuffer->GetMetallicRoughnessBuffer());
-		RHIContext.RHISetShaderTexture(SF_Pixel, 4, TargetBuffer->GetDepth());
+		RHIContext.RHISetShaderTexture(SF_Pixel, 1, SceneTextures->GetNormalBuffer());
+		RHIContext.RHISetShaderTexture(SF_Pixel, 2, SceneTextures->GetEmissiveBuffer());
+		RHIContext.RHISetShaderTexture(SF_Pixel, 3, SceneTextures->GetMetallicRoughnessBuffer());
+		RHIContext.RHISetShaderTexture(SF_Pixel, 4, SceneTextures->GetDepth());
 
 		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
 		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;
 		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
-		if (Pre)
+		if (SkyLightIBL)
 		{
-			if (const auto SkyLightEnv = Pre->GetSkyLightEnvironment())
-			{
-				if (const auto t = SkyLightEnv->GetDiffuseIrradianceCubemap())
-					irrCube = t;
-				if (const auto t = SkyLightEnv->GetSpecularReflectionCubemap())
-					specCube = t;
-				if (const auto t = SkyLightEnv->GetBRDFIntegrationLUT())
-					brdfLut = t;
-			}
+			if (const auto t = SkyLightIBL->GetDiffuseIrradianceCubemap())
+				irrCube = t;
+			if (const auto t = SkyLightIBL->GetSpecularReflectionCubemap())
+				specCube = t;
+			if (const auto t = SkyLightIBL->GetBRDFIntegrationLUT())
+				brdfLut = t;
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 5, irrCube);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
@@ -348,7 +339,7 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowSrvTex);
 
 		std::shared_ptr<RHITexture2D> materialAuxSrv = FallbackBrdfLut;
-		if (std::shared_ptr<RHITexture2D> ma = TargetBuffer->GetMaterialAuxBuffer())
+		if (std::shared_ptr<RHITexture2D> ma = SceneTextures->GetMaterialAuxBuffer())
 			materialAuxSrv = std::move(ma);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 9, materialAuxSrv);
 
@@ -374,23 +365,23 @@ namespace Engine
 		RHIContext.Draw(3);
 	}
 
-	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<SceneTextures>& TargetBuffer,
+	void DeferredLightingPass::Execute(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
-		CopySceneColorToPreLighting(RHIContext, TargetBuffer);
-		ExecuteRaster(RHIContext, std::move(ViewPort), TargetBuffer, WorldSceneRender, ViewData);
+		CopySceneColorToPreLighting(RHIContext, SceneTextures);
+		ExecuteRaster(RHIContext, std::move(ViewPort), SceneTextures, WorldSceneRender, ViewData);
 	}
 
-	void DeferredLightingPass::BindFurForwardSharedSRVs(RHICommandContext& RHIContext, const std::shared_ptr<SceneTextures>& TargetBuffer,
+	void DeferredLightingPass::BindFurForwardSharedSRVs(RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures,
 														FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
-		if (!TargetBuffer || !ViewData)
+		if (!SceneTextures || !ViewData)
 			return;
-		PreProcessor* Pre = WorldSceneRender ? WorldSceneRender->GetPreProcessor().get() : nullptr;
+		FSkyLightIBLPrecompute* SkyLightIBL = WorldSceneRender ? WorldSceneRender->GetSkyLightIBLPrecompute().get() : nullptr;
 		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer())
 		{
-			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData, Pre,
-								 WorldSceneRender);
+			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData,
+								 SkyLightIBL, WorldSceneRender);
 			if (PointShadowUniform && PointShadowUniform->GetRHIBuffer())
 				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
 			if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer())
@@ -403,17 +394,14 @@ namespace Engine
 		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
 		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;
 		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
-		if (Pre)
+		if (SkyLightIBL)
 		{
-			if (const auto SkyLightEnv = Pre->GetSkyLightEnvironment())
-			{
-				if (const auto t = SkyLightEnv->GetDiffuseIrradianceCubemap())
-					irrCube = t;
-				if (const auto t = SkyLightEnv->GetSpecularReflectionCubemap())
-					specCube = t;
-				if (const auto t = SkyLightEnv->GetBRDFIntegrationLUT())
-					brdfLut = t;
-			}
+			if (const auto t = SkyLightIBL->GetDiffuseIrradianceCubemap())
+				irrCube = t;
+			if (const auto t = SkyLightIBL->GetSpecularReflectionCubemap())
+				specCube = t;
+			if (const auto t = SkyLightIBL->GetBRDFIntegrationLUT())
+				brdfLut = t;
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 5, irrCube);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);

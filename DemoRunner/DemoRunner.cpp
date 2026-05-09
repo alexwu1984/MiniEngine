@@ -1,4 +1,4 @@
-﻿#include "win/win32.h"
+#include "win/win32.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"
@@ -113,40 +113,36 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 		viewPort->Clear(core::FLinearColor(cc.r, cc.g, cc.b, cc.a));
 		viewPort->Prepare();
 
-		// Minimal UI: show command line knobs and frame dt.
-		if (!core::CommandLine::Get().GetName("noimgui"))
+		ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(360, 120), ImGuiCond_Once);
+		if (ImGui::Begin("DemoRunner", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
-			ImGui::SetNextWindowSize(ImVec2(360, 120), ImGuiCond_Once);
-			if (ImGui::Begin("DemoRunner", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			ImGui::Text("demo=%s", demo->GetName());
+			ImGui::Text("dt: %.3f ms", dt * 1000.0f);
 			{
-				ImGui::Text("demo=%s", demo->GetName());
-				ImGui::Text("dt: %.3f ms", dt * 1000.0f);
-				{
-					int memmonV = 0;
-					core::CommandLine::Get().GetInteger("d3d12_memmon", memmonV);
-					int stacksV = 0;
-					core::CommandLine::Get().GetInteger("d3d12_memmon_stacks", stacksV);
-					int gpudevV = 1;
-					core::CommandLine::Get().GetInteger("d3d12_gpudev", gpudevV);
-					const bool memmonOn = RenderCore::D3D12RHI_ShouldEnableMemMon();
-					const bool stacksOn = RenderCore::D3D12RHI_ShouldEnableMemMonStacks();
-					ImGui::Text("d3d12_memmon=%d (effective=%s)", memmonV, memmonOn ? "on" : "off");
-					ImGui::Text("d3d12_memmon_stacks=%d (effective=%s)", stacksV, stacksOn ? "on" : "off");
-					ImGui::Text("d3d12_gpudev=%d", gpudevV);
-					ImGui::Text("d3ddebug=%s / dxdebug=%s",
-						core::CommandLine::Get().GetSwitch("d3ddebug") ? "on" : "off",
-						core::CommandLine::Get().GetSwitch("dxdebug") ? "on" : "off");
+				int memmonV = 0;
+				core::CommandLine::Get().GetInteger("d3d12_memmon", memmonV);
+				int stacksV = 0;
+				core::CommandLine::Get().GetInteger("d3d12_memmon_stacks", stacksV);
+				int gpudevV = 1;
+				core::CommandLine::Get().GetInteger("d3d12_gpudev", gpudevV);
+				const bool memmonOn = RenderCore::D3D12RHI_ShouldEnableMemMon();
+				const bool stacksOn = RenderCore::D3D12RHI_ShouldEnableMemMonStacks();
+				ImGui::Text("d3d12_memmon=%d (effective=%s)", memmonV, memmonOn ? "on" : "off");
+				ImGui::Text("d3d12_memmon_stacks=%d (effective=%s)", stacksV, stacksOn ? "on" : "off");
+				ImGui::Text("d3d12_gpudev=%d", gpudevV);
+				ImGui::Text("d3ddebug=%s / dxdebug=%s",
+					core::CommandLine::Get().GetSwitch("d3ddebug") ? "on" : "off",
+					core::CommandLine::Get().GetSwitch("dxdebug") ? "on" : "off");
 #if defined(_DEBUG) || defined(DEBUG)
-					ImGui::Text("shaderdebug=%s (debug build: default optimized shaders)",
-						core::CommandLine::Get().GetSwitch("shaderdebug") ? "on (slow GPU)" : "off");
+				ImGui::Text("shaderdebug=%s (debug build: default optimized shaders)",
+					core::CommandLine::Get().GetSwitch("shaderdebug") ? "on (slow GPU)" : "off");
 #endif
-				}
-				ImGui::Separator();
-				demo->OnGui();
 			}
-			ImGui::End();
+			ImGui::Separator();
+			demo->OnGui();
 		}
+		ImGui::End();
 
 		// Draw demo.
 		auto ctx = RHI->GetDefaultCommandContext();

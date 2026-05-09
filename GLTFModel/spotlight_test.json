@@ -1,11 +1,11 @@
-﻿{
+{
   "Evn": {
     "Hdr": "HDR/modern_buildings_night_2k.hdr",
     "AmbientStrength": 1.48,
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.0,0.49,0.833",
+        "LightDir": "1.0,0.05,0.0",
         "LightStrength": 3.5,
         "LightType": 0
       },

@@ -108,6 +108,18 @@ matrix GetCameraViewProj()
     return myPerFrame.CameraCurrViewProj;
 }
 
+matrix GetCameraViewProjInverse()
+{
+    return myPerFrame.CameraCurrViewProjInverse;
+}
+
+/** Skylight cubemap capture: reconstruct world-space view ray from perspective-interpolated clip coordinates. */
+float3 SkyCubeDirectionFromHClip(float4 HClip)
+{
+    float4 worldH = mul(HClip, myPerFrame.CameraCurrViewProjInverse);
+    return normalize(worldH.xyz / worldH.w);
+}
+
 matrix GetPrevWorldMatrix()
 {
     return myPerObject_u_mPrevWorld;

@@ -1,4 +1,4 @@
-﻿#include "Render/SkyLightEnvironment.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightIBLPrecomputePrivate.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIShaderDefine.h"
@@ -40,7 +40,7 @@ namespace Engine
 			if (!d->ProceduralSkyPSCB)
 				d->ProceduralSkyPSCB = d->RHI->RHICreateUniformBuffer(64);
 
-			// Match glTFSample UI defaults.
+			// Match Cauldron SkyDomeProc constants (glTFSample src/DX12/Renderer.cpp procedural sky path).
 			struct alignas(16) FProcSkyPSParams
 			{
 				float vSunDirection[3];
@@ -68,8 +68,11 @@ namespace Engine
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
-			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
-			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
+			const Matrix4x4 VP = d->CaptureViews[IndexView] * Proj;
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = VP;
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+			// PS (LongLat / procedural / irradiance / prefilter) reads CameraCurrViewProjInverse from cbPerFrame — bind to pixel stage too.
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 
 			RHIContext.SetRenderTarget(d->EvnCube, IndexView, 0);
 			RHIContext.Clear(d->EvnCube, IndexView, 0, core::FLinearColor::Black);
@@ -108,8 +111,10 @@ namespace Engine
 		Matrix4x4 Proj = Matrix4x4::MatrixPerspectiveFovLH(0.5f * MATH_PI, 1.f, 0.1f, 10.f);
 		for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 		{
-			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
-			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
+			const Matrix4x4 VP = d->CaptureViews[IndexView] * Proj;
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = VP;
+			d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 
 			d->GET_UNIFORMDATA(ENVContant).NumSamplesPerDir = 10;
 			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(ENVContant), RenderCore::SF_Pixel);
@@ -159,8 +164,10 @@ namespace Engine
 
 			for (int32_t IndexView = 0; IndexView < 6; ++IndexView)
 			{
-				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = d->CaptureViews[IndexView] * Proj;
-				RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame), RenderCore::SF_Vertex);
+				const Matrix4x4 VP = d->CaptureViews[IndexView] * Proj;
+				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = VP;
+				d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 
 				RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(ENVContant), RenderCore::SF_Pixel);
 

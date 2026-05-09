@@ -219,6 +219,7 @@ namespace Engine
 		}
 
 		const std::vector<FRDGPassResource> SceneTexturesIO = GatherSceneTexturesPassResources(TB);
+		const bool bDeferTranslucentToForwardPass = d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit;
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"ClearSceneTextures",
@@ -299,8 +300,10 @@ namespace Engine
 			"RenderTranslucency",
 			SceneTexturesIO,
 			SceneTexturesIO,
-			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame]()
+			[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame, bDeferTranslucentToForwardPass]()
 			{
+				if (bDeferTranslucentToForwardPass)
+					return;
 				FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
 				if (!MeshesForDraw->empty() && MeshCache)
 				{
@@ -343,6 +346,23 @@ namespace Engine
 				RDG_Raster,
 				ERDGPassQueue::Graphics,
 				true});
+			Graph.AddPass(FRDGPassDescriptor{
+				"RenderTranslucentForward",
+				SceneTexturesIO,
+				SceneTexturesIO,
+				[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame]()
+				{
+					FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
+					if (!MeshesForDraw->empty() && MeshCache && d->DeferredLighting)
+					{
+						FDeferredBasePassDrawContext DrawContext;
+						DrawContext.ViewData = ViewConst;
+						DrawContext.TargetBuffer = d->TargetBuffer;
+						DrawContext.WorldSceneRender = Self;
+						DrawContext.RHICmdList = CommandContext.get();
+						FDeferredShadingBasePassRenderer::RenderTranslucentForwardAfterDeferredLighting(RHI, *MeshesForDraw, DrawContext, *MeshCache, d->DeferredLighting.get());
+					}
+				}});
 			Graph.AddPass(FRDGPassDescriptor{
 				"RenderFurForward",
 				SceneTexturesIO,
@@ -399,12 +419,16 @@ namespace Engine
 			Graph.AddPassDependency("Shadow", "RenderBasePass");
 			Graph.AddPassDependency("Shadow", "RenderTranslucency");
 			if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
+			{
 				Graph.AddPassDependency("Shadow", FRDGDeferredLightingPass::PassNameRaster);
+				Graph.AddPassDependency("Shadow", "RenderTranslucentForward");
+			}
 		}
 
 		if (d->DeferredLighting && TB && ViewConst && !ViewConst->bUnlit)
 		{
-			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderFurForward");
+			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
+			Graph.AddPassDependency("RenderTranslucentForward", "RenderFurForward");
 			Graph.AddPassDependency("RenderFurForward", "Tonemapping");
 		}
 

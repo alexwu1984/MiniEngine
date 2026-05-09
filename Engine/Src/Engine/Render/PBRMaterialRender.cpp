@@ -8,11 +8,14 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIRenderTarget.h"
 #include "core/system.h"
+#include "core/logger.h"
 #include "Render/MaterialPreFrame.h"
 #include "Engine/Render/PreProcessor.h"
 #include "Engine/Render/SkyLightEnvironment.h"
 #include "Engine/Render/WorldSceneRender.h"
 #include "Render/SceneTextures.h"
+#include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "RHI/RHITextureCube.h"
 
 namespace Engine
@@ -32,6 +35,7 @@ namespace Engine
 		std::shared_ptr<MaterialBase> MeshMaterial;
 		std::shared_ptr<RHIVertexShader> VertexShader;
 		std::shared_ptr<RHIPixelShader> PixelShader;
+		std::shared_ptr<RHIPixelShader> TranslucentForwardPixelShader;
 		MaterialRenderParam RenderParam;
 		bool bSkeletonMotionHistoryPrimed = false;
 
@@ -154,6 +158,12 @@ namespace Engine
 
 			d->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 			d->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);
+
+			if (this->ShouldCompileTranslucentForwardPixelShader())
+			{
+				const std::wstring ForwardPath = Path + L"TranslucentPBRForward.hlsl";
+				d->TranslucentForwardPixelShader = RHI->RHICreatePixelShader(ForwardPath, std::string("MainPS_TranslucentForward"), ShaderMacros);
+			}
 			});
 		
 	}
@@ -168,9 +178,11 @@ namespace Engine
 		if (d->MeshMaterial->IsTransparent())
 		{
 			Init.BlendState = RHICachedStates::BlendTraditional;
-			// BLEND must still depth-test against opaque base pass (sky has no depth write). Depth-off caused the Buster
-			// concrete disc (BLEND + opacity map) to overdrawing the drone legs with SrcAlpha blend → “transparent robot”.
-			Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
+			// UE-style: textured translucency writes scene depth; constant-alpha translucency depth-tests only.
+			if (d->MeshMaterial->WritesTranslucentDepthToSceneBuffer())
+				Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+			else
+				Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
 		}
 		else
 		{
@@ -258,6 +270,51 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, d->MeshMaterial->GetEmissiveTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
+	}
+
+	void PBRMaterialRender::DrawTranslucentForwardLit(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* DeferredLighting,
+													  FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
+	{
+		C_P(PBRMaterialRender);
+		if (!d->MeshMaterial || !d->MeshMaterial->IsTransparent() || !RenderParam.TargetBuffer || !GetPBRVertexShader())
+			return;
+		if (!d->TranslucentForwardPixelShader)
+		{
+			static bool s_LoggedMissingFwdTranslucentPs = false;
+			if (!s_LoggedMissingFwdTranslucentPs)
+			{
+				s_LoggedMissingFwdTranslucentPs = true;
+				core::LOG(core::log_err, L"PBRMaterialRender: MainPS_TranslucentForward is null; translucent forward pass skipped.");
+			}
+			return;
+		}
+
+		RenderCore::RHICommandMark Mark(RHIContext, "TranslucentPBRForward");
+		StoreRenderParam(RenderParam);
+
+		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.TargetBuffer->GetSceneColor() };
+		RHIContext.SetRenderTarget(Rt, RenderParam.TargetBuffer->GetDepth());
+
+		GraphicsPipelineStateInitializer Init;
+		Init.VertexShader = GetPBRVertexShader();
+		Init.PixelShader = d->TranslucentForwardPixelShader;
+		Init.BlendState = RHICachedStates::BlendTraditional;
+		Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
+		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		RHIContext.RHISetGraphicsPipelineState(Init);
+
+		if (DeferredLighting && WorldSceneRender && ViewData)
+			DeferredLighting->BindFurForwardSharedSRVs(RHIContext, RenderParam.TargetBuffer, WorldSceneRender, ViewData);
+
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RHICachedStates::WarpLinerSampler);
+
+		BindDrawUniformBuffers(RHIContext);
+		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
+		BindDeferredBaseMaterialTextures(RHIContext);
+
+		DrawPrimitive(RHIContext);
 	}
 
 	void PBRMaterialRender::Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)

@@ -7,6 +7,9 @@ namespace Engine
 	struct PBRMaterialRenderPrivate;
 	class GltfMeshBuffer;
 	class MaterialBase;
+	class DeferredLightingPass;
+	class FWorldSceneRender;
+	struct FSceneViewData;
 
 	class PBRMaterialRender : public MaterialRender
 	{
@@ -23,6 +26,8 @@ namespace Engine
 	protected:
 		/** D3D12: ps_5_1 Texture2D[] for first material SRVs (PBR: t0–t4; FurMaterial: t0–t1 albedo+noise). */
 		virtual bool WantsRHIBindless() const { return true; }
+		/** Fur uses a different VS/PS pair; skip compiling TranslucentPBRForward.hlsl for fur instances. */
+		virtual bool ShouldCompileTranslucentForwardPixelShader() const { return true; }
 		void StoreRenderParam(const MaterialRenderParam& RenderParam);
 		void BindDrawUniformBuffers(RenderCore::RHICommandContext& RHIContext);
 
@@ -44,6 +49,10 @@ namespace Engine
 	public:
 		void BeginDeferredOpaqueDrawBatch(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 		void DrawDeferredOpaqueBatchInstance(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
+
+		/** After deferred lighting: blend into SceneColor only; depth test, no depth write (see TranslucentPBRForward.hlsl). */
+		void DrawTranslucentForwardLit(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* DeferredLighting,
+									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData);
 
 	private:
 		virtual std::wstring GetShaderFileName() const;

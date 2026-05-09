@@ -27,6 +27,7 @@ namespace Engine
 	protected:
 		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<SceneTextures> TargetBuffer) override;
 		virtual bool WantsRHIBindless() const override { return false; }
+		bool ShouldCompileTranslucentForwardPixelShader() const override { return false; }
 
 	private:
 		void DrawDeferredInnerBase(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);

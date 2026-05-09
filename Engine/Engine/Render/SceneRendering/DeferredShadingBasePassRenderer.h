@@ -24,6 +24,11 @@ namespace Engine
 		static void RenderDeferredBasePassFullSequence(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const FDeferredBasePassDrawContext& DrawContext,
 													   FMeshMaterialRenderCache& MaterialCache);
 
+		/** Forward translucent PBR onto lit SceneColor (after deferred lighting). */
+		static void RenderTranslucentForwardAfterDeferredLighting(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos,
+																  const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache,
+																  DeferredLightingPass* DeferredLighting);
+
 		/** Forward fur shells onto lit SceneColor (after deferred lighting). */
 		static void RenderFurForwardAfterDeferredLighting(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const FDeferredBasePassDrawContext& DrawContext,
 														  FMeshMaterialRenderCache& MaterialCache, DeferredLightingPass* DeferredLighting);

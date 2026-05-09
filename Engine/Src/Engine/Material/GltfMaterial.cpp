@@ -21,6 +21,8 @@ namespace Engine
 		bool IsTransParent = false;
 		bool UsesAlphaMask = false;
 		float AlphaCutoff = 0.5f;
+		/** BLEND + baseColorTexture: write depth in base pass (UE-style textured translucency). */
+		bool WritesTranslucentDepth = false;
 
 		std::shared_ptr<RHITexture2D> BaseColorTexture;
 		std::shared_ptr<RHITexture2D> MetallicRoughnessTexture;
@@ -68,6 +70,7 @@ namespace Engine
 
 		if (d->Model->materials.empty())
 		{
+			d->WritesTranslucentDepth = false;
 			auto CreateTexCommand = [this,CreateTexture](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
 				d->BaseColorTexture = CreateTexture(-1, core::FLinearColor(1.f, 1.0f, 1.f, 1.f), true);
@@ -91,6 +94,8 @@ namespace Engine
 			d->IsTransParent = (Material.alphaMode == "BLEND");
 			d->UsesAlphaMask = (Material.alphaMode == "MASK");
 			d->AlphaCutoff = static_cast<float>(Material.alphaCutoff);
+			const int bcIdx = Material.pbrMetallicRoughness.baseColorTexture.index;
+			d->WritesTranslucentDepth = (Material.alphaMode == "BLEND") && (bcIdx >= 0);
 
 			auto CreateTexCommand = [this, Material, CreateTexture](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
@@ -128,6 +133,12 @@ namespace Engine
 	{
 		C_P(const GltfMaterial);
 		return d->IsTransParent;
+	}
+
+	bool GltfMaterial::WritesTranslucentDepthToSceneBuffer() const
+	{
+		C_P(const GltfMaterial);
+		return d->WritesTranslucentDepth;
 	}
 
 	bool GltfMaterial::UsesMaterialAlphaMask() const

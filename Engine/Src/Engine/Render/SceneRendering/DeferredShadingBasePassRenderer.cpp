@@ -15,10 +15,46 @@
 #include "Material/GltfMaterial.h"
 #include "Material/MaterialBase.h"
 #include "Engine/Render/FurMaterialRender.h"
+#include "Engine/Render/PBRMaterialRender.h"
 #include "Engine/Render/MaterialRender.h"
 
 namespace Engine
 {
+	void FDeferredShadingBasePassRenderer::RenderTranslucentForwardAfterDeferredLighting(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos,
+																					   const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache,
+																					   DeferredLightingPass* DeferredLighting)
+	{
+		(void)RHI;
+		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.TargetBuffer || !DrawContext.WorldSceneRender)
+			return;
+		if (DrawContext.ViewData->bUnlit || !DeferredLighting)
+			return;
+
+		const math::Vector3 CamPos = DrawContext.ViewData->CameraPos;
+		std::vector<FTranslucentMeshSortKey> SortedKeys;
+		FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
+
+		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
+		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.TargetBuffer->GetSceneColor());
+
+		for (const auto& Key : SortedKeys)
+		{
+			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+			const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
+			if (!Mesh || !meshMat || !meshMat->IsTransparent())
+				continue;
+			std::shared_ptr<MaterialRender> Mat = MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey);
+			if (dynamic_cast<FurMaterialRender*>(Mat.get()))
+				continue;
+			auto* pbr = dynamic_cast<PBRMaterialRender*>(Mat.get());
+			if (!pbr)
+				continue;
+			MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
+				DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.TargetBuffer);
+			pbr->DrawTranslucentForwardLit(Cmd, P, DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
+		}
+	}
+
 	void FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const FDeferredBasePassDrawContext& DrawContext,
 															  FMeshMaterialRenderCache& MaterialCache)
 	{

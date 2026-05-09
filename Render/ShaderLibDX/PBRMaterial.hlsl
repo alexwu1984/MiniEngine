@@ -1,29 +1,7 @@
 // Do NOT include EnvironmentSkyIBL.hlsl / EnvironmentShaders.hlsl: they bind a cubemap at t0 and collide with PBR t0–t8.
 #include "ShaderUtils.hlsl"
 #include "GLTFPbrPass-VS.hlsl"
-#include "GLTFPbrPass-IO.hlsl"
-
-// D3D12: five material maps as one descriptor range (ps_5_1). D3D11: same file, no RHI_BINDLESS macro.
-#if defined(RHI_BINDLESS)
-Texture2D PBR_Material2D[5] : register(t0);
-#define AlbedoMap PBR_Material2D[0]
-#define NormalMap PBR_Material2D[1]
-#define Roughness_metallicMap PBR_Material2D[2]
-#define EmissMap PBR_Material2D[3]
-#define AoMap PBR_Material2D[4]
-#else
-Texture2D AlbedoMap : register(t0);
-Texture2D NormalMap : register(t1);
-Texture2D Roughness_metallicMap : register(t2);
-Texture2D EmissMap : register(t3);
-Texture2D AoMap : register(t4);
-#endif
-SamplerState SampleLinear : register(s0);
-
-cbuffer cbPerMaterial : register(b6)
-{
-    MaterialPerFrame myMaterial;
-};
+#include "PBRMaterialSampling.hlsl"
 
 struct PS_OUTPUT_SCENE
 {
@@ -33,101 +11,6 @@ struct PS_OUTPUT_SCENE
     float4 Target3 : SV_Target3; //Emissive
     float4 Target4 : SV_Target4; //metallSpecularRoughness
 };
-
-float3 getNormalTexture(VS_OUTPUT_SCENE Input)
-{
-	float2 xy = 2.0 * NormalMap.SampleBias(SampleLinear, Input.UV0, myPerFrame.LodBias).rg - 1.0;
-	float lenSq = dot(xy, xy);
-	lenSq = min(lenSq, 1.0 - 1e-6);
-	float z = sqrt(max(1.0 - lenSq, 0.0));
-	return float3(xy, z);
-}
-
-// Find the normal for this fragment, pulling either from a predefined normal map
-// or from the interpolated mesh normal and tangent attributes.
-float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
-{
-    // Retrieve the tangent space matrix
-#ifndef HAS_TANGENT
-    float2 UV = Input.UV0;
-    float3 pos_dx = ddx(Input.WorldPos);
-	float3 pos_dy = ddy(Input.WorldPos);
-	float3 tex_dx = ddx(float3(UV, 0.0));
-	float3 tex_dy = ddy(float3(UV, 0.0));
-	float denom = tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y;
-	float3 tUnnorm = tex_dy.y * pos_dx - tex_dx.y * pos_dy;
-	float3 ng = normalize(Input.Normal);
-	float3 t;
-	if (abs(denom) > 1e-7)
-		t = tUnnorm / denom;
-	else
-	{
-		float3 up = abs(ng.y) < 0.99 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
-		t = normalize(cross(up, ng));
-	}
-
-	t = normalize(t - ng * dot(ng, t));
-    float3 b = normalize(cross(ng, t));
-    float3x3 tbn = float3x3(t, b, ng);
-#else // HAS_TANGENTS
-    float3x3 tbn = float3x3(Input.Tangent, Input.Binormal, Input.Normal);
-#endif
-
-    float3 n = getNormalTexture(Input);
-    n = normalize(mul((n /* * float3(u_NormalScale, u_NormalScale, 1.0) */), tbn));
-
-    return n * (bIsFontFacing ? -1 : 1);
-}
-
-void GetPBRParams(VS_OUTPUT_SCENE Input,out float3 diffuseColor, out float3 specularColor, out float perceptualRoughness,out float metallic, out float alpha)
-{
-    // Metallic and Roughness material properties are packed together
-    // In glTF, these factors can be specified by fixed scalar values
-    // or from a metallic-roughness map
-    alpha = 0.0;
-    perceptualRoughness = 0.0;
-    diffuseColor = float3(0.0, 0.0, 0.0);
-    specularColor = float3(0.0, 0.0, 0.0);
-    float3 f0 = float3(0.04, 0.04, 0.04);
-
-    float4 baseColor = AlbedoMap.Sample(SampleLinear, Input.UV0);
-    
-    float4 mr = Roughness_metallicMap.Sample(SampleLinear, Input.UV0);
-    perceptualRoughness = mr.g;
-    metallic = mr.b;
-
-    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
-    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
-
-    diffuseColor = baseColor.rgb * (float3(1.0, 1.0, 1.0) - f0) * (1.0 - metallic);
-    specularColor = lerp(f0, baseColor.rgb, metallic);
-
-    perceptualRoughness = clamp(perceptualRoughness, 0.0, 1.0);
-
-    alpha = baseColor.a;
-}
-
-
-float3 Calculate3DVelocity(float4 CurrentVelocity, float4 PreVelocity)
-{
-	// minus jitter
-	float Wc = CurrentVelocity.w != 0.0 ? CurrentVelocity.w : 1e-8;
-	float Wp = PreVelocity.w != 0.0 ? PreVelocity.w : 1e-8;
-    float2 ScreenPos = CurrentVelocity.xy / Wc - myPerFrame.TemporalAAJitter.xy;
-    float2 PrevScreenPos = PreVelocity.xy / Wp - myPerFrame.TemporalAAJitter.zw;
-
-    float DeviceZ = CurrentVelocity.z / Wc;
-    float PrevDeviceZ = PreVelocity.z / Wp;
-
-	// 3d velocity, includes camera an object motion
-    float3 Velocity = float3(ScreenPos - PrevScreenPos, DeviceZ - PrevDeviceZ);
-	//Velocity.xy = float2(0.5f, -0.5f) * Velocity.xy;
-	//Velocity.xy *= float2(1024, 768);
-
-	// Make sure not to touch 0,0 which is clear color
-    return Velocity;
-}
-
 
 PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
 {

@@ -20,6 +20,17 @@ SamplerState SampleShadow : register(s1);
 
 #include "ShadowPCSS.hlsl"
 
+cbuffer cbDirectionalShadowCSM : register(b7)
+{
+	row_major matrix CascadeViewProj[3];
+	float4 CascadeSplits;
+	float4 CameraForwardInvCount;
+	int DirectionalCSMEnabled;
+	int3 _PadDirectionalCSM;
+};
+
+#include "DirectionalShadowCSM.hlsl"
+
 cbuffer cbPointShadow : register(b4)
 {
     row_major matrix PointFaceVP[6];
@@ -112,21 +123,13 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	}
 
 	float3 color = float3(0, 0, 0);
-	int mdi = myPerFrame.PrimaryDirectionalLightIndex;
-	// One directional shadow map (t8): DeferredLightingPass.cpp merges VP only into PrimaryDirectionalLightIndex and forces ShadowMapIndex=-1 on other directionals.
-	float4 mainLightClip = float4(0, 0, 0, 1);
-	if (mdi >= 0 && mdi < MAX_LIGHT_INSTANCES && myPerFrame.Lights[mdi].ShadowMapIndex >= 0)
-		mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[mdi].LightViewProj);
 
 	[loop]
 	for (int i = 0; i < myPerFrame.LightCount; ++i)
 	{
 		Light light = myPerFrame.Lights[i];
 		if (light.Type == LightType_Directional)
-		{
-			float4 lc = (light.ShadowMapIndex >= 0) ? mainLightClip : float4(0, 0, 0, 1);
-			color += ApplyDirectionalLightDeferred(lc, light, materialInfo, normal, view);
-		}
+			color += ApplyDirectionalLightDeferred(worldPos, light, materialInfo, normal, view);
 		else if (light.Type == LightType_Point)
 			color += ApplyPointLight(light, materialInfo, normal, worldPos, view, i);
 		else if (light.Type == LightType_Spot)

@@ -2,6 +2,7 @@
 #include "core/inc.h"
 #include "math/aabb3.h"
 #include "math/vector2.h"
+#include "math/vector3.h"
 #include "math/matrix4x4.h"
 #include "Render/MaterialPreFrame.h"
 #include <vector>
@@ -21,6 +22,16 @@ namespace Engine
 		math::AABB3 ModelLocalAABB{};
 		bool bHasViewWorldBoundsForDirectionalReceiverXY = false;
 		math::AABB3 ViewWorldBoundsAabb{};
+		/** When true, directional shadows use cascaded splits derived from the primary camera (SubmitSceneForRendering). */
+		bool bHasCascadeCameraParams = false;
+		math::Matrix4x4 CameraView{};
+		math::Vector3 CameraWorldPos{};
+		float CameraNearZ = 0.1f;
+		float CameraFarZ = 1000.f;
+		float CameraFovYRad = 1.f;
+		float CameraAspectWH = 1.f;
+		/** Unit depth axis in world space — must match primary ViewMatrix column used for view-space Z (CSM split = dot(worldPos - cam, this)). */
+		math::Vector3 CameraForwardWorld{ 0.f, 0.f, 1.f };
 	};
 
 	struct CascadeParameters 

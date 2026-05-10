@@ -49,12 +49,12 @@ float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Norm
 	return shade;
 }
 
-float3 ApplyDirectionalLightDeferred(float4 lightClipPos, Light light, MaterialInfo materialInfo, float3 normal, float3 view)
+float3 ApplyDirectionalLightDeferred(float3 worldPos, Light light, MaterialInfo materialInfo, float3 normal, float3 view)
 {
 	float3 shade = GetPointShade(light.Direction, materialInfo, normal, view);
 	float visibility = 1.0f;
 	if (light.ShadowMapIndex >= 0)
-		visibility = clamp(ComputeShadow(lightClipPos, normal), 0.0, 1.0);
+		visibility = clamp(DirectionalShadowVisibility(worldPos, normal), 0.0, 1.0);
 	return light.Intensity * light.Color * shade * visibility;
 }
 

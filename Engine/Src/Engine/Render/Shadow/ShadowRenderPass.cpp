@@ -13,8 +13,10 @@
 #include "math/aabb3.h"
 #include "math/math.h"
 #include "math/vector2.h"
+#include "math/vector3.h"
 #include "math/vector4.h"
 #include <cmath>
+#include <vector>
 #include <cfloat>
 #include <unordered_set>
 
@@ -254,6 +256,9 @@ namespace Engine
 		math::Matrix4x4 CachedSpotLightView{};
 		int CachedSpotShadowLightIndex = -1;
 		bool bCachedSpotShadowValid = false;
+
+		CBDirectionalShadowCSM CachedDirectionalCSM{};
+		bool bCachedDirectionalCSMParamsValid = false;
 
 		ShadowRenderPassPrivate(RenderCore::DynamicRHI* _RHI)
 			: RHI(_RHI)
@@ -529,9 +534,50 @@ namespace Engine
 		return ReceiverWorldAabb.MergeAABB(casterPad);
 	}
 
+	static constexpr int kDirectionalCSMCount = 3;
+	static constexpr int kCascadeShadowResolution = 2048;
+	static constexpr float kCSMSplitLambda = 0.82f;
+
+	static void ComputeDirectionalCascadeSplitEnds(float n, float f, float outEnds[kDirectionalCSMCount])
+	{
+		const float fn = std::max(f, n + 1e-2f);
+		for (int i = 0; i < kDirectionalCSMCount; ++i)
+		{
+			const float ratio = static_cast<float>(i + 1) / static_cast<float>(kDirectionalCSMCount);
+			const float logd = n * std::pow(fn / n, ratio);
+			const float unid = n + (fn - n) * ratio;
+			outEnds[i] = kCSMSplitLambda * logd + (1.f - kCSMSplitLambda) * unid;
+		}
+	}
+
+	static math::AABB3 WorldBoundsFromViewProjSliceInverse(const math::Matrix4x4& CameraView, float fovy, float aspectWH, float zn, float zf)
+	{
+		const math::Matrix4x4 proj = math::Matrix4x4::MatrixPerspectiveFovLH(fovy, aspectWH, zn, zf);
+		const math::Matrix4x4 vp = CameraView * proj;
+		const math::Matrix4x4 invVP = vp.Inverse();
+		std::vector<math::Vector3> pts;
+		pts.reserve(8);
+		const float sx[] = { -1.f, 1.f };
+		const float sy[] = { -1.f, 1.f };
+		const float sz[] = { 0.f, 1.f };
+		for (float x : sx)
+			for (float y : sy)
+				for (float z : sz)
+				{
+					const math::Vector4 clip(x, y, z, 1.f);
+					const math::Vector4 wh = clip * invVP;
+					const float iw = (std::fabs(wh.w) > 1e-8f) ? (1.f / wh.w) : 1.f;
+					pts.emplace_back(wh.x * iw, wh.y * iw, wh.z * iw);
+				}
+		math::AABB3 box;
+		box.CreateAABB(pts);
+		return box;
+	}
+
 	/** Directional shadow depth pass view-projection; optional receiver-aware XY/Z when using tight caster frustum. */
 	static void SetupDirectionalShadowViewProjection(Light& MainLight, const math::AABB3& SubjectWorldAabb, bool bReceiverRelativeFrustumAdjust, const math::AABB3& ReceiverWorldAabb,
-													 const core::vec2i& ShadowMapSize, const FShadowProjectorSceneData& ShadowProjectorScene)
+													 const core::vec2i& ShadowMapSize, const FShadowProjectorSceneData& ShadowProjectorScene,
+													 bool bExpandOrthoXYFromReceivers)
 	{
 		math::Vector3 wsSceneCorners[8];
 		SubjectWorldAabb.GetPoint(wsSceneCorners);
@@ -565,7 +611,7 @@ namespace Engine
 		if (bReceiverRelativeFrustumAdjust)
 			ExpandOrthoDepthForReceiverBounds(MainLight.LightView, ReceiverWorldAabb, nearValue, farValue);
 
-		if (bReceiverRelativeFrustumAdjust)
+		if (bReceiverRelativeFrustumAdjust && bExpandOrthoXYFromReceivers)
 		{
 			const math::AABB3 recvXY = DirectionalReceiverWorldAabbForOrthoXY(ReceiverWorldAabb, SubjectWorldAabb, MainLight.Direction, ShadowProjectorScene);
 			ExpandOrthoXYForWorldAabb(MainLight.LightView, recvXY, centerX, centerY, sizeX, sizeY);
@@ -627,7 +673,8 @@ namespace Engine
 	void ShadowRenderPass::InitResource()
 	{
 		C_P(ShadowRenderPass);
-		const int32_t SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
+		const int32_t SHADOW_WIDTH = kCascadeShadowResolution;
+		const int32_t SHADOW_HEIGHT = kCascadeShadowResolution * kDirectionalCSMCount;
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
 		if (!d->PointShadowCube)
 			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_R32_FLOAT, kPointShadowCubeSize, kPointShadowCubeSize, 1, false);
@@ -641,6 +688,7 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
+		d->bCachedDirectionalCSMParamsValid = false;
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 	}
@@ -656,6 +704,15 @@ namespace Engine
 		return true;
 	}
 
+	bool ShadowRenderPass::TryGetCachedDirectionalCSM(CBDirectionalShadowCSM& Out) const
+	{
+		C_P(const ShadowRenderPass);
+		if (!d->bCachedDirectionalCSMParamsValid)
+			return false;
+		Out = d->CachedDirectionalCSM;
+		return true;
+	}
+
 	void ShadowRenderPass::ClearCachedMeshShadowPasses()
 	{
 		C_P(ShadowRenderPass);
@@ -668,6 +725,8 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
+		d->bCachedDirectionalCSMParamsValid = false;
+		d->CachedDirectionalCSM = CBDirectionalShadowCSM{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 		d->ShadowMgr->Update(Lights, ShadowProjectorScene);
@@ -693,15 +752,67 @@ namespace Engine
 
 		if (mainDirIdx >= 0 && subjectValid)
 		{
-			Light& mainLight = Lights[static_cast<size_t>(mainDirIdx)];
-			mainLight.ShadowMapIndex = 0;
-			const core::vec2i smSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize() : core::vec2i{ 4096, 4096 };
+			Light& mainLightRef = Lights[static_cast<size_t>(mainDirIdx)];
+			mainLightRef.ShadowMapIndex = 0;
+			const core::vec2i fullTexSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize()
+																 : core::vec2i{ kCascadeShadowResolution, kCascadeShadowResolution * kDirectionalCSMCount };
+			const core::vec2i cascadeTexSize{ kCascadeShadowResolution, kCascadeShadowResolution };
 			const bool bReceiverRelativeFrustumAdjust = receiverValid && kPreferTightShadowFrustumFromCasters && subjectMeshList == &ShadowCasterMeshes;
-			SetupDirectionalShadowViewProjection(mainLight, subjectWorldAabb, bReceiverRelativeFrustumAdjust, receiverWorldAabb, smSize, ShadowProjectorScene);
-			d->CachedMainLightForShading = mainLight;
-			d->CachedMainDirectionalShadowLightListIndex = mainDirIdx;
-			d->bCachedMainLightValid = true;
-			RenderDirectionalShadowMapPass(d, RHIContext, ShadowCasterMeshes, mainLight);
+
+			d->bCachedDirectionalCSMParamsValid = true;
+			d->CachedDirectionalCSM = CBDirectionalShadowCSM{};
+			d->CachedDirectionalCSM.DirectionalCSMEnabled = 0;
+
+			if (ShadowProjectorScene.bHasCascadeCameraParams)
+			{
+				float splitEnds[kDirectionalCSMCount];
+				ComputeDirectionalCascadeSplitEnds(ShadowProjectorScene.CameraNearZ, ShadowProjectorScene.CameraFarZ, splitEnds);
+				d->CachedDirectionalCSM.DirectionalCSMEnabled = 1;
+				d->CachedDirectionalCSM.CascadeSplits =
+					math::Vector4(splitEnds[0], splitEnds[1], ShadowProjectorScene.CameraFarZ, static_cast<float>(kDirectionalCSMCount));
+				const float invN = 1.f / static_cast<float>(kDirectionalCSMCount);
+				d->CachedDirectionalCSM.CameraForwardInvCount =
+					math::Vector4(ShadowProjectorScene.CameraForwardWorld.x, ShadowProjectorScene.CameraForwardWorld.y,
+								  ShadowProjectorScene.CameraForwardWorld.z, invN);
+
+				RHIContext.Clear(d->DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+
+				const float camNear = ShadowProjectorScene.CameraNearZ;
+				Light firstCascadeLight{};
+				for (int ci = 0; ci < kDirectionalCSMCount; ++ci)
+				{
+					const float zNearSlice = (ci == 0) ? camNear : splitEnds[ci - 1];
+					const float zFarSlice = splitEnds[ci];
+					const math::AABB3 sliceBounds =
+						WorldBoundsFromViewProjSliceInverse(ShadowProjectorScene.CameraView, ShadowProjectorScene.CameraFovYRad,
+														   ShadowProjectorScene.CameraAspectWH, zNearSlice, zFarSlice);
+					const math::AABB3 cascadeSubject = subjectWorldAabb.MergeAABB(sliceBounds);
+
+					Light Li = mainLightRef;
+					SetupDirectionalShadowViewProjection(Li, cascadeSubject, bReceiverRelativeFrustumAdjust, receiverWorldAabb, cascadeTexSize,
+														 ShadowProjectorScene, false);
+					d->CachedDirectionalCSM.CascadeViewProj[ci] = Li.LightViewProj;
+					if (ci == 0)
+						firstCascadeLight = Li;
+
+					RHIContext.SetViewPort(0, ci * kCascadeShadowResolution, kCascadeShadowResolution, kCascadeShadowResolution);
+					DrawShadowCasterMeshesDirectional(d, RHIContext, ShadowCasterMeshes, Li, d->DepthRenderBuffer);
+				}
+				d->CachedMainLightForShading = firstCascadeLight;
+				d->CachedMainLightForShading.ShadowMapIndex = 0;
+				d->CachedMainDirectionalShadowLightListIndex = mainDirIdx;
+				d->bCachedMainLightValid = true;
+			}
+			else
+			{
+				SetupDirectionalShadowViewProjection(mainLightRef, subjectWorldAabb, bReceiverRelativeFrustumAdjust, receiverWorldAabb, fullTexSize,
+													 ShadowProjectorScene, true);
+				d->CachedMainLightForShading = mainLightRef;
+				d->CachedMainDirectionalShadowLightListIndex = mainDirIdx;
+				d->bCachedMainLightValid = true;
+				RHIContext.SetViewPort(0, 0, fullTexSize.x, fullTexSize.y);
+				RenderDirectionalShadowMapPass(d, RHIContext, ShadowCasterMeshes, mainLightRef);
+			}
 		}
 
 		if (pointShadowIdx >= 0 && d->PointShadowCube && !ShadowCasterMeshes.empty())
@@ -736,6 +847,14 @@ namespace Engine
 				d->bCachedSpotShadowValid = true;
 				RenderSpotShadowMapPass(d, RHIContext, spotMeshList, spotL);
 			}
+		}
+
+		// Directional CSM leaves RSSetViewports at atlas tiles (non-zero TopLeftY). Reset so nothing downstream
+		// (or same-context helpers) assumes viewport origin (0,0) without rebinding.
+		if (d->DepthRenderBuffer)
+		{
+			const core::vec2i ds = d->DepthRenderBuffer->GetSize();
+			RHIContext.SetViewPort(0, 0, ds.x, ds.y);
 		}
 	}
 

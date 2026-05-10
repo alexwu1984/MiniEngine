@@ -18,10 +18,10 @@
   "Modles": [
     {
       "ProceduralFloor": {
-        "Finish": "grass",
+        "Finish": "frosted",
         "Size": "60,60",
         "Segments": "220,220",
-        "UVScale": 24.0
+        "UVScale": 12.0
       }
     },
     {

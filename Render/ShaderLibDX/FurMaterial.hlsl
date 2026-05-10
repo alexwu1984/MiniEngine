@@ -35,6 +35,17 @@ cbuffer cbPointShadow : register(b4)
 };
 
 #include "ShadowPCSS.hlsl"
+
+cbuffer cbDirectionalShadowCSM : register(b7)
+{
+	row_major matrix CascadeViewProj[3];
+	float4 CascadeSplits;
+	float4 CameraForwardInvCount;
+	int DirectionalCSMEnabled;
+	int3 _PadDirectionalCSM;
+};
+
+#include "DirectionalShadowCSM.hlsl"
 #include "SpotShadowSampling.hlsl"
 #include "DeferredLightingShared.hlsl"
 #include "FurForwardAccumulate.hlsl"

@@ -371,6 +371,27 @@ namespace Engine
 		shadowProjectorScene.ViewWorldBoundsAabb = ViewConst->ViewFrustum.bbox;
 		shadowProjectorScene.bHasViewWorldBoundsForDirectionalReceiverXY = true;
 
+		shadowProjectorScene.bHasCascadeCameraParams = true;
+		shadowProjectorScene.CameraView = ViewConst->ViewMatrix;
+		shadowProjectorScene.CameraWorldPos = ViewConst->CameraPos;
+		shadowProjectorScene.CameraNearZ = ViewConst->CameraNearZ;
+		shadowProjectorScene.CameraFarZ = ViewConst->CameraFarZ;
+		shadowProjectorScene.CameraAspectWH =
+			ViewFamily.RenderSizeY > 0 ? static_cast<float>(ViewFamily.RenderSizeX) / static_cast<float>(ViewFamily.RenderSizeY) : 1.f;
+		if (World->GetMainCamera())
+			shadowProjectorScene.CameraFovYRad = World->GetMainCamera()->GetFovVerticalRadians();
+		// CSM split metric uses dot(worldPos - cam, fwd); fwd MUST match view matrix depth axis (same as WorldBoundsFromViewProjSliceInverse / NearZ–FarZ splits).
+		// Frustum corner averages can diverge slightly from MatrixLookAtLH forward → wrong cascade index → blocky/wrong shadow sampling.
+		{
+			const math::Matrix4x4& V = ViewConst->ViewMatrix;
+			math::Vector3 fwd(V._02, V._12, V._22);
+			if (fwd.GetSqrLength() > 1e-12f)
+				fwd.Normalize();
+			else
+				fwd = math::Vector3(0.f, 0.f, 1.f);
+			shadowProjectorScene.CameraForwardWorld = fwd;
+		}
+
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 
 		FSkyLightSourceDesc skyLightSrc = World->ResolvePrimarySkyLightSource();

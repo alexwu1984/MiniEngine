@@ -129,7 +129,6 @@ void GltfViewApp::BuildModelList()
 		L"BS_Model5.json",
 		L"Model1.json",
 		L"spotlight_test.json",
-		L"Model5.json",
 		L"Model4_fur.json",
 		L"Model2.json",
 		L"old_bicycle.json",

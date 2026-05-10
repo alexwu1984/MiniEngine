@@ -422,9 +422,15 @@ namespace Engine
 			"UIPresent",
 			{},
 			{},
-			[d, Self]()
+			[d, Self, CommandContext]()
 			{
 				Self->sigGuiEvent();
+				// CSM / atlas passes use RSSetViewports with non-zero TopLeft; ImGui assumes full back-buffer viewport at origin.
+				if (CommandContext && d->MainViewPort)
+				{
+					const core::vec2u VpSz = d->MainViewPort->GetSize();
+					CommandContext->SetViewPort(0, 0, static_cast<int32_t>(VpSz.x), static_cast<int32_t>(VpSz.y));
+				}
 				d->MainViewPort->RHIImGuiRenderDrawData();
 				d->MainViewPort->RHISubmitAndPresentFrame();
 			},

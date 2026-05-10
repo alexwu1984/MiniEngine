@@ -12,20 +12,12 @@ float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT
 	DecodeMaterialFromGBuffer(baseColor, 0.0, max(perceptualRoughness, 0.82), materialInfo);
 
 	float3 color = float3(0, 0, 0);
-	int mdi = myPerFrame.PrimaryDirectionalLightIndex;
-	// Single directional shadow map: only lights[mdi] may have ShadowMapIndex>=0 after CPU merge (matches PS_DeferredLighting).
-	float4 mainLightClip = float4(0, 0, 0, 1);
-	if (mdi >= 0 && mdi < MAX_LIGHT_INSTANCES && myPerFrame.Lights[mdi].ShadowMapIndex >= 0)
-		mainLightClip = mul(float4(worldPos, 1.0), myPerFrame.Lights[mdi].LightViewProj);
 	[loop]
 	for (int i = 0; i < myPerFrame.LightCount; ++i)
 	{
 		Light light = myPerFrame.Lights[i];
 		if (light.Type == LightType_Directional)
-		{
-			float4 lc = (light.ShadowMapIndex >= 0) ? mainLightClip : float4(0, 0, 0, 1);
-			color += ApplyDirectionalLightHair(lc, light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, view, coverageAlpha);
-		}
+			color += ApplyDirectionalLightHair(worldPos, light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, view, coverageAlpha);
 		else if (light.Type == LightType_Point)
 			color += ApplyPointLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, worldPos, view, i, coverageAlpha);
 		else if (light.Type == LightType_Spot)

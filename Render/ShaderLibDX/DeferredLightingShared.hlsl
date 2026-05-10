@@ -184,14 +184,6 @@ float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float li
 	return (zR <= zMap + bias) ? 1.0 : 0.0;
 }
 
-float DirectionalShadowHair(float4 lightClipPos, float3 geomN, float coverageAlpha, bool bDirectionalShadow)
-{
-	float visibility = 1.0f;
-	if (bDirectionalShadow)
-		visibility = clamp(ComputeShadowHair(lightClipPos, geomN, coverageAlpha), 0.0, 1.0);
-	return visibility;
-}
-
 // Fur shells: GBuffer normal is SrcAlpha-blended vs floor; geom N·L collapses on contact while sky pixels often
 // take the depth>=1 early-out (unlit baseColor only). Soft minimum + wrap on translucent edges matches sky-side read.
 float HairShellNdotL(float3 geomN, float3 L, float coverageAlpha)
@@ -202,14 +194,24 @@ float HairShellNdotL(float3 geomN, float3 L, float coverageAlpha)
 	return lerp(n, saturate(n * 0.62 + 0.32), e * 0.55);
 }
 
-float3 ApplyDirectionalLightHair(float4 lightClipPos, Light light, float3 baseColor, float perceptualRoughness, float ao,
+float3 ApplyDirectionalLightHair(float3 worldPos, Light light, float3 baseColor, float perceptualRoughness, float ao,
 	float3 strandT, float3 geomN, float3 view, float coverageAlpha)
 {
 	float3 L = normalize(light.Direction);
 	float NdotL = HairShellNdotL(geomN, L, coverageAlpha);
 	float3 diffKK, specKK;
 	KajiyaKayTerms(strandT, L, view, perceptualRoughness, baseColor, diffKK, specKK);
-	float visibility = DirectionalShadowHair(lightClipPos, geomN, coverageAlpha, light.ShadowMapIndex >= 0);
+	float visibility = 1.0f;
+	if (light.ShadowMapIndex >= 0)
+	{
+		if (DirectionalCSMEnabled != 0)
+			visibility = clamp(ComputeShadowHairCascadeAtlas(worldPos, geomN, coverageAlpha), 0.0, 1.0);
+		else
+		{
+			float4 lightClipPos = mul(float4(worldPos, 1.0), GetMainLightViewProj());
+			visibility = clamp(ComputeShadowHair(lightClipPos, geomN, coverageAlpha), 0.0, 1.0);
+		}
+	}
 	float specMask = saturate(NdotL * 0.55 + 0.38);
 	return light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao * visibility;
 }

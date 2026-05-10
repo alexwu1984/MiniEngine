@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Render/SkyLightEnvironmentBakePipeline.h"
 #include "RHI/RHIUniformBuffer.h"
 #include <memory>
@@ -12,7 +12,7 @@ struct FSpecifiedCubemapEnvironmentSource
 	void CaptureRadianceCubemap(RenderCore::RHICommandContext& RHIContext, FSkyLightEnvironmentBakePipeline& Bake);
 };
 
-/** ProceduralSkyCube.hlsl → EvnCube. */
+/** SkyAtmosphere.hlsl (entry PS_ProceduralSkyCube) → EvnCube. */
 struct FProceduralSkyEnvironmentSource
 {
 	std::shared_ptr<RenderCore::RHIPixelShader> PSProceduralSkyCube;

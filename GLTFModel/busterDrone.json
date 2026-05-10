@@ -2,20 +2,17 @@
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
-    "SunDirection": "1.0,0.05,0.0",
+    "SunDirection": "0.811,0.139,0.568",
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "1.0,0.05,0.0",
+        "LightDir": "0.811,0.139,0.568",
         "LightStrength": 16.0,
         "LightType": 0
       }
     ],
     "EnableSSR": true,
-    "AAType": "TAA",
-    "BloomIntensity": 1.85,
-    "ExposureStops": 0.42,
-    "RotateIBL": "18,-38"
+    "AAType": "TAA"
   },
   "Modles": [
     {
@@ -23,6 +20,7 @@
       "Scale": 1.0,
       "Position": "0.0,0.0,0.0",
       "Material": {},
+      "ProjShadow": true,
       "OrbitCamera": {
         "target": [ 0.0, 0.0, 0.0 ],
         "distance": 3.5,
@@ -32,8 +30,7 @@
       "Camera": {
         "defaultFrom": [ 0.0, 0.0, 3.5 ],
         "defaultTo": [ 0.0, 0.0, 0.0 ]
-      },
-      "ProjShadow": true
+      }
     }
   ],
   "Tonemapping": {

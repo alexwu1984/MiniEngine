@@ -1,4 +1,4 @@
-﻿#include "Render/SkyLightEnvironmentSources.h"
+#include "Render/SkyLightEnvironmentSources.h"
 #include "math/math.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIPipeLineState.h"
@@ -13,12 +13,12 @@ namespace Engine
 {
 	void FProceduralSkyEnvironmentSource::InitCubemapPixelShader(DynamicRHI* RHI, const std::wstring& ShaderLibDirectory)
 	{
-		const std::wstring ProcSkyCubeShaderPath = ShaderLibDirectory + L"ProceduralSkyCube.hlsl";
+		const std::wstring ProcSkyCubeShaderPath = ShaderLibDirectory + L"SkyAtmosphere.hlsl";
 		PSProceduralSkyCube = RHI->RHICreatePixelShader(ProcSkyCubeShaderPath, "PS_ProceduralSkyCube", {});
 		if (!PSProceduralSkyCube)
 		{
 			core::LOG(core::log_err,
-					  L"FProceduralSkyEnvironmentSource::InitCubemapPixelShader failed. Check ProceduralSkyCube.hlsl.");
+					  L"FProceduralSkyEnvironmentSource::InitCubemapPixelShader failed. Check SkyAtmosphere.hlsl.");
 		}
 	}
 

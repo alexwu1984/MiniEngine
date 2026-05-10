@@ -1,4 +1,4 @@
-﻿#include "Render/SkyLightEnvironment.h"
+#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightEnvironmentPrecomputeState.h"
 #include "RHI/DynamicRHI.h"
 #include "core/system.h"
@@ -153,9 +153,9 @@ namespace Engine
 
 	void USkyLightComponent::LoadConfig(const nlohmann::json& Root)
 	{
+		SKYLIGHT_IBL_DPTR();
 		try
 		{
-			SKYLIGHT_IBL_DPTR();
 			nlohmann::json EvnJson = Root["Evn"];
 			const std::string hdrUtf8 = EvnJson["Hdr"].get<std::string>();
 			std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
@@ -176,6 +176,9 @@ namespace Engine
 		}
 		catch (const std::exception&)
 		{
+			std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
+			d->Host.bInitRender = false;
+			d->Host.CurrentSource = {};
 		}
 	}
 
@@ -194,7 +197,13 @@ namespace Engine
 			std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
 			const bool sameType = (Desired.Type == d->Host.CurrentSource.Type);
 			const bool samePath = (Desired.HdrFileFullPath == d->Host.CurrentSource.HdrFileFullPath);
-			if (sameType && samePath && d->Host.bInitRender)
+			bool proceduralSunMatches = true;
+			if (Desired.Type == ESkyLightSourceType::Procedural && d->Host.CurrentSource.Type == ESkyLightSourceType::Procedural)
+			{
+				const math::Vector3 dv = Desired.ProceduralSunDirectionTowardSource - d->Host.CurrentSource.ProceduralSunDirectionTowardSource;
+				proceduralSunMatches = dv.Dot(dv) < 1e-8f;
+			}
+			if (sameType && samePath && d->Host.bInitRender && proceduralSunMatches)
 				return;
 
 			d->Host.CurrentSource = Desired;

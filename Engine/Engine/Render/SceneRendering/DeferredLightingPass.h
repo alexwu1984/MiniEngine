@@ -43,14 +43,17 @@ namespace Engine
 									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 	private:
+		/** VS/PS JIT here on first deferred lighting draw so InitResource / ReloadSceneJson flush is not blocked by FXC. */
+		void EnsureJitDeferredLightingShaders() const;
+
 		RenderCore::DynamicRHI* RHI = nullptr;
 		/** Created once in InitResource; avoids per-frame RHICreateUniformBuffer (failures left cb_ null → D3D11 AV). */
 		mutable std::unique_ptr<CBPerFrameWrap> PerFrameUniform;
 		mutable std::unique_ptr<CBPointShadowWrap> PointShadowUniform;
 		mutable std::unique_ptr<CBSpotShadowWrap> SpotShadowUniform;
 		mutable std::unique_ptr<CBDirectionalShadowCSMWrap> DirectionalShadowCSMUniform;
-		std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
-		std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
+		mutable std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
+		mutable std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
 		/** Bound to t5/t7 when IBL cubemaps are missing so PS never samples stale 2D PBR textures as cubes. */
 		std::shared_ptr<RenderCore::RHITextureCube> FallbackIBLCube;
 		/** Bound to t6 when BRDF LUT is missing; matches PF_G32R32F integration LUT layout. */

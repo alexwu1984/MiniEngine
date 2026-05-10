@@ -248,20 +248,7 @@ namespace Engine
 	void DeferredLightingPass::InitResource()
 	{
 		core::WallSplitTimer Wall;
-		const std::wstring Path = core::process_directory().wstring() + L"/ShaderLibDX/DeferredLighting.hlsl";
-		VertexShader = RHI->RHICreateVertexShader(Path, "VS_ScreenQuad", {}, {});
-		const double MsVs = Wall.split_ms();
-		PixelShader = RHI->RHICreatePixelShader(Path, "PS_DeferredLighting", {});
-		const double MsPs = Wall.split_ms();
-
-		static constexpr double kPerfShaderJitLogMinWallMs = 10.0;
-		const bool bVerboseJit = core::CommandLine::Get().GetSwitch("perfshaderjitverbose");
-		const double MsJitWall = MsVs + MsPs;
-		if (bVerboseJit || MsJitWall >= kPerfShaderJitLogMinWallMs)
-		{
-			core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingJitShaders") << "wall_ms=" << MsJitWall << " vs_ms=" << MsVs << " ps_ms=" << MsPs << "\n";
-		}
-
+		// VS/PS JIT in EnsureJitDeferredLightingShaders (first ExecuteRaster) so ReloadSceneJson / flush is not blocked by FXC.
 		if (RHI && !FallbackIBLCube)
 			FallbackIBLCube = RHI->RHICreateTextureCube(EPixelFormat::PF_FloatRGBA, 2, 2, 1, false);
 		if (RHI && !FallbackBrdfLut)
@@ -287,10 +274,32 @@ namespace Engine
 		}
 		const double MsUniforms = Wall.split_ms();
 		const double MsBuffersWall = MsFallbackTex + MsUniforms;
-		const double MsGrandTotal = Wall.total_ms();
+		const double MsTotal = Wall.total_ms();
 		core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingInit") << "wall_ms=" << MsBuffersWall << " fallback_tex_ms=" << MsFallbackTex
-					<< " uniform_buffers_ms=" << MsUniforms << " total_ms_including_shader_jit=" << MsGrandTotal
-					<< " note=vs_ps_line_is_Perf|shader_jit|DeferredLightingJitShaders_when_slow_or_-perfshaderjitverbose\n";
+					<< " uniform_buffers_ms=" << MsUniforms << " total_ms=" << MsTotal
+					<< " note=screen_quad_vs_ps_jit_on_first_ExecuteRaster_Perf|shader_jit|DeferredLightingJitShaders\n";
+	}
+
+	void DeferredLightingPass::EnsureJitDeferredLightingShaders() const
+	{
+		if (VertexShader && PixelShader)
+			return;
+		if (!RHI)
+			return;
+		core::WallSplitTimer Wall;
+		const std::wstring Path = core::process_directory().wstring() + L"/ShaderLibDX/DeferredLighting.hlsl";
+		VertexShader = RHI->RHICreateVertexShader(Path, "VS_ScreenQuad", {}, {});
+		const double MsVs = Wall.split_ms();
+		PixelShader = RHI->RHICreatePixelShader(Path, "PS_DeferredLighting", {});
+		const double MsPs = Wall.split_ms();
+
+		static constexpr double kPerfShaderJitLogMinWallMs = 10.0;
+		const bool bVerboseJit = core::CommandLine::Get().GetSwitch("perfshaderjitverbose");
+		const double MsJitWall = MsVs + MsPs;
+		if (bVerboseJit || MsJitWall >= kPerfShaderJitLogMinWallMs)
+		{
+			core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingJitShaders") << "wall_ms=" << MsJitWall << " vs_ms=" << MsVs << " ps_ms=" << MsPs << "\n";
+		}
 	}
 
 	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures) const
@@ -310,6 +319,7 @@ namespace Engine
 	void DeferredLightingPass::ExecuteRaster(RHICommandContext& RHIContext, std::shared_ptr<RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 											 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
+		EnsureJitDeferredLightingShaders();
 		if (!RHI || !VertexShader || !PixelShader || !SceneTextures || !ViewData || !ViewPort)
 			return;
 		if (!PerFrameUniform || !PerFrameUniform->GetRHIBuffer())

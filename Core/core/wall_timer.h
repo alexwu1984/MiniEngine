@@ -11,8 +11,8 @@
  *   boot       Application shell: WinMain path, viewer Init.
  *   engine     MainEngine::Init, worker threads, optional notes.
  *   render_rt  Render-thread resource setup (e.g. WorldSceneRender::InitResource lambda).
- *   shader_jit First-hit RHICreate*Shader CPU stalls. Events include DeferredLightingInit (buffers only),
- *              DeferredLightingJitShaders (fullscreen deferred PS), PBRMaterialInit, PBRTranslucentForwardJit (lazy forward PS).
+ *   shader_jit First-hit RHICreate*Shader CPU stalls. Events include DeferredLightingInit (fallback tex + CBs only),
+ *              DeferredLightingJitShaders (DeferredLighting VS/PS on first ExecuteRaster), PBRMaterialInit, PBRTranslucentForwardJit (lazy forward PS).
  *              Lines omitted when wall_ms < 10 unless CLI -perfshaderjitverbose (cache-hit spam).
  *   scene      Scene reload / world swap (ReloadSceneJson phases).
  *   frame      First-frame rollups (e.g. RDG pass CPU sum).

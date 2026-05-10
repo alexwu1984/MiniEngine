@@ -9,14 +9,18 @@
 namespace Engine
 {
 	/**
-	 * Game-thread-only snapshot for shadow cascade / light frustum (UE-style: render thread reads POD, not UActorComponent).
-	 * Built from the shadow projector actor before enqueueing render work.
+	 * Game-thread-only snapshot for shadow cascade / directional fitting (UE-style: render thread reads POD).
+	 * `bValid` + ModelLocalAABB: merged ProjShadow bounds from World::BuildShadowProjectorAggregateData().
+	 * View bounds: filled when enqueueing the primary view (SubmitSceneForRendering) — intersection with receiver AABB
+	 * tightens directional ortho XY under grazing sunlight (same pipeline as ExpandOrthoXY receivers).
 	 */
 	struct FShadowProjectorSceneData
 	{
 		bool bValid = false;
 		math::Matrix4x4 WorldTransform{};
 		math::AABB3 ModelLocalAABB{};
+		bool bHasViewWorldBoundsForDirectionalReceiverXY = false;
+		math::AABB3 ViewWorldBoundsAabb{};
 	};
 
 	struct CascadeParameters 

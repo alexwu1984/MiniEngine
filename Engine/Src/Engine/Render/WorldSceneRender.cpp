@@ -367,7 +367,9 @@ namespace Engine
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(PrimitiveGather.ShadowFrustumCullPrimitives);
 
-		const FShadowProjectorSceneData shadowProjectorScene = World->BuildShadowProjectorAggregateData();
+		FShadowProjectorSceneData shadowProjectorScene = World->BuildShadowProjectorAggregateData();
+		shadowProjectorScene.ViewWorldBoundsAabb = ViewConst->ViewFrustum.bbox;
+		shadowProjectorScene.bHasViewWorldBoundsForDirectionalReceiverXY = true;
 
 		std::vector<Light> shadowLights(ViewConst->Lights.begin(), ViewConst->Lights.end());
 

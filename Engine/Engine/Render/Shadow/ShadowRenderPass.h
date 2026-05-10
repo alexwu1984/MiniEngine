@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
 #include "math/vector4.h"
-#include "math/frustum.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowMap.h"
 #include <memory>
@@ -29,10 +28,8 @@ namespace Engine
 		void InitResource();
 		// ShadowCasterMeshes: drawn into the shadow map (ProjShadow actors only).
 		// FrustumBoundsMeshes: union AABB for light frustum; use all visible receivers (e.g. floor) or casters-only breaks shadows on large surfaces.
-		/** Optional camera frustum: tightens directional shadow ortho XY to visible world slice so low-elevation sun keeps usable texel density. */
 		void Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
-					RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, const FShadowProjectorSceneData& ShadowProjectorScene,
-					const math::Frustum* CameraFrustumForDirectionalReceiverFocus = nullptr);
+					RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, const FShadowProjectorSceneData& ShadowProjectorScene);
 
 		std::shared_ptr<RenderCore::RHIRenderTarget> GetShadowMap() const;
 		std::shared_ptr<RenderCore::RHITextureCube> GetPointShadowCube() const;

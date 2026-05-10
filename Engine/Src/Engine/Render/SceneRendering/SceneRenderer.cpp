@@ -120,17 +120,15 @@ namespace Engine
 		// Must run when frustumBounds-only receivers exist (no ProjShadow casters) or any light requests a shadow map; otherwise spot/optional dir depth never renders.
 		const bool bScheduleShadowPass =
 			!shadowCasters.empty() || !shadowFrustumBounds.empty() || ShadowProjectorSceneMoved.bValid || bAnyShadowLight;
-		const math::Frustum ShadowDirFocusFrustum = ViewConst->ViewFrustum;
 		if (bScheduleShadowPass)
 		{
 			Graph.AddPass(FRDGPassDescriptor{
 				"Shadow",
 				{},
 				{},
-				[d, Self, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved), ShadowDirFocusFrustum]() mutable
+				[d, Self, CommandContext, shadowCasters, shadowFrustumBounds, ShadowPassLights = std::move(ShadowPassLights), ShadowProjectorScene = std::move(ShadowProjectorSceneMoved)]() mutable
 				{
-					const math::Frustum* focus = &ShadowDirFocusFrustum;
-					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorScene, focus);
+					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorScene);
 
 					std::shared_ptr<World> W = Self ? Self->GetWorld() : nullptr;
 

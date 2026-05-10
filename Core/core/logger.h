@@ -223,6 +223,15 @@ namespace core
         int64_t _line_curr = -1;
     };
 
+    /**
+     * Log lines are written as raw bytes (binary stream). Payload is UTF-8 when you use:
+     *   - UTF-8 string literals in source (recommended: MSVC /utf-8), or
+     *   - wchar_t / std::wstring via operator<< (converted with ucs2_u8).
+     * New empty log files get an EF BB BF BOM so tools like Notepad detect UTF-8.
+     *
+     * Structured wall-time diagnostics for startup/tick/shader JIT use core::perf::hdr / core::WallSplitTimer
+     * (see core/wall_timer.h): lines look like  Perf|<domain>|<event> key=value ...
+     */
     class global_logger
     {
     public:

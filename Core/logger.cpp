@@ -7,6 +7,17 @@
 #define LOG_FILE_MAX_SIZE 1024*1024*20 // 20MB
 namespace core
 {
+	static void WriteUtf8BomIfEmpty(std::fstream& Fs)
+	{
+		if (!Fs.good())
+			return;
+		Fs.seekg(0, std::ios::end);
+		if (Fs.tellg() != 0)
+			return;
+		static const unsigned char kUtf8Bom[] = { 0xEF, 0xBB, 0xBF };
+		Fs.write(reinterpret_cast<const char*>(kUtf8Bom), sizeof(kUtf8Bom));
+		Fs.flush();
+	}
     bool logger_period::ok() const
     {
         static std::map<std::tuple<const char *, int>, uint64_t> __last;
@@ -99,12 +110,18 @@ namespace core
 
 		_log_path = path;
         _fs.open(path, std::fstream::binary | std::fstream::out | std::fstream::app);
+		if (!_fs.good())
+			return error_io;
 		_fs.seekg(0, _fs.end);
 		long long filesize = _fs.tellg();
 		if (filesize > LOG_FILE_MAX_SIZE)
 		{
 			backup_log(path);
+			_fs.seekg(0, _fs.end);
+			filesize = _fs.tellg();
 		}
+		if (filesize == 0)
+			WriteUtf8BomIfEmpty(_fs);
 
         return _fs.good() ? error_ok : error_io;
     }
@@ -182,6 +199,7 @@ namespace core
 			::MoveFileW(u8_ucs2(path).c_str(), u8_ucs2(logBkPath).c_str());
 		}
 		_fs.open(path, std::fstream::binary | std::fstream::out | std::fstream::app);
+		WriteUtf8BomIfEmpty(_fs);
 	}
 
 	error_e logger::log_to_buffer(uint32_t pid, uint32_t tid, log_e lg, std::string text)

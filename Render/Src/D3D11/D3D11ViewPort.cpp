@@ -108,7 +108,9 @@ namespace RenderCore
 
 		::ImGui_ImplWin32_Init(InWindowHandle);
 		ImGuiIO& io = ImGui::GetIO();
-		io.FontGlobalScale = ::GetDpiForWindow(InWindowHandle) / 96.0f;
+		// Win32 supplies DisplaySize in physical pixels (per-monitor DPI aware). FontGlobalScale must stay 1.0 while
+		// DisplayFramebufferScale is (1,1); otherwise layout/clip rects diverge from the DX11 viewport → table/UI “breaks”.
+		io.FontGlobalScale = 1.0f;
 		io.FontAllowUserScaling = true;
 	}
 
@@ -146,7 +148,15 @@ namespace RenderCore
 		ImGui_ImplDX11_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		if (ImGui::GetCurrentContext())
-			ImGui::GetIO().DisplayFramebufferScale = ImVec2(1.f, 1.f);
+		{
+			ImGuiIO& io = ImGui::GetIO();
+			// Win32 sets DisplaySize from GetClientRect; use swapchain dimensions so MVP/viewport/scissors match the actual RT.
+			const core::vec2u sz = GetSize();
+			if (sz.x > 0 && sz.y > 0)
+				io.DisplaySize = ImVec2(static_cast<float>(sz.x), static_cast<float>(sz.y));
+			io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
+			io.FontGlobalScale = 1.0f;
+		}
 		ImGui::NewFrame();
 	}
 

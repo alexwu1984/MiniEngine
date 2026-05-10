@@ -401,7 +401,8 @@ void GltfViewApp::BindImGuiToSceneRender()
 			ImGui::End();
 
 			ImGui::SetNextWindowPos(ImVec2(380, 1), ImGuiCond_FirstUseEver);
-			if (ImGui::Begin("Pipeline", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			ImGui::SetNextWindowSize(ImVec2(480, 360), ImGuiCond_FirstUseEver);
+			if (ImGui::Begin("Pipeline", nullptr))
 			{
 				const ImGuiIO& io = ImGui::GetIO();
 				ImGui::Text("%.1f FPS   %.3f ms/frame", io.Framerate, static_cast<double>(io.DeltaTime * 1000.0f));
@@ -428,27 +429,29 @@ void GltfViewApp::BindImGuiToSceneRender()
 							sumGpu += r.MsGpu;
 					}
 					ImGui::Text("RDG sum CPU: %.3f ms   GPU (prev frame): %.3f ms", sumCpu, sumGpu);
-					if (ImGui::BeginTable("rdg", 3, ImGuiTableFlags_BordersInnerV))
+					// Fixed-column rows (no BeginTable): nested table clip rects were misaligned with our DX11/DX12 present path.
+					const float colCpu = 260.f;
+					const float colGpu = 360.f;
+					ImGui::Separator();
+					ImGui::TextUnformatted("Pass");
+					ImGui::SameLine(colCpu);
+					ImGui::TextUnformatted("ms CPU");
+					ImGui::SameLine(colGpu);
+					ImGui::TextUnformatted("ms GPU");
+					ImGui::Separator();
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.f, 3.f));
+					for (const auto& r : rows)
 					{
-						ImGui::TableSetupColumn("Pass");
-						ImGui::TableSetupColumn("ms CPU");
-						ImGui::TableSetupColumn("ms GPU");
-						ImGui::TableHeadersRow();
-						for (const auto& r : rows)
-						{
-							ImGui::TableNextRow();
-							ImGui::TableNextColumn();
-							ImGui::TextUnformatted(r.Name.c_str());
-							ImGui::TableNextColumn();
-							ImGui::Text("%.3f", r.MsCpu);
-							ImGui::TableNextColumn();
-							if (r.MsGpu >= 0.0)
-								ImGui::Text("%.3f", r.MsGpu);
-							else
-								ImGui::TextDisabled("-");
-						}
-						ImGui::EndTable();
+						ImGui::TextUnformatted(r.Name.c_str());
+						ImGui::SameLine(colCpu);
+						ImGui::Text("%.3f", r.MsCpu);
+						ImGui::SameLine(colGpu);
+						if (r.MsGpu >= 0.0)
+							ImGui::Text("%.3f", r.MsGpu);
+						else
+							ImGui::TextDisabled("-");
 					}
+					ImGui::PopStyleVar();
 				}
 			}
 			ImGui::End();

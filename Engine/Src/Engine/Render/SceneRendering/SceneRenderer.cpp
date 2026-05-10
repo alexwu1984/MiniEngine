@@ -228,7 +228,7 @@ namespace Engine
 			{
 				// Do not bind/clear the swapchain here: this pass only fills off-screen scene textures. Binding the back buffer
 				// then immediately switching to MRT wasted OM state and a full-screen clear before sky/base pass.
-				d->MainViewPort->Prepare();
+				// ImGui NewFrame runs in UIPresent immediately before sigGuiEvent + Render so layout/clip stays coherent with present.
 				int32_t width = GEngine->GetAppWindow()->GetWidth();
 				int32_t height = GEngine->GetAppWindow()->GetHeight();
 				CommandContext->SetViewPort(0, 0, width, height);
@@ -424,7 +424,12 @@ namespace Engine
 			{},
 			[d, Self, CommandContext]()
 			{
+				if (d->MainViewPort)
+					d->MainViewPort->Prepare();
 				Self->sigGuiEvent();
+				// ImGui draws to the swapchain; re-bind OM after post-process / debug overlays (same immediate context as DX11 backend).
+				if (d->MainViewPort)
+					d->MainViewPort->SetRenderTarget();
 				// CSM / atlas passes use RSSetViewports with non-zero TopLeft; ImGui assumes full back-buffer viewport at origin.
 				if (CommandContext && d->MainViewPort)
 				{

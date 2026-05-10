@@ -152,7 +152,9 @@ namespace RenderCore
 
 		::ImGui_ImplWin32_Init(WindowHandle);
 		ImGuiIO& io = ImGui::GetIO();
-		io.FontGlobalScale = ::GetDpiForWindow(WindowHandle) / 96.0f;
+		// Match D3D11: DisplaySize / swapchain are already physical client pixels (per-monitor DPI aware).
+		// Do not multiply FontGlobalScale by GetDpiForWindow/96 — that double-scales widgets vs D3D11 and looks larger/softer.
+		io.FontGlobalScale = 1.0f;
 		io.FontAllowUserScaling = true;
 	}
 
@@ -408,10 +410,15 @@ namespace RenderCore
 			return;
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
-		// Mouse (Win32) and DisplaySize are both in client-area pixels; swapchain must match (see AppWindow client rect sync).
-		// Do not derive DisplayFramebufferScale from viewport vs GetClientRect — mismatches cause hit-test offsets and clipped UI.
 		if (ImGui::GetCurrentContext())
-			ImGui::GetIO().DisplayFramebufferScale = ImVec2(1.f, 1.f);
+		{
+			ImGuiIO& io = ImGui::GetIO();
+			const core::vec2u sz = GetSize();
+			if (sz.x > 0 && sz.y > 0)
+				io.DisplaySize = ImVec2(static_cast<float>(sz.x), static_cast<float>(sz.y));
+			io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
+			io.FontGlobalScale = 1.0f;
+		}
 		ImGui::NewFrame();
 	}
 

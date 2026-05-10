@@ -85,17 +85,23 @@ static void ImGui_ImplDX11_SetupRenderState(ImDrawData* draw_data, ID3D11DeviceC
 {
     ImGui_ImplDX11_Data* bd = ImGui_ImplDX11_GetBackendData();
 
-    // Setup viewport
+    // Setup viewport ( Dear ImGui master backend: full framebuffer; MVP uses DisplayPos for coordinate origin.)
     D3D11_VIEWPORT vp;
     memset(&vp, 0, sizeof(D3D11_VIEWPORT));
-    // Match Dear ImGui DX11 backend: viewport in framebuffer pixels (handles DisplayPos / DPI scale).
-    vp.TopLeftX = draw_data->DisplayPos.x * draw_data->FramebufferScale.x;
-    vp.TopLeftY = draw_data->DisplayPos.y * draw_data->FramebufferScale.y;
     vp.Width = draw_data->DisplaySize.x * draw_data->FramebufferScale.x;
     vp.Height = draw_data->DisplaySize.y * draw_data->FramebufferScale.y;
+    vp.TopLeftX = 0.0f;
+    vp.TopLeftY = 0.0f;
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     ctx->RSSetViewports(1, &vp);
+    // Full-frame scissor before per-draw clips (must match viewport pixel space).
+    {
+        const LONG x1 = (LONG)vp.Width;
+        const LONG y1 = (LONG)vp.Height;
+        const D3D11_RECT sr = { 0, 0, x1, y1 };
+        ctx->RSSetScissorRects(1, &sr);
+    }
 
     // Setup shader and vertex buffers
     unsigned int stride = sizeof(ImDrawVert);
@@ -253,6 +259,7 @@ void ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data)
     int global_idx_offset = 0;
     int global_vtx_offset = 0;
     ImVec2 clip_off = draw_data->DisplayPos;
+    const ImVec2 clip_scale = draw_data->FramebufferScale;
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
@@ -270,9 +277,9 @@ void ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data)
             }
             else
             {
-                // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(pcmd->ClipRect.x - clip_off.x, pcmd->ClipRect.y - clip_off.y);
-                ImVec2 clip_max(pcmd->ClipRect.z - clip_off.x, pcmd->ClipRect.w - clip_off.y);
+                // Project scissor/clipping rectangles into framebuffer pixels (matches upstream imgui_impl_dx11).
+                ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
+                ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 

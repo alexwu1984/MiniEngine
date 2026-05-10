@@ -15,7 +15,10 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
+#include "core/commandline.h"
+#include "core/logger.h"
 #include "core/system.h"
+#include "core/wall_timer.h"
 #include <algorithm>
 
 namespace Engine
@@ -244,9 +247,21 @@ namespace Engine
 
 	void DeferredLightingPass::InitResource()
 	{
+		core::WallSplitTimer Wall;
 		const std::wstring Path = core::process_directory().wstring() + L"/ShaderLibDX/DeferredLighting.hlsl";
 		VertexShader = RHI->RHICreateVertexShader(Path, "VS_ScreenQuad", {}, {});
+		const double MsVs = Wall.split_ms();
 		PixelShader = RHI->RHICreatePixelShader(Path, "PS_DeferredLighting", {});
+		const double MsPs = Wall.split_ms();
+
+		static constexpr double kPerfShaderJitLogMinWallMs = 10.0;
+		const bool bVerboseJit = core::CommandLine::Get().GetSwitch("perfshaderjitverbose");
+		const double MsJitWall = MsVs + MsPs;
+		if (bVerboseJit || MsJitWall >= kPerfShaderJitLogMinWallMs)
+		{
+			core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingJitShaders") << "wall_ms=" << MsJitWall << " vs_ms=" << MsVs << " ps_ms=" << MsPs << "\n";
+		}
+
 		if (RHI && !FallbackIBLCube)
 			FallbackIBLCube = RHI->RHICreateTextureCube(EPixelFormat::PF_FloatRGBA, 2, 2, 1, false);
 		if (RHI && !FallbackBrdfLut)
@@ -254,6 +269,7 @@ namespace Engine
 			float brdfRg[4] = { 0.f, 0.f, 0.f, 1.f };
 			FallbackBrdfLut = RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, static_cast<int32_t>(ETextureCreateFlags::TexCreate_ShaderResource), 1, 1, 1, brdfRg, 16);
 		}
+		const double MsFallbackTex = Wall.split_ms();
 		if (RHI)
 		{
 			PerFrameUniform = std::make_unique<CBPerFrameWrap>(RHI);
@@ -269,6 +285,12 @@ namespace Engine
 			if (!DirectionalShadowCSMUniform->GetRHIBuffer())
 				DirectionalShadowCSMUniform.reset();
 		}
+		const double MsUniforms = Wall.split_ms();
+		const double MsBuffersWall = MsFallbackTex + MsUniforms;
+		const double MsGrandTotal = Wall.total_ms();
+		core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingInit") << "wall_ms=" << MsBuffersWall << " fallback_tex_ms=" << MsFallbackTex
+					<< " uniform_buffers_ms=" << MsUniforms << " total_ms_including_shader_jit=" << MsGrandTotal
+					<< " note=vs_ps_line_is_Perf|shader_jit|DeferredLightingJitShaders_when_slow_or_-perfshaderjitverbose\n";
 	}
 
 	void DeferredLightingPass::CopySceneColorToPreLighting(RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures) const

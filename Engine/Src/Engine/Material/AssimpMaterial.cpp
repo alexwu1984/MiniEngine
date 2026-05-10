@@ -146,6 +146,9 @@ namespace Engine
 		pAiMat->Get(AI_MATKEY_COLOR_SPECULAR, SpecularColor);
 		pAiMat->Get(AI_MATKEY_SHININESS, Shininess);
 		pAiMat->Get(AI_MATKEY_REFRACTI, Refracti);
+		int twosided = 0;
+		if (pAiMat->Get(AI_MATKEY_TWOSIDED, twosided) == aiReturn_SUCCESS)
+			d->DoubleSided = (twosided != 0);
 		d->MatProperty.AmbientColor = { AmbientColor.r, AmbientColor.g, AmbientColor.b };
 		d->MatProperty.DiffuseColor = { DiffuseColor.r, DiffuseColor.g, DiffuseColor.b };
 		d->MatProperty.SpecularColor = { SpecularColor.r, SpecularColor.g, SpecularColor.b };
@@ -312,6 +315,12 @@ namespace Engine
 	{
 		C_P(AssimpMaterial);
 		return d->IsTransParent;
+	}
+
+	bool AssimpMaterial::IsDoubleSided() const
+	{
+		C_P(AssimpMaterial);
+		return d->DoubleSided;
 	}
 
 	std::shared_ptr<RHITexture2D> AssimpMaterial::GetBaseColorTexture() const

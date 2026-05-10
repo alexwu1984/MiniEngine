@@ -153,6 +153,12 @@ namespace Engine
 		return d->AlphaCutoff;
 	}
 
+	bool GltfMaterial::IsDoubleSided() const
+	{
+		C_P(const GltfMaterial);
+		return d->DoubleSided;
+	}
+
 	void GltfMaterial::SetTransparent(bool Transparent)
 	{
 		C_P(GltfMaterial);

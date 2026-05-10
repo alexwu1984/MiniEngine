@@ -11,6 +11,7 @@
 #include "Engine/GltfModel/GltfMesh.h"
 #include "Engine/GltfModel/GltfMeshBuffer.h"
 #include "Engine/Material/GltfMaterial.h"
+#include "Material/MaterialBase.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITextureCube.h"
 
@@ -143,10 +144,12 @@ namespace Engine
 		Init.VertexShader = d->VertexShader;
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
+		const auto shadowMat = d->Mesh ? d->Mesh->GetMaterial() : nullptr;
+		const bool bDoubleSided = shadowMat && shadowMat->IsDoubleSided();
 		// Spot frustum often grazes large planes (e.g. floor): back-face cull drops receivers from the depth map.
-		Init.RasterizerState = (mainLight.Type == LightType_Spot)
-			? RHICachedStates::RasterizerStateCullNone
-			: RHICachedStates::RasterizerStateCullBack;
+		// Double-sided glTF / DCC meshes need both faces in shadow depth.
+		Init.RasterizerState =
+			(mainLight.Type == LightType_Spot || bDoubleSided) ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.SetRenderTarget(renderTarget);
 		RHIContext.RHISetGraphicsPipelineState(Init);
@@ -182,7 +185,9 @@ namespace Engine
 		Init.VertexShader = d->VertexShader;
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		const auto cubeMat = d->Mesh ? d->Mesh->GetMaterial() : nullptr;
+		Init.RasterizerState =
+			(cubeMat && cubeMat->IsDoubleSided()) ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.SetRenderTarget(cube, faceIndex, 0);
 		RHIContext.RHISetGraphicsPipelineState(Init);

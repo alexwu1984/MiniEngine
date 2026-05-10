@@ -26,6 +26,7 @@ namespace Engine
 		bool WritesTranslucentDepthToSceneBuffer() const override;
 		bool UsesMaterialAlphaMask() const override;
 		float GetMaterialAlphaCutoff() const override;
+		bool IsDoubleSided() const override;
 		void SetTransparent(bool Transparent);
 
 		MaterialType GetMaterialType() const override;

@@ -153,6 +153,9 @@ namespace Engine
 			if (d->MeshMaterial->IsTransparent())
 				ShaderMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
 
+			if (d->MeshMaterial->IsDoubleSided())
+				ShaderMacros.push_back({ "MATERIAL_DOUBLE_SIDED", "1" });
+
 			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0 && WantsRHIBindless())
 				ShaderMacros.push_back({ "RHI_BINDLESS", "1" });
 
@@ -189,7 +192,8 @@ namespace Engine
 			Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 			Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		}
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		Init.RasterizerState =
+			d->MeshMaterial->IsDoubleSided() ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
 
 		std::vector <std::shared_ptr<RenderCore::RHITexture2D>> Targets = { SceneTextures->GetSceneColor(),SceneTextures->GetMotionVector(),SceneTextures->GetNormalBuffer(),
 					SceneTextures->GetEmissiveBuffer(),SceneTextures->GetMetallicRoughnessBuffer() };
@@ -297,7 +301,8 @@ namespace Engine
 		Init.PixelShader = d->TranslucentForwardPixelShader;
 		Init.BlendState = RHICachedStates::BlendTraditional;
 		Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
-		Init.RasterizerState = RHICachedStates::RasterizerStateCullBack;
+		Init.RasterizerState =
+			d->MeshMaterial->IsDoubleSided() ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
 		if (DeferredLighting && WorldSceneRender && ViewData)

@@ -43,7 +43,7 @@ cbuffer cbPointShadow : register(b4)
 float4 MainPS_TranslucentForward(VS_OUTPUT_SCENE Input) : SV_Target0
 {
 	float3 worldPos = Input.WorldPos;
-	float3 normal = getPixelNormal(Input);
+	float3 normal = ShadeNormalDoubleSided(getPixelNormal(Input), Input.WorldPos);
 
 	float alpha;
 	float perceptualRoughness;

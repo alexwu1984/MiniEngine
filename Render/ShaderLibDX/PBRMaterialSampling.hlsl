@@ -71,6 +71,17 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 	return n * (bIsFontFacing ? -1 : 1);
 }
 
+/** glTF doubleSided: shading normal faces the camera (back faces flip N). Requires cbPerFrame / myPerFrame. */
+float3 ShadeNormalDoubleSided(float3 n, float3 worldPos)
+{
+#if defined(MATERIAL_DOUBLE_SIDED)
+	float3 v = normalize(myPerFrame.CameraPos.xyz - worldPos);
+	if (dot(n, v) < 0.0)
+		n = -n;
+#endif
+	return n;
+}
+
 void GetPBRParams(VS_OUTPUT_SCENE Input, out float3 diffuseColor, out float3 specularColor, out float perceptualRoughness, out float metallic, out float alpha)
 {
 	alpha = 0.0;

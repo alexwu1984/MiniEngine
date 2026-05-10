@@ -36,7 +36,8 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
     float ao = max(max(aoSamp.r, aoSamp.g), aoSamp.b);
 
     Output.Target1 = float4(Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition), 0);
-    Output.Target2 = float4(getPixelNormal(Input) / 2 + 0.5f, 0);
+    float3 gbufferN = ShadeNormalDoubleSided(getPixelNormal(Input), Input.WorldPos);
+    Output.Target2 = float4(gbufferN / 2 + 0.5f, 0);
     Output.Target3 = EmissMap.Sample(SampleLinear, Input.UV0);
     Output.Target4 = float4(metallic, ao, perceptualRoughness, 1.0);
 

@@ -4,6 +4,7 @@
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"
+#include "core/wall_timer.h"
 
 namespace Engine
 {
@@ -35,14 +36,18 @@ namespace Engine
 	bool WindowApplication::Main(HINSTANCE hInst, int args, wchar_t** arguments)
 	{
 		C_P(WindowApplication);
+		core::WallSplitTimer Boot;
+
 		d->hInst = hInst;
 		RenderCore::RHI_SetShellMessageThreadIdForFatalDeviceLossQuit(GetCurrentThreadId());
 		core::CommandLine::Get().SetCommandLine(args, arguments);
 		d->AppWin = std::make_shared<AppWindow>(hInst);
+		const double MsAppWinCtor = Boot.split_ms();
 		if (!CreateAppWindow())
 		{
 			return false;
 		}
+		const double MsCreateWindow = Boot.split_ms();
 		RenderCore::RHIAPIType ApiType = RenderCore::RHIAPIType::E_D3D12;
 		std::string apiStr;
 		core::CommandLine::Get().GetString("render_api", apiStr);
@@ -51,16 +56,25 @@ namespace Engine
 			ApiType = RenderCore::RHIAPIType::E_D3D11;
 		}
 		d->Engine->Init(d->AppWin, ApiType);
+		const double MsMainEngineInit = Boot.split_ms();
 		// Recording / optional RHI submit workers must exist before virtual Init(): subclasses call
 		// ReloadSceneJson/FlushRenderingCommands. Do not start GameTick until Init() returns — otherwise
 		// MainEngine::Tick races scene load on the main thread (Release white-screen / deadlocks).
 		d->Engine->StartRenderWorkerThreads();
+		const double MsStartRenderWorkers = Boot.split_ms();
 		if (!Init())
 		{
 			d->Engine->ShutDown();
 			return false;
 		}
+		const double MsSubclassInit = Boot.split_ms();
 		d->Engine->StartGameLoopTick();
+		const double MsStartGameTick = Boot.split_ms();
+		const double MsBootTotal = Boot.total_ms();
+		core::inf() << core::perf::hdr(core::perf::kBoot, "WinMain") << "total_ms=" << MsBootTotal << " app_window_ctor_ms=" << MsAppWinCtor
+					<< " create_window_ms=" << MsCreateWindow << " main_engine_init_ms=" << MsMainEngineInit
+					<< " start_render_workers_ms=" << MsStartRenderWorkers << " subclass_Init_ms=" << MsSubclassInit
+					<< " start_game_loop_tick_ms=" << MsStartGameTick << "\n";
 		return true;
 	}
 

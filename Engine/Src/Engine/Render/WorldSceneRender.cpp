@@ -29,8 +29,7 @@
 #include "Render/ShadowDebugWireRenderer.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "core/logger.h"
-
-#include <chrono>
+#include "core/wall_timer.h"
 
 using namespace RenderCore;
 
@@ -115,35 +114,50 @@ namespace Engine
 			{
 				(void)SelfPin;
 				FWorldSceneRenderPrivate* dLife = Resources;
+				core::WallSplitTimer Wall;
+
 				if (!dLife->SkylightEnvironment)
 					dLife->SkylightEnvironment = std::make_shared<USkyLightComponent>(RHI);
 				dLife->SkylightEnvironment->InitResource();
+				const double MsSkylightEnv = Wall.split_ms();
 
 				if (!dLife->PostProcess)
 					dLife->PostProcess = std::make_shared<PostProcessor>(RHI);
 				dLife->PostProcess->InitResource();
+				const double MsPostProcess = Wall.split_ms();
 
 				if (!dLife->SkyLightPass)
 					dLife->SkyLightPass = std::make_shared<SkyLightRenderPass>(RHI);
 				dLife->SkyLightPass->InitResource();
+				const double MsSkyLightPass = Wall.split_ms();
 
 				if (!dLife->SceneTextures)
 					dLife->SceneTextures = std::make_shared<FSceneTextures>(RHI);
 				auto Size = dLife->MainViewPort->GetSize();
 				dLife->SceneTextures->InitDefaultSceneTargets(Size.cx, Size.cy);
+				const double MsSceneTextures = Wall.split_ms();
 
 				if (!dLife->ShadowRender)
 					dLife->ShadowRender = std::make_shared<ShadowRenderPass>(RHI);
 				dLife->ShadowRender->InitResource();
+				const double MsShadow = Wall.split_ms();
 
 				if (!dLife->ShadowDebugWire)
 					dLife->ShadowDebugWire = std::make_shared<FShadowDebugWireRenderer>(RHI);
 				dLife->ShadowDebugWire->InitResource();
+				const double MsShadowDebug = Wall.split_ms();
 
 				if (!dLife->DeferredLighting)
 					dLife->DeferredLighting = std::make_shared<DeferredLightingPass>(RHI);
 				dLife->DeferredLighting->InitResource();
+				const double MsDeferredLighting = Wall.split_ms();
+
 				dLife->IsInit = true;
+				const double MsTotal = Wall.total_ms();
+				core::inf() << core::perf::hdr(core::perf::kRenderRt, "WorldSceneRenderInit") << "total_ms=" << MsTotal << " skylight_env_ms=" << MsSkylightEnv
+							<< " post_process_ms=" << MsPostProcess << " skylight_pass_ms=" << MsSkyLightPass
+							<< " scene_textures_ms=" << MsSceneTextures << " shadow_ms=" << MsShadow << " shadow_debug_ms=" << MsShadowDebug
+							<< " deferred_lighting_ms=" << MsDeferredLighting << "\n";
 			});
 	}
 
@@ -334,7 +348,7 @@ namespace Engine
 
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
 	{
-		const auto tSubmit0 = std::chrono::steady_clock::now();
+		core::WallSplitTimer SubmitWall;
 		auto RHI = GEngine->GetRHI();
 		if (!RHI)
 			return;
@@ -402,7 +416,7 @@ namespace Engine
 		{
 			const uint32_t cap = d->MaxSceneFramesInFlight.load(std::memory_order_relaxed);
 			uint32_t throttleFlushIters = 0;
-			const auto tThrottle0 = std::chrono::steady_clock::now();
+			core::WallSplitTimer ThrottleWall;
 			while (cap > 0u)
 			{
 				const uint32_t pending = d->PendingSceneFrames.load(std::memory_order_relaxed);
@@ -413,11 +427,10 @@ namespace Engine
 			}
 			if (throttleFlushIters > 0)
 			{
-				const double throttleMs =
-					std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tThrottle0).count();
-				core::inf() << "GameTick: SubmitScene throttle: pending>=max_in_flight (" << cap << ") FlushRenderingCommands_calls="
-							<< throttleFlushIters << " blocked_ms=" << throttleMs
-							<< " (game thread waited for render recording queue drain)\n";
+				const double throttleMs = ThrottleWall.total_ms();
+				core::inf() << core::perf::hdr(core::perf::kTick, "SubmitSceneThrottle") << "max_in_flight=" << cap << " flush_calls=" << throttleFlushIters
+							<< " blocked_ms=" << throttleMs
+							<< " note=game_thread_wait_render_queue_see_Perf|render_rec|ExecuteFrame cli_maxrenderframes_le0_disables_cap\n";
 			}
 
 			std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
@@ -457,11 +470,10 @@ namespace Engine
 				false);
 		}
 
-		const double submitMs =
-			std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tSubmit0).count();
+		const double submitMs = SubmitWall.total_ms();
 		if (submitMs >= 50.0)
-			core::inf() << "GameTick: SubmitSceneForRendering wall_ms=" << submitMs
-						 << " (gather, optional maxrenderframes throttle flush, enqueue; ExecuteFrame runs async on render thread)\n";
+			core::inf() << core::perf::hdr(core::perf::kTick, "SubmitSceneForRendering") << "wall_ms=" << submitMs
+						 << " note=gather_throttle_enqueue_async_Perf|render_rec|ExecuteFrame\n";
 
 		// Default: no per-tick Flush; maxrenderframes throttles via Flush; rendersync/gpuwait at end of MainEngine::Tick.
 	}

@@ -14,7 +14,7 @@
 #include "RHI/DynamicRHI.h"
 #include "Engine/ComErrorLog.h"
 #include "core/logger.h"
-#include <chrono>
+#include "core/wall_timer.h"
 #include <functional>
 
 namespace Engine
@@ -62,8 +62,10 @@ namespace Engine
 	void MainEngine::Init(std::shared_ptr<AppWindow> AppWin, RenderCore::RHIAPIType ApiType)
 	{
 		C_P(MainEngine);
+		core::WallSplitTimer Wall;
 		d->InitApiType = ApiType;
 		d->DynamicRHI = RenderCore::PlatformCreateDynamicRHI(ApiType);
+		const double MsPlatformCreateRHI = Wall.split_ms();
 		d->AppWin = AppWin;
 		if (d->DynamicRHI)
 		{
@@ -74,16 +76,28 @@ namespace Engine
 			d->GameTick.SigTick.bind(std::bind(&MainEngine::Tick, this, std::placeholders::_1), this);
 			AppWin->EvtSizeChanged.bind(std::bind(&MainEngine::OnSizeChanged, this, std::placeholders::_1), this);
 			d->DynamicRHI->Init();
+			const double MsDynamicRHIInit = Wall.split_ms();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = d->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
+			const double MsCreateViewport = Wall.split_ms();
 			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
+			const double MsRenderThreadCtor = Wall.split_ms();
 			d->ViewportClient->Init(AppWin);
+			const double MsViewportClientInit = Wall.split_ms();
 			d->SeRender->InitResource(ViewPort);
+			const double MsSceneRenderInitResourceEnqueue = Wall.split_ms();
+			const double MsTotal = Wall.total_ms();
+			core::inf() << core::perf::hdr(core::perf::kEngine, "Init") << "total_ms=" << MsTotal << " platform_create_rhi_ms=" << MsPlatformCreateRHI
+						<< " dynamic_rhi_init_ms=" << MsDynamicRHIInit << " create_viewport_ms=" << MsCreateViewport
+						<< " render_thread_ctor_ms=" << MsRenderThreadCtor << " viewport_client_init_ms=" << MsViewportClientInit
+						<< " scene_render_init_resource_enqueue_ms=" << MsSceneRenderInitResourceEnqueue
+						<< " note=async_render_rt_init_see_Perf|render_rt|WorldSceneRenderInit\n";
 		}
 	}
 
 	void MainEngine::StartRenderWorkerThreads()
 	{
 		C_P(MainEngine);
+		core::WallSplitTimer Wall;
 		const bool bWantRHIWorker =
 			(d->InitApiType == RenderCore::RHIAPIType::E_D3D12) && !core::CommandLine::Get().GetSwitch("norhithread");
 		if (bWantRHIWorker)
@@ -109,6 +123,9 @@ namespace Engine
 			d->bFlushRenderQueueEndOfTick = core::CommandLine::Get().GetSwitch("rendersync");
 			d->bGpuIdleWaitEndOfTick = core::CommandLine::Get().GetSwitch("gpuwait");
 		}
+		const double MsWorkers = Wall.total_ms();
+		core::inf() << core::perf::hdr(core::perf::kEngine, "StartRenderWorkers") << "wall_ms=" << MsWorkers << " rhi_submit_worker=" << (bWantRHIWorker ? 1 : 0)
+					<< "\n";
 	}
 
 	void MainEngine::StartGameLoopTick()
@@ -251,53 +268,41 @@ namespace Engine
 		try
 		{
 			C_P(MainEngine);
-			const auto tTick0 = std::chrono::steady_clock::now();
+			core::WallSplitTimer TickWall;
 
 			if (d->ViewportClient)
 				d->ViewportClient->Tick(DeltaTime);
-			const double msViewport =
-				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tTick0).count();
+			const double msViewport = TickWall.split_ms();
 
-			const auto tRender0 = std::chrono::steady_clock::now();
 			d->SeRender->Render(DeltaTime);
-			const double msSubmitScene =
-				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tRender0).count();
+			const double msSubmitScene = TickWall.split_ms();
 
-			const auto tResize0 = std::chrono::steady_clock::now();
 			if (d->NeedResize)
 			{
 				d->SeRender->Resize(d->NewSize.w, d->NewSize.h, false);
 				d->NewSize = {};
 				d->NeedResize = false;
 			}
-			const double msResize =
-				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tResize0).count();
+			const double msResize = TickWall.split_ms();
 
-			const auto tCb0 = std::chrono::steady_clock::now();
 			if (d->EndFrameTickCallback)
 				d->EndFrameTickCallback();
-			const double msEndFrameCb =
-				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tCb0).count();
+			const double msEndFrameCb = TickWall.split_ms();
 
-			const auto tSync0 = std::chrono::steady_clock::now();
 			if (d->SeRender && (d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick))
 				d->SeRender->EndGameThreadFrameSync(d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick, d->bGpuIdleWaitEndOfTick);
-			const double msGpuSync =
-				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tSync0).count();
+			const double msGpuSync = TickWall.split_ms();
 
-			const double msTickTotal =
-				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tTick0).count();
+			const double msTickTotal = TickWall.total_ms();
 
 			// HighPrecisionTick DeltaTime is wall time between tick entry points; a large value usually means the prior Tick blocked (flush/sync/heavy work).
 			const bool bLongGap = DeltaTime >= 0.5f;
 			const bool bHeavyWork = msTickTotal >= 80.0 || msSubmitScene >= 80.0 || msGpuSync >= 80.0 || msViewport >= 80.0;
 			if (bLongGap || bHeavyWork)
 			{
-				core::inf() << "GameTick: high_precision_delta_time_s=" << DeltaTime
-							<< " wall_between_tick_entries | viewport_client_ms=" << msViewport
-							<< " | submit_scene_ms=" << msSubmitScene << " | resize_ms=" << msResize
-							<< " | end_frame_callback_ms=" << msEndFrameCb
-							<< " | end_game_thread_sync_ms=" << msGpuSync << " | tick_total_ms=" << msTickTotal << "\n";
+				core::inf() << core::perf::hdr(core::perf::kTick, "Heavy") << "high_precision_delta_time_s=" << DeltaTime
+							<< " viewport_client_ms=" << msViewport << " submit_scene_ms=" << msSubmitScene << " resize_ms=" << msResize
+							<< " end_frame_callback_ms=" << msEndFrameCb << " end_game_thread_sync_ms=" << msGpuSync << " tick_total_ms=" << msTickTotal << "\n";
 			}
 		}
 		catch (const _com_error& e)

@@ -17,6 +17,8 @@
 #include "core/strings.h"
 #include "math/vector3.h"
 #include "Render/RDGBuilder.h"
+#include "core/logger.h"
+#include "core/wall_timer.h"
 #include <cmath>
 
 using namespace Engine;
@@ -93,10 +95,14 @@ GltfViewApp::~GltfViewApp()
 
 bool GltfViewApp::Init()
 {
+	core::WallSplitTimer Wall;
+
 	ProcessDir = core::process_directory().wstring();
 	BuildModelList();
+	const double MsBuildList = Wall.split_ms();
 	SelIndex = 0;
 	ReloadScene(SelIndex);
+	const double MsReloadScene = Wall.split_ms();
 
 	auto Scene = Engine::GEngine ? Engine::GEngine->GetWorld() : nullptr;
 	if (!Scene)
@@ -108,11 +114,18 @@ bool GltfViewApp::Init()
 		auto CameraPos = Camera->GetCameraPos();
 		Camera->SetCameraPos(CameraPos);
 	}
+	const double MsCameraTouch = Wall.split_ms();
 
 	if (Engine::GEngine)
 	{
 		Engine::GEngine->SetEndFrameTickCallback([this]() { FlushPendingModelReload(); });
 	}
+	const double MsEndFrameCallback = Wall.split_ms();
+
+	const double MsTotal = Wall.total_ms();
+	// reload_scene_ms includes ReloadSceneJson + BindImGuiToSceneRender (see ReloadScene).
+	core::inf() << core::perf::hdr(core::perf::kBoot, "GltfViewerInit") << "total_ms=" << MsTotal << " build_model_list_ms=" << MsBuildList << " reload_scene_ms=" << MsReloadScene
+				<< " camera_touch_ms=" << MsCameraTouch << " end_frame_callback_ms=" << MsEndFrameCallback << "\n";
 
 	return true;
 }

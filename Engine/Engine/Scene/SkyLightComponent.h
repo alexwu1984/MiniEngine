@@ -38,6 +38,10 @@ namespace Engine
 		void SetProceduralSunDirectionTowardSource(const math::Vector3& InDir) { ProceduralSunDirectionTowardSource = InDir; }
 		const math::Vector3& GetProceduralSunDirectionTowardSource() const { return ProceduralSunDirectionTowardSource; }
 
+		/** Extra scene-linear HDR near the sun for bloom only (see FSkyLightSourceDesc::ProceduralSunBloomLinearHDR). */
+		void SetProceduralSunBloomLinearHDR(float v) { ProceduralSunBloomLinearHDR = v; }
+		float GetProceduralSunBloomLinearHDR() const { return ProceduralSunBloomLinearHDR; }
+
 		/** Absolute path passed to RHI HDR load (process_directory/GLTFModel/ + relative). */
 		std::wstring ResolveHDRFullPath() const;
 
@@ -52,6 +56,7 @@ namespace Engine
 		float IBLIntensity = 1.f;
 		/** Matches glTFSample SkyDomeProc: Renderer passes vSunDirection (1, 0.05, 0); normalized when applied. */
 		math::Vector3 ProceduralSunDirectionTowardSource{ 1.f, 0.05f, 0.f };
+		float ProceduralSunBloomLinearHDR = 2.2f;
 	};
 	DECLARE_COMPONENT_TRAITS_CLASS_NAME(SkyLightComponent);
 }

@@ -569,6 +569,13 @@ namespace Engine
 			{
 				if (sl->IsProceduralSky())
 				{
+					try
+					{
+						sl->SetProceduralSunBloomLinearHDR(evnJson.value("SunBloomHDR", 2.2f));
+					}
+					catch (const std::exception&)
+					{
+					}
 					math::Vector3 sunDir{};
 					bool haveSun = false;
 					if (const auto dir0 = self->GetPrimaryDirectionalLightForEditing())

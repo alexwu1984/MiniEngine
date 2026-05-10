@@ -259,7 +259,7 @@ namespace Engine
 			"RenderSky",
 			SceneTexturesIO,
 			SceneTexturesIO,
-			[d, CommandContext, ViewConst]()
+			[d, CommandContext, ViewConst, SkyLightSrc]()
 			{
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
 					d->SceneTextures->GetSceneColor(), d->SceneTextures->GetMotionVector(), d->SceneTextures->GetNormalBuffer(),
@@ -268,7 +268,15 @@ namespace Engine
 				{
 					auto SkyCube = d->SkylightEnvironment->GetSkyLightCubemap();
 					d->SkyLightPass->SetTextureCube(SkyCube);
-					d->SkyLightPass->Render(*CommandContext, Targets, d->SceneTextures->GetDepth(), ViewConst->SkyInverseViewProj);
+					math::Vector3 sunToward{};
+					float sunBloomHdr = 0.f;
+					if (SkyLightSrc.Type == ESkyLightSourceType::Procedural)
+					{
+						sunToward = SkyLightSrc.ProceduralSunDirectionTowardSource;
+						sunBloomHdr = SkyLightSrc.ProceduralSunBloomLinearHDR;
+					}
+					d->SkyLightPass->Render(*CommandContext, Targets, d->SceneTextures->GetDepth(), ViewConst->SkyInverseViewProj,
+											sunToward, sunBloomHdr);
 				}
 				else
 				{

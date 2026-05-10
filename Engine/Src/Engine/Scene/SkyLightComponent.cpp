@@ -52,6 +52,7 @@ namespace Engine
 			if (dir.GetSqrLength() < 1e-10f)
 				dir = math::Vector3(1.f, 0.05f, 0.f);
 			out.ProceduralSunDirectionTowardSource = dir.Normalize();
+			out.ProceduralSunBloomLinearHDR = ProceduralSunBloomLinearHDR;
 			return out;
 		}
 		if (HdrRelativePath.empty())

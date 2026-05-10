@@ -1,6 +1,7 @@
 ﻿#include "Render/SkyLightRenderPass.h"
 #include "math/matrix4x4.h"
 #include "RHI/RHIShaderDefine.h"
+#include "math/vector3.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/DynamicRHI.h"
@@ -16,6 +17,10 @@ namespace Engine
 	struct CBSkyLightRenderPass
 	{
 		math::Matrix4x4 InvViewProj{};
+		float SunDirX = 0.f;
+		float SunDirY = 0.f;
+		float SunDirZ = 0.f;
+		float SunBloomLinearHDR = 0.f;
 	};
 	using CBSkyLightRenderPassWrap = RenderCore::TUniformBufferBinding<CBSkyLightRenderPass, 0u>;
 
@@ -63,7 +68,9 @@ namespace Engine
 	void SkyLightRenderPass::Render(RenderCore::RHICommandContext& RHIContext,
 									const std::vector<std::shared_ptr<RenderCore::RHITexture2D>>& Targets,
 									std::shared_ptr<RenderCore::RHITexture2D> Depth,
-									const math::Matrix4x4& SkyInverseViewProj)
+									const math::Matrix4x4& SkyInverseViewProj,
+									const math::Vector3& SunTowardSourceWorld,
+									float SunBloomLinearHDR)
 	{
 		C_P(SkyLightRenderPass);
 		if (!d->TexCube)
@@ -95,8 +102,13 @@ namespace Engine
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 
-		d->GET_UNIFORMDATA(CBSkyLightRenderPass).InvViewProj = SkyInverseViewProj;
-		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBSkyLightRenderPass), RenderCore::SF_Vertex);
+		auto& UB = d->GET_UNIFORMDATA(CBSkyLightRenderPass);
+		UB.InvViewProj = SkyInverseViewProj;
+		UB.SunDirX = SunTowardSourceWorld.x;
+		UB.SunDirY = SunTowardSourceWorld.y;
+		UB.SunDirZ = SunTowardSourceWorld.z;
+		UB.SunBloomLinearHDR = SunBloomLinearHDR;
+		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBSkyLightRenderPass));
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->TexCube);
 		RHIContext.Draw(3);

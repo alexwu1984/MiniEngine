@@ -34,6 +34,11 @@ namespace Engine
 		std::wstring HdrFileFullPath;
 		/** World-space direction toward the sun/light source when Type==Procedural. */
 		math::Vector3 ProceduralSunDirectionTowardSource{ 1.f, 0.05f, 0.f };
+		/**
+		 * Extra linear HDR added only in the fullscreen sky pass along the sun direction (does not change baked cubemap / IBL).
+		 * Drives bloom threshold; set 0 to disable. Ignored when Type!=Procedural.
+		 */
+		float ProceduralSunBloomLinearHDR = 0.f;
 	};
 
 	/**

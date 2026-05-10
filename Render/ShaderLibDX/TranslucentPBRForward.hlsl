@@ -1,8 +1,9 @@
 // Forward-shaded translucent PBR after deferred lighting (UE4-style separate translucency).
 // Bindings: material t0–t4 + cbPerMaterial b6 (PBRMaterialSampling); IBL + shadows t5–t8, t10–t11 + b4/b5/b7 (matches DeferredLightingPass::BindFurForwardSharedSRVs).
+//
+// Skip fur/hair-only helpers + HairShading include to shrink JIT compile (see MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR).
+#define MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR 1
 
-#include "ShaderUtils.hlsl"
-#include "GLTFPbrPass-VS.hlsl"
 #include "PBRMaterialSampling.hlsl"
 
 TextureCube IrradianceTex : register(t5);

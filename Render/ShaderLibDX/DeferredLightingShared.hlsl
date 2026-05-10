@@ -1,11 +1,15 @@
 // Shared split-sum IBL decode + hair strand analytic lights (directional/point/spot + cube shadow).
 // Include after: ShaderUtils, PerFrameStruct, HairShading (optional; guarded), IrradianceTex/BrdfLut/PrefilterCubeMap (t5–t7),
 // ShadowMap/PointShadowCube, GroundEnvLatLong (t12, optional split hemi), SampleLinear/SampleShadow, ShadowPCSS.hlsl, cbPointShadow.
+//
+// Define MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR before including this file (e.g. TranslucentPBRForward) to drop HairShading + fur-only shadow/light helpers for faster PS compile.
 
 #ifndef MINIENGINE_DEFERRED_LIGHTING_SHARED_HLSL
 #define MINIENGINE_DEFERRED_LIGHTING_SHARED_HLSL
 
+#ifndef MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 #include "HairShading.hlsl"
+#endif
 
 static const int kPointLightCubeShadowMapIndex = 2;
 static const int kSpotLightShadowMapIndex = 3;
@@ -133,6 +137,7 @@ float ComputeShadow(float4 ShadowCoord, float3 Normal)
 	return clamp(ComputeShadowPCSS(ShadowCoord, Normal), 0.0, 1.0);
 }
 
+#ifndef MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 // Hair/fur: shadow map is rendered from the base mesh (no cbPerFur bound in shadow pass → FurOffset=0).
 // Shell vertices sit in front of that depth in light space; PCSS blocker search + tight bias yields high-frequency
 // broken stripes. Use stable PCF + stronger bias (extra from shell coverage).
@@ -156,6 +161,7 @@ float ComputeShadowHair(float4 ShadowCoord, float3 Normal, float coverageAlpha)
 	const float fixedPcfRadius = 0.0020;
 	return PCF_ShadowR32(uv, zR, fixedPcfRadius, bias);
 }
+#endif // !MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 
 int PointShadowCubeFaceIndex(float3 dirW)
 {
@@ -184,6 +190,7 @@ float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float li
 	return (zR <= zMap + bias) ? 1.0 : 0.0;
 }
 
+#ifndef MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 // Fur shells: GBuffer normal is SrcAlpha-blended vs floor; geom N·L collapses on contact while sky pixels often
 // take the depth>=1 early-out (unlit baseColor only). Soft minimum + wrap on translucent edges matches sky-side read.
 float HairShellNdotL(float3 geomN, float3 L, float coverageAlpha)
@@ -253,5 +260,6 @@ float3 ApplySpotLightHair(Light light, float3 baseColor, float perceptualRoughne
 	}
 	return rangeAttenuation * spotAttenuation * light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao * vis;
 }
+#endif // !MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 
 #endif // MINIENGINE_DEFERRED_LIGHTING_SHARED_HLSL

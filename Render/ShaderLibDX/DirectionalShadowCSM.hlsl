@@ -1,4 +1,5 @@
 // Directional CSM sampling for deferred / forward paths. Include after ShadowPCSS.hlsl and cbDirectionalShadowCSM (register b7).
+// ComputeShadowHairCascadeAtlas is omitted when MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR is defined before this include.
 
 #ifndef MINIENGINE_DIRECTIONAL_SHADOW_CSM_HLSL
 #define MINIENGINE_DIRECTIONAL_SHADOW_CSM_HLSL
@@ -37,6 +38,7 @@ float DirectionalShadowVisibility(float3 worldPos, float3 normal)
 	return clamp(ComputeShadowPCSSCascadeTile(uvTile, (float)ci, invN, proj.z, normal), 0.0, 1.0);
 }
 
+#ifndef MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 float ComputeShadowHairCascadeAtlas(float3 worldPos, float3 Normal, float coverageAlpha)
 {
 	float ze = dot(worldPos - myPerFrame.CameraPos.xyz, CameraForwardInvCount.xyz);
@@ -82,5 +84,6 @@ float ComputeShadowHairCascadeAtlas(float3 worldPos, float3 Normal, float covera
 	}
 	return lit * (1.0 / 16.0);
 }
+#endif // !MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 
 #endif // MINIENGINE_DIRECTIONAL_SHADOW_CSM_HLSL

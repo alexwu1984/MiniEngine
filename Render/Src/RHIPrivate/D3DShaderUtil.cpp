@@ -5,6 +5,7 @@
 #include "core/commandline.h"
 #include "core/logger.h"
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <Shaders/dxc/dxcapi.h>
 #include <Shaders/dxc/Support/dxcapi.use.h>
@@ -32,6 +33,13 @@ namespace RenderCore
 #else
 			return 0;
 #endif
+		}
+
+		void LogShaderCompileMs(const std::wstring& file, const std::string& entry, const std::string& target, bool ok,
+			std::chrono::steady_clock::time_point start)
+		{
+			const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+			core::inf() << "[ShaderCompile] " << file << " entry=" << entry << " target=" << target << " ok=" << ok << " timeMs=" << ms;
 		}
 	} // namespace
 
@@ -65,8 +73,10 @@ namespace RenderCore
 		const UINT compileFlags = GetD3DCompileFlagsForBuild();
 
 		win32::com_ptr<ID3DBlob> ShaderBlob;
+		const auto compileStart = std::chrono::steady_clock::now();
 		HRESULT HR = D3DCompileFromFile(ShaderFile.c_str(), pDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(),
 			TargetModel.c_str(), compileFlags, 0, ShaderBlob.get_init_ref(), errors.get_init_ref());
+		LogShaderCompileMs(ShaderFile, EntryPoint, TargetModel, SUCCEEDED(HR), compileStart);
 		if (FAILED(HR))
 		{
 			if (errors)
@@ -333,8 +343,10 @@ namespace RenderCore
 
 		win32::com_ptr<ID3DBlob> Shader;
 		win32::com_ptr<ID3DBlob> errors;
+		const auto compileStart = std::chrono::steady_clock::now();
 		hr = D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 			entrypoint.c_str(), target.c_str(), compileFlags, 0, Shader.get_init_ref(), errors.get_init_ref());
+		LogShaderCompileMs(filename, entrypoint, target, hr == S_OK, compileStart);
 
 		if (errors != nullptr)
 			OutputDebugStringA((char*)errors->GetBufferPointer());
@@ -354,8 +366,10 @@ namespace RenderCore
 
 		HRESULT hr = S_OK;
 		win32::com_ptr<ID3DBlob> errors;
+		const auto compileStart = std::chrono::steady_clock::now();
 		hr = D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 			entrypoint.c_str(), target.c_str(), compileFlags, 0, ppShader, errors.get_init_ref());
+		LogShaderCompileMs(filename, entrypoint, target, SUCCEEDED(hr), compileStart);
 
 		if (errors != nullptr)
 			OutputDebugStringA((char*)errors->GetBufferPointer());

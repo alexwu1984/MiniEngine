@@ -22,6 +22,22 @@ namespace Engine
 {
 	using namespace RenderCore;
 
+	namespace
+	{
+		/** Translucent forward PS input does not depend on skinning / base-pass alpha macros; dropping them cuts JIT permutation count. */
+		void FilterMacrosTranslucentForwardPS(const std::vector<RHIShaderMacro>& Src, std::vector<RHIShaderMacro>& Out)
+		{
+			Out.clear();
+			Out.reserve(Src.size());
+			for (const RHIShaderMacro& M : Src)
+			{
+				if (M.Name == "WRITE_BASECOLOR_ALPHA_TO_GBUFFER" || M.Name == "ID_SKINNING_MATRICES" || M.Name == "HAS_WEIGHTS_0")
+					continue;
+				Out.push_back(M);
+			}
+		}
+	}
+
 	struct PBRMaterialRenderPrivate
 	{
 		PBRMaterialRenderPrivate()
@@ -165,7 +181,9 @@ namespace Engine
 			if (this->ShouldCompileTranslucentForwardPixelShader())
 			{
 				const std::wstring ForwardPath = Path + L"TranslucentPBRForward.hlsl";
-				d->TranslucentForwardPixelShader = RHI->RHICreatePixelShader(ForwardPath, std::string("MainPS_TranslucentForward"), ShaderMacros);
+				std::vector<RHIShaderMacro> TranslucentMacros;
+				FilterMacrosTranslucentForwardPS(ShaderMacros, TranslucentMacros);
+				d->TranslucentForwardPixelShader = RHI->RHICreatePixelShader(ForwardPath, std::string("MainPS_TranslucentForward"), TranslucentMacros);
 			}
 			});
 		

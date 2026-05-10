@@ -11,6 +11,7 @@
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITextureCube.h"
 #include "math/aabb3.h"
+#include "math/frustum.h"
 #include "math/math.h"
 #include "math/vector2.h"
 #include "math/vector4.h"
@@ -120,8 +121,9 @@ namespace
 			farValue = nearValue + 1.0f;
 	}
 
-	// Widen ortho XY using receiver geometry near the caster (intersection with padded caster AABB).
-	// Otherwise top-down views: ear shadows on the floor extend in light-space XY past the caster-only fit -> hard clip (horizontal "break").
+	// Widen ortho XY to include receiver world corners (merged into current light-space rect).
+	// Do not use only receiver∩caster: at low sun elevation shadows stretch far across the ground outside the caster AABB,
+	// and intersecting AABBs clips that region -> hard shadow boundary ("broken" edge).
 	static void ExpandOrthoXYForWorldAabb(const math::Matrix4x4& lightView, const math::AABB3& worldAabb, float& centerX, float& centerY,
 										  float& sizeX, float& sizeY)
 	{
@@ -508,9 +510,29 @@ namespace Engine
 		}
 	}
 
+	// Camera-frustum slice of receivers + padded caster: keeps shadow texels on-screen under grazing sunlight instead of smearing one map over the whole floor AABB.
+	static math::AABB3 DirectionalReceiverWorldAabbForOrthoXY(const math::AABB3& ReceiverWorldAabb, const math::AABB3& SubjectWorldAabb, const math::Vector3& LightDirWorld,
+															const math::Frustum* CameraFrustum)
+	{
+		if (!CameraFrustum)
+			return ReceiverWorldAabb;
+		math::Vector3 L = LightDirWorld;
+		if (L.GetSqrLength() > 1e-12f)
+			L = L.Normalize();
+		const float ly = math::Abs(L.y);
+		const float grazing = math::Clamp(1.f - ly, 0.f, 1.f);
+		const float casterPadWorld = 4.f + grazing * 96.f;
+		const math::AABB3 casterPad = math::ExpandAabbByMargin(SubjectWorldAabb, casterPadWorld);
+		math::AABB3 camVol = CameraFrustum->bbox;
+		math::AABB3 visSlice;
+		if (ReceiverWorldAabb.GetIntersect(camVol, visSlice))
+			return visSlice.MergeAABB(casterPad);
+		return ReceiverWorldAabb.MergeAABB(casterPad);
+	}
+
 	/** Directional shadow depth pass view-projection; optional receiver-aware XY/Z when using tight caster frustum. */
 	static void SetupDirectionalShadowViewProjection(Light& MainLight, const math::AABB3& SubjectWorldAabb, bool bReceiverRelativeFrustumAdjust, const math::AABB3& ReceiverWorldAabb,
-													 const core::vec2i& ShadowMapSize)
+													 const core::vec2i& ShadowMapSize, const math::Frustum* CameraFrustumForReceiverFocus)
 	{
 		math::Vector3 wsSceneCorners[8];
 		SubjectWorldAabb.GetPoint(wsSceneCorners);
@@ -546,15 +568,8 @@ namespace Engine
 
 		if (bReceiverRelativeFrustumAdjust)
 		{
-			math::AABB3 crop;
-			math::AABB3 casterPad = math::ExpandAabbByMargin(SubjectWorldAabb, 4.f);
-			if (ReceiverWorldAabb.GetIntersect(casterPad, crop))
-				ExpandOrthoXYForWorldAabb(MainLight.LightView, crop, centerX, centerY, sizeX, sizeY);
-			else
-			{
-				// Receiver outside padded caster AABB (large ground plane): still widen XY to receivers like glTFSample-style coverage.
-				ExpandOrthoXYForWorldAabb(MainLight.LightView, ReceiverWorldAabb, centerX, centerY, sizeX, sizeY);
-			}
+			const math::AABB3 recvXY = DirectionalReceiverWorldAabbForOrthoXY(ReceiverWorldAabb, SubjectWorldAabb, MainLight.Direction, CameraFrustumForReceiverFocus);
+			ExpandOrthoXYForWorldAabb(MainLight.LightView, recvXY, centerX, centerY, sizeX, sizeY);
 		}
 
 		const math::Matrix4x4 proj = math::Matrix4x4::MatrixOrthographicOffCenterLH(centerX - sizeX, centerX + sizeX, centerY - sizeY, centerY + sizeY, nearValue, farValue);
@@ -649,7 +664,8 @@ namespace Engine
 	}
 
 	void ShadowRenderPass::Render(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
-								  RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, const FShadowProjectorSceneData& ShadowProjectorScene)
+								  RenderCore::RHICommandContext& RHIContext, std::vector<Light> Lights, const FShadowProjectorSceneData& ShadowProjectorScene,
+								  const math::Frustum* CameraFrustumForDirectionalReceiverFocus)
 	{
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
@@ -683,7 +699,7 @@ namespace Engine
 			mainLight.ShadowMapIndex = 0;
 			const core::vec2i smSize = d->DepthRenderBuffer ? d->DepthRenderBuffer->GetSize() : core::vec2i{ 4096, 4096 };
 			const bool bReceiverRelativeFrustumAdjust = receiverValid && kPreferTightShadowFrustumFromCasters && subjectMeshList == &ShadowCasterMeshes;
-			SetupDirectionalShadowViewProjection(mainLight, subjectWorldAabb, bReceiverRelativeFrustumAdjust, receiverWorldAabb, smSize);
+			SetupDirectionalShadowViewProjection(mainLight, subjectWorldAabb, bReceiverRelativeFrustumAdjust, receiverWorldAabb, smSize, CameraFrustumForDirectionalReceiverFocus);
 			d->CachedMainLightForShading = mainLight;
 			d->CachedMainDirectionalShadowLightListIndex = mainDirIdx;
 			d->bCachedMainLightValid = true;

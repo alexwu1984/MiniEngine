@@ -27,7 +27,10 @@ float ShadowDepthBiasPCSS(float3 Normal)
 	float NdotL = abs(dot(n, L));
 	const float baseBias = 0.00038;
 	const float slopeBias = 0.00135;
-	return baseBias + slopeBias * (1.0 - NdotL);
+	// Direction is toward the light; |L.y| small near horizon → grazing rays → depth aliasing / false umbra.
+	float grazing = saturate(1.0 - abs(L.y));
+	const float horizonBias = 0.0024 * grazing;
+	return baseBias + slopeBias * (1.0 - NdotL) + horizonBias;
 }
 
 float PCF_ShadowR32(float2 uvCenter, float zReceiver, float radiusUV, float bias)
@@ -59,6 +62,8 @@ float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 
 	const float zR = clamp(proj.z, 0.0, 1.0);
 	const float bias = ShadowDepthBiasPCSS(Normal);
+	float3 Lsun = normalize(GetMainLight().Direction);
+	float grazingSun = saturate(1.0 - abs(Lsun.y));
 
 	float sumBlocker = 0.0;
 	float cnt = 0.0;
@@ -75,7 +80,7 @@ float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 		}
 	}
 
-	float filterUV = kPCSSMinFilterRadiusUV;
+	float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
 	if (cnt >= 1.0)
 	{
 		float avgB = sumBlocker / cnt;

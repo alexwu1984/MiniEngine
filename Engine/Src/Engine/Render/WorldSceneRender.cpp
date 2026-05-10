@@ -30,6 +30,8 @@
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "core/logger.h"
 
+#include <chrono>
+
 using namespace RenderCore;
 
 namespace Engine
@@ -332,6 +334,7 @@ namespace Engine
 
 	void FWorldSceneRender::SubmitSceneForRendering(float DeltaTime)
 	{
+		const auto tSubmit0 = std::chrono::steady_clock::now();
 		auto RHI = GEngine->GetRHI();
 		if (!RHI)
 			return;
@@ -398,12 +401,23 @@ namespace Engine
 
 		{
 			const uint32_t cap = d->MaxSceneFramesInFlight.load(std::memory_order_relaxed);
+			uint32_t throttleFlushIters = 0;
+			const auto tThrottle0 = std::chrono::steady_clock::now();
 			while (cap > 0u)
 			{
 				const uint32_t pending = d->PendingSceneFrames.load(std::memory_order_relaxed);
 				if (pending < cap)
 					break;
 				FlushRenderingCommands(ERenderQueueFlushCategory::ThrottleQueuedSceneFrames);
+				++throttleFlushIters;
+			}
+			if (throttleFlushIters > 0)
+			{
+				const double throttleMs =
+					std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tThrottle0).count();
+				core::inf() << "GameTick: SubmitScene throttle: pending>=max_in_flight (" << cap << ") FlushRenderingCommands_calls="
+							<< throttleFlushIters << " blocked_ms=" << throttleMs
+							<< " (game thread waited for render recording queue drain)\n";
 			}
 
 			std::lock_guard<std::mutex> FrameLock(d->RenderFrameMutex);
@@ -443,7 +457,13 @@ namespace Engine
 				false);
 		}
 
-		// Default: no per-tick Flush — maxrenderframes throttles via Flush; rendersync/gpuwait at end of MainEngine::Tick.
+		const double submitMs =
+			std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tSubmit0).count();
+		if (submitMs >= 50.0)
+			core::inf() << "GameTick: SubmitSceneForRendering wall_ms=" << submitMs
+						 << " (gather, optional maxrenderframes throttle flush, enqueue; ExecuteFrame runs async on render thread)\n";
+
+		// Default: no per-tick Flush; maxrenderframes throttles via Flush; rendersync/gpuwait at end of MainEngine::Tick.
 	}
 
 } // namespace Engine

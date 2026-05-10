@@ -1,7 +1,9 @@
 ﻿#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightEnvironmentPrecomputeState.h"
 #include "RHI/DynamicRHI.h"
+#include "core/logger.h"
 #include "core/system.h"
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <string>
@@ -105,9 +107,13 @@ namespace Engine
 				return;
 			d->Host.bInitRender = true;
 		}
+		const auto iblBakeStart = std::chrono::steady_clock::now();
 		CaptureSkyLightCubemap(RHIContext);
 		GenerateDiffuseIrradiance(RHIContext);
 		GenerateSpecularPrefilter(RHIContext);
+		const double iblMs =
+			std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - iblBakeStart).count();
+		core::inf() << "IBL: Draw full bake (capture + irradiance + prefilter, wall CPU wait incl. GPU submit) " << iblMs << " ms\n";
 	}
 
 	void USkyLightComponent::InvalidateCapturedEnvironment()
@@ -268,7 +274,13 @@ namespace Engine
 			}
 
 			if (Desired.Type == ESkyLightSourceType::HdrFile && !Desired.HdrFileFullPath.empty())
+			{
+				const auto tHdr = std::chrono::steady_clock::now();
 				d->SpecifiedCubemap.HDRTex = d->Bake.RHI->RHICreateHDRTexture2D(Desired.HdrFileFullPath);
+				const double hdrMs =
+					std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tHdr).count();
+				core::inf() << "IBL: RHICreateHDRTexture2D (sky latlong) " << hdrMs << " ms " << Desired.HdrFileFullPath << "\n";
+			}
 			else
 				d->SpecifiedCubemap.HDRTex.reset();
 
@@ -276,7 +288,11 @@ namespace Engine
 			{
 				const std::wstring gfp =
 					core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(d->Host.ConfigGroundIBLHdrUtf8);
+				const auto tGr = std::chrono::steady_clock::now();
 				d->Host.GroundHemiLatLongTex = d->Bake.RHI->RHICreateHDRTexture2D(gfp);
+				const double grMs =
+					std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tGr).count();
+				core::inf() << "IBL: RHICreateHDRTexture2D (ground hemi latlong) " << grMs << " ms " << gfp << "\n";
 			}
 			else
 				d->Host.GroundHemiLatLongTex.reset();

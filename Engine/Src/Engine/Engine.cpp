@@ -13,6 +13,8 @@
 #include "Engine/Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
 #include "Engine/ComErrorLog.h"
+#include "core/logger.h"
+#include <chrono>
 #include <functional>
 
 namespace Engine
@@ -249,19 +251,54 @@ namespace Engine
 		try
 		{
 			C_P(MainEngine);
+			const auto tTick0 = std::chrono::steady_clock::now();
+
 			if (d->ViewportClient)
 				d->ViewportClient->Tick(DeltaTime);
+			const double msViewport =
+				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tTick0).count();
+
+			const auto tRender0 = std::chrono::steady_clock::now();
 			d->SeRender->Render(DeltaTime);
+			const double msSubmitScene =
+				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tRender0).count();
+
+			const auto tResize0 = std::chrono::steady_clock::now();
 			if (d->NeedResize)
 			{
 				d->SeRender->Resize(d->NewSize.w, d->NewSize.h, false);
 				d->NewSize = {};
 				d->NeedResize = false;
 			}
+			const double msResize =
+				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tResize0).count();
+
+			const auto tCb0 = std::chrono::steady_clock::now();
 			if (d->EndFrameTickCallback)
 				d->EndFrameTickCallback();
+			const double msEndFrameCb =
+				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tCb0).count();
+
+			const auto tSync0 = std::chrono::steady_clock::now();
 			if (d->SeRender && (d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick))
 				d->SeRender->EndGameThreadFrameSync(d->bFlushRenderQueueEndOfTick || d->bGpuIdleWaitEndOfTick, d->bGpuIdleWaitEndOfTick);
+			const double msGpuSync =
+				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tSync0).count();
+
+			const double msTickTotal =
+				std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tTick0).count();
+
+			// HighPrecisionTick DeltaTime is wall time between tick entry points; a large value usually means the prior Tick blocked (flush/sync/heavy work).
+			const bool bLongGap = DeltaTime >= 0.5f;
+			const bool bHeavyWork = msTickTotal >= 80.0 || msSubmitScene >= 80.0 || msGpuSync >= 80.0 || msViewport >= 80.0;
+			if (bLongGap || bHeavyWork)
+			{
+				core::inf() << "GameTick: high_precision_delta_time_s=" << DeltaTime
+							<< " wall_between_tick_entries | viewport_client_ms=" << msViewport
+							<< " | submit_scene_ms=" << msSubmitScene << " | resize_ms=" << msResize
+							<< " | end_frame_callback_ms=" << msEndFrameCb
+							<< " | end_game_thread_sync_ms=" << msGpuSync << " | tick_total_ms=" << msTickTotal << "\n";
+			}
 		}
 		catch (const _com_error& e)
 		{

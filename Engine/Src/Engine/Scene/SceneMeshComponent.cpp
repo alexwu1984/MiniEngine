@@ -24,6 +24,7 @@
 #include "Engine/JsonConfig.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/RenderStableIds.h"
+#include <chrono>
 #include <variant>
 
 namespace Engine
@@ -166,6 +167,7 @@ namespace Engine
 		{
 			if (ModelJson.find("ProceduralFloor") != ModelJson.end())
 			{
+				const auto tProc = std::chrono::steady_clock::now();
 				ProceduralBuildResult BuildResult;
 				if (BuildProceduralFloor(ModelJson["ProceduralFloor"], BuildResult))
 				{
@@ -173,6 +175,9 @@ namespace Engine
 					PM.Meshes = std::move(BuildResult.Meshes);
 					PM.Box = BuildResult.Box;
 					d->Model = std::move(PM);
+					const double procMs =
+						std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tProc).count();
+					core::inf() << "ModelLoad: ProceduralFloor build " << procMs << " ms\n";
 					return true;
 				}
 			}
@@ -181,31 +186,36 @@ namespace Engine
 		{
 		}
 
+		const auto tTotal = std::chrono::steady_clock::now();
 		d->Asset = std::make_shared<SceneModelAsset>();
-		if (d->Asset->Load(ModelJson))
+		const auto tAsset = std::chrono::steady_clock::now();
+		if (!d->Asset->Load(ModelJson))
+			return false;
+		const double assetMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tAsset).count();
+
+		std::wstring Path = GEngine->GetModelPath();
+		Path += L"/" + d->Asset->GetModelRelativePath();
+		const bool bGltfOrGlb =
+			Path.find(L".glb") != std::wstring::npos || Path.find(L".gltf") != std::wstring::npos;
+
+		const auto tGeom = std::chrono::steady_clock::now();
+		if (bGltfOrGlb)
 		{
-			std::wstring Path = GEngine->GetModelPath();
-			Path += L"/" + d->Asset->GetModelRelativePath();
-			const bool bGltfOrGlb =
-				Path.find(L".glb") != std::wstring::npos || Path.find(L".gltf") != std::wstring::npos;
-			if (bGltfOrGlb)
-			{
-				d->Model.emplace<GltfModel>();
-				if (!std::get<GltfModel>(d->Model).Load(Path, d->Asset))
-					return false;
-			}
-			else
-			{
-				d->Model.emplace<AssimpModel>();
-				if (!std::get<AssimpModel>(d->Model).Load(Path, d->Asset))
-					return false;
-			}
-			return true;
+			d->Model.emplace<GltfModel>();
+			if (!std::get<GltfModel>(d->Model).Load(Path, d->Asset))
+				return false;
 		}
 		else
 		{
-			return false;
+			d->Model.emplace<AssimpModel>();
+			if (!std::get<AssimpModel>(d->Model).Load(Path, d->Asset))
+				return false;
 		}
+		const double geomMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tGeom).count();
+		const double totalMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tTotal).count();
+		core::inf() << "ModelLoad: " << Path << " | SceneModelAsset::Load " << assetMs << " ms; geometry ("
+					<< (bGltfOrGlb ? "GLTF" : "Assimp") << ")::Load " << geomMs << " ms; total " << totalMs << " ms\n";
+		return true;
 	}
 
 	bool SceneMeshComponent::IsRotationEditableInUi() const

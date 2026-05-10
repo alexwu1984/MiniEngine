@@ -6,6 +6,8 @@
 #include "core/logger.h"
 #include "core/system.h"
 
+#include <chrono>
+
 using namespace math;
 using namespace RenderCore;
 
@@ -27,6 +29,7 @@ namespace Engine
 		if (!PSProceduralSkyCube || !Bake.VertexShaderLongLatToCube || !Bake.EvnCube)
 			return;
 
+		const auto t0 = std::chrono::steady_clock::now();
 		RHICommandMark Mark(RHIContext, "SkyLight_ProceduralSky_CaptureCubemap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = Bake.VertexShaderLongLatToCube;
@@ -82,6 +85,8 @@ namespace Engine
 			Bake.RenderCube(RHIContext);
 		}
 		RHIContext.GenerateMips(Bake.EvnCube);
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+		core::inf() << "IBL: CaptureRadianceCubemap ProceduralSky (GPU 6 faces + mips) " << ms << " ms\n";
 	}
 
 	void FSpecifiedCubemapEnvironmentSource::CaptureRadianceCubemap(RHICommandContext& RHIContext, FSkyLightEnvironmentBakePipeline& Bake)
@@ -89,6 +94,7 @@ namespace Engine
 		if (!HDRTex || !Bake.VertexShaderLongLatToCube || !Bake.PSLongLatToCube || !Bake.EvnCube)
 			return;
 
+		const auto t0 = std::chrono::steady_clock::now();
 		RHICommandMark Mark(RHIContext, "SkyLight_SpecifiedCubemap_CaptureCubemap");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = Bake.VertexShaderLongLatToCube;
@@ -119,6 +125,8 @@ namespace Engine
 			Bake.RenderCube(RHIContext);
 		}
 		RHIContext.GenerateMips(Bake.EvnCube);
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+		core::inf() << "IBL: CaptureRadianceCubemap HDR latlong to env cube (GPU 6 faces + mips) " << ms << " ms\n";
 	}
 
 } // namespace Engine

@@ -4,8 +4,10 @@
 #include "Scene/GltfInputComponent.h"
 #include "Scene/World.h"
 #include "GltfModel/GltfModel.h"
+#include "core/logger.h"
 #include "core/strings.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace Engine
@@ -82,12 +84,18 @@ namespace Engine
 
 	void GltfActor::InitResouce()
 	{
+		const auto tActorTotal = std::chrono::steady_clock::now();
 		Actor::InitResouce();
 		C_P(GltfActor);
 		ApplyActorDisplayNameFromSceneJson(*this, d->GltfJson);
 		auto GetWorldPin = [this]() -> std::shared_ptr<World> { return GetWorld(); };
 		d->MeshComp = std::make_shared<SceneMeshComponent>(this->shared_from_this());
+		const auto tMeshLoad = std::chrono::steady_clock::now();
 		bool bLoad = d->MeshComp->Load(d->GltfJson);
+		const double meshLoadMs =
+			std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tMeshLoad).count();
+		core::inf() << "ModelLoad: GltfActor SceneMeshComponent::Load " << meshLoadMs << " ms actor=\"" << GetActorName()
+					<< "\"\n";
 		if (!bLoad)
 		{
 			return;
@@ -283,6 +291,11 @@ namespace Engine
 			d->InputComp->SetMouseRotateModelEnabled(bMouseRotateModel);
 		}
 		AddComponent(d->InputComp);
+
+		const double actorTotalMs =
+			std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tActorTotal).count();
+		core::inf() << "ModelLoad: GltfActor::InitResouce total " << actorTotalMs << " ms actor=\"" << GetActorName()
+					<< "\" (includes camera/input setup after mesh)\n";
 	}
 
 }

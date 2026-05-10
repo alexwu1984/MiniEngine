@@ -26,9 +26,9 @@ namespace win32
 			const uint64_t interval = win32::cpu_clock::os_gettime_ms() - fpsBeginTime;
 			if ((int)interval > statisticTime)
 			{
-				const int avgHz = static_cast<int32_t>(fpsFrameNum * 1000 / interval);
+				const double avgHz = (interval > 0) ? (fpsFrameNum * 1000.0 / (double)interval) : 0.0;
 				core::LOG(core::log_inf,
-						  L"  %s avgHz=%d framesInInterval=%u intervalMs=%llu (avgHz is events/sec over this window)",
+						  L"%s avgHz=%.2f framesInInterval=%u intervalMs=%llu",
 						  tips.c_str(),
 						  avgHz,
 						  fpsFrameNum,

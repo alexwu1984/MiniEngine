@@ -1,11 +1,12 @@
 ﻿#include "Render/SkyLightEnvironmentBakePipeline.h"
 #include "core/inc.h"
+#include "core/logger.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIDefinitions.h"
-#include "core/logger.h"
 #include "math/math.h"
+#include <chrono>
 #include <vector>
 
 using namespace math;
@@ -26,6 +27,7 @@ namespace Engine
 
 	void FSkyLightEnvironmentBakePipeline::InitTexturesAndCubeRender()
 	{
+		const auto t0 = std::chrono::steady_clock::now();
 		CaptureViews = {
 			Matrix4x4::MatrixLookAtLH(Vector3(), Vector3::UnitX, Vector3::UnitY),
 			Matrix4x4::MatrixLookAtLH(Vector3(), Vector3::NegUnitX, Vector3::UnitY),
@@ -41,6 +43,8 @@ namespace Engine
 											SkyLightIBL_ComputeNumMips(kSkyLightIBL_PrefilterSize, kSkyLightIBL_PrefilterSize), false);
 		CubeR = std::make_shared<CubeRender>(RHI);
 		CubeR->InitResource();
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+		core::inf() << "IBL: InitTexturesAndCubeRender (create env/irr/prefilter cubes + CubeRender init) " << ms << " ms\n";
 	}
 
 	void FSkyLightEnvironmentBakePipeline::InitSharedShaders(const std::wstring& ShaderLibDirectory)
@@ -67,6 +71,7 @@ namespace Engine
 		if (PreBRDF)
 			return;
 
+		const auto t0 = std::chrono::steady_clock::now();
 		const int width = 128;
 		const int height = 32;
 		std::vector<Vector2> ImageData(static_cast<size_t>(width) * static_cast<size_t>(height));
@@ -123,10 +128,13 @@ namespace Engine
 		}
 
 		PreBRDF = RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, TexCreate_ShaderResource, width, height, 1, ImageData.data());
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+		core::inf() << "IBL: GenerateBRDFIntegrationLUT (CPU integrate + RHICreateTexture2D) " << ms << " ms\n";
 	}
 
 	void FSkyLightEnvironmentBakePipeline::GenerateDiffuseIrradiance(RHICommandContext& RHIContext)
 	{
+		const auto t0 = std::chrono::steady_clock::now();
 		RHICommandMark Mark(RHIContext, "SkyLight_GenerateDiffuseIrradiance");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = VertexShader;
@@ -166,10 +174,13 @@ namespace Engine
 			RenderCube(RHIContext);
 		}
 		RHIContext.GenerateMips(IrrCube);
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+		core::inf() << "IBL: GenerateDiffuseIrradiance (GPU 6 faces + mips) " << ms << " ms\n";
 	}
 
 	void FSkyLightEnvironmentBakePipeline::GenerateSpecularPrefilter(RHICommandContext& RHIContext)
 	{
+		const auto t0 = std::chrono::steady_clock::now();
 		RHICommandMark Mark(RHIContext, "SkyLight_GenerateSpecularPrefilter");
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = VertexShader;
@@ -217,6 +228,8 @@ namespace Engine
 				RenderCube(RHIContext);
 			}
 		}
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+		core::inf() << "IBL: GenerateSpecularPrefilter (GPU mips x 6 faces) " << ms << " ms\n";
 	}
 
 	void FSkyLightEnvironmentBakePipeline::RenderCube(RHICommandContext& RHIContext)

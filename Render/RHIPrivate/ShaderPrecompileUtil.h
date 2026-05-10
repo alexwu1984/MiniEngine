@@ -17,8 +17,7 @@ namespace RenderCore
 	/** FNV chain over entry .hlsl + transitive "#include \"...\"" files (same-dir relative), DFS order; delimiter byte between files. */
 	size_t ShaderPrecompileQuotedIncludeTreeHash(const std::wstring& hlslSourcePathAbs);
 
-	/** Pixel/compute only: loads ShaderLibDX/Built/<base>__<entry>__<profile>__<hash16>.cso (falls back to .dxbc).
-	    Pass -shaderprecompileverbose on the command line to log lookup misses (capped) and early skip reasons. */
+	/** Pixel/compute only: loads ShaderLibDX/Built/<base>__<entry>__<profile>__<hash16>.cso (falls back to .dxbc). */
 	bool TryLoadPrecompiledShaderBytecode(const std::wstring& hlslSourcePath, const std::string& entry, const std::string& profile,
 		const std::vector<RHIShaderMacro>& macros, std::vector<uint8_t>& outBytecode);
 }

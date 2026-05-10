@@ -174,30 +174,15 @@ namespace RenderCore
 		return buf;
 	}
 
-	static bool ShaderPrecompileVerboseCli()
-	{
-		return core::CommandLine::Get().GetSwitch("shaderprecompileverbose");
-	}
-
 	bool TryLoadPrecompiledShaderBytecode(const std::wstring& hlslSourcePath, const std::string& entry, const std::string& profile,
 		const std::vector<RHIShaderMacro>& macros, std::vector<uint8_t>& outBytecode)
 	{
 		outBytecode.clear();
 		if (core::CommandLine::Get().GetSwitch("shaderjit"))
-		{
-			static std::atomic<bool> s_loggedJit{false};
-			if (ShaderPrecompileVerboseCli() && !s_loggedJit.exchange(true))
-				core::inf() << "[ShaderPrecompile] skip: shaderjit (all JIT)";
 			return false;
-		}
 		// Vertex shaders are still JIT with these flags; mixing debug JIT VS + optimized precompiled PS breaks I/O signature -> CreateGraphicsPipelineState fails.
 		if (RuntimeShaderCompileFlagsForJitParity() != 0)
-		{
-			static std::atomic<bool> s_loggedDebugParity{false};
-			if (ShaderPrecompileVerboseCli() && !s_loggedDebugParity.exchange(true))
-				core::inf() << "[ShaderPrecompile] skip: shaderdebug JIT parity (precompiled disabled)";
 			return false;
-		}
 
 		std::error_code ec;
 		const std::filesystem::path src(hlslSourcePath);
@@ -221,20 +206,7 @@ namespace RenderCore
 			builtPath = builtDir / (baseName + L".dxbc");
 			in.open(builtPath.wstring(), std::ios::binary | std::ios::ate);
 			if (!in.good())
-			{
-				if (ShaderPrecompileVerboseCli())
-				{
-					static std::atomic<int> s_missDetailLogs{0};
-					if (s_missDetailLogs.fetch_add(1) < 48)
-					{
-						const std::filesystem::path tryCso = builtDir / (baseName + L".cso");
-						core::inf() << "[ShaderPrecompile] miss entry=" << entry << " profile=" << profile << " tree=" << Hex16(treeHash)
-									<< " key=" << Hex16(keyHash) << " hlsl=" << core::ucs2_u8(src.wstring())
-									<< " try_cso=" << core::ucs2_u8(tryCso.wstring());
-					}
-				}
 				return false;
-			}
 		}
 		const std::streamsize sz = in.tellg();
 		if (sz <= 0)

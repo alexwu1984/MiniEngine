@@ -1,4 +1,5 @@
 ﻿#include "Procedural/ProceduralFloor.h"
+#include <algorithm>
 #include "GltfModel/GltfMeshInfo.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/MeshBase.h"
@@ -114,10 +115,12 @@ namespace Engine
 		class ProceduralPBRMaterial final : public MaterialBase
 		{
 		public:
-			ProceduralPBRMaterial(const MaterialConfig& InConfig, const BrushedMetalConfig& InBrushed, const FrostedConfig& InFrosted)
+			ProceduralPBRMaterial(const MaterialConfig& InConfig, const BrushedMetalConfig& InBrushed, const FrostedConfig& InFrosted,
+								  bool InGrassVariegatedBase = false)
 				: Config(InConfig)
 				, Brushed(InBrushed)
 				, Frosted(InFrosted)
+				, bGrassVariegatedBase(InGrassVariegatedBase)
 			{
 				Config.UseConfig = true;
 				auto CreateTexCommand = [this](RenderCore::DynamicRHI* DyRHI) {
@@ -227,6 +230,36 @@ namespace Engine
 
 						NormalTex = MakeTexBGRA(S, S, NormalBGRA.data());
 						MetalRoughTex = MakeTexBGRA(S, S, MRBGRA.data());
+
+						if (GrassVariegatedBase())
+						{
+							std::vector<uint8_t> BaseBGRA(size_t(S) * size_t(S) * 4);
+							for (int32_t yy = 0; yy < S; ++yy)
+							{
+								for (int32_t xx = 0; xx < S; ++xx)
+								{
+									float u = float(xx) / float(S);
+									float v = float(yy) / float(S);
+									float px = u * Frosted.NoiseScale;
+									float py = v * Frosted.NoiseScale;
+									float h = noise2(px, py);
+									float h2 = noise2(px * 2.37f + 17.f, py * 2.11f + 9.f);
+									float blend = h * 0.62f + h2 * 0.38f;
+									math::Vector3 dark(0.05f, 0.20f, 0.06f);
+									math::Vector3 mid(0.10f, 0.42f, 0.12f);
+									math::Vector3 tip(0.22f, 0.52f, 0.16f);
+									math::Vector3 c = dark + (mid - dark) * blend;
+									const float tipMix = std::clamp((h2 - 0.48f) * 3.2f, 0.f, 1.f);
+									c = c + (tip - c) * tipMix;
+									size_t nb = (size_t(yy) * size_t(S) + size_t(xx)) * 4;
+									BaseBGRA[nb + 0] = (uint8_t)(std::clamp(c.z, 0.f, 1.f) * 255.f);
+									BaseBGRA[nb + 1] = (uint8_t)(std::clamp(c.y, 0.f, 1.f) * 255.f);
+									BaseBGRA[nb + 2] = (uint8_t)(std::clamp(c.x, 0.f, 1.f) * 255.f);
+									BaseBGRA[nb + 3] = 255;
+								}
+							}
+							BaseColorTex = MakeTexBGRA(S, S, BaseBGRA.data());
+						}
 					}
 					else if (Brushed.Enable)
 					{
@@ -322,9 +355,12 @@ namespace Engine
 			const MaterialConfig& GetMaterialConfig() const override { return Config; }
 
 		private:
+			bool GrassVariegatedBase() const { return bGrassVariegatedBase; }
+
 			MaterialConfig Config{};
 			BrushedMetalConfig Brushed{};
 			FrostedConfig Frosted{};
+			bool bGrassVariegatedBase = false;
 			std::shared_ptr<RenderCore::RHITexture2D> BaseColorTex;
 			std::shared_ptr<RenderCore::RHITexture2D> MetalRoughTex;
 			std::shared_ptr<RenderCore::RHITexture2D> NormalTex;
@@ -403,7 +439,8 @@ namespace Engine
 
 			BrushedMetalConfig BrushedCfg;
 			FrostedConfig FrostedCfg;
-			// Optional finish presets: "glossy" / "matte"
+			bool grassVariegated = false;
+			// Optional finish presets: "glossy" / "matte" / "grass"
 			std::string Finish;
 			if (FloorJson.find("Finish") != FloorJson.end())
 			{
@@ -440,6 +477,19 @@ namespace Engine
 				FrostedCfg.RoughnessBase = 0.68f;
 				FrostedCfg.RoughnessVariation = 0.22f;
 				MatCfg.Roughness = 0.68f;
+			}
+			else if (Finish == "grass")
+			{
+				FrostedCfg.Enable = true;
+				FrostedCfg.TextureSize = 512;
+				FrostedCfg.NoiseScale = 520.0f;
+				FrostedCfg.NormalStrength = 0.38f;
+				FrostedCfg.RoughnessBase = 0.91f;
+				FrostedCfg.RoughnessVariation = 0.09f;
+				MatCfg.Metallic = 0.f;
+				MatCfg.Roughness = 0.92f;
+				MatCfg.BaseColor = math::Vector4(0.12f, 0.38f, 0.14f, 1.f);
+				grassVariegated = true;
 			}
 			if (FloorJson.find("BrushedMetal") != FloorJson.end())
 			{
@@ -528,7 +578,7 @@ namespace Engine
 
 			auto Buffer = std::make_shared<GltfMeshBuffer>();
 			Buffer->InitMesh(MeshInfo);
-			auto Material = std::make_shared<ProceduralPBRMaterial>(MatCfg, BrushedCfg, FrostedCfg);
+			auto Material = std::make_shared<ProceduralPBRMaterial>(MatCfg, BrushedCfg, FrostedCfg, grassVariegated);
 
 			math::AABB3 Box;
 			Box.Set(math::Vector3(HalfW, 0.f, HalfD), math::Vector3(-HalfW, 0.f, -HalfD));

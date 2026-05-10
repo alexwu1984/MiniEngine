@@ -2,11 +2,12 @@
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
-    "SunDirection": "0.811,0.139,0.568",
+    "SunDirection": "0.781,0.301,0.548",
+    "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.811,0.139,0.568",
+        "LightDir": "0.781,0.301,0.548",
         "LightStrength": 1.0,
         "LightType": 0
       }
@@ -15,6 +16,15 @@
     "AAType": "TAA"
   },
   "Modles": [
+    {
+      "ProceduralFloor": {
+        "Finish": "grass",
+        "Size": "60,60",
+        "Segments": "220,220",
+        "UVScale": 24.0
+      },
+      "ProjShadow": true
+    },
     {
       "Model": "Model2.glb",
       "Scale": 1.0,

@@ -14,6 +14,7 @@ TextureCube PrefilterCubeMap : register(t7);
 Texture2D ShadowMap : register(t8);
 Texture2D MaterialAuxGBuffer : register(t9);
 TextureCube PointShadowCube : register(t10);
+Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleLinear : register(s0);
 SamplerState SampleShadow : register(s1);
 

@@ -21,6 +21,10 @@ namespace Engine
 		float SunDirY = 0.f;
 		float SunDirZ = 0.f;
 		float SunBloomLinearHDR = 0.f;
+		float HemiSkyGroundBlendPower = 1.75f;
+		float GroundLatLongIntensity = 1.f;
+		int32_t GroundLatLongEnabled = 0;
+		int32_t PadSkyCb = 0;
 	};
 	using CBSkyLightRenderPassWrap = RenderCore::TUniformBufferBinding<CBSkyLightRenderPass, 0u>;
 
@@ -70,7 +74,11 @@ namespace Engine
 									std::shared_ptr<RenderCore::RHITexture2D> Depth,
 									const math::Matrix4x4& SkyInverseViewProj,
 									const math::Vector3& SunTowardSourceWorld,
-									float SunBloomLinearHDR)
+									float SunBloomLinearHDR,
+									std::shared_ptr<RenderCore::RHITexture2D> GroundLatLongOrDummy,
+									float HemiSkyGroundBlendPower,
+									float GroundLatLongIntensity,
+									int32_t GroundLatLongEnabled)
 	{
 		C_P(SkyLightRenderPass);
 		if (!d->TexCube)
@@ -108,9 +116,15 @@ namespace Engine
 		UB.SunDirY = SunTowardSourceWorld.y;
 		UB.SunDirZ = SunTowardSourceWorld.z;
 		UB.SunBloomLinearHDR = SunBloomLinearHDR;
+		UB.HemiSkyGroundBlendPower = HemiSkyGroundBlendPower;
+		UB.GroundLatLongIntensity = GroundLatLongIntensity;
+		UB.GroundLatLongEnabled = GroundLatLongEnabled;
+		UB.PadSkyCb = 0;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBSkyLightRenderPass));
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->TexCube);
+		if (GroundLatLongOrDummy)
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, GroundLatLongOrDummy);
 		RHIContext.Draw(3);
 	}
 

@@ -32,10 +32,23 @@ float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT
 			color += ApplySpotLightHair(light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, worldPos, view, i, coverageAlpha);
 	}
 
-	// Forward shells: avoid split-sum IBL (irradiance + BRDF LUT + prefiltered cube). Zoomed shells are
-	// fill-bound; shadow-off still pays 3 IBL samples/pixel/layer here. Diffuse-only cubemap matches the
-	// heavy roughness path where spec IBL was already scaled by ~0.038 (minimal contribution vs lights).
-	float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, geomN).rgb;
+	// Forward shells: diffuse-only env (heavy roughness); match deferred split hemisphere when enabled.
+	float3 DiffuseLight;
+	if (myPerFrame.SplitHemisphereIBL != 0)
+	{
+		float pwr = max(myPerFrame.HemiIBLBlendPower, 0.08);
+		float tN = saturate(geomN.y * 0.5 + 0.5);
+		float wSkyN = pow(tN, pwr);
+		float wGrN = pow(1.0 - tN, pwr);
+		float sN = max(wSkyN + wGrN, 1e-4);
+		wSkyN /= sN;
+		wGrN /= sN;
+		float3 irrSky = IrradianceTex.Sample(SampleLinear, geomN).rgb;
+		float3 irrGr = GroundEnvLatLong.SampleLevel(SampleLinear, DirectionToLatLongUV(geomN), 0).rgb * myPerFrame.GroundIBLIntensity;
+		DiffuseLight = irrSky * wSkyN + irrGr * wGrN;
+	}
+	else
+		DiffuseLight = IrradianceTex.Sample(SampleLinear, geomN).rgb;
 	float3 iblDiffuse = DiffuseLight * materialInfo.diffuseColor;
 	float NdotVao = saturate(dot(geomN, view));
 	float specOccPowBase = max(NdotVao + aoSpec - 0.0001, 1e-5);

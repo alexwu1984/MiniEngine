@@ -2,6 +2,7 @@
 #include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightEnvironmentBakePipeline.h"
 #include "Render/SkyLightEnvironmentSources.h"
+#include "RHI/RHITexture2D.h"
 #include <mutex>
 
 namespace Engine
@@ -14,6 +15,14 @@ struct FSkyLightEnvironmentHostState
 	bool bProceduralSkyActive = false;
 	FSkyLightSourceDesc ConfigSource{};
 	FSkyLightSourceDesc CurrentSource{};
+	/** Relative to GLTFModel/ (UTF-8). Lower-hemisphere IBL lat-long when sky is procedural; empty = disabled. */
+	std::string ConfigGroundIBLHdrUtf8{};
+	std::string CurrentGroundIBLHdrUtf8{};
+	float ConfigGroundIBLIntensity = 1.f;
+	float CurrentGroundIBLIntensity = 1.f;
+	float ConfigHemiIBLBlendPower = 1.75f;
+	float CurrentHemiIBLBlendPower = 1.75f;
+	std::shared_ptr<RenderCore::RHITexture2D> GroundHemiLatLongTex{};
 };
 
 /** Aggregate: shared bake pipeline + pluggable radiance sources + host bookkeeping. */

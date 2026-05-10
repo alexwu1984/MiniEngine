@@ -1,4 +1,4 @@
-#include "win/win32.h"
+﻿#include "win/win32.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"

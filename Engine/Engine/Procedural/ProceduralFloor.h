@@ -13,7 +13,7 @@ namespace Engine
 		math::AABB3 Box;
 	};
 
-	// Build an XZ plane "metal floor" from json config.
+	// Build an XZ plane floor from json config (Finish: glossy | matte | frosted | grass).
 	// Expected format:
 	// {
 	//   "Size": "60,60",

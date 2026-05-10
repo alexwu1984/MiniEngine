@@ -1,6 +1,6 @@
 // Shared split-sum IBL decode + hair strand analytic lights (directional/point/spot + cube shadow).
 // Include after: ShaderUtils, PerFrameStruct, HairShading (optional; guarded), IrradianceTex/BrdfLut/PrefilterCubeMap (t5–t7),
-// ShadowMap/PointShadowCube, SampleLinear/SampleShadow, ShadowPCSS.hlsl, cbPointShadow.
+// ShadowMap/PointShadowCube, GroundEnvLatLong (t12, optional split hemi), SampleLinear/SampleShadow, ShadowPCSS.hlsl, cbPointShadow.
 
 #ifndef MINIENGINE_DEFERRED_LIGHTING_SHARED_HLSL
 #define MINIENGINE_DEFERRED_LIGHTING_SHARED_HLSL
@@ -39,6 +39,14 @@ void DecodeMaterialFromGBuffer(float3 baseColor, float metallic, float perceptua
 	materialInfo.reflectance90 = float3(1.0, 1.0, 1.0) * clamp(reflectance * 50.0, 0.0, 1.0);
 }
 
+float2 DirectionToLatLongUV(float3 dir)
+{
+	float3 v = normalize(dir);
+	float2 uv = float2(atan2(v.z, v.x), asin(clamp(v.y, -1.0, 1.0)));
+	static const float2 invAtan = float2(0.159154943, -0.318309886);
+	return saturate(uv * invAtan + 0.5);
+}
+
 void GetIBLContributionSplit(MaterialInfo MaterialInfo, float3 n, float3 v, out float3 outDiffuseIBL, out float3 outSpecularIBL)
 {
 	float NdotV = clamp(dot(n, v), 0.0, 1.0);
@@ -49,8 +57,41 @@ void GetIBLContributionSplit(MaterialInfo MaterialInfo, float3 n, float3 v, out 
 	reflection = mul(float4(reflection, 1.0), myPerFrame.RotateIBL).xyz;
 	float2 brdfUV = clamp(float2(NdotV, MaterialInfo.perceptualRoughness), float2(0.0, 0.0), float2(1.0, 1.0));
 	float2 BRDF = BrdfLut.Sample(SampleLinear, brdfUV).rg;
-	float3 DiffuseLight = IrradianceTex.Sample(SampleLinear, n).rgb;
-	float3 SpecularLight = PrefilterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
+
+	float3 DiffuseLight;
+	float3 SpecularLight;
+
+	if (myPerFrame.SplitHemisphereIBL != 0)
+	{
+		float pwr = max(myPerFrame.HemiIBLBlendPower, 0.08);
+		float tN = saturate(n.y * 0.5 + 0.5);
+		float wSkyN = pow(tN, pwr);
+		float wGrN = pow(1.0 - tN, pwr);
+		float sN = max(wSkyN + wGrN, 1e-4);
+		wSkyN /= sN;
+		wGrN /= sN;
+
+		float3 irrSky = IrradianceTex.Sample(SampleLinear, n).rgb;
+		float3 irrGr = GroundEnvLatLong.SampleLevel(SampleLinear, DirectionToLatLongUV(n), 0).rgb * myPerFrame.GroundIBLIntensity;
+		DiffuseLight = irrSky * wSkyN + irrGr * wGrN;
+
+		float tR = saturate(reflection.y * 0.5 + 0.5);
+		float wSkyR = pow(tR, pwr);
+		float wGrR = pow(1.0 - tR, pwr);
+		float sR = max(wSkyR + wGrR, 1e-4);
+		wSkyR /= sR;
+		wGrR /= sR;
+		float specLodGr = clamp(lod * 0.85, 0.0, maxMipIndex);
+		float3 specSky = PrefilterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
+		float3 specGr = GroundEnvLatLong.SampleLevel(SampleLinear, DirectionToLatLongUV(reflection), specLodGr).rgb * myPerFrame.GroundIBLIntensity;
+		SpecularLight = specSky * wSkyR + specGr * wGrR;
+	}
+	else
+	{
+		DiffuseLight = IrradianceTex.Sample(SampleLinear, n).rgb;
+		SpecularLight = PrefilterCubeMap.SampleLevel(SampleLinear, reflection, lod).rgb;
+	}
+
 	outDiffuseIBL = DiffuseLight * MaterialInfo.diffuseColor;
 	outSpecularIBL = SpecularLight * (MaterialInfo.specularColor * BRDF.x + BRDF.y);
 }

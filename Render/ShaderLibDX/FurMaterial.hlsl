@@ -22,6 +22,7 @@ Texture2D BrdfLut : register(t6);
 TextureCube PrefilterCubeMap : register(t7);
 Texture2D ShadowMap : register(t8);
 TextureCube PointShadowCube : register(t10);
+Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleShadow : register(s1);
 
 cbuffer cbPointShadow : register(b4)

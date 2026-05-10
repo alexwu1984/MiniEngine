@@ -64,6 +64,11 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITextureCube> GetSpecularReflectionCubemap();
 		std::shared_ptr<RenderCore::RHITexture2D> GetBRDFIntegrationLUT();
 		std::shared_ptr<RenderCore::RHITexture2D> GetSkyLightSourceHDR();
+		/** Lat-long HDR for lower-hemisphere IBL when main sky is procedural; nullptr if disabled. */
+		std::shared_ptr<RenderCore::RHITexture2D> GetGroundHemiIBLLatLong();
+		bool HasSplitHemisphereGroundIBL();
+		float GetGroundIBLIntensityForShader();
+		float GetHemiIBLBlendPowerForShader();
 	private:
 		friend struct FSkyLightEnvironmentRDGPasses;
 		void CaptureSkyLightCubemap(RenderCore::RHICommandContext& RHIContext);

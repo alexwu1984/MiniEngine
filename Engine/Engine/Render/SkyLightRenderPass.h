@@ -29,7 +29,11 @@ namespace Engine
 					std::shared_ptr<RenderCore::RHITexture2D> Depth,
 					const math::Matrix4x4& SkyInverseViewProj,
 					const math::Vector3& SunTowardSourceWorld = math::Vector3(0.f, 0.f, 0.f),
-					float SunBloomLinearHDR = 0.f);
+					float SunBloomLinearHDR = 0.f,
+					std::shared_ptr<RenderCore::RHITexture2D> GroundLatLongOrDummy = nullptr,
+					float HemiSkyGroundBlendPower = 1.75f,
+					float GroundLatLongIntensity = 1.f,
+					int32_t GroundLatLongEnabled = 0);
 		void SetTextureCube(std::shared_ptr<RenderCore::RHITextureCube> TexCube);
 	private:
 		void InitShader();

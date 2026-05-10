@@ -270,13 +270,26 @@ namespace Engine
 					d->SkyLightPass->SetTextureCube(SkyCube);
 					math::Vector3 sunToward{};
 					float sunBloomHdr = 0.f;
+					std::shared_ptr<RenderCore::RHITexture2D> groundLatLongDummy;
+					float hemiPow = 1.75f;
+					float groundInt = 1.f;
+					int32_t groundEn = 0;
 					if (SkyLightSrc.Type == ESkyLightSourceType::Procedural)
 					{
 						sunToward = SkyLightSrc.ProceduralSunDirectionTowardSource;
 						sunBloomHdr = SkyLightSrc.ProceduralSunBloomLinearHDR;
+						if (d->SkylightEnvironment->HasSplitHemisphereGroundIBL())
+						{
+							groundLatLongDummy = d->SkylightEnvironment->GetGroundHemiIBLLatLong();
+							hemiPow = d->SkylightEnvironment->GetHemiIBLBlendPowerForShader();
+							groundInt = d->SkylightEnvironment->GetGroundIBLIntensityForShader();
+							groundEn = 1;
+						}
 					}
+					if (!groundLatLongDummy)
+						groundLatLongDummy = d->SkylightEnvironment->GetBRDFIntegrationLUT();
 					d->SkyLightPass->Render(*CommandContext, Targets, d->SceneTextures->GetDepth(), ViewConst->SkyInverseViewProj,
-											sunToward, sunBloomHdr);
+											sunToward, sunBloomHdr, groundLatLongDummy, hemiPow, groundInt, groundEn);
 				}
 				else
 				{

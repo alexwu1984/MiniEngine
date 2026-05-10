@@ -71,6 +71,12 @@ namespace Engine
 		float				LodBias{ 0.f };
 		float				IBLMIpCount{ 1.f };
 
+		/** Procedural sky: blend sky irradiance/spec cubemap (upper) vs GroundIBLHdr lat-long (lower) by world-Y hemisphere. */
+		float				GroundIBLIntensity{ 1.f };
+		float				HemiIBLBlendPower{ 1.75f };
+		int32_t				SplitHemisphereIBL{ 0 };
+		int32_t				_PadSplitHemiIBL{ 0 };
+
 		// Debug / view flags
 		math::Vector4       WireframeOptions;
 		int32_t				LightCount{ 0 };

@@ -59,6 +59,11 @@ struct PerFrame
     float         LodBias;
     float         IBLMIpCount;
 
+    float         GroundIBLIntensity;
+    float         HemiIBLBlendPower;
+    int           SplitHemisphereIBL;
+    int           _PadSplitHemiIBL;
+
     // Debug / view flags
     float4        WireframeOptions;
     int           LightCount;

@@ -4,6 +4,7 @@
 #pragma pack_matrix(row_major)
 
 TextureCube HdrCubeMap : register(t0);
+Texture2D GroundLatLong : register(t1);
 SamplerState TrilinearFliterClamp : register(s0);
 
 cbuffer CBSkyLightRenderPass : register(b0)
@@ -11,6 +12,10 @@ cbuffer CBSkyLightRenderPass : register(b0)
     matrix InvViewProj;
     float3 SunTowardSource;
     float SunBloomLinearHDR;
+    float HemiSkyGroundBlendPower;
+    float GroundLatLongIntensity;
+    int GroundLatLongEnabled;
+    int PadSkyCb;
 };
 
 struct VertexOut
@@ -40,10 +45,34 @@ VertexOut VS_SkyFullscreen(uint VertID : SV_VertexID)
     return Out;
 }
 
+float2 DirectionToLatLongUV(float3 dir)
+{
+    float3 v = normalize(dir);
+    float2 uv = float2(atan2(v.z, v.x), asin(clamp(v.y, -1.0, 1.0)));
+    static const float2 invAtan = float2(0.159154943, -0.318309886);
+    return saturate(uv * invAtan + 0.5);
+}
+
 float4 PS(VertexOut In) : SV_Target
 {
     float3 dir = normalize(In.WorldH.xyz / In.WorldH.w);
-    float3 envColor = HdrCubeMap.Sample(TrilinearFliterClamp, dir).rgb;
+    float3 skyCol = HdrCubeMap.Sample(TrilinearFliterClamp, dir).rgb;
+    float3 envColor = skyCol;
+
+    // Match deferred IBL: downward world rays sample HDR lat-long (ground / below-horizon dome); upward stays procedural cubemap.
+    if (GroundLatLongEnabled != 0)
+    {
+        // Weights must not both vanish at dir.y==0 (horizon), or the seam goes black.
+        float pwr = max(HemiSkyGroundBlendPower, 0.08);
+        float t = saturate(dir.y * 0.5 + 0.5);
+        float wSky = pow(t, pwr);
+        float wGr = pow(1.0 - t, pwr);
+        float s = max(wSky + wGr, 1e-4);
+        wSky /= s;
+        wGr /= s;
+        float3 grCol = GroundLatLong.SampleLevel(TrilinearFliterClamp, DirectionToLatLongUV(dir), 0).rgb * GroundLatLongIntensity;
+        envColor = skyCol * wSky + grCol * wGr;
+    }
 
     // Bloom-oriented forward scatter (not in baked cubemap). Soft lobes + warm low-sun tint — avoid a flat white disc.
     if (SunBloomLinearHDR > 0.0)

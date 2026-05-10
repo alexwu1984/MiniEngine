@@ -1,8 +1,9 @@
-#include "Render/SkyLightEnvironment.h"
+﻿#include "Render/SkyLightEnvironment.h"
 #include "Render/SkyLightEnvironmentPrecomputeState.h"
 #include "RHI/DynamicRHI.h"
 #include "core/system.h"
 #include <cctype>
+#include <cmath>
 #include <string>
 
 namespace Engine
@@ -151,6 +152,34 @@ namespace Engine
 		return d->SpecifiedCubemap.HDRTex;
 	}
 
+	std::shared_ptr<RenderCore::RHITexture2D> USkyLightComponent::GetGroundHemiIBLLatLong()
+	{
+		SKYLIGHT_IBL_DPTR();
+		std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
+		return d->Host.GroundHemiLatLongTex;
+	}
+
+	bool USkyLightComponent::HasSplitHemisphereGroundIBL()
+	{
+		SKYLIGHT_IBL_DPTR();
+		std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
+		return d->Host.bProceduralSkyActive && d->Host.GroundHemiLatLongTex != nullptr;
+	}
+
+	float USkyLightComponent::GetGroundIBLIntensityForShader()
+	{
+		SKYLIGHT_IBL_DPTR();
+		std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
+		return d->Host.CurrentGroundIBLIntensity;
+	}
+
+	float USkyLightComponent::GetHemiIBLBlendPowerForShader()
+	{
+		SKYLIGHT_IBL_DPTR();
+		std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
+		return d->Host.CurrentHemiIBLBlendPower;
+	}
+
 	void USkyLightComponent::LoadConfig(const nlohmann::json& Root)
 	{
 		SKYLIGHT_IBL_DPTR();
@@ -164,12 +193,25 @@ namespace Engine
 				d->Host.ConfigSource.Type = ESkyLightSourceType::Procedural;
 				d->Host.ConfigSource.HdrFileFullPath.clear();
 				d->Host.ConfigSource.ProceduralSunDirectionTowardSource = math::Vector3(1.f, 0.05f, 0.f);
+				d->Host.ConfigGroundIBLHdrUtf8.clear();
+				d->Host.ConfigGroundIBLIntensity = EvnJson.value("GroundIBLIntensity", 1.0);
+				d->Host.ConfigHemiIBLBlendPower = EvnJson.value("HemiIBLBlendPower", 1.75);
+				auto groundIt = EvnJson.find("GroundIBLHdr");
+				if (groundIt != EvnJson.end() && groundIt->is_string())
+				{
+					std::string groundHdr = groundIt->get<std::string>();
+					if (!groundHdr.empty())
+						d->Host.ConfigGroundIBLHdrUtf8 = std::move(groundHdr);
+				}
 			}
 			else
 			{
 				d->Host.ConfigSource.Type = ESkyLightSourceType::HdrFile;
 				d->Host.ConfigSource.HdrFileFullPath =
 					core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(hdrUtf8);
+				d->Host.ConfigGroundIBLHdrUtf8.clear();
+				d->Host.ConfigGroundIBLIntensity = 1.f;
+				d->Host.ConfigHemiIBLBlendPower = 1.75f;
 			}
 			d->Host.bInitRender = false;
 			d->Host.CurrentSource = {};
@@ -179,6 +221,7 @@ namespace Engine
 			std::lock_guard<std::mutex> Lock(d->Host.HdrStateMutex);
 			d->Host.bInitRender = false;
 			d->Host.CurrentSource = {};
+			d->Host.ConfigGroundIBLHdrUtf8.clear();
 		}
 	}
 
@@ -203,7 +246,12 @@ namespace Engine
 				const math::Vector3 dv = Desired.ProceduralSunDirectionTowardSource - d->Host.CurrentSource.ProceduralSunDirectionTowardSource;
 				proceduralSunMatches = dv.Dot(dv) < 1e-8f;
 			}
-			if (sameType && samePath && d->Host.bInitRender && proceduralSunMatches)
+			const bool sameGroundHdr = (d->Host.ConfigGroundIBLHdrUtf8 == d->Host.CurrentGroundIBLHdrUtf8);
+			const bool sameGroundInt =
+				std::fabs(d->Host.ConfigGroundIBLIntensity - d->Host.CurrentGroundIBLIntensity) < 1e-5f;
+			const bool sameHemiPow =
+				std::fabs(d->Host.ConfigHemiIBLBlendPower - d->Host.CurrentHemiIBLBlendPower) < 1e-5f;
+			if (sameType && samePath && d->Host.bInitRender && proceduralSunMatches && sameGroundHdr && sameGroundInt && sameHemiPow)
 				return;
 
 			d->Host.CurrentSource = Desired;
@@ -224,6 +272,19 @@ namespace Engine
 			else
 				d->SpecifiedCubemap.HDRTex.reset();
 
+			if (d->Host.bProceduralSkyActive && !d->Host.ConfigGroundIBLHdrUtf8.empty())
+			{
+				const std::wstring gfp =
+					core::process_directory().wstring() + L"/GLTFModel/" + core::u8_ucs2(d->Host.ConfigGroundIBLHdrUtf8);
+				d->Host.GroundHemiLatLongTex = d->Bake.RHI->RHICreateHDRTexture2D(gfp);
+			}
+			else
+				d->Host.GroundHemiLatLongTex.reset();
+
+			d->Host.CurrentGroundIBLHdrUtf8 = d->Host.ConfigGroundIBLHdrUtf8;
+			d->Host.CurrentGroundIBLIntensity = d->Host.ConfigGroundIBLIntensity;
+			d->Host.CurrentHemiIBLBlendPower = d->Host.ConfigHemiIBLBlendPower;
+
 			d->Host.bInitRender = false;
 		}
 	}
@@ -237,6 +298,8 @@ namespace Engine
 		d->Host.CurrentSource = {};
 		d->SpecifiedCubemap.HDRTex.reset();
 		d->Host.bProceduralSkyActive = false;
+		d->Host.GroundHemiLatLongTex.reset();
+		d->Host.CurrentGroundIBLHdrUtf8.clear();
 		d->Host.bInitRender = false;
 	}
 

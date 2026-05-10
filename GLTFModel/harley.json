@@ -2,11 +2,12 @@
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
-    "SunDirection": "0.811,0.139,0.568",
+    "SunDirection": "0.781,0.301,0.548",
+    "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.811,0.139,0.568",
+        "LightDir": "0.781,0.301,0.548",
         "LightStrength": 16.0,
         "LightType": 0
       }
@@ -17,23 +18,10 @@
   "Modles": [
     {
       "ProceduralFloor": {
-        "Finish": "frosted",
+        "Finish": "grass",
         "Size": "60,60",
-        "Segments": "200,200",
-        "UVScale": 10.0,
-        "Frosted": {
-          "Enable": true,
-          "TextureSize": 512,
-          "NoiseScale": 520.0,
-          "NormalStrength": 0.10,
-          "RoughnessBase": 0.62,
-          "RoughnessVariation": 0.10
-        },
-        "Material": {
-          "Metallic": 1.0,
-          "Roughness": 0.62,
-          "BaseColor": "0.65,0.68,0.72,1.0"
-        }
+        "Segments": "220,220",
+        "UVScale": 24.0
       }
     },
     {

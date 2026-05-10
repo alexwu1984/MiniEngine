@@ -52,6 +52,9 @@ namespace Engine
 			Out.Data.myPerFrame.CameraNearZ = View.CameraNearZ;
 			Out.Data.myPerFrame.CameraFarZ = View.CameraFarZ;
 			Out.Data.myPerFrame.IBLFactor = View.SkyLightIBLScale;
+			Out.Data.myPerFrame.SplitHemisphereIBL = 0;
+			Out.Data.myPerFrame.GroundIBLIntensity = 1.f;
+			Out.Data.myPerFrame.HemiIBLBlendPower = 1.75f;
 			const int32_t n = (std::min)(static_cast<int32_t>(View.Lights.size()), static_cast<int32_t>(MAX_LIGHT_INSTANCES));
 			Out.Data.myPerFrame.LightCount = n;
 			Out.Data.myPerFrame.bUnlit = 0;
@@ -211,6 +214,12 @@ namespace Engine
 					Out.Data.myPerFrame.IBLMIpCount = static_cast<float>(std::max<uint32_t>(SpecCube->GetNumMips(), 1u));
 				else
 					Out.Data.myPerFrame.IBLMIpCount = 1.f;
+				if (SkyLightIBL->HasSplitHemisphereGroundIBL())
+				{
+					Out.Data.myPerFrame.SplitHemisphereIBL = 1;
+					Out.Data.myPerFrame.GroundIBLIntensity = SkyLightIBL->GetGroundIBLIntensityForShader();
+					Out.Data.myPerFrame.HemiIBLBlendPower = SkyLightIBL->GetHemiIBLBlendPowerForShader();
+				}
 			}
 			else
 				Out.Data.myPerFrame.IBLMIpCount = 1.f;
@@ -362,6 +371,12 @@ namespace Engine
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 11, spotShadowSrv);
 
+		std::shared_ptr<RHITexture2D> groundEnvSrv = FallbackBrdfLut;
+		if (SkyLightIBL)
+			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
+				groundEnvSrv = std::move(gt);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrv);
+
 		RHIContext.Draw(3);
 	}
 
@@ -443,5 +458,11 @@ namespace Engine
 						spotShadowSrvFur = std::move(st);
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 11, spotShadowSrvFur);
+
+		std::shared_ptr<RHITexture2D> groundEnvSrvFur = FallbackBrdfLut;
+		if (SkyLightIBL)
+			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
+				groundEnvSrvFur = std::move(gt);
+		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrvFur);
 	}
 }

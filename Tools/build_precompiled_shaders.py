@@ -6,7 +6,8 @@ Output files use .cso extension (runtime loads .cso first, then legacy .dxbc).
 Incremental: skips CompileShaderBlob when the .cso is newer than the manifest, this script,
 CompileShaderBlob.exe, and the entry HLSL file plus all reachable quoted #includes.
 
-Lookup hash matches RenderCore::ShaderPrecompileLookupHash (core::HashString FNV).
+Lookup hash matches RenderCore::ShaderPrecompileLookupHash: FNV on basename|entry|profile and macros,
+then FNV on quoted-include dependency raw bytes (0x00 between files), then FNV on 8-byte tree hash.
 
 Defines order must match runtime std::vector<RHIShaderMacro> push order for that shader.
 
@@ -45,12 +46,30 @@ def hash_string(s: str, result: int) -> int:
     return hash_bytes(s.encode("utf-8"), result)
 
 
-def lookup_hash(filename: str, entry: str, profile: str, defines: list[tuple[str, str]]) -> int:
+def dependency_content_hash(entry_hlsl: Path) -> int:
+    """Match ShaderPrecompileQuotedIncludeTreeHash: DFS quoted includes, raw bytes + 0x00 delimiter each file."""
+    paths = collect_hlsl_sources(entry_hlsl.resolve())
+    h = HASH_SEED
+    delim = b"\x00"
+    for p in paths:
+        if not p.is_file():
+            continue
+        try:
+            data = p.read_bytes()
+        except OSError:
+            continue
+        h = hash_bytes(data, h)
+        h = hash_bytes(delim, h)
+    return h
+
+
+def lookup_hash(filename: str, entry: str, profile: str, defines: list[tuple[str, str]], hlsl_path: Path) -> int:
     h = hash_string(f"{filename}|{entry}|{profile}", HASH_SEED)
     for name, val in defines:
         h = hash_string(name, h)
         h = hash_string(val, h)
-    return h
+    tree = dependency_content_hash(hlsl_path)
+    return hash_bytes(tree.to_bytes(8, byteorder=sys.byteorder), h)
 
 
 def hex16(v: int) -> str:
@@ -150,11 +169,11 @@ def main() -> int:
                 failed += 1
                 continue
 
+        hlsl_path = (shader_root / rel).resolve()
         base_name = Path(rel).name
-        h = lookup_hash(base_name, entry, profile, defines)
+        h = lookup_hash(base_name, entry, profile, defines, hlsl_path)
         out_name = f"{base_name}__{entry}__{profile}__{hex16(h)}.cso"
         out_path = (built_dir / out_name).resolve()
-        hlsl_path = (shader_root / rel).resolve()
         if not hlsl_path.is_file():
             print(f"Missing HLSL: {hlsl_path}", file=sys.stderr)
             failed += 1

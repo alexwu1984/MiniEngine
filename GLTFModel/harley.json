@@ -17,8 +17,16 @@
   },
   "Modles": [
     {
-      "Model": "harley/harley_davidson_breakout_gltf/scene.gltf",
-      "Scale": 0.01,
+      "ProceduralFloor": {
+        "Finish": "frosted",
+        "Size": "60,60",
+        "Segments": "220,220",
+        "UVScale": 12.0
+      }
+    },
+    {
+      "Model": "harley/harley.obj",
+      "Scale": 1.0,
       "Position": "0.0,-0.05,0.0",
       "Material": {
         "Metallic": 1.0

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "math/frustum.h"
 #include "math/matrix4x4.h"
 #include "math/vector3.h"

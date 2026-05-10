@@ -1,23 +1,30 @@
 ﻿#include "Render/SkyLightEnvironment.h"
-#include "Render/SkyLightIBLPrecomputePrivate.h"
+#include "Render/SkyLightEnvironmentRDGPasses.h"
+#include "Render/SkyLightEnvironmentPrecomputeState.h"
 #include "Render/RDGBuilder.h"
 #include "RHI/RHICommandContext.h"
 
 namespace Engine
 {
-	void FSkyLightIBLPrecompute::AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext)
+	void FSkyLightEnvironmentRDGPasses::RegisterPasses(USkyLightComponent& Skylight, FRDGBuilder& Graph,
+														 RenderCore::RHICommandContext& RHIContext)
 	{
-		C_P(FSkyLightIBLPrecompute);
-		if (d->bInitRender)
+		FSkyLightEnvironmentPrecomputeState* d = Skylight.d_ptr;
+		if (!d)
 			return;
-		if (!d->bProceduralSkyActive && !d->HDRTex)
+		if (d->Host.bInitRender)
+			return;
+		if (!d->Host.bProceduralSkyActive && !d->SpecifiedCubemap.HDRTex)
 			return;
 
 		Graph.AddPass(FRDGPassDescriptor{
 			"SkyLight_CaptureCubemap",
-			{ { "SkyLight_SourceHDR", [HDR = d->HDRTex]() { return HDR; }, false, FRDGResourceAccess::SRV } },
+			{ { "SkyLight_SourceHDR",
+				[HDR = d->SpecifiedCubemap.HDRTex]() { return HDR; },
+				false,
+				FRDGResourceAccess::SRV } },
 			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::RTV } },
-			[this, &RHIContext]() { CaptureSkyLightCubemap(RHIContext); },
+			[&Skylight, &RHIContext]() { Skylight.CaptureSkyLightCubemap(RHIContext); },
 			false,
 			RDG_Raster | RDG_MayCullIfUnreachableFromSink,
 			ERDGPassQueue::Graphics });
@@ -26,7 +33,7 @@ namespace Engine
 			"SkyLight_GenerateDiffuseIrradiance",
 			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::SRV } },
 			{ { "SkyLight_DiffuseIrradiance", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::RTV } },
-			[this, &RHIContext]() { GenerateDiffuseIrradiance(RHIContext); },
+			[&Skylight, &RHIContext]() { Skylight.GenerateDiffuseIrradiance(RHIContext); },
 			false,
 			RDG_Raster | RDG_MayCullIfUnreachableFromSink,
 			ERDGPassQueue::Graphics });
@@ -35,7 +42,7 @@ namespace Engine
 			"SkyLight_GenerateSpecularPrefilter",
 			{ { "SkyLight_Cubemap", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::SRV } },
 			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::RTV } },
-			[this, &RHIContext]() { GenerateSpecularPrefilter(RHIContext); },
+			[&Skylight, &RHIContext]() { Skylight.GenerateSpecularPrefilter(RHIContext); },
 			false,
 			RDG_Raster | RDG_MayCullIfUnreachableFromSink,
 			ERDGPassQueue::Graphics });
@@ -44,10 +51,7 @@ namespace Engine
 			"SkyLight_Finalize",
 			{ { "SkyLight_SpecularPrefilter", []() { return std::shared_ptr<RenderCore::RHITexture2D>{}; }, false, FRDGResourceAccess::SRV } },
 			{},
-			[this]() {
-				C_P(FSkyLightIBLPrecompute);
-				d->bInitRender = true;
-			},
+			[d]() { d->Host.bInitRender = true; },
 			false,
 			RDG_GraphSink,
 			ERDGPassQueue::Graphics });

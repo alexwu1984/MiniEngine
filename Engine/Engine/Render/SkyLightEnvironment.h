@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "tinygltf/json.h"
 #include "math/vector3.h"
@@ -13,8 +13,8 @@ namespace RenderCore
 
 namespace Engine
 {
-	class FRDGBuilder;
-	struct FSkyLightIBLPrecomputePrivate;
+	struct FSkyLightEnvironmentPrecomputeState;
+	struct FSkyLightEnvironmentRDGPasses;
 
 	/** Which source the skylight environment should use this frame. */
 	enum class ESkyLightSourceType : uint8_t
@@ -36,12 +36,15 @@ namespace Engine
 		math::Vector3 ProceduralSunDirectionTowardSource{ 1.f, 0.05f, 0.f };
 	};
 
-	/** Skylight environment: precompute HDR → cubemap, diffuse irradiance, specular prefilter, BRDF LUT (FSkyLightIBLPrecompute). */
-	class FSkyLightIBLPrecompute
+	/**
+	 * Render-thread skylight IBL baker (UE USkyLightComponent analogue): HDR or procedural radiance to cubemap,
+	 * irradiance / specular prefilter / BRDF LUT.
+	 */
+	class USkyLightComponent
 	{
 	public:
-		FSkyLightIBLPrecompute(RenderCore::DynamicRHI* RHI);
-		~FSkyLightIBLPrecompute();
+		USkyLightComponent(RenderCore::DynamicRHI* RHI);
+		~USkyLightComponent();
 
 		void InitResource();
 		void LoadConfig(const nlohmann::json& Root);
@@ -51,13 +54,13 @@ namespace Engine
 		void Draw(RenderCore::RHICommandContext& RHIContext);
 		/** Scene cut / viewport recycle: next Draw() rebuilds cubemap from current HDRTex (Resolve skips reload when HDR path unchanged). */
 		void InvalidateCapturedEnvironment();
-		void AddFramePasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext);
 		std::shared_ptr<RenderCore::RHITextureCube> GetSkyLightCubemap();
 		std::shared_ptr<RenderCore::RHITextureCube> GetDiffuseIrradianceCubemap();
 		std::shared_ptr<RenderCore::RHITextureCube> GetSpecularReflectionCubemap();
 		std::shared_ptr<RenderCore::RHITexture2D> GetBRDFIntegrationLUT();
 		std::shared_ptr<RenderCore::RHITexture2D> GetSkyLightSourceHDR();
 	private:
+		friend struct FSkyLightEnvironmentRDGPasses;
 		void CaptureSkyLightCubemap(RenderCore::RHICommandContext& RHIContext);
 		void GenerateDiffuseIrradiance(RenderCore::RHICommandContext& RHIContext);
 		void GenerateSpecularPrefilter(RenderCore::RHICommandContext& RHIContext);
@@ -66,6 +69,6 @@ namespace Engine
 		void InitShader();
 		void RenderCube(RenderCore::RHICommandContext& RHIContext);
 	private:
-		FSkyLightIBLPrecomputePrivate* d_ptr = nullptr;
+		FSkyLightEnvironmentPrecomputeState* d_ptr = nullptr;
 	};
 }

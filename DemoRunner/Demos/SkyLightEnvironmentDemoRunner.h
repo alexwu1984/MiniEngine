@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "DemoRunner/Demos/IDemo.h"
 
@@ -10,7 +10,7 @@
 
 namespace Engine
 {
-	class FSkyLightIBLPrecompute;
+	class USkyLightComponent;
 	class CubeMapCrossRender;
 }
 
@@ -55,7 +55,7 @@ namespace DemoRunner
 		std::shared_ptr<RenderCore::RHIViewPort> ViewPort;
 		std::shared_ptr<Engine::AppWindow> Window;
 
-		std::shared_ptr<Engine::FSkyLightIBLPrecompute> SkyLightEnv;
+		std::shared_ptr<Engine::USkyLightComponent> SkyLightEnv;
 		std::shared_ptr<Engine::CubeMapCrossRender> CubeCross;
 
 		std::vector<std::string> AllHDRFiles;

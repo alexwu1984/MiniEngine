@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/DeferredLightingPass.h"
+﻿#include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/RDGUtils.h"
 #include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
@@ -36,7 +36,7 @@ namespace Engine
 		}
 
 		static void FillPerFrameFromView(CBPerFrameWrap& Out, CBPointShadowWrap* OutPointShadow, CBSpotShadowWrap* OutSpotShadow, const FSceneViewData& View,
-										 FSkyLightIBLPrecompute* SkyLightIBL, FWorldSceneRender* WorldSceneRender)
+										 USkyLightComponent* SkyLightIBL, FWorldSceneRender* WorldSceneRender)
 		{
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProj = View.CurrViewProjMatrix;
@@ -276,9 +276,9 @@ namespace Engine
 
 		RHICommandMark Mark(RHIContext, "DeferredLighting");
 
-		FSkyLightIBLPrecompute* SkyLightIBL = nullptr;
+		USkyLightComponent* SkyLightIBL = nullptr;
 		if (WorldSceneRender)
-			SkyLightIBL = WorldSceneRender->GetSkyLightIBLPrecompute().get();
+			SkyLightIBL = WorldSceneRender->GetUSkyLightComponent().get();
 
 		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData,
 							 SkyLightIBL, WorldSceneRender);
@@ -377,7 +377,7 @@ namespace Engine
 	{
 		if (!SceneTextures || !ViewData)
 			return;
-		FSkyLightIBLPrecompute* SkyLightIBL = WorldSceneRender ? WorldSceneRender->GetSkyLightIBLPrecompute().get() : nullptr;
+		USkyLightComponent* SkyLightIBL = WorldSceneRender ? WorldSceneRender->GetUSkyLightComponent().get() : nullptr;
 		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer())
 		{
 			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr, *ViewData,

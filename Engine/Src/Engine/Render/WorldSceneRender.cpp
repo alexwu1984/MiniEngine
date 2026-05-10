@@ -1,4 +1,4 @@
-#include "Render/WorldSceneRender.h"
+﻿#include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
 #include "Scene/World.h"
 #include "Scene/SkyLightComponent.h"
@@ -63,8 +63,8 @@ namespace Engine
 				d->SceneTextures->InitDefaultSceneTargets(W, H);
 			if (d->PostProcess)
 				d->PostProcess->InvalidateTransientResources();
-			if (d->SkyLightIBLPrecompute)
-				d->SkyLightIBLPrecompute->InvalidateCapturedEnvironment();
+			if (d->SkylightEnvironment)
+				d->SkylightEnvironment->InvalidateCapturedEnvironment();
 		}
 
 		/** Render thread: swapchain / viewport resolution + scene targets. */
@@ -113,9 +113,9 @@ namespace Engine
 			{
 				(void)SelfPin;
 				FWorldSceneRenderPrivate* dLife = Resources;
-				if (!dLife->SkyLightIBLPrecompute)
-					dLife->SkyLightIBLPrecompute = std::make_shared<FSkyLightIBLPrecompute>(RHI);
-				dLife->SkyLightIBLPrecompute->InitResource();
+				if (!dLife->SkylightEnvironment)
+					dLife->SkylightEnvironment = std::make_shared<USkyLightComponent>(RHI);
+				dLife->SkylightEnvironment->InitResource();
 
 				if (!dLife->PostProcess)
 					dLife->PostProcess = std::make_shared<PostProcessor>(RHI);
@@ -167,8 +167,8 @@ namespace Engine
 			[SelfPin = std::move(SelfPin), d, Root](RenderCore::DynamicRHI* RHI)
 			{
 				(void)SelfPin;
-				if (d->SkyLightIBLPrecompute)
-					d->SkyLightIBLPrecompute->LoadConfig(Root);
+				if (d->SkylightEnvironment)
+					d->SkylightEnvironment->LoadConfig(Root);
 				if (d->PostProcess)
 					d->PostProcess->LoadConfig(Root);
 			});
@@ -204,9 +204,9 @@ namespace Engine
 		SubmitSceneForRendering(DeltaTime);
 	}
 
-	std::shared_ptr<FSkyLightIBLPrecompute> FWorldSceneRender::GetSkyLightIBLPrecompute() const
+	std::shared_ptr<USkyLightComponent> FWorldSceneRender::GetUSkyLightComponent() const
 	{
-		return d_ptr->SkyLightIBLPrecompute;
+		return d_ptr->SkylightEnvironment;
 	}
 
 	std::shared_ptr<PostProcessor> FWorldSceneRender::GetPostProcessor() const

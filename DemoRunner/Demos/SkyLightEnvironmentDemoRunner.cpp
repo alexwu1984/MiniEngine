@@ -1,4 +1,4 @@
-#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
+﻿#include "DemoRunner/Demos/SkyLightEnvironmentDemoRunner.h"
 
 #include "RHI/RHIShaderDefine.h"
 #include "Engine/Render/SkyLightEnvironment.h"
@@ -34,7 +34,7 @@ void SkyLightEnvironmentDemoRunner::Init(RenderCore::DynamicRHI* InRHI,
 	ViewPort = InViewPort;
 	Window = InWindow;
 
-	SkyLightEnv = std::make_shared<Engine::FSkyLightIBLPrecompute>(RHI);
+	SkyLightEnv = std::make_shared<Engine::USkyLightComponent>(RHI);
 	CubeCross = std::make_shared<Engine::CubeMapCrossRender>(RHI);
 	if (SkyLightEnv) SkyLightEnv->InitResource();
 	if (CubeCross) CubeCross->InitResource();

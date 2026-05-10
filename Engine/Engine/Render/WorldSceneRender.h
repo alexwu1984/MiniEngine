@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
@@ -14,7 +14,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class FSkyLightIBLPrecompute;
+	class USkyLightComponent;
 	class PostProcessor;
 	class World;
 	struct FWorldSceneRenderPrivate;
@@ -40,7 +40,7 @@ namespace Engine
 		void SetBackgroundColor(const core::FLinearColor& Color);
 		void Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen);
 		void Render(float DeltaTime);
-		std::shared_ptr<FSkyLightIBLPrecompute> GetSkyLightIBLPrecompute() const;
+		std::shared_ptr<USkyLightComponent> GetUSkyLightComponent() const;
 		std::shared_ptr<PostProcessor> GetPostProcessor() const;
 		std::shared_ptr<ShadowRenderPass> GetShadowRenderPass() const;
 		std::shared_ptr<RenderCore::RHIViewPort> GetViewPort() const;

@@ -1,4 +1,4 @@
-#include "Engine/Render/PBRMaterialRender.h"
+﻿#include "Engine/Render/PBRMaterialRender.h"
 #include <algorithm>
 #include "Engine.h"
 #include "Material/MaterialBase.h"
@@ -245,9 +245,9 @@ namespace Engine
 	void PBRMaterialRender::RefreshIBLMipAndRebindPerFrame(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
 	{
 		C_P(PBRMaterialRender);
-		if (!RenderParam.skyLightIBLPrecompute.expired())
+		if (!RenderParam.skylightEnvironment.expired())
 		{
-			if (auto IBL = RenderParam.skyLightIBLPrecompute.lock())
+			if (auto IBL = RenderParam.skylightEnvironment.lock())
 			{
 				if (auto SpecCube = IBL->GetSpecularReflectionCubemap())
 					d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLMIpCount =

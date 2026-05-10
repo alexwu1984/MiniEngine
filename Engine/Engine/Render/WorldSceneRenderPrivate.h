@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "core/color.h"
 #include "math/matrix4x4.h"
 #include "math/vector3.h"
@@ -14,7 +14,7 @@ namespace RenderCore
 namespace Engine
 {
 	class World;
-	class FSkyLightIBLPrecompute;
+	class USkyLightComponent;
 	class PostProcessor;
 	class SkyLightRenderPass;
 	class FSceneTextures;
@@ -25,7 +25,7 @@ namespace Engine
 	{
 		std::weak_ptr<World> Owner;
 		std::shared_ptr<RenderCore::RHIViewPort> MainViewPort;
-		std::shared_ptr<FSkyLightIBLPrecompute> SkyLightIBLPrecompute;
+		std::shared_ptr<USkyLightComponent> SkylightEnvironment;
 		std::shared_ptr<PostProcessor> PostProcess;
 		std::shared_ptr<SkyLightRenderPass> SkyLightPass;
 		std::shared_ptr<FSceneTextures> SceneTextures;

@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/SceneRenderer.h"
+﻿#include "Render/SceneRendering/SceneRenderer.h"
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
@@ -102,8 +102,8 @@ namespace Engine
 		// RHICreateHDRTexture2D → upload uses D3D12 recording TLS; must run after RHIBeginFrame's RHIFrameBoundary push
 		// (Debug ensures; Release no-op check — wrong thread/stack can spiral into device removal / handled _com_error on Present).
 		RHI->RHIBeginFrame();
-		if (d->SkyLightIBLPrecompute)
-			d->SkyLightIBLPrecompute->ResolveAndApplyHDRSource(SkyLightSrc);
+		if (d->SkylightEnvironment)
+			d->SkylightEnvironment->ResolveAndApplyHDRSource(SkyLightSrc);
 		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
 			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
@@ -113,8 +113,8 @@ namespace Engine
 			{},
 			[d, CommandContext]()
 			{
-				if (d->SkyLightIBLPrecompute)
-					d->SkyLightIBLPrecompute->Draw(*CommandContext);
+				if (d->SkylightEnvironment)
+					d->SkylightEnvironment->Draw(*CommandContext);
 			}});
 
 		// Must run when frustumBounds-only receivers exist (no ProjShadow casters) or any light requests a shadow map; otherwise spot/optional dir depth never renders.
@@ -264,9 +264,9 @@ namespace Engine
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {
 					d->SceneTextures->GetSceneColor(), d->SceneTextures->GetMotionVector(), d->SceneTextures->GetNormalBuffer(),
 					d->SceneTextures->GetEmissiveBuffer(), d->SceneTextures->GetMetallicRoughnessBuffer()};
-				if (ViewConst && ViewConst->SkyLightIBLScale > 0.f && d->SkyLightIBLPrecompute)
+				if (ViewConst && ViewConst->SkyLightIBLScale > 0.f && d->SkylightEnvironment)
 				{
-					auto SkyCube = d->SkyLightIBLPrecompute->GetSkyLightCubemap();
+					auto SkyCube = d->SkylightEnvironment->GetSkyLightCubemap();
 					d->SkyLightPass->SetTextureCube(SkyCube);
 					d->SkyLightPass->Render(*CommandContext, Targets, d->SceneTextures->GetDepth(), ViewConst->SkyInverseViewProj);
 				}

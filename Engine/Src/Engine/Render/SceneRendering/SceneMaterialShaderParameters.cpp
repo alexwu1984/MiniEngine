@@ -1,4 +1,4 @@
-#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
+﻿#include "Render/SceneRendering/SceneMaterialShaderParameters.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
@@ -50,7 +50,7 @@ namespace Engine
 		Out.PrevViewProjInverseMatrix = ViewData->PrevViewProjInverseMatrix;
 		Out.TemporalAAJitter = ViewData->TemporalAAJitter;
 		Out.HasSkin = Mesh->HasSkin();
-		Out.skyLightIBLPrecompute = WorldSceneRender->GetSkyLightIBLPrecompute();
+		Out.skylightEnvironment = WorldSceneRender->GetUSkyLightComponent();
 		Out.RotateIBL = math::Matrix4x4::ms_Materix3X3WIdentity;
 		Out.SceneTextures = SceneTextures;
 		Out.DrawMeshBuffer = Mesh->GetMeshBuffer();

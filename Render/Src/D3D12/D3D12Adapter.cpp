@@ -1,4 +1,4 @@
-#include "D3D12/D3D12Adapter.h"
+﻿#include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12RHI.h"
 #include "core/commandline.h"
 #include "core/logger.h"

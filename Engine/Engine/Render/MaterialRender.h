@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/MaterialPreFrame.h"
 #include "tinygltf/json.h"
 
@@ -9,7 +9,7 @@ namespace RenderCore
 
 namespace Engine
 {
-	class FSkyLightIBLPrecompute;
+	class USkyLightComponent;
 	class FSceneTextures;
 	class GltfMeshBuffer;
 
@@ -25,7 +25,7 @@ namespace Engine
 		math::Vector4 CameraPos;
 		math::Vector4 TemporalAAJitter;
 		bool HasSkin = false;
-		std::weak_ptr<FSkyLightIBLPrecompute> skyLightIBLPrecompute;
+		std::weak_ptr<USkyLightComponent> skylightEnvironment;
 		std::vector< Light> lightInfos;
 		/** Matches cbPerFrame.PrimaryDirectionalLightIndex; first directional in lightInfos, or -1. */
 		int32_t PrimaryDirectionalLightIndex = -1;

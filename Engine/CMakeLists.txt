@@ -66,6 +66,8 @@ file(GLOB Engine_GltfModel_Source CONFIGURE_DEPENDS Src/Engine/GltfModel/*.cpp)
 file(GLOB Engine_AssimpModel_Source CONFIGURE_DEPENDS Src/Engine/AssimpModel/*.cpp)
 file(GLOB Engine_Render_Source CONFIGURE_DEPENDS Src/Engine/Render/*.cpp)
 list(REMOVE_DUPLICATES Engine_Render_Source)
+# Drop legacy skylight filenames if present; current sources come from GLOB (USkyLightComponent.cpp, SkyLightEnvironmentRDGPasses.cpp, ...).
+list(FILTER Engine_Render_Source EXCLUDE REGEX "[/\\\\]SkyLightIBLPrecompute.*\\.cpp$")
 file(GLOB Engine_Render_Shadow_Source CONFIGURE_DEPENDS Src/Engine/Render/Shadow/*.cpp)
 # Explicit: GLOB can omit new files until reconfigure (LNK2019).
 set(Engine_Render_SceneRendering_Source

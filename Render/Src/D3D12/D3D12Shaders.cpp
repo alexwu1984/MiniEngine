@@ -1,9 +1,13 @@
 ﻿#include "D3D12/D3D12Shaders.h"
 #include "RHIPrivate/D3DShaderUtil.h"
 #include "RHIPrivate/ShaderCore.h"
+#include "RHIPrivate/ShaderPrecompileUtil.h"
 #include "common/crc.h"
+#include "core/logger.h"
+#include <d3dcompiler.h>
 #include <cstring>
 #include <filesystem>
+#include <iomanip>
 #include "core/strings.h"
 
 namespace RenderCore
@@ -45,6 +49,7 @@ namespace RenderCore
 		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), VSMain, "vs_5_0", Code.get_init_ref());
 		if (!Ret)
 		{
+			core::err() << "[Shader] vertex shader JIT compile failed entry=" << VSMain << " file=" << FileName;
 			Assert(false);
 			return false;
 		}
@@ -86,11 +91,30 @@ namespace RenderCore
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
 		const char* const psTarget = PixelShaderUsesBindlessMacros(MacroDefines) ? "ps_5_1" : "ps_5_0";
-		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, psTarget, Code.get_init_ref());
-		if (!Ret)
+
+		std::vector<uint8_t> precompiledBC;
+		if (TryLoadPrecompiledShaderBytecode(FileName, PSMain, psTarget, MacroDefines, precompiledBC))
 		{
-			Assert(false);
-			return false;
+			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), Code.get_init_ref());
+			if (FAILED(hrBlob) || !Code.is_valid())
+			{
+				core::err() << "[Shader] D3DCreateBlob failed for precompiled pixel shader hr=0x" << std::hex << std::uppercase
+							<< static_cast<unsigned long>(hrBlob) << std::dec << " bytes=" << precompiledBC.size()
+							<< " entry=" << PSMain << " target=" << psTarget << " file=" << FileName;
+				Assert(false);
+				return false;
+			}
+			std::memcpy(Code->GetBufferPointer(), precompiledBC.data(), precompiledBC.size());
+		}
+		else
+		{
+			bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), PSMain, psTarget, Code.get_init_ref());
+			if (!Ret)
+			{
+				core::err() << "[Shader] pixel shader JIT compile failed entry=" << PSMain << " target=" << psTarget << " file=" << FileName;
+				Assert(false);
+				return false;
+			}
 		}
 		PSEntryPoint = PSMain;
 		std::vector<uint8_t> shaderCode;
@@ -127,11 +151,30 @@ namespace RenderCore
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
-		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), CSMain, "cs_5_0", Code.get_init_ref());
-		if (!Ret)
+		static constexpr char kCsProfile[] = "cs_5_0";
+		std::vector<uint8_t> precompiledBC;
+		if (TryLoadPrecompiledShaderBytecode(FileName, CSMain, kCsProfile, MacroDefines, precompiledBC))
 		{
-			Assert(false);
-			return false;
+			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), Code.get_init_ref());
+			if (FAILED(hrBlob) || !Code.is_valid())
+			{
+				core::err() << "[Shader] D3DCreateBlob failed for precompiled compute shader hr=0x" << std::hex << std::uppercase
+							<< static_cast<unsigned long>(hrBlob) << std::dec << " bytes=" << precompiledBC.size()
+							<< " entry=" << CSMain << " file=" << FileName;
+				Assert(false);
+				return false;
+			}
+			std::memcpy(Code->GetBufferPointer(), precompiledBC.data(), precompiledBC.size());
+		}
+		else
+		{
+			bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), CSMain, kCsProfile, Code.get_init_ref());
+			if (!Ret)
+			{
+				core::err() << "[Shader] compute shader JIT compile failed entry=" << CSMain << " file=" << FileName;
+				Assert(false);
+				return false;
+			}
 		}
 		CSEntryPoint = CSMain;
 		std::vector<uint8_t> shaderCode;

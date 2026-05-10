@@ -10,3 +10,6 @@ out/
 *.VC.db*
 *.opendb
 ipch/
+
+# Offline-compiled shader blobs (regenerate: cmake --build build --target PrecompileMiniEngineShaders)
+Render/ShaderLibDX/Built/

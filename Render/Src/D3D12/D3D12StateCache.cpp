@@ -11,13 +11,25 @@
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12RenderTarget.h"
 #include "core/logger.h"
+#include <atomic>
 #include <cstring>
+#include <iomanip>
 #include <string>
 
 namespace RenderCore
 {
 	namespace
 	{
+		static void LogApplyGraphicStateFailedOnce(const char* reason)
+		{
+			static std::atomic<bool> s_logged{false};
+			if (s_logged.exchange(true))
+				return;
+			core::err() << "[D3D12] ApplyGraphicState failed (" << (reason ? reason : "?")
+						<< "). Opaque mesh draws are skipped; skybox/UI may still render. "
+						<< "Check earlier CreateGraphicsPipelineState HRESULT, or try shaderjit=1 / rebuild ShaderLibDX/Built/*.cso.";
+		}
+
 		static D3D12_CPU_DESCRIPTOR_HANDLE PickNullSrvForDeclaredDimension(
 			uint8_t dimByte,
 			D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D,
@@ -766,7 +778,10 @@ namespace RenderCore
 			(CommandList.GetRecordingGeneration() != m_LastAppliedGraphicsRecordingGen);
 		auto RootSignature = BuildRootSignature();
 		if (!RootSignature)
+		{
+			LogApplyGraphicStateFailedOnce("no root signature");
 			return false;
+		}
 
 		PSDesc.pRootSignature = RootSignature->GetSignature();
 		Assert(PSDesc.pRootSignature != nullptr);
@@ -775,6 +790,7 @@ namespace RenderCore
 		auto itVertexShader = VertexShaders.find(CurrentVertexHash);
 		if (itVertexShader == VertexShaders.end())
 		{
+			LogApplyGraphicStateFailedOnce("vertex shader not in cache");
 			Assert(false);
 			return false;
 		}
@@ -782,6 +798,7 @@ namespace RenderCore
 		auto itPixelShader = PixelShaders.find(CurrentPixelHash);
 		if (itPixelShader == PixelShaders.end())
 		{
+			LogApplyGraphicStateFailedOnce("pixel shader not in cache");
 			Assert(false);
 			return false;
 		}
@@ -856,7 +873,10 @@ namespace RenderCore
 		if (!bHaveGraphicsPso)
 		{
 			if (!D3DDevice)
+			{
+				LogApplyGraphicStateFailedOnce("null D3D12 device");
 				return false;
+			}
 			D3D12_GRAPHICS_PIPELINE_STATE_DESC DescCopy = PSDesc;
 			win32::com_ptr<ID3D12PipelineState> Created;
 			HRESULT Hr = S_OK;
@@ -865,6 +885,18 @@ namespace RenderCore
 			);
 			if (FAILED(Hr))
 			{
+				static std::atomic<int> s_psoFailDetailLogsRemaining{16};
+				const int left = s_psoFailDetailLogsRemaining.fetch_sub(1);
+				if (left > 0)
+				{
+					core::err() << "CreateGraphicsPipelineState failed hr=0x" << std::hex << std::uppercase << static_cast<unsigned long>(Hr)
+								<< " (VS/PS I/O mismatch vs optimized .cso often means shaderdebug=1 - disable or pass shaderjit for all-JIT)";
+				}
+				else if (left == 0)
+				{
+					core::err() << "[D3D12] CreateGraphicsPipelineState: further duplicate failure detail logs suppressed";
+				}
+				LogApplyGraphicStateFailedOnce("CreateGraphicsPipelineState failed");
 				Assert(false);
 				return false;
 			}

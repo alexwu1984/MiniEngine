@@ -4,6 +4,10 @@
 #include "D3D11/D3D11RHI.h"
 #include "core/logger.h"
 #include "RHIPrivate/D3DShaderUtil.h"
+#include "RHIPrivate/ShaderPrecompileUtil.h"
+#include <d3dcompiler.h>
+#include <cstring>
+#include <iomanip>
 
 namespace RenderCore
 {
@@ -36,6 +40,7 @@ namespace RenderCore
 		win32::com_ptr<ID3DBlob> SharderCode = ShaderUtil::CreateShader(FileName, VSMain, "vs_5_0", D3DShaderMacros.data());
 		if (!SharderCode.is_valid())
 		{
+			core::err() << "[Shader] vertex shader compile failed (D3D11, see [ShaderCompile]) entry=" << VSMain << " file=" << FileName;
 			return false;
 		}
 		d->SharderCode = SharderCode;
@@ -45,6 +50,8 @@ namespace RenderCore
 		VERIFYD3DRESULT(hrVS);
 		if (FAILED(hrVS) || !d->VertexShader.is_valid())
 		{
+			core::err() << "[Shader] ID3D11Device::CreateVertexShader failed hr=0x" << std::hex << std::uppercase << static_cast<unsigned long>(hrVS)
+						<< std::dec << " entry=" << VSMain << " file=" << FileName;
 			return false;
 		}
 
@@ -138,14 +145,40 @@ namespace RenderCore
 		C_P(D3D11PixelShader);
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
-		auto SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0", D3DShaderMacros.data());
-		if (!SharderCode.is_valid())
+
+		win32::com_ptr<ID3DBlob> SharderCode;
+		std::vector<uint8_t> precompiledBC;
+		if (TryLoadPrecompiledShaderBytecode(FileName, PSMain, "ps_5_0", MacroDefines, precompiledBC))
 		{
-			return false;
+			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), SharderCode.get_init_ref());
+			if (FAILED(hrBlob) || !SharderCode.is_valid())
+			{
+				core::err() << "[Shader] D3DCreateBlob failed (D3D11 PS precompiled) hr=0x" << std::hex << std::uppercase
+							<< static_cast<unsigned long>(hrBlob) << std::dec << " bytes=" << precompiledBC.size()
+							<< " entry=" << PSMain << " file=" << FileName;
+				return false;
+			}
+			std::memcpy(SharderCode->GetBufferPointer(), precompiledBC.data(), precompiledBC.size());
 		}
+		else
+		{
+			SharderCode = ShaderUtil::CreateShader(FileName, PSMain, "ps_5_0", D3DShaderMacros.data());
+			if (!SharderCode.is_valid())
+			{
+				core::err() << "[Shader] pixel shader compile failed (D3D11, see [ShaderCompile]) entry=" << PSMain << " file=" << FileName;
+				return false;
+			}
+		}
+
 		auto Device = d->D3D11RHI->GetDevice();
 		HRESULT hr =  Device->CreatePixelShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->PixelShader.get_init_ref());
-		return SUCCEEDED(hr);
+		if (FAILED(hr))
+		{
+			core::err() << "[Shader] ID3D11Device::CreatePixelShader failed hr=0x" << std::hex << std::uppercase << static_cast<unsigned long>(hr)
+						<< std::dec << " entry=" << PSMain << " file=" << FileName;
+			return false;
+		}
+		return true;
 	}
 
 	ID3D11PixelShader* D3D11PixelShader::GetNativePixelShader() const
@@ -177,14 +210,40 @@ namespace RenderCore
 		C_P(D3D11ComputeShader);
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
-		auto SharderCode = ShaderUtil::CreateShader(FileName, CSMain, "cs_5_0", D3DShaderMacros.data());
-		if (!SharderCode.is_valid())
+
+		win32::com_ptr<ID3DBlob> SharderCode;
+		std::vector<uint8_t> precompiledBC;
+		if (TryLoadPrecompiledShaderBytecode(FileName, CSMain, "cs_5_0", MacroDefines, precompiledBC))
 		{
-			return false;
+			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), SharderCode.get_init_ref());
+			if (FAILED(hrBlob) || !SharderCode.is_valid())
+			{
+				core::err() << "[Shader] D3DCreateBlob failed (D3D11 CS precompiled) hr=0x" << std::hex << std::uppercase
+							<< static_cast<unsigned long>(hrBlob) << std::dec << " bytes=" << precompiledBC.size()
+							<< " entry=" << CSMain << " file=" << FileName;
+				return false;
+			}
+			std::memcpy(SharderCode->GetBufferPointer(), precompiledBC.data(), precompiledBC.size());
 		}
+		else
+		{
+			SharderCode = ShaderUtil::CreateShader(FileName, CSMain, "cs_5_0", D3DShaderMacros.data());
+			if (!SharderCode.is_valid())
+			{
+				core::err() << "[Shader] compute shader compile failed (D3D11, see [ShaderCompile]) entry=" << CSMain << " file=" << FileName;
+				return false;
+			}
+		}
+
 		auto Device = d->D3D11RHI->GetDevice();
 		HRESULT hr = Device->CreateComputeShader(SharderCode->GetBufferPointer(), SharderCode->GetBufferSize(), nullptr, d->ComputeShader.get_init_ref());
-		return SUCCEEDED(hr);
+		if (FAILED(hr))
+		{
+			core::err() << "[Shader] ID3D11Device::CreateComputeShader failed hr=0x" << std::hex << std::uppercase << static_cast<unsigned long>(hr)
+						<< std::dec << " entry=" << CSMain << " file=" << FileName;
+			return false;
+		}
+		return true;
 	}
 
 	ID3D11ComputeShader* D3D11ComputeShader::GetNativeComputeShader() const

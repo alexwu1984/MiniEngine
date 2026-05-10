@@ -133,6 +133,35 @@ set_target_properties(DemoRunner PROPERTIES PROJECT_LABEL "DemoRunner")
 copy_runtime_assets(DemoRunner)
 sync_shaderlib_dx_postbuild(DemoRunner)
 
+# Offline shader bytecode (D3DCompileFromFile via CompileShaderBlob). Writes ShaderLibDX/Built/*.cso; runtime loads before JIT.
+add_executable(CompileShaderBlob Tools/CompileShaderBlob.cpp)
+target_link_libraries(CompileShaderBlob PRIVATE d3dcompiler.lib)
+if(MSVC)
+	target_link_options(CompileShaderBlob PRIVATE /SUBSYSTEM:CONSOLE)
+endif()
+set_target_properties(CompileShaderBlob PROPERTIES FOLDER Tools PROJECT_LABEL "CompileShaderBlob")
+
+find_program(MINIENGINE_PYTHON_EXECUTABLE NAMES python python3 py)
+if(MINIENGINE_PYTHON_EXECUTABLE)
+	add_custom_target(PrecompileMiniEngineShaders
+		COMMAND "${MINIENGINE_PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/Tools/build_precompiled_shaders.py"
+			--compiler "$<TARGET_FILE:CompileShaderBlob>"
+			--manifest "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
+			--shader-root "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+		DEPENDS CompileShaderBlob
+			"${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
+			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/build_precompiled_shaders.py"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+		COMMENT "Incremental precompile HLSL -> Render/ShaderLibDX/Built")
+	set_target_properties(PrecompileMiniEngineShaders PROPERTIES FOLDER Tools)
+	# Run before robocopy ShaderLibDX so exe-side Built/ always has fresh .cso when building apps.
+	add_dependencies(GLFFViewer_RuntimeAssets PrecompileMiniEngineShaders)
+	add_dependencies(SoftwareRender_RuntimeAssets PrecompileMiniEngineShaders)
+	add_dependencies(DemoRunner_RuntimeAssets PrecompileMiniEngineShaders)
+else()
+	message(STATUS "MiniEngine: Python not found (python/python3/py); offline shader precompile disabled (JIT only).")
+endif()
+
 set_target_properties(
 	GLFFViewer
 	PROPERTIES

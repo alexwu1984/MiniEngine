@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""Build offline shader bytecode into Render/ShaderLibDX/Built using CompileShaderBlob.exe.
+
+Output files use .cso extension (runtime loads .cso first, then legacy .dxbc).
+
+Incremental: skips CompileShaderBlob when the .cso is newer than the manifest, this script,
+CompileShaderBlob.exe, and the entry HLSL file plus all reachable quoted #includes.
+
+Lookup hash matches RenderCore::ShaderPrecompileLookupHash (core::HashString FNV).
+
+Defines order must match runtime std::vector<RHIShaderMacro> push order for that shader.
+
+Usage:
+  python Tools/build_precompiled_shaders.py --compiler path/to/CompileShaderBlob.exe \\
+    --manifest Render/ShaderLibDX/precompile_manifest.json \\
+    --shader-root Render/ShaderLibDX
+
+  python Tools/build_precompiled_shaders.py ... --force   # rebuild everything
+  python Tools/build_precompiled_shaders.py ... --verbose # print each compile command
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+HASH_SEED = 2166136261
+MASK64 = (1 << 64) - 1
+
+INCLUDE_QUOTED = re.compile(r'^\s*#\s*include\s+"([^"]+)"')
+
+
+def hash_bytes(data: bytes, result: int) -> int:
+    x = result & MASK64
+    for b in data:
+        x = ((x * 16777619) ^ b) & MASK64
+    return x
+
+
+def hash_string(s: str, result: int) -> int:
+    return hash_bytes(s.encode("utf-8"), result)
+
+
+def lookup_hash(filename: str, entry: str, profile: str, defines: list[tuple[str, str]]) -> int:
+    h = hash_string(f"{filename}|{entry}|{profile}", HASH_SEED)
+    for name, val in defines:
+        h = hash_string(name, h)
+        h = hash_string(val, h)
+    return h
+
+
+def hex16(v: int) -> str:
+    return f"{v & MASK64:016x}"
+
+
+def collect_hlsl_sources(entry_hlsl: Path) -> list[Path]:
+    """All reachable .hlsl via quoted #includes from entry_hlsl (same-dir relative paths)."""
+    entry_hlsl = entry_hlsl.resolve()
+    ordered: list[Path] = []
+    seen: set[Path] = set()
+
+    def visit(p: Path) -> None:
+        p = p.resolve()
+        if p in seen:
+            return
+        seen.add(p)
+        ordered.append(p)
+        if not p.is_file():
+            return
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return
+        for line in text.splitlines():
+            m = INCLUDE_QUOTED.match(line.strip())
+            if not m:
+                continue
+            child = (p.parent / m.group(1)).resolve()
+            if child.is_file():
+                visit(child)
+
+    visit(entry_hlsl)
+    return ordered
+
+
+def max_mtime(paths: list[Path]) -> float:
+    m = 0.0
+    for p in paths:
+        if p.is_file():
+            m = max(m, p.stat().st_mtime)
+    return m
+
+
+def output_is_stale(out_path: Path, dep_paths: list[Path], force: bool) -> bool:
+    if force:
+        return True
+    if not out_path.is_file():
+        return True
+    out_t = out_path.stat().st_mtime
+    dep_t = max_mtime(dep_paths)
+    # Rebuild if any dependency is newer than the output (strict).
+    return dep_t > out_t
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--compiler", required=True, help="CompileShaderBlob.exe path")
+    ap.add_argument("--manifest", required=True, type=Path)
+    ap.add_argument("--shader-root", required=True, type=Path)
+    ap.add_argument("--force", action="store_true", help="Ignore timestamps; rebuild all entries")
+    ap.add_argument("--verbose", "-v", action="store_true", help="Print CompileShaderBlob command lines")
+    args = ap.parse_args()
+
+    compiler = Path(args.compiler).resolve()
+    if not compiler.is_file():
+        print(f"Compiler not found: {compiler}", file=sys.stderr)
+        return 1
+
+    manifest_path = args.manifest.resolve()
+    shader_root = args.shader_root.resolve()
+    self_script = Path(__file__).resolve()
+
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    shaders = data.get("shaders", [])
+    built_dir = shader_root / "Built"
+    built_dir.mkdir(parents=True, exist_ok=True)
+
+    failed = 0
+    built = 0
+    skipped = 0
+
+    for item in shaders:
+        rel = item["file"]
+        entry = item["entry"]
+        profile = item["profile"]
+        defines_raw = item.get("defines", [])
+        defines: list[tuple[str, str]] = []
+        for pair in defines_raw:
+            if isinstance(pair, list) and len(pair) == 2:
+                defines.append((str(pair[0]), str(pair[1])))
+            elif isinstance(pair, str) and "=" in pair:
+                n, v = pair.split("=", 1)
+                defines.append((n, v))
+            else:
+                print(f"Bad define entry {pair!r} in {rel}", file=sys.stderr)
+                failed += 1
+                continue
+
+        base_name = Path(rel).name
+        h = lookup_hash(base_name, entry, profile, defines)
+        out_name = f"{base_name}__{entry}__{profile}__{hex16(h)}.cso"
+        out_path = (built_dir / out_name).resolve()
+        hlsl_path = (shader_root / rel).resolve()
+        if not hlsl_path.is_file():
+            print(f"Missing HLSL: {hlsl_path}", file=sys.stderr)
+            failed += 1
+            continue
+
+        hlsl_deps = collect_hlsl_sources(hlsl_path)
+        dep_paths = [*hlsl_deps, manifest_path, compiler, self_script]
+
+        if not output_is_stale(out_path, dep_paths, args.force):
+            skipped += 1
+            continue
+
+        cmd = [str(compiler), str(out_path), str(hlsl_path), entry, profile]
+        for n, v in defines:
+            cmd.append(f"{n}={v}")
+
+        if args.verbose:
+            print(" ".join(cmd))
+        r = subprocess.run(cmd, shell=False)
+        if r.returncode != 0:
+            failed += 1
+        else:
+            built += 1
+
+    print(f"Shader precompile: {built} rebuilt, {skipped} up-to-date, {failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

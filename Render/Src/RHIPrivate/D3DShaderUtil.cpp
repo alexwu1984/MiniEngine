@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <iomanip>
 #include <Shaders/dxc/dxcapi.h>
 #include <Shaders/dxc/Support/dxcapi.use.h>
 
@@ -40,6 +41,17 @@ namespace RenderCore
 		{
 			const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 			core::inf() << "[ShaderCompile] " << file << " entry=" << entry << " target=" << target << " ok=" << ok << " timeMs=" << ms;
+		}
+
+		void LogD3DCompileFromFileFailure(const std::wstring& file, const std::string& entry, const std::string& target,
+			HRESULT hr, ID3DBlob* errors)
+		{
+			core::err() << "[ShaderCompile] FAILED " << file << " entry=" << entry << " target=" << target << " hr=0x"
+						<< std::hex << std::uppercase << static_cast<unsigned long>(hr) << std::dec;
+			if (errors && errors->GetBufferPointer() && errors->GetBufferSize() > 0)
+				core::err() << static_cast<const char*>(errors->GetBufferPointer());
+			else
+				core::err() << " (no D3D compiler error text)";
 		}
 	} // namespace
 
@@ -79,15 +91,7 @@ namespace RenderCore
 		LogShaderCompileMs(ShaderFile, EntryPoint, TargetModel, SUCCEEDED(HR), compileStart);
 		if (FAILED(HR))
 		{
-			if (errors)
-			{
-				const char* errStr = (const char*)errors->GetBufferPointer();
-				core::err() << "Compile Shader Error: " << errStr;
-			}
-			else
-			{
-				core::err() << "Compile Shader Error: HR=0x" << std::hex << (uint32_t)HR;
-			}
+			LogD3DCompileFromFileFailure(ShaderFile, EntryPoint, TargetModel, HR, errors.get());
 			return {};
 		}
 		return ShaderBlob;
@@ -333,6 +337,12 @@ namespace RenderCore
 			Output.ResourceCounts.NumCBs = static_cast<uint8_t>(std::min(NumCBs, static_cast<uint32_t>(MAX_CBS)));
 			Output.ResourceCounts.NumUAVs = static_cast<uint8_t>(std::min(NumUAVs, static_cast<uint32_t>(MAX_UAVS)));
 		}
+		else
+		{
+			core::err() << "[ShaderReflect] D3DReflect failed hr=0x" << std::hex << std::uppercase << static_cast<unsigned long>(hr)
+						<< std::dec << " bytecodeBytes=" << Code.size()
+						<< " (root signature / bindings will be wrong - check shader bytecode)";
+		}
 	}
 
 	std::vector<uint8_t> ShaderUtil::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
@@ -357,6 +367,8 @@ namespace RenderCore
 			shaderCode.resize(Shader->GetBufferSize());
 			std::memcpy(&shaderCode[0], Shader->GetBufferPointer(), Shader->GetBufferSize());
 		}
+		else
+			LogD3DCompileFromFileFailure(filename, entrypoint, target, hr, errors.get());
 		return shaderCode;
 	}
 
@@ -374,7 +386,17 @@ namespace RenderCore
 		if (errors != nullptr)
 			OutputDebugStringA((char*)errors->GetBufferPointer());
 
-		return SUCCEEDED(hr);
+		if (FAILED(hr))
+		{
+			LogD3DCompileFromFileFailure(filename, entrypoint, target, hr, errors.get());
+			return false;
+		}
+		if (!ppShader || !*ppShader)
+		{
+			core::err() << "[ShaderCompile] succeeded HRESULT but null shader blob " << filename << " entry=" << entrypoint << " target=" << target;
+			return false;
+		}
+		return true;
 	}
 
 }

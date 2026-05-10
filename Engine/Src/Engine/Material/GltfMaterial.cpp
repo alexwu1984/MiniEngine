@@ -88,7 +88,11 @@ namespace Engine
 			auto& Material = d->Model->materials[MaterialIndex];
 
 			d->MaterialName = Material.name;
+			// glTF defaults omit doubleSided (tinygltf: doubleSidedSpecified=false); many BLEND shells expect both faces.
+			// Explicit "doubleSided": false (e.g. busterDrone BLEND floor) must stay single-sided.
 			d->DoubleSided = Material.doubleSided;
+			if (!Material.doubleSidedSpecified && Material.alphaMode == "BLEND")
+				d->DoubleSided = true;
 
 			// glTF: only BLEND uses order-dependent transparency; MASK is a binary test (clip), not blending.
 			d->IsTransParent = (Material.alphaMode == "BLEND");

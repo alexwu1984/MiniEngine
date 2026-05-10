@@ -780,6 +780,8 @@ struct Material {
   std::string alphaMode;               // default "OPAQUE"
   double alphaCutoff;                  // default 0.5
   bool doubleSided;                    // default false;
+  /** True if JSON contained "doubleSided" (glTF omits key vs explicit false are otherwise indistinguishable). */
+  bool doubleSidedSpecified = false;
 
   PbrMetallicRoughness pbrMetallicRoughness;
 
@@ -799,7 +801,11 @@ struct Material {
   std::string extras_json_string;
   std::string extensions_json_string;
 
-  Material() : alphaMode("OPAQUE"), alphaCutoff(0.5), doubleSided(false) {}
+  Material()
+      : alphaMode("OPAQUE"),
+        alphaCutoff(0.5),
+        doubleSided(false),
+        doubleSidedSpecified(false) {}
   DEFAULT_METHODS(Material)
 
   bool operator==(const Material &) const;
@@ -1848,6 +1854,7 @@ bool Material::operator==(const Material &other) const {
          (this->alphaMode == other.alphaMode) &&
          TINYGLTF_DOUBLE_EQUAL(this->alphaCutoff, other.alphaCutoff) &&
          (this->doubleSided == other.doubleSided) &&
+         (this->doubleSidedSpecified == other.doubleSidedSpecified) &&
          (this->extensions == other.extensions) &&
          (this->extras == other.extras) && (this->values == other.values) &&
          (this->additionalValues == other.additionalValues) &&
@@ -4822,8 +4829,29 @@ static bool ParseMaterial(Material *material, std::string *err, const json &o,
                       /* required */ false);
   ParseNumberProperty(&material->alphaCutoff, err, o, "alphaCutoff",
                       /* required */ false);
-  ParseBooleanProperty(&material->doubleSided, err, o, "doubleSided",
-                       /* required */ false);
+  {
+    json_const_iterator ds_it;
+    if (FindMember(o, "doubleSided", ds_it)) {
+      auto &ds_val = GetValue(ds_it);
+      bool isBool = false;
+      bool ds = false;
+#ifdef TINYGLTF_USE_RAPIDJSON
+      isBool = ds_val.IsBool();
+      if (isBool) {
+        ds = ds_val.GetBool();
+      }
+#else
+      isBool = ds_val.is_boolean();
+      if (isBool) {
+        ds = ds_val.get<bool>();
+      }
+#endif
+      if (isBool) {
+        material->doubleSided = ds;
+        material->doubleSidedSpecified = true;
+      }
+    }
+  }
 
   {
     json_const_iterator it;

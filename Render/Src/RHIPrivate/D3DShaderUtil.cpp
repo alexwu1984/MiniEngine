@@ -13,29 +13,28 @@
 
 namespace RenderCore
 {
+	UINT ShaderUtil::GetD3DCompileFlagsForBuild()
+	{
+#if defined(DEBUG) || defined(_DEBUG)
+		static bool s_loggedOnce = false;
+		if (!s_loggedOnce)
+		{
+			s_loggedOnce = true;
+			if (core::CommandLine::Get().GetSwitch("shaderdebug"))
+				core::inf() << "Shader compile flags: DEBUG + SKIP_OPTIMIZATION (shaderdebug=1); GPU will be slower, better for PIX/shader breakpoints.";
+			else
+				core::inf() << "Shader compile flags: default optimized in Debug builds; pass shaderdebug=1 for PIX-friendly unoptimized shaders.";
+		}
+		if (core::CommandLine::Get().GetSwitch("shaderdebug"))
+			return D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+		return 0;
+#else
+		return 0;
+#endif
+	}
+
 	namespace
 	{
-		/** Debug builds default to optimized shaders (Release-like GPU cost). Pass shaderdebug=1 for PIX-friendly / steppable shaders. */
-		UINT GetD3DCompileFlagsForBuild()
-		{
-#if defined(DEBUG) || defined(_DEBUG)
-			static bool s_loggedOnce = false;
-			if (!s_loggedOnce)
-			{
-				s_loggedOnce = true;
-				if (core::CommandLine::Get().GetSwitch("shaderdebug"))
-					core::inf() << "Shader compile flags: DEBUG + SKIP_OPTIMIZATION (shaderdebug=1); GPU will be slower, better for PIX/shader breakpoints.";
-				else
-					core::inf() << "Shader compile flags: default optimized in Debug builds; pass shaderdebug=1 for PIX-friendly unoptimized shaders.";
-			}
-			if (core::CommandLine::Get().GetSwitch("shaderdebug"))
-				return D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-			return 0;
-#else
-			return 0;
-#endif
-		}
-
 		void LogShaderCompileMs(const std::wstring& file, const std::string& entry, const std::string& target, bool ok,
 			std::chrono::steady_clock::time_point start)
 		{
@@ -82,7 +81,7 @@ namespace RenderCore
 		// Declare handles
 		win32::com_ptr<ID3DBlob> errors;
 
-		const UINT compileFlags = GetD3DCompileFlagsForBuild();
+		const UINT compileFlags = ShaderUtil::GetD3DCompileFlagsForBuild();
 
 		win32::com_ptr<ID3DBlob> ShaderBlob;
 		const auto compileStart = std::chrono::steady_clock::now();
@@ -347,7 +346,7 @@ namespace RenderCore
 
 	std::vector<uint8_t> ShaderUtil::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
 	{
-		const UINT compileFlags = GetD3DCompileFlagsForBuild();
+		const UINT compileFlags = ShaderUtil::GetD3DCompileFlagsForBuild();
 
 		HRESULT hr = S_OK;
 
@@ -374,7 +373,7 @@ namespace RenderCore
 
 	bool ShaderUtil::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target, ID3DBlob** ppShader)
 	{
-		const UINT compileFlags = GetD3DCompileFlagsForBuild();
+		const UINT compileFlags = ShaderUtil::GetD3DCompileFlagsForBuild();
 
 		HRESULT hr = S_OK;
 		win32::com_ptr<ID3DBlob> errors;

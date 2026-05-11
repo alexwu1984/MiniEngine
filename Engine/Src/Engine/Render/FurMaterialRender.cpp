@@ -29,6 +29,7 @@ namespace Engine
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFur);
 		FurConfig Config;
 		std::shared_ptr<RenderCore::RHITexture2D> NoiseTex;
+		std::shared_ptr<RenderCore::RHIVertexShader> InnerBaseVertexShader;
 		std::shared_ptr<RenderCore::RHIPixelShader> InnerBasePixelShader;
 	};
 
@@ -58,7 +59,20 @@ namespace Engine
 			if (!RHI || !GetPBRMeshBuffer())
 				return;
 			const uint32_t VtxFeat = GetPBRMeshBuffer()->GetDeclaredVertexFeatures();
-			// Fur MainPS/Vs: PBRMaterialRender::InitShader (GetShaderFileName = FurMaterial.hlsl).
+			// Inner base uses PBRMaterial.hlsl only (see FurMaterial.hlsl header). Macros must match PBRMaterialRender::InitShader
+			// but without HASFUR — same as MainVS/MainPS pair.
+
+			RHIVertexDeclare VertexDeclareRHI;
+			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
+			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
+			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
+			int32_t DeclIndex = 2;
+			if (VtxFeat & MeshBufferVertexFeatures::Tangent)
+				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
+				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
+			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
+				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
 
 			std::vector<RHIShaderMacro> InnerMacros;
 			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
@@ -69,9 +83,12 @@ namespace Engine
 				InnerMacros.push_back({ "HAS_WEIGHTS_0","1" });
 			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->IsTransparent())
 				InnerMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
-			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0)
+			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->IsDoubleSided())
+				InnerMacros.push_back({ "MATERIAL_DOUBLE_SIDED", "1" });
+			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0 && WantsRHIBindless())
 				InnerMacros.push_back({ "RHI_BINDLESS", "1" });
 			const std::wstring PbrPath = ShaderRoot + L"PBRMaterial.hlsl";
+			d->InnerBaseVertexShader = RHI->RHICreateVertexShader(PbrPath, std::string("MainVS"), VertexDeclareRHI, InnerMacros);
 			d->InnerBasePixelShader = RHI->RHICreatePixelShader(PbrPath, std::string("MainPS"), InnerMacros);
 		});
 	}
@@ -107,12 +124,12 @@ namespace Engine
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurInnerBase");
-		if (!RenderParam.SceneTextures || !d->InnerBasePixelShader || !GetPBRVertexShader())
+		if (!RenderParam.SceneTextures || !d->InnerBasePixelShader || !d->InnerBaseVertexShader)
 			return;
 		StoreRenderParam(RenderParam);
 		PBRMaterialRender::SetPipeLineState(RHIContext, RenderParam.SceneTextures);
 		GraphicsPipelineStateInitializer Init;
-		Init.VertexShader = GetPBRVertexShader();
+		Init.VertexShader = d->InnerBaseVertexShader;
 		Init.PixelShader = d->InnerBasePixelShader;
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
 		Init.DepthStencilState = RHICachedStates::DepthStateEnable;

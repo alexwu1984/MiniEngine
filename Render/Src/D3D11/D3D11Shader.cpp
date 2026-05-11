@@ -8,6 +8,7 @@
 #include <d3dcompiler.h>
 #include <cstring>
 #include <iomanip>
+#include <vector>
 
 namespace RenderCore
 {
@@ -37,11 +38,28 @@ namespace RenderCore
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
-		win32::com_ptr<ID3DBlob> SharderCode = ShaderUtil::CreateShader(FileName, VSMain, "vs_5_0", D3DShaderMacros.data());
-		if (!SharderCode.is_valid())
+		win32::com_ptr<ID3DBlob> SharderCode;
+		std::vector<uint8_t> precompiledBC;
+		if (TryLoadPrecompiledShaderBytecode(FileName, VSMain, "vs_5_0", MacroDefines, precompiledBC))
 		{
-			core::err() << "[Shader] vertex shader compile failed (D3D11, see [ShaderCompile]) entry=" << VSMain << " file=" << FileName;
-			return false;
+			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), SharderCode.get_init_ref());
+			if (FAILED(hrBlob) || !SharderCode.is_valid())
+			{
+				core::err() << "[Shader] D3DCreateBlob failed (D3D11 VS precompiled) hr=0x" << std::hex << std::uppercase
+							<< static_cast<unsigned long>(hrBlob) << std::dec << " bytes=" << precompiledBC.size()
+							<< " entry=" << VSMain << " file=" << FileName;
+				return false;
+			}
+			std::memcpy(SharderCode->GetBufferPointer(), precompiledBC.data(), precompiledBC.size());
+		}
+		else
+		{
+			SharderCode = ShaderUtil::CreateShader(FileName, VSMain, "vs_5_0", D3DShaderMacros.data());
+			if (!SharderCode.is_valid())
+			{
+				core::err() << "[Shader] vertex shader compile failed (D3D11, see [ShaderCompile]) entry=" << VSMain << " file=" << FileName;
+				return false;
+			}
 		}
 		d->SharderCode = SharderCode;
 

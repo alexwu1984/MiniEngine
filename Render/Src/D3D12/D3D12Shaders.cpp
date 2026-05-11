@@ -1,9 +1,9 @@
 ﻿#include "D3D12/D3D12Shaders.h"
 #include "RHIPrivate/D3DShaderUtil.h"
+#include "core/logger.h"
 #include "RHIPrivate/ShaderCore.h"
 #include "RHIPrivate/ShaderPrecompileUtil.h"
 #include "common/crc.h"
-#include "core/logger.h"
 #include <d3dcompiler.h>
 #include <cstring>
 #include <filesystem>
@@ -46,12 +46,29 @@ namespace RenderCore
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
 		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
 
-		bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), VSMain, "vs_5_0", Code.get_init_ref());
-		if (!Ret)
+		std::vector<uint8_t> precompiledBC;
+		if (!TryLoadPrecompiledShaderBytecode(FileName, VSMain, "vs_5_0", MacroDefines, precompiledBC))
 		{
-			core::err() << "[Shader] vertex shader JIT compile failed entry=" << VSMain << " file=" << FileName;
-			Assert(false);
-			return false;
+			bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), VSMain, "vs_5_0", Code.get_init_ref());
+			if (!Ret)
+			{
+				core::err() << "[Shader] vertex shader JIT compile failed entry=" << VSMain << " file=" << FileName;
+				Assert(false);
+				return false;
+			}
+		}
+		else
+		{
+			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), Code.get_init_ref());
+			if (FAILED(hrBlob) || !Code.is_valid())
+			{
+				core::err() << "[Shader] D3DCreateBlob failed for precompiled vertex shader hr=0x" << std::hex << std::uppercase
+							<< static_cast<unsigned long>(hrBlob) << std::dec << " bytes=" << precompiledBC.size()
+							<< " entry=" << VSMain << " file=" << FileName;
+				Assert(false);
+				return false;
+			}
+			std::memcpy(Code->GetBufferPointer(), precompiledBC.data(), precompiledBC.size());
 		}
 
 		std::vector<uint8_t> shaderCode;
@@ -93,7 +110,8 @@ namespace RenderCore
 		const char* const psTarget = PixelShaderUsesBindlessMacros(MacroDefines) ? "ps_5_1" : "ps_5_0";
 
 		std::vector<uint8_t> precompiledBC;
-		if (TryLoadPrecompiledShaderBytecode(FileName, PSMain, psTarget, MacroDefines, precompiledBC))
+		TryLoadPrecompiledShaderBytecode(FileName, PSMain, psTarget, MacroDefines, precompiledBC);
+		if (!precompiledBC.empty())
 		{
 			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), Code.get_init_ref());
 			if (FAILED(hrBlob) || !Code.is_valid())

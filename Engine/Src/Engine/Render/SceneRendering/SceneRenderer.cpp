@@ -104,6 +104,8 @@ namespace Engine
 		RHI->RHIBeginFrame();
 		if (d->SkylightEnvironment)
 			d->SkylightEnvironment->ResolveAndApplyHDRSource(SkyLightSrc);
+		// End RHIEndFrame's RHIFrameBoundary pop only works when InsideFrameTick is not on top; scope must end before RHIEndFrame.
+		{
 		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
 			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
 
@@ -479,6 +481,7 @@ namespace Engine
 		{
 			std::lock_guard<std::mutex> Lock(d->PassCpuTimingMutex);
 			d->LastFramePassCpuTimingsForGui = d->ScratchPassCpuTimings;
+		}
 		}
 		RHI->RHIEndFrame();
 	}

@@ -24,6 +24,8 @@ namespace RenderCore
 			const std::string& entrypoint, const std::string& target);
 		static bool CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,
 			const std::string& entrypoint, const std::string& target, ID3DBlob** ppShader);
+		/** D3DCOMPILE_* flags for D3DCompileFromFile (JIT). Offline Built/*.cso uses flags=0 only; precompiled load must skip when this is non-zero. */
+		static UINT GetD3DCompileFlagsForBuild();
 	};
 	
 }

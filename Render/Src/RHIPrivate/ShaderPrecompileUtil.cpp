@@ -1,33 +1,37 @@
-#include "RHIPrivate/ShaderPrecompileUtil.h"
+﻿#include "RHIPrivate/ShaderPrecompileUtil.h"
+#include "RHIPrivate/D3DShaderUtil.h"
 #include "RHI/RHIShdader.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/strings.h"
 #include "win/com_ptr.h"
+#include <d3d12shader.h>
 #include <d3dcompiler.h>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <atomic>
 #include <unordered_set>
+#include <string>
 #include <vector>
 
 namespace
 {
-	static bool LooksLikePixelProfile(const std::string& profile)
+	/** FNV-1a over raw bytes (matches Tools/build_precompiled_shaders.py hash_bytes: 64-bit state, prime 16777619). */
+	static uint64_t ShaderPrecompileHashBytesFNV64(const void* ptr, size_t size, uint64_t result)
 	{
-		if (profile.size() < 3)
-			return false;
-		const unsigned char a = static_cast<unsigned char>(profile[0]);
-		const unsigned char b = static_cast<unsigned char>(profile[1]);
-		return (a == 'p' || a == 'P') && (b == 's' || b == 'S') && profile[2] == '_';
+		const auto* p = static_cast<const uint8_t*>(ptr);
+		for (size_t i = 0; i < size; ++i)
+		{
+			result = (result * 16777619ull) ^ static_cast<uint64_t>(p[i]);
+		}
+		return result;
 	}
 
-	/** Shadow pass pairs ShadowPass-VS (JIT) with ShadowPass-PS; keep PS JIT until offline/shadow manifest parity is fully validated. */
-	static bool MeshPixelShaderSkipPrecompiled(const std::filesystem::path& filename)
+	/** Match Python hash_string(s, h) — UTF-8 bytes via std::string contents (do not use core::HashString: signed char on bytes). */
+	static uint64_t ShaderPrecompileHashUtf8StringLikePython(const std::string& s, uint64_t h)
 	{
-		return filename.wstring() == L"ShadowPass-PS.hlsl";
+		return ShaderPrecompileHashBytesFNV64(s.data(), s.size(), h);
 	}
 
 	/** Reject truncated/non-DXBC/corrupt files so we JIT instead of building a broken root signature / PSO. */
@@ -40,16 +44,6 @@ namespace
 		win32::com_ptr<ID3D12ShaderReflection> reflector;
 		const HRESULT hr = ::D3DReflect(bc.data(), bc.size(), IID_PPV_ARGS(reflector.get_init_ref()));
 		return SUCCEEDED(hr) && reflector.is_valid();
-	}
-
-	/** Must stay in sync with D3DShaderUtil.cpp GetD3DCompileFlagsForBuild(): offline .cso uses flags=0 only. */
-	UINT RuntimeShaderCompileFlagsForJitParity()
-	{
-#if defined(DEBUG) || defined(_DEBUG)
-		if (core::CommandLine::Get().GetSwitch("shaderdebug"))
-			return D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-		return 0;
 	}
 
 	/** Same rules as Tools/build_precompiled_shaders.py INCLUDE_QUOTED + collect_hlsl_sources (trimmed line). */
@@ -125,13 +119,13 @@ namespace
 
 namespace RenderCore
 {
-	size_t ShaderPrecompileQuotedIncludeTreeHash(const std::wstring& hlslSourcePathAbs)
+	uint64_t ShaderPrecompileQuotedIncludeTreeHash(const std::wstring& hlslSourcePathAbs)
 	{
 		std::error_code ec;
 		const std::filesystem::path entryCanon = std::filesystem::weakly_canonical(std::filesystem::path(hlslSourcePathAbs), ec);
 		std::vector<std::filesystem::path> ordered;
 		CollectQuotedIncludeOrder(entryCanon, ordered);
-		size_t h = HASH_SEED;
+		uint64_t h = static_cast<uint64_t>(HASH_SEED);
 		const uint8_t delim = 0;
 		for (const std::filesystem::path& p : ordered)
 		{
@@ -147,31 +141,31 @@ namespace RenderCore
 			std::vector<char> buf(static_cast<size_t>(sz));
 			if (sz > 0 && !in.read(buf.data(), sz))
 				continue;
-			h = core::Hash(buf.data(), static_cast<size_t>(sz), h);
-			h = core::Hash(&delim, 1, h);
+			h = ShaderPrecompileHashBytesFNV64(buf.data(), static_cast<size_t>(sz), h);
+			h = ShaderPrecompileHashBytesFNV64(&delim, 1, h);
 		}
 		return h;
 	}
 
-	size_t ShaderPrecompileLookupHash(const std::string& hlslBaseFileNameUtf8, const std::string& entry, const std::string& profile,
-		const std::vector<RHIShaderMacro>& macros, size_t quotedIncludeTreeHash)
+	uint64_t ShaderPrecompileLookupHash(const std::string& hlslBaseFileNameUtf8, const std::string& entry, const std::string& profile,
+		const std::vector<RHIShaderMacro>& macros, uint64_t quotedIncludeTreeHash)
 	{
-		std::string key = hlslBaseFileNameUtf8 + "|" + entry + "|" + profile;
-		size_t h = core::HashString(key);
+		const std::string key = hlslBaseFileNameUtf8 + "|" + entry + "|" + profile;
+		uint64_t h = ShaderPrecompileHashUtf8StringLikePython(key, static_cast<uint64_t>(HASH_SEED));
 		for (const RHIShaderMacro& m : macros)
 		{
-			h = core::HashString(m.Name, h);
-			h = core::HashString(m.Definition, h);
+			h = ShaderPrecompileHashUtf8StringLikePython(m.Name, h);
+			h = ShaderPrecompileHashUtf8StringLikePython(m.Definition, h);
 		}
-		h = core::Hash(&quotedIncludeTreeHash, sizeof(quotedIncludeTreeHash), h);
+		h = ShaderPrecompileHashBytesFNV64(&quotedIncludeTreeHash, sizeof(quotedIncludeTreeHash), h);
 		return h;
 	}
 
-	static std::string Hex16(size_t v)
+	static std::string Hex16(uint64_t v)
 	{
 		char buf[32];
 		std::snprintf(buf, sizeof(buf), "%016llx", static_cast<unsigned long long>(v));
-		return buf;
+		return std::string(buf);
 	}
 
 	bool TryLoadPrecompiledShaderBytecode(const std::wstring& hlslSourcePath, const std::string& entry, const std::string& profile,
@@ -180,23 +174,16 @@ namespace RenderCore
 		outBytecode.clear();
 		if (core::CommandLine::Get().GetSwitch("shaderjit"))
 			return false;
-		// Vertex shaders are still JIT with these flags; mixing debug JIT VS + optimized precompiled PS breaks I/O signature -> CreateGraphicsPipelineState fails.
-		if (RuntimeShaderCompileFlagsForJitParity() != 0)
+		// Vertex shaders are always JIT; offline .cso uses D3DCOMPILE flags=0. Non-zero JIT flags (e.g. shaderdebug) + optimized PS -> VS/PS I/O mismatch at CreateGraphicsPipelineState.
+		if (ShaderUtil::GetD3DCompileFlagsForBuild() != 0)
 			return false;
 
 		std::error_code ec;
 		const std::filesystem::path src(hlslSourcePath);
-		if (LooksLikePixelProfile(profile) && MeshPixelShaderSkipPrecompiled(src.filename()))
-		{
-			static std::atomic<bool> s_loggedMeshPsJit{false};
-			if (!s_loggedMeshPsJit.exchange(true))
-				core::inf() << "[ShaderPrecompile] ShadowPass-PS JIT only (VS/PS parity); PBRMaterial/TranslucentPBRForward use precompiled when manifest matches InitShader macro order";
-			return false;
-		}
 		const std::filesystem::path builtDir = src.parent_path() / L"Built";
 		const std::string baseUtf8 = core::ucs2_u8(src.filename().wstring());
-		const size_t treeHash = ShaderPrecompileQuotedIncludeTreeHash(hlslSourcePath);
-		const size_t keyHash = ShaderPrecompileLookupHash(baseUtf8, entry, profile, macros, treeHash);
+		const uint64_t treeHash = ShaderPrecompileQuotedIncludeTreeHash(hlslSourcePath);
+		const uint64_t keyHash = ShaderPrecompileLookupHash(baseUtf8, entry, profile, macros, treeHash);
 		const std::wstring baseName = core::u8_ucs2(baseUtf8 + "__" + entry + "__" + profile + "__" + Hex16(keyHash));
 		std::filesystem::path builtPath = builtDir / (baseName + L".cso");
 		std::ifstream in(builtPath.wstring(), std::ios::binary | std::ios::ate);

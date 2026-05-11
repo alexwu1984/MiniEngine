@@ -144,12 +144,14 @@ set_target_properties(CompileShaderBlob PROPERTIES FOLDER Tools PROJECT_LABEL "C
 find_program(MINIENGINE_PYTHON_EXECUTABLE NAMES python python3 py)
 if(MINIENGINE_PYTHON_EXECUTABLE)
 	add_custom_target(PrecompileMiniEngineShaders
+		COMMAND "${MINIENGINE_PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/Tools/gen_precompile_manifest.py"
+			--output "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
 		COMMAND "${MINIENGINE_PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/Tools/build_precompiled_shaders.py"
 			--compiler "$<TARGET_FILE:CompileShaderBlob>"
 			--manifest "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
 			--shader-root "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
 		DEPENDS CompileShaderBlob
-			"${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
+			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/gen_precompile_manifest.py"
 			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/build_precompiled_shaders.py"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 		COMMENT "Incremental precompile HLSL -> Render/ShaderLibDX/Built")

@@ -13,3 +13,5 @@ ipch/
 
 # Offline-compiled shader blobs (regenerate: cmake --build build --target PrecompileMiniEngineShaders)
 Render/ShaderLibDX/Built/
+# Manifest is generated first by Tools/gen_precompile_manifest.py in that same target
+Render/ShaderLibDX/precompile_manifest.json

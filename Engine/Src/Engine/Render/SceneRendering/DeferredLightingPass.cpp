@@ -56,6 +56,8 @@ namespace Engine
 			Out.Data.myPerFrame.CameraNearZ = View.CameraNearZ;
 			Out.Data.myPerFrame.CameraFarZ = View.CameraFarZ;
 			Out.Data.myPerFrame.IBLFactor = View.SkyLightIBLScale;
+			Out.Data.myPerFrame.IBLDirShadowCoupling = math::Vector4(View.IBLDiffuseDirShadowCoupling, View.IBLSpecularDirShadowCoupling,
+																	 View.IBLDiffuseAoExponentForIBL, 0.f);
 			Out.Data.myPerFrame.SplitHemisphereIBL = 0;
 			Out.Data.myPerFrame.GroundIBLIntensity = 1.f;
 			Out.Data.myPerFrame.HemiIBLBlendPower = 1.75f;

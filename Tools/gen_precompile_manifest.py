@@ -10,7 +10,8 @@ Simplification model (see *_permutation_axes functions below):
   - Shadow / PBR / translucent permutations are Cartesian products of a few boolean axes.
   - Each axis maps to one or more RHIShaderMacro entries in fixed order (mirroring InitShader / InitResource).
 
-Run: python Tools/gen_precompile_manifest.py  |  CMake target PrecompileMiniEngineShaders (depends from GLFFViewer only; see CMakeLists.txt)
+Run: python Tools/gen_precompile_manifest.py  |  CMake target PrecompileMiniEngineShaders (depends from GLFFViewer only; see CMakeLists.txt).
+The target then runs Tools/build_precompiled_shaders.py (HLSL/FXC) writing Built/ under the build config output dir; sync_shaderlib_dx excludes source Built/. Debug tier 2, non-Debug tier 1 unless overridden.
 
 C++ sources of truth (Engine paths used by the viewer):
   Shadow, PBR, Fur, translucent, deferred lighting, post (tonemap/bloom/SSR/bloom CS), TAA, SSR, sky/IBL bake,

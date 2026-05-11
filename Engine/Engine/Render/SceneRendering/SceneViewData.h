@@ -47,6 +47,12 @@ namespace Engine
 
 		/** 0 = no skylight IBL (UE Skylight off); primary SkyLightComponent drives HDR path and intensity. */
 		float SkyLightIBLScale = 0.f;
+		/** Optional: scale diffuse IBL by lerp(1, dirShadowVis, x). Default 0 = UE-style (no sun shadow on skylight). */
+		float IBLDiffuseDirShadowCoupling = 0.f;
+		/** Optional: same for specular IBL. Default 0. */
+		float IBLSpecularDirShadowCoupling = 0.f;
+		/** Diffuse IBL uses pow(bakedAO, z); 1 = same as analytic; ~1.1–1.25 mimics stronger AO on indirect without SSAO. */
+		float IBLDiffuseAoExponentForIBL = 1.f;
 
 		void BuildFromCamera(CameraComponent& Camera, std::vector<Light> InLights, bool bUseHaltonProjectionJitterInViewMatrices,
 							 int32_t ViewRectX, int32_t ViewRectY, int32_t ViewRectW, int32_t ViewRectH);

@@ -147,10 +147,46 @@ namespace RenderCore
 		return h;
 	}
 
-	uint64_t ShaderPrecompileLookupHash(const std::string& hlslBaseFileNameUtf8, const std::string& entry, const std::string& profile,
-		const std::vector<RHIShaderMacro>& macros, uint64_t quotedIncludeTreeHash)
+	static char ReadOneTierChar(const std::filesystem::path& tierPath)
 	{
-		const std::string key = hlslBaseFileNameUtf8 + "|" + entry + "|" + profile;
+		std::ifstream fin(tierPath, std::ios::binary);
+		if (!fin.good())
+			return '\0';
+		char c = '\0';
+		fin.read(&c, 1);
+		if (fin.gcount() != 1)
+			return '\0';
+		if (c == '0' || c == '1' || c == '2')
+			return c;
+		return '\0';
+	}
+
+	/** Per VS bucket: Debug=tier2 (SKIP_OPTIMIZATION) from build script; Release bucket = non-Debug configs, tier1 (LEVEL0). Legacy file if missing. */
+	static char ReadPrecompileFxCompileTierChar(const std::filesystem::path& builtDir)
+	{
+		std::error_code ec;
+		if (!std::filesystem::is_directory(builtDir, ec))
+			return '1';
+#if defined(_DEBUG)
+		const std::filesystem::path primary = builtDir / L".precompile_fxc_tier.Debug";
+#else
+		const std::filesystem::path primary = builtDir / L".precompile_fxc_tier.Release";
+#endif
+		char c = ReadOneTierChar(primary);
+		if (c != '\0')
+			return c;
+		const std::filesystem::path legacy = builtDir / L".precompile_fxc_tier";
+		c = ReadOneTierChar(legacy);
+		if (c != '\0')
+			return c;
+		return '1';
+	}
+
+	uint64_t ShaderPrecompileLookupHash(const std::string& hlslBaseFileNameUtf8, const std::string& entry, const std::string& profile,
+		const std::vector<RHIShaderMacro>& macros, uint64_t quotedIncludeTreeHash, char compileTier)
+	{
+		const std::string key =
+			hlslBaseFileNameUtf8 + "|" + entry + "|" + profile + "|cpt=" + std::string(1, compileTier);
 		uint64_t h = ShaderPrecompileHashUtf8StringLikePython(key, static_cast<uint64_t>(HASH_SEED));
 		for (const RHIShaderMacro& m : macros)
 		{
@@ -174,7 +210,8 @@ namespace RenderCore
 		outBytecode.clear();
 		if (core::CommandLine::Get().GetSwitch("shaderjit"))
 			return false;
-		// Vertex shaders are always JIT; offline .cso uses D3DCOMPILE flags=0. Non-zero JIT flags (e.g. shaderdebug) + optimized PS -> VS/PS I/O mismatch at CreateGraphicsPipelineState.
+		// Vertex shaders are always JIT; offline .cso tier matches Built/.precompile_fxc_tier (see Tools/build_precompiled_shaders.py).
+		// Non-zero JIT flags (e.g. shaderdebug) + optimized PS -> VS/PS I/O mismatch at CreateGraphicsPipelineState.
 		if (ShaderUtil::GetD3DCompileFlagsForBuild() != 0)
 			return false;
 
@@ -183,7 +220,8 @@ namespace RenderCore
 		const std::filesystem::path builtDir = src.parent_path() / L"Built";
 		const std::string baseUtf8 = core::ucs2_u8(src.filename().wstring());
 		const uint64_t treeHash = ShaderPrecompileQuotedIncludeTreeHash(hlslSourcePath);
-		const uint64_t keyHash = ShaderPrecompileLookupHash(baseUtf8, entry, profile, macros, treeHash);
+		const char compileTier = ReadPrecompileFxCompileTierChar(builtDir);
+		const uint64_t keyHash = ShaderPrecompileLookupHash(baseUtf8, entry, profile, macros, treeHash, compileTier);
 		const std::wstring baseName = core::u8_ucs2(baseUtf8 + "__" + entry + "__" + profile + "__" + Hex16(keyHash));
 		std::filesystem::path builtPath = builtDir / (baseName + L".cso");
 		std::ifstream in(builtPath.wstring(), std::ios::binary | std::ios::ate);

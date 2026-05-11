@@ -142,7 +142,19 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 	float specOccPowBase = max(NdotVao + aoSpec - 0.0001, 1e-5);
 	float specOcc = saturate(pow(specOccPowBase, exp2(-14.0 * perceptualRoughness - 0.62)) - 1.0 + aoSpec);
 
-	color += (iblDiffuse * aoDiffuse + iblSpecular * specOcc) * myPerFrame.IBLFactor;
+	const float coupleD = saturate(myPerFrame.IBLDirShadowCoupling.x);
+	const float coupleS = saturate(myPerFrame.IBLDirShadowCoupling.y);
+	float iblDiffScale = 1.0;
+	float iblSpecScale = 1.0;
+	if (coupleD > 0.0 || coupleS > 0.0)
+	{
+		const float dirVisIBL = PrimaryDirectionalShadowVisForIBL(worldPos, normal);
+		iblDiffScale = lerp(1.0, dirVisIBL, coupleD);
+		iblSpecScale = lerp(1.0, dirVisIBL, coupleS);
+	}
+	const float iblAoExp = max(myPerFrame.IBLDirShadowCoupling.z, 1e-3);
+	const float aoForIblDiffuse = pow(max(aoDiffuse, 1e-4), iblAoExp);
+	color += (iblDiffuse * aoForIblDiffuse * iblDiffScale + iblSpecular * specOcc * iblSpecScale) * myPerFrame.IBLFactor;
 
 	color += emiss.rgb;
 

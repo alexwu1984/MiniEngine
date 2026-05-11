@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngine)
 
@@ -141,8 +141,34 @@ if(MSVC)
 endif()
 set_target_properties(CompileShaderBlob PROPERTIES FOLDER Tools PROJECT_LABEL "CompileShaderBlob")
 
+# Offline HLSL: Debug precompile -> tier 2 (SKIP_OPTIMIZATION); non-Debug -> tier 1 (OPT_LEVEL0). Optional full opt / forced LEVEL0.
+option(MINIENGINE_FULL_OPT_SHADER_PRECOMPILE "Pass --full-opt to offline HLSL precompile (full FXC optimization)" OFF)
+option(MINIENGINE_LEVEL0_SHADER_PRECOMPILE "Pass --hlsl-level0 to offline HLSL precompile (FXC OPT_LEVEL0, all configs)" OFF)
+if(MINIENGINE_FULL_OPT_SHADER_PRECOMPILE AND MINIENGINE_LEVEL0_SHADER_PRECOMPILE)
+	message(FATAL_ERROR "Choose at most one of MINIENGINE_FULL_OPT_SHADER_PRECOMPILE and MINIENGINE_LEVEL0_SHADER_PRECOMPILE")
+endif()
+
 find_program(MINIENGINE_PYTHON_EXECUTABLE NAMES python python3 py)
 if(MINIENGINE_PYTHON_EXECUTABLE)
+	# $<IF:...> needs CMake 3.15+ (project already requires 3.15). Non-Debug configs share the Release tier sidecar.
+	set(MINIENGINE_PRECOMPILE_CONFIG_GENEX $<IF:$<CONFIG:Debug>,Debug,Release>)
+	if(MINIENGINE_FULL_OPT_SHADER_PRECOMPILE)
+		set(MINIENGINE_PRECOMPILE_SHADER_EXTRA
+			--full-opt
+			--precompile-config
+			${MINIENGINE_PRECOMPILE_CONFIG_GENEX})
+	elseif(MINIENGINE_LEVEL0_SHADER_PRECOMPILE)
+		set(MINIENGINE_PRECOMPILE_SHADER_EXTRA
+			--hlsl-level0
+			--precompile-config
+			${MINIENGINE_PRECOMPILE_CONFIG_GENEX})
+	else()
+		set(MINIENGINE_PRECOMPILE_SHADER_EXTRA
+			--precompile-config
+			${MINIENGINE_PRECOMPILE_CONFIG_GENEX}
+			--compile-tier
+			$<IF:$<CONFIG:Debug>,2,1>)
+	endif()
 	add_custom_target(PrecompileMiniEngineShaders
 		COMMAND "${MINIENGINE_PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/Tools/gen_precompile_manifest.py"
 			--output "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
@@ -150,13 +176,15 @@ if(MINIENGINE_PYTHON_EXECUTABLE)
 			--compiler "$<TARGET_FILE:CompileShaderBlob>"
 			--manifest "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX/precompile_manifest.json"
 			--shader-root "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
+			--built-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<LOWER_CASE:$<CONFIG>>/ShaderLibDX/Built"
+			${MINIENGINE_PRECOMPILE_SHADER_EXTRA}
 		DEPENDS CompileShaderBlob
 			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/gen_precompile_manifest.py"
 			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/build_precompiled_shaders.py"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-		COMMENT "Incremental precompile HLSL -> Render/ShaderLibDX/Built")
+		COMMENT "Incremental precompile HLSL -> $<LOWER_CASE:$<CONFIG>>/ShaderLibDX/Built (under CMAKE_RUNTIME_OUTPUT_DIRECTORY)")
 	set_target_properties(PrecompileMiniEngineShaders PROPERTIES FOLDER Tools)
-	# Run before robocopy ShaderLibDX so exe-side Built/ always has fresh .cso when building apps.
+	# Run before robocopy ShaderLibDX; Built/ is written under the config output dir (sync excludes source Built/).
 	# Offline bytecode is sized for the main GLTF viewer; DemoRunner/SoftwareRender JIT extras as needed.
 	add_dependencies(GLFFViewer_RuntimeAssets PrecompileMiniEngineShaders)
 else()

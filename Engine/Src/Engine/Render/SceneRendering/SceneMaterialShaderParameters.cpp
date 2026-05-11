@@ -56,6 +56,9 @@ namespace Engine
 		Out.DrawMeshBuffer = Mesh->GetMeshBuffer();
 		Out.bUnlit = ViewData->bUnlit;
 		Out.SkyLightIBLScale = ViewData->SkyLightIBLScale;
+		Out.IBLDiffuseDirShadowCoupling = ViewData->IBLDiffuseDirShadowCoupling;
+		Out.IBLSpecularDirShadowCoupling = ViewData->IBLSpecularDirShadowCoupling;
+		Out.IBLDiffuseAoExponentForIBL = ViewData->IBLDiffuseAoExponentForIBL;
 		return Out;
 	}
 }

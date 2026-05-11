@@ -35,6 +35,9 @@ namespace Engine
 		bool bUnlit = false;
 		/** Per-view skylight IBL scale (0 = off). */
 		float SkyLightIBLScale = 0.f;
+		float IBLDiffuseDirShadowCoupling = 0.f;
+		float IBLSpecularDirShadowCoupling = 0.f;
+		float IBLDiffuseAoExponentForIBL = 1.f;
 	};
 
 	class SceneModelAsset;

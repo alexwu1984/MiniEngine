@@ -94,8 +94,8 @@ float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 	return outVis;
 }
 
-/** Vertical atlas: cascade `ci` occupies v in [ci/N, (ci+1)/N). `uvTile01` is x,y within the cascade tile (same mapping as ComputeShadowPCSS local uv). */
-float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN, float zReceiver, float3 Normal)
+/** Vertical atlas: cascade `ci` occupies v in [ci/N, (ci+1)/N). `worldPos` rotates the Poisson disk to break fixed 4x4-ish block patterns (motorcycle / drone scenes). */
+float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN, float zReceiver, float3 Normal, float3 worldPos)
 {
 	float outVis = 1.0;
 	if (zReceiver > 0.0 && zReceiver < 1.0 && all(uvTile01 >= float2(0.0, 0.0)) && all(uvTile01 <= float2(1.0, 1.0)))
@@ -104,29 +104,43 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 		const float bias = ShadowDepthBiasPCSS(Normal);
 		float3 Lsun = normalize(GetMainLight().Direction);
 		float grazingSun = saturate(1.0 - abs(Lsun.y));
+		// CSM tiles are 1/N atlas height: same absolute UV kernel covers fewer texels in Y → harsher blockiness without wider min filter.
+		static const float kCascadePCSSMinMul = 2.35;
+		static const float kCascadePCSSBlockerMul = 1.5;
+		static const float kCascadePCSSMaxMul = 1.35;
+		const float minF = kPCSSMinFilterRadiusUV * kCascadePCSSMinMul;
+		const float maxF = kPCSSMaxFilterRadiusUV * kCascadePCSSMaxMul;
+		const float blockerR = kPCSSBlockerSearchRadiusUV * kCascadePCSSBlockerMul;
+		// Per-pixel rotation in tile space (then squash V by invN for atlas), breaks screen-aligned Poisson moiré.
+		float rotAng = 6.28318530718 * frac(
+			0.6180339887 * dot(worldPos.xz, float2(0.724, 0.311)) + 0.381 * worldPos.y + cascadeIdx * 0.271828 + zReceiver * 3.14159);
+		float sa, ca;
+		sincos(rotAng, sa, ca);
 
 		float sumBlocker = 0.0;
 		float cnt = 0.0;
 		[unroll]
 		for (int j = 0; j < 16; ++j)
 		{
-			float2 ofs = float2(kPoissonDisk16[j].x, kPoissonDisk16[j].y * invN) * kPCSSBlockerSearchRadiusUV;
+			float2 disk = kPoissonDisk16[j];
+			float2 rd = float2(ca * disk.x - sa * disk.y, sa * disk.x + ca * disk.y);
+			float2 ofs = float2(rd.x, rd.y * invN) * blockerR;
 			float2 suv = uvAtlas + ofs;
 			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-			float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-			if (d < zReceiver - bias)
+			float dmap = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
+			if (dmap < zReceiver - bias)
 			{
-				sumBlocker += d;
+				sumBlocker += dmap;
 				cnt += 1.0;
 			}
 		}
 
-		float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
+		float filterUV = minF + grazingSun * 0.00135;
 		if (cnt >= 1.0)
 		{
 			float avgB = sumBlocker / cnt;
 			float pen = saturate((zReceiver - avgB) * kPCSSPenumbraMul);
-			filterUV = lerp(kPCSSMinFilterRadiusUV, kPCSSMaxFilterRadiusUV, pen);
+			filterUV = lerp(minF, maxF, pen);
 		}
 
 		float2 filterOfsScale = float2(1.0, invN);
@@ -134,10 +148,12 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 		[unroll]
 		for (int i = 0; i < 16; ++i)
 		{
-			float2 suv = uvAtlas + kPoissonDisk16[i] * filterOfsScale * filterUV;
+			float2 disk = kPoissonDisk16[i];
+			float2 rd = float2(ca * disk.x - sa * disk.y, sa * disk.x + ca * disk.y);
+			float2 suv = uvAtlas + rd * filterOfsScale * filterUV;
 			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-			float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-			lit += (zReceiver <= d + bias) ? 1.0 : 0.0;
+			float dmap = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
+			lit += (zReceiver <= dmap + bias) ? 1.0 : 0.0;
 		}
 		outVis = lit * (1.0 / 16.0);
 	}

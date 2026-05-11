@@ -1,7 +1,10 @@
-"""Sync Render/ShaderLibDX -> runtime output (exe-side ShaderLibDX).
+﻿"""Sync Render/ShaderLibDX -> runtime output (exe-side ShaderLibDX).
 
 Used by CMake copy_runtime_assets + POST_BUILD. Windows: robocopy (exit code >= 8 = failure).
-Elsewhere: mirror with pathlib/shutil.
+The top-level ``Built`` directory under source is never copied (/XD Built): offline .cso is produced
+per build configuration under dest by build_precompiled_shaders.py.
+
+Elsewhere: mirror with pathlib/shutil (skips source .../Built subtree).
 
 Usage:
   python Tools/sync_shaderlib_dx.py --source Render/ShaderLibDX --dest build/bin/debug/ShaderLibDX
@@ -35,6 +38,8 @@ def main() -> int:
                 str(src),
                 str(dst),
                 "/E",
+                "/XD",
+                "Built",
                 "/R:1",
                 "/W:1",
                 "/NFL",
@@ -50,9 +55,11 @@ def main() -> int:
             return rc
         return 0
 
-    # Non-Windows: full tree sync (replace existing files).
+    # Non-Windows: full tree sync (replace existing files); skip top-level Built/ (offline bytecode lives under dest only).
     for path in src.rglob("*"):
         rel = path.relative_to(src)
+        if rel.parts and rel.parts[0] == "Built":
+            continue
         out = dst / rel
         if path.is_dir():
             out.mkdir(parents=True, exist_ok=True)

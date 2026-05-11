@@ -1,5 +1,6 @@
 ﻿// Offline shader bytecode writer using D3DCompileFromFile (same path as runtime JIT).
 // Usage: CompileShaderBlob.exe <output.cso> <input.hlsl> <entry> <profile> [MACRO=VALUE ...]
+// MINIENGINE_D3DCOMPILE_FAST: 0 = flags=0 (full opt); 1/y/Y = OPT_LEVEL0+SKIP_VALIDATION; 2/d/D = SKIP_OPTIMIZATION+SKIP_VALIDATION (JIT shaderdebug-like speed).
 
 #ifndef UNICODE
 #define UNICODE
@@ -95,7 +96,25 @@ int wmain(int argc, wchar_t** argv)
 	}
 	macros.push_back({ nullptr, nullptr });
 
-	const UINT flags = 0; // Match Release runtime (ShaderUtil default optimized).
+	UINT flags = 0;
+	wchar_t fastBuf[8]{};
+	const DWORD nFast = GetEnvironmentVariableW(L"MINIENGINE_D3DCOMPILE_FAST", fastBuf,
+		static_cast<DWORD>(sizeof(fastBuf) / sizeof(fastBuf[0])));
+	if (nFast > 0)
+	{
+		const wchar_t c = fastBuf[0];
+		if (c == L'2' || c == L'd' || c == L'D')
+			flags = D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_SKIP_VALIDATION;
+		else if (c == L'1' || c == L'y' || c == L'Y')
+		{
+#if defined(D3DCOMPILE_OPTIMIZATION_LEVEL0)
+			flags = D3DCOMPILE_OPTIMIZATION_LEVEL0 | D3DCOMPILE_SKIP_VALIDATION;
+#else
+			flags = 0x00004000u | 0x00000004u; // LEVEL0 | SKIP_VALIDATION
+#endif
+		}
+		// 0, n, N, or unknown: leave flags=0 (full optimization)
+	}
 
 	ID3DBlob* code = nullptr;
 	ID3DBlob* errs = nullptr;

@@ -222,6 +222,9 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.TemporalAAJitter = d->RenderParam.TemporalAAJitter;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLFactor = d->RenderParam.SkyLightIBLScale;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLDirShadowCoupling =
+			math::Vector4(d->RenderParam.IBLDiffuseDirShadowCoupling, d->RenderParam.IBLSpecularDirShadowCoupling,
+							d->RenderParam.IBLDiffuseAoExponentForIBL, 0.f);
 
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.LightCount = (int32_t)d->RenderParam.lightInfos.size();
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.PrimaryDirectionalLightIndex = d->RenderParam.PrimaryDirectionalLightIndex;

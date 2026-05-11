@@ -80,6 +80,12 @@ namespace Engine
 		float				HemiIBLBlendPower{ 1.75f };
 		int32_t				SplitHemisphereIBL{ 0 };
 		int32_t				_PadSplitHemiIBL{ 0 };
+		/**
+		 * IBL tuning (matches cbPerFrame layout in DeferredLighting.hlsl).
+		 * x,y: optional lerp(1, dirShadowVis, couple) on diffuse/spec IBL — default 0 = UE-like (skylight independent of sun shadow).
+		 * z: exponent on baked AO for diffuse IBL only (1 = linear like UE base; >1 darkens skylight in occluded areas, proxy for UE AO on indirect).
+		 */
+		math::Vector4       IBLDirShadowCoupling{ 0.f, 0.f, 1.f, 0.f };
 
 		// Debug / view flags
 		math::Vector4       WireframeOptions;

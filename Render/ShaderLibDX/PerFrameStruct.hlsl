@@ -67,6 +67,8 @@ struct PerFrame
     float         HemiIBLBlendPower;
     int           SplitHemisphereIBL;
     int           _PadSplitHemiIBL;
+    /** .xy = optional IBL × dir shadow vis; .z = pow(bakedAO, z) on diffuse IBL only; UE default: xy=0, z=1. */
+    float4        IBLDirShadowCoupling;
 
     // Debug / view flags
     float4        WireframeOptions;

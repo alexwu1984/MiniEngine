@@ -18,15 +18,6 @@ namespace Engine
 		return -1;
 	}
 
-	static void RenderDirectionalShadowMapFullViewport(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<RenderCore::RHIRenderTarget>& DepthRenderBuffer,
-													 FShadowDepthMeshDrawer& MeshDrawer, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& MainLight)
-	{
-		RHIContext.Clear(DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
-		const auto TargetSize = DepthRenderBuffer->GetSize();
-		RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
-		MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, MainLight, DepthRenderBuffer);
-	}
-
 	void FDirectionalShadowDepthPass::Render(const FDirectionalShadowDepthPassParameters& P)
 	{
 		if (!P.OutOutputs || !P.RHICmdList || !P.ShadowCasterMeshes || !P.FrameLights || !P.ProjectorScene || !P.MeshDrawer)
@@ -49,7 +40,6 @@ namespace Engine
 
 		Light& mainLightRef = Lights[static_cast<size_t>(P.MainDirectionalLightListIndex)];
 		mainLightRef.ShadowMapIndex = 0;
-		const core::vec2i fullTexSize = P.DepthRenderBuffer->GetSize();
 		const core::vec2i cascadeTexSize{ kCascadeShadowResolution, kCascadeShadowResolution };
 		const bool bReceiverRelativeFrustumAdjust =
 			P.bReceiverValid && FShadowSceneBounds::kPreferTightShadowFrustumFromCasters && P.SubjectMeshListForFrustumDriver == &ShadowCasterMeshes;
@@ -98,13 +88,18 @@ namespace Engine
 		}
 		else
 		{
-			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(mainLightRef, P.SubjectWorldAabb, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, fullTexSize,
+			// Match first CSM atlas tile (square 2048²): rendering to the full 2048×(2048·N) atlas with one ortho made UV
+			// kernels anisotropic in texel space (3× taller) and axis-aligned PCSS + texel snap caused strong vertical banding.
+			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(mainLightRef, P.SubjectWorldAabb, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, cascadeTexSize,
 																					ShadowProjectorScene, true);
+			const float invN = 1.f / static_cast<float>(FDirectionalShadowFrustumFitter::kCascadeCount);
+			OutOutputs.CachedDirectionalCSM.CameraForwardInvCount.w = invN;
 			OutOutputs.CachedMainLightForShading = mainLightRef;
 			OutOutputs.CachedMainDirectionalShadowLightListIndex = P.MainDirectionalLightListIndex;
 			OutOutputs.bCachedMainLightValid = true;
-			RHIContext.SetViewPort(0, 0, fullTexSize.x, fullTexSize.y);
-			RenderDirectionalShadowMapFullViewport(RHIContext, P.DepthRenderBuffer, MeshDrawer, ShadowCasterMeshes, mainLightRef);
+			RHIContext.Clear(P.DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+			RHIContext.SetViewPort(0, 0, cascadeTexSize.x, cascadeTexSize.y);
+			MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, mainLightRef, P.DepthRenderBuffer);
 		}
 	}
 }

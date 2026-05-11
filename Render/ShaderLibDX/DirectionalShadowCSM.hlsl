@@ -32,8 +32,23 @@ float DirectionalShadowVisibility(float3 worldPos, float3 normal)
 	float outVis = 1.0;
 	if (DirectionalCSMEnabled == 0)
 	{
-		float4 coord = mul(float4(worldPos, 1.0), GetMainLightViewProj());
-		outVis = clamp(ComputeShadowPCSS(coord, normal), 0.0, 1.0);
+		// Single-map directional is rendered into atlas tile 0 (square 2048², same layout as CSM cascade 0).
+		// Sample with ComputeShadowPCSSCascadeTile (rotated Poisson + per-tile UV) — full-atlas ComputeShadowPCSS
+		// stretched kernels in V and caused strong vertical banding on floors.
+		float4 clip = mul(float4(worldPos, 1.0), GetMainLightViewProj());
+		float w = clip.w;
+		if (abs(w) < 1e-6)
+			return 1.0;
+		float3 proj = clip.xyz / w;
+		if (proj.z <= 0.0 || proj.z >= 1.0)
+			return 1.0;
+		float2 uvTile = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+		if (any(uvTile < float2(0.0, 0.0)) || any(uvTile > float2(1.0, 1.0)))
+			return 1.0;
+		float invN = CameraForwardInvCount.w;
+		if (invN < 1e-5)
+			invN = 0.33333334;
+		outVis = clamp(ComputeShadowPCSSCascadeTile(uvTile, 0.0, invN, proj.z, normal, worldPos), 0.0, 1.0);
 	}
 	else
 	{

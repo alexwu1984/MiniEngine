@@ -9,6 +9,11 @@ static const float kPCSSBlockerSearchRadiusUV = 0.010;
 static const float kPCSSMinFilterRadiusUV = 0.00065;
 static const float kPCSSMaxFilterRadiusUV = 0.0045;
 static const float kPCSSPenumbraMul = 14.0;
+// Full-atlas single directional (no CSM): same UV kernel covers more world space than per-cascade tiles — tame penumbra
+// or contact shadows and high-tess floors read as huge average blocker distance and "melt" (worse after FXAA).
+static const float kPCSSMinFilterRadiusUV_SingleMap = 0.00052f;
+static const float kPCSSMaxFilterRadiusUV_SingleMap = 0.0028f;
+static const float kPCSSPenumbraMul_SingleMap = 7.5f;
 
 static const float2 kPoissonDisk16[16] =
 {
@@ -79,12 +84,12 @@ float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 					}
 				}
 
-				float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
+				float filterUV = kPCSSMinFilterRadiusUV_SingleMap + grazingSun * 0.00055;
 				if (cnt >= 1.0)
 				{
 					float avgB = sumBlocker / cnt;
-					float pen = saturate((zR - avgB) * kPCSSPenumbraMul);
-					filterUV = lerp(kPCSSMinFilterRadiusUV, kPCSSMaxFilterRadiusUV, pen);
+					float pen = saturate((zR - avgB) * kPCSSPenumbraMul_SingleMap);
+					filterUV = lerp(kPCSSMinFilterRadiusUV_SingleMap, kPCSSMaxFilterRadiusUV_SingleMap, pen);
 				}
 
 				outVis = PCF_ShadowR32(uv, zR, filterUV, bias);

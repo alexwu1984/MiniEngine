@@ -118,7 +118,9 @@ namespace RenderCore
 															  1.0f/static_cast<float>(SourceTexture->GetSize().y) };
 		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThresholdMin = 0.0156f;
 		d->GET_UNIFORMDATA(ShaderParameter).FXAAEdgeThreshold = 0.0312f;
-		d->GET_UNIFORMDATA(ShaderParameter).FXAASubpix = 1.0f;
+		// Subpix=1 maximizes edge softening; combined with soft PCSS penumbra it smears shadow borders. Slightly lower
+		// preserves luma edges (shadows) better while FXAA still suppresses most crawl on geometry.
+		d->GET_UNIFORMDATA(ShaderParameter).FXAASubpix = 0.72f;
 		RHI_UpdateAndBindUniformBuffer(RHIContext, d->GET_SHADER_STRUCT_MEMBER(ShaderParameter), SF_Pixel);
 		RHIContext.Draw(3);
 	}

@@ -30,11 +30,12 @@ static const float VarianceGamma = 1.0f;
 static const float2 kVelocityRefResolution = float2(1920.0f, 1080.0f);
 static const float kVelocityRejectPixelsAtRef = 128.0f;
 
-// Simplified reactive: push blend toward current frame on bright (post-tonemap) centers to cut firefly trails.
+// Reactive (inverted vs classic "firefly" TAA): bright centers *lower* BlendFinal so we lean on history more,
+// softening clipped highlights (爆 -> 淡). Dark areas keep Feedback.
 static const float ReactiveLumaThreshold = 0.45f;
 static const float ReactiveLumaScale = 6.0f;
-static const float ReactiveBlendAdd = 0.32f;
-static const float ReactiveBlendMax = 0.82f;
+static const float ReactiveBlendSub = 0.28f;
+static const float ReactiveBlendMin = 0.02f;
 
 static const int2 SampleOffsets[9] =
 {
@@ -417,7 +418,8 @@ void TAA_Main(
         float3 centerRgb = YCoCgToRGB(neighborhood[4]);
         float centerLin = Luminance(TaaToneCurveInv(centerRgb));
         float react = saturate((centerLin - ReactiveLumaThreshold) * ReactiveLumaScale);
-        BlendFinal = lerp(BlendFinal, min(BlendFinal + ReactiveBlendAdd, ReactiveBlendMax), react);
+        // High linear luma -> react -> *decrease* BlendFinal (inverse of old "add toward current") -> heavier history.
+        BlendFinal = lerp(BlendFinal, max(BlendFinal - ReactiveBlendSub, ReactiveBlendMin), react);
         BlendFinal = saturate(BlendFinal);
     }
 

@@ -259,8 +259,15 @@ def main() -> int:
         compile_tier = args.compile_tier
     else:
         compile_tier = "1"
+    # Only touch the tier sidecar when the tier *changes*. Unconditional write() bumps mtime every build; since
+    # tier_sidecar is in every entry's dep_paths, that forced dep_mtime > all .cso and wiped incremental precompile.
     tier_sidecar = built_dir / f".precompile_fxc_tier.{args.precompile_config}"
-    tier_sidecar.write_text(compile_tier, encoding="ascii")
+    try:
+        prev = tier_sidecar.read_text(encoding="ascii").strip() if tier_sidecar.is_file() else None
+    except OSError:
+        prev = None
+    if prev != compile_tier:
+        tier_sidecar.write_text(compile_tier, encoding="ascii")
 
     failed = 0
     built = 0

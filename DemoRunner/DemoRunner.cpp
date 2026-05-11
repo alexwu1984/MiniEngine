@@ -105,57 +105,60 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 			return;
 
 		RHI->RHIBeginFrame();
-		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
-			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
-
-		// Begin ImGui frame (done inside ViewPort->Prepare()).
-		const auto cc = demo->GetClearColor();
-		viewPort->Clear(core::FLinearColor(cc.r, cc.g, cc.b, cc.a));
-		viewPort->Prepare();
-
-		ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(360, 120), ImGuiCond_Once);
-		if (ImGui::Begin("DemoRunner", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		// InsideFrameTick must be popped before RHIEndFrame so PopRecordingContextIfTopIs(RHIFrameBoundary) sees the frame
+		// boundary on top (see D3D12RHIRecording.h / SceneRenderer).
 		{
-			ImGui::Text("demo=%s", demo->GetName());
-			ImGui::Text("dt: %.3f ms", dt * 1000.0f);
+			const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+				RenderCore::ERHIRecordingContextScope::InsideFrameTick);
+
+			// Begin ImGui frame (done inside ViewPort->Prepare()).
+			const auto cc = demo->GetClearColor();
+			viewPort->Clear(core::FLinearColor(cc.r, cc.g, cc.b, cc.a));
+			viewPort->Prepare();
+
+			ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
+			ImGui::SetNextWindowSize(ImVec2(360, 120), ImGuiCond_Once);
+			if (ImGui::Begin("DemoRunner", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 			{
-				int memmonV = 0;
-				core::CommandLine::Get().GetInteger("d3d12_memmon", memmonV);
-				int stacksV = 0;
-				core::CommandLine::Get().GetInteger("d3d12_memmon_stacks", stacksV);
-				int gpudevV = 1;
-				core::CommandLine::Get().GetInteger("d3d12_gpudev", gpudevV);
-				const bool memmonOn = RenderCore::D3D12RHI_ShouldEnableMemMon();
-				const bool stacksOn = RenderCore::D3D12RHI_ShouldEnableMemMonStacks();
-				ImGui::Text("d3d12_memmon=%d (effective=%s)", memmonV, memmonOn ? "on" : "off");
-				ImGui::Text("d3d12_memmon_stacks=%d (effective=%s)", stacksV, stacksOn ? "on" : "off");
-				ImGui::Text("d3d12_gpudev=%d", gpudevV);
-				ImGui::Text("d3ddebug=%s / dxdebug=%s",
-					core::CommandLine::Get().GetSwitch("d3ddebug") ? "on" : "off",
-					core::CommandLine::Get().GetSwitch("dxdebug") ? "on" : "off");
+				ImGui::Text("demo=%s", demo->GetName());
+				ImGui::Text("dt: %.3f ms", dt * 1000.0f);
+				{
+					int memmonV = 0;
+					core::CommandLine::Get().GetInteger("d3d12_memmon", memmonV);
+					int stacksV = 0;
+					core::CommandLine::Get().GetInteger("d3d12_memmon_stacks", stacksV);
+					int gpudevV = 1;
+					core::CommandLine::Get().GetInteger("d3d12_gpudev", gpudevV);
+					const bool memmonOn = RenderCore::D3D12RHI_ShouldEnableMemMon();
+					const bool stacksOn = RenderCore::D3D12RHI_ShouldEnableMemMonStacks();
+					ImGui::Text("d3d12_memmon=%d (effective=%s)", memmonV, memmonOn ? "on" : "off");
+					ImGui::Text("d3d12_memmon_stacks=%d (effective=%s)", stacksV, stacksOn ? "on" : "off");
+					ImGui::Text("d3d12_gpudev=%d", gpudevV);
+					ImGui::Text("d3ddebug=%s / dxdebug=%s",
+						core::CommandLine::Get().GetSwitch("d3ddebug") ? "on" : "off",
+						core::CommandLine::Get().GetSwitch("dxdebug") ? "on" : "off");
 #if defined(_DEBUG) || defined(DEBUG)
-				ImGui::Text("shaderdebug=%s (debug build: default optimized shaders)",
-					core::CommandLine::Get().GetSwitch("shaderdebug") ? "on (slow GPU)" : "off");
+					ImGui::Text("shaderdebug=%s (debug build: default optimized shaders)",
+						core::CommandLine::Get().GetSwitch("shaderdebug") ? "on (slow GPU)" : "off");
 #endif
+				}
+				ImGui::Separator();
+				demo->OnGui();
 			}
-			ImGui::Separator();
-			demo->OnGui();
+			ImGui::End();
+
+			// Draw demo (do not return from inside this block without unwinding Scoped — stack contract).
+			if (auto ctx = RHI->GetDefaultCommandContext())
+			{
+				const int32_t w = window->GetWidth();
+				const int32_t h = window->GetHeight();
+				ctx->SetViewPort(0, 0, w, h);
+				demo->Draw(*ctx, viewPort, dt);
+
+				// Render ImGui + present (ImGui render happens inside Present()).
+				viewPort->Present();
+			}
 		}
-		ImGui::End();
-
-		// Draw demo.
-		auto ctx = RHI->GetDefaultCommandContext();
-		if (!ctx)
-			return;
-
-		const int32_t w = window->GetWidth();
-		const int32_t h = window->GetHeight();
-		ctx->SetViewPort(0, 0, w, h);
-		demo->Draw(*ctx, viewPort, dt);
-
-		// Render ImGui + present (ImGui render happens inside Present()).
-		viewPort->Present();
 
 		RHI->RHIEndFrame();
 	}, window.get());

@@ -76,9 +76,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	app.BuildCpuRayTraceScene();
 	{
 		RHI->RHIBeginFrame();
-		const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
-			RenderCore::ERHIRecordingContextScope::InsideFrameTick);
-		app.GpuInit(RHI.get());
+		{
+			const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+				RenderCore::ERHIRecordingContextScope::InsideFrameTick);
+			app.GpuInit(RHI.get());
+		}
 		RHI->RHIEndFrame();
 	}
 
@@ -98,31 +100,32 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 				return;
 
 			RHI->RHIBeginFrame();
-			const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
-				RenderCore::ERHIRecordingContextScope::InsideFrameTick);
-
-			const auto cc = app.GetClearColor();
-			viewPort->Clear(core::FLinearColor(cc.R, cc.G, cc.B, cc.A));
-			viewPort->Prepare();
-
-			ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
-			ImGui::SetNextWindowSize(ImVec2(320, 80), ImGuiCond_Once);
-			if (ImGui::Begin("SoftwareRender", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 			{
-				ImGui::Text("dt: %.3f ms", dt * 1000.0f);
+				const RenderCore::D3D12RHI_ScopedRecordingContext ScopedInsideRecordingFrame(
+					RenderCore::ERHIRecordingContextScope::InsideFrameTick);
+
+				const auto cc = app.GetClearColor();
+				viewPort->Clear(core::FLinearColor(cc.R, cc.G, cc.B, cc.A));
+				viewPort->Prepare();
+
+				ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
+				ImGui::SetNextWindowSize(ImVec2(320, 80), ImGuiCond_Once);
+				if (ImGui::Begin("SoftwareRender", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+				{
+					ImGui::Text("dt: %.3f ms", dt * 1000.0f);
+				}
+				ImGui::End();
+
+				if (auto ctx = RHI->GetDefaultCommandContext())
+				{
+					const int32_t w = window->GetWidth();
+					const int32_t h = window->GetHeight();
+					ctx->SetViewPort(0, 0, w, h);
+					app.GpuDraw(*ctx, viewPort, window, dt);
+
+					viewPort->Present();
+				}
 			}
-			ImGui::End();
-
-			auto ctx = RHI->GetDefaultCommandContext();
-			if (!ctx)
-				return;
-
-			const int32_t w = window->GetWidth();
-			const int32_t h = window->GetHeight();
-			ctx->SetViewPort(0, 0, w, h);
-			app.GpuDraw(*ctx, viewPort, window, dt);
-
-			viewPort->Present();
 
 			RHI->RHIEndFrame();
 		},

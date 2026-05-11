@@ -323,6 +323,11 @@ namespace Engine
 		return d->DoubleSided;
 	}
 
+	bool AssimpMaterial::WantsRHIBindless() const
+	{
+		return true;
+	}
+
 	std::shared_ptr<RHITexture2D> AssimpMaterial::GetBaseColorTexture() const
 	{
 		C_P(AssimpMaterial);

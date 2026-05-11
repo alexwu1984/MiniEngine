@@ -3,6 +3,8 @@
 #include "RHI/DynamicRHI.h"
 #include "Engine/Engine.h"
 #include "RHI/RHIDefinitions.h"
+#include "math/vector4.h"
+#include <vector>
 
 namespace Engine
 {
@@ -31,7 +33,7 @@ namespace Engine
 		{
 			C_P(GltfMeshBuffer);
 			uint32_t Feat = 0;
-			if (MeshInfo && MeshInfo->Tangents)
+			if (MeshInfo && MeshInfo->nNumVertices > 0u)
 				Feat |= MeshBufferVertexFeatures::Tangent;
 			if (MeshInfo && MeshInfo->BoneIDs && MeshInfo->BoneWeights)
 				Feat |= MeshBufferVertexFeatures::Skinning;
@@ -62,9 +64,20 @@ namespace Engine
 			{
 				// No UVs and no vertices: create nothing.
 			}
-			if (MeshInfo->Tangents)
+			if (MeshInfo->nNumVertices > 0u)
 			{
-				d->VerticesBuffer[RenderCore::EVertexType::VT_Tangent] = RHI->RHICreateVertexBuffer(MeshInfo->Tangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				if (MeshInfo->Tangents)
+				{
+					d->VerticesBuffer[RenderCore::EVertexType::VT_Tangent] =
+						RHI->RHICreateVertexBuffer(MeshInfo->Tangents, RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				}
+				else
+				{
+					static const math::Vector4 kDefaultTangent(1.f, 0.f, 0.f, 1.f);
+					std::vector<math::Vector4> fallback(static_cast<size_t>(MeshInfo->nNumVertices), kDefaultTangent);
+					d->VerticesBuffer[RenderCore::EVertexType::VT_Tangent] =
+						RHI->RHICreateVertexBuffer(fallback.data(), RenderCore::BUF_Dynamic, sizeof(math::Vector4), MeshInfo->nNumVertices);
+				}
 				d->AtrributeCount += 1;
 			}
 

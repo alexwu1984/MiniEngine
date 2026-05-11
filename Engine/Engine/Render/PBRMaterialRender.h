@@ -24,8 +24,6 @@ namespace Engine
 		virtual void Draw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) final;
 		virtual void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 	protected:
-		/** D3D12: ps_5_1 Texture2D[] for first material SRVs (PBR: t0–t4; FurMaterial: t0–t1 albedo+noise). */
-		virtual bool WantsRHIBindless() const { return true; }
 		/** Fur uses a different VS/PS pair; skip compiling TranslucentPBRForward.hlsl for fur instances. */
 		virtual bool ShouldCompileTranslucentForwardPixelShader() const { return true; }
 		void StoreRenderParam(const MaterialRenderParam& RenderParam);
@@ -56,7 +54,9 @@ namespace Engine
 
 	private:
 		virtual std::wstring GetShaderFileName() const;
-		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro> & ShaderMacros);
+	protected:
+		/** Empty: vertex stage compiled from the same file as GetShaderFileName(). Else: filename under ShaderLibDX/ (e.g. FurPass-VS.hlsl). */
+		virtual std::wstring GetVertexShaderFileNameSuffix() const { return L""; }
 	private:
 		void InitShader(const std::wstring& Path);
 	private:

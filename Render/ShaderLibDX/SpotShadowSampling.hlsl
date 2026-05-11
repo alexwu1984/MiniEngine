@@ -39,20 +39,26 @@ float PCF_SpotShadowR32(float2 uvCenter, float zReceiver, float radiusUV, float 
 
 float SampleSpotShadowVisibility(float4 ShadowCoord, float3 Normal, float3 LtowardLight)
 {
-	if (SpotShadowEnabled == 0)
-		return 1.0;
-	const float w = ShadowCoord.w;
-	if (abs(w) < 1e-6)
-		return 1.0;
-	const float3 proj = ShadowCoord.xyz / w;
-	if (proj.z <= 0.0 || proj.z >= 1.0)
-		return 1.0;
-	const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
-	if (any(uv < 0.0) || any(uv > 1.0))
-		return 1.0;
-	const float zR = clamp(proj.z, 0.0, 1.0);
-	const float bias = SpotShadowReceiverBias(Normal, LtowardLight);
-	return clamp(PCF_SpotShadowR32(uv, zR, 0.0022, bias), 0.0, 1.0);
+	float outVis = 1.0;
+	if (SpotShadowEnabled != 0)
+	{
+		const float w = ShadowCoord.w;
+		if (abs(w) >= 1e-6)
+		{
+			const float3 proj = ShadowCoord.xyz / w;
+			if (proj.z > 0.0 && proj.z < 1.0)
+			{
+				const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+				if (all(uv >= float2(0.0, 0.0)) && all(uv <= float2(1.0, 1.0)))
+				{
+					const float zR = clamp(proj.z, 0.0, 1.0);
+					const float bias = SpotShadowReceiverBias(Normal, LtowardLight);
+					outVis = clamp(PCF_SpotShadowR32(uv, zR, 0.0022, bias), 0.0, 1.0);
+				}
+			}
+		}
+	}
+	return outVis;
 }
 
 #endif // MINIENGINE_SPOT_SHADOW_SAMPLING_HLSL

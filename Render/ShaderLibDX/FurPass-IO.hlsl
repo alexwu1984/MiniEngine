@@ -1,11 +1,10 @@
-#ifndef GLTFPBRPassIO
-#define GLTFPBRPassIO
+#ifndef FurPassIO
+#define FurPassIO
 
 //--------------------------------------------------------------------------------------
-//  For PS input struct (tangent always present — CPU generates missing glTF tangents).
+// Fur forward VS → PS linkage only (do not use in PBR / shadow — avoids extra TEXCOORD).
 //--------------------------------------------------------------------------------------
-
-struct VS_OUTPUT_SCENE
+struct VS_OUTPUT_FUR
 {
 	float4 svPosition : SV_POSITION;
 	float3 WorldPos : POSITION0;
@@ -18,7 +17,7 @@ struct VS_OUTPUT_SCENE
 	float2 UV1 : TEXCOORD1;
 	float4 svCurrPosition : TEXCOORD2;
 	float4 svPrevPosition : TEXCOORD3;
+	nointerpolation float FurShellOffset : TEXCOORD6;
 };
-
 
 #endif

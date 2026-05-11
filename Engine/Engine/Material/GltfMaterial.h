@@ -27,6 +27,7 @@ namespace Engine
 		bool UsesMaterialAlphaMask() const override;
 		float GetMaterialAlphaCutoff() const override;
 		bool IsDoubleSided() const override;
+		bool WantsRHIBindless() const override;
 		void SetTransparent(bool Transparent);
 
 		MaterialType GetMaterialType() const override;

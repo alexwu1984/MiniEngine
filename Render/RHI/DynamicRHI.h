@@ -81,6 +81,9 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() = 0;
 
+		/** Backend API; used with MaterialBase::WantsRHIBindless() to decide RHI_BINDLESS shader macros (D3D12 only). */
+		virtual RHIAPIType GetRHIAPIType() const { return RHIAPIType::E_D3D11; }
+
 		// Frame boundary hooks: engine systems (e.g. transient pooling) can attach per-frame work here.
 		using FrameCallback = std::function<void()>;
 		void SetFrameCallbacks(FrameCallback InBeginFrame, FrameCallback InEndFrame)

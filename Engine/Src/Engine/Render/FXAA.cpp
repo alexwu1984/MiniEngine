@@ -55,11 +55,7 @@ namespace RenderCore
 		std::wstring VSShaderPath = ShaderPath + L"PostProcess.hlsl";
 		d->VertexShader = d->RHI->RHICreateVertexShader(VSShaderPath, "VS_ScreenQuad", {}, {});
 		std::wstring PSShaderPath = ShaderPath + L"FXAA.xsf";
-		std::vector< RHIShaderMacro> ShaderMacros;
-		ShaderMacros.push_back({"XIN_FXAA_QUALITY_LEVEL","16"});
-		ShaderMacros.push_back({"XIN_FXAA_CONSOLE","0"});
-		ShaderMacros.push_back({"FXAA_GREEN_AS_LUMA","0"});
-		d->PixelShader = d->RHI->RHICreatePixelShader(PSShaderPath, "FXAA_3_11_PixelShader", ShaderMacros);
+		d->PixelShader = d->RHI->RHICreatePixelShader(PSShaderPath, "FXAA_3_11_PixelShader", {});
 	}
 
 	void FXAA::InvalidateTransientResources()

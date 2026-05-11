@@ -141,7 +141,7 @@ void GltfViewApp::BuildModelList()
 		L"busterDrone.json",
 		L"harley.json",
 		L"BS_Model5.json",
-		L"Model1.json",
+		L"Model_fxaa.json",
 		L"spotlight_test.json",
 		L"Model4_fur.json",
 		L"old_bicycle.json",

@@ -38,6 +38,11 @@ namespace Engine
 		virtual float GetMaterialAlphaCutoff() const { return 0.5f; }
 		/** glTF doubleSided / DCC two-sided: disable back-face cull; shaders flip shading normal toward camera on back faces. */
 		virtual bool IsDoubleSided() const { return false; }
+		/**
+		 * When true and RHI is D3D12, PBR/Fur/translucent material shaders compile with RHI_BINDLESS=1 (texture heap layout).
+		 * Default false; glTF/Assimp/procedural PBR materials override true.
+		 */
+		virtual bool WantsRHIBindless() const { return false; }
 		virtual std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const = 0;
 		virtual std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const = 0;
 		virtual std::shared_ptr<RenderCore::RHITexture2D> GetNormalTexture() const = 0;

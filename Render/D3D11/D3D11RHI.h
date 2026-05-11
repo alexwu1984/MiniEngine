@@ -41,6 +41,8 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() { return TEXT("D3D11"); }
 
+		RHIAPIType GetRHIAPIType() const override { return RHIAPIType::E_D3D11; }
+
 		virtual std::shared_ptr< RHICommandContext> GetDefaultCommandContext() override;
 		virtual std::shared_ptr< RHICommandContext> GetDefaultAsyncComputeContext() override;
 		virtual std::shared_ptr< RHIViewPort> RHICreateViewport(void* WindowHandle, uint32_t SizeX, uint32_t SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat) override;

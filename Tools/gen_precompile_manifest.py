@@ -1,19 +1,27 @@
 ﻿#!/usr/bin/env python3
 """Generate Render/ShaderLibDX/precompile_manifest.json from structured Python data.
 
+Scope: **GLFFViewer** (GLFFViewer.exe → Engine + WorldSceneRender / deferred / shadows / IBL / post).
+DemoRunner / SoftwareRender / standalone demos are not listed — they JIT-compile any extra shaders locally.
+
 Do not hand-edit the JSON. Macro **push order** must match C++ (hashes + runtime compile).
 
 Simplification model (see *_permutation_axes functions below):
   - Shadow / PBR / translucent permutations are Cartesian products of a few boolean axes.
   - Each axis maps to one or more RHIShaderMacro entries in fixed order (mirroring InitShader / InitResource).
-  - Adding a new axis = one new loop + append rules — no hand-maintained 16-row tables.
 
-Run: python Tools/gen_precompile_manifest.py  |  CMake target PrecompileMiniEngineShaders
+Run: python Tools/gen_precompile_manifest.py  |  CMake target PrecompileMiniEngineShaders (depends from GLFFViewer only; see CMakeLists.txt)
 
-C++ sources of truth:
-  Shadow:          Engine/Src/Engine/Render/Shadow/ShadowPS.cpp InitResource
-  PBR base pass:   Engine/Src/Engine/Render/PBRMaterialRender.cpp InitShader
-  Translucent PS:  PBRMaterialRender.cpp FilterMacrosTranslucentForwardPS (subset; order preserved here)
+C++ sources of truth (Engine paths used by the viewer):
+  Shadow, PBR, Fur, translucent, deferred lighting, post (tonemap/bloom/SSR/bloom CS), TAA, SSR, sky/IBL bake,
+  procedural sky cube, mips, shadow debug wire, FXAA (optional AA path). Not included: EnvironmentShaders / PostProcessDemo /
+  LuquidClass / DownSamplePS / BlurPS-only paths (no GLFFViewer references).
+
+Vertex layout: tangent always on CPU when missing. Skinning uses ID_SKINNING_MATRICES only.
+
+Material shaders (PBR / Fur / translucent PS): manifest lists **both** macro sets — without `RHI_BINDLESS` (D3D11
+runtime) and with `RHI_BINDLESS=1` (D3D12 when material `WantsRHIBindless()` is true) — so offline `.cso` can match
+either API; macro order matches C++ push order per variant.
 """
 
 from __future__ import annotations
@@ -32,65 +40,42 @@ def _defs(*pairs: tuple[str, str]) -> list[list[str]]:
 
 
 def shadow_pass_permutation_axes() -> list[list[list[str]]]:
-    """ShadowPS.cpp push order: ID_SKINNING → HAS_TANGENT → HAS_WEIGHTS_0 → SHADOW_ALPHA_CLIP."""
+    """ShadowPS.cpp: optional ID_SKINNING_MATRICES only; alpha clip is runtime via MaterialShaderFlags (no macro)."""
     out: list[list[list[str]]] = []
     for skinned in (False, True):
-        for tangent in (False, True):
-            for alpha_clip in (False, True):
-                pairs: list[tuple[str, str]] = []
-                if skinned:
-                    pairs.append(("ID_SKINNING_MATRICES", "2"))
-                if tangent:
-                    pairs.append(("HAS_TANGENT", "1"))
-                if skinned:
-                    pairs.append(("HAS_WEIGHTS_0", "1"))
-                if alpha_clip:
-                    pairs.append(("SHADOW_ALPHA_CLIP", "1"))
-                out.append(_defs(*pairs))
+        pairs: list[tuple[str, str]] = []
+        if skinned:
+            pairs.append(("ID_SKINNING_MATRICES", "2"))
+        out.append(_defs(*pairs))
     return out
 
 
 def pbr_material_permutation_axes() -> list[list[list[str]]]:
-    """PBRMaterialRender::InitShader push order (before AddShaderMacro): skin block → tangent → weights →
-    WRITE_BASECOLOR_ALPHA_TO_GBUFFER → MATERIAL_DOUBLE_SIDED → RHI_BINDLESS."""
+    """PBRMaterialRender::InitShader: optional ID_SKINNING_MATRICES; optional RHI_BINDLESS (D3D12 only at runtime)."""
     out: list[list[list[str]]] = []
     for skinned in (False, True):
-        for tangent in (False, True):
-            for write_alpha in (False, True):
-                for double_sided in (False, True):
-                    pairs: list[tuple[str, str]] = []
-                    if skinned:
-                        pairs.append(("ID_SKINNING_MATRICES", "2"))
-                    if tangent:
-                        pairs.append(("HAS_TANGENT", "1"))
-                    if skinned:
-                        pairs.append(("HAS_WEIGHTS_0", "1"))
-                    if write_alpha:
-                        pairs.append(("WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1"))
-                    if double_sided:
-                        pairs.append(("MATERIAL_DOUBLE_SIDED", "1"))
-                    pairs.append(("RHI_BINDLESS", "1"))
-                    out.append(_defs(*pairs))
-    return out
-
-
-def translucent_forward_permutation_axes() -> list[list[list[str]]]:
-    """Translucent forward PS macros after FilterMacros…: HAS_TANGENT → MATERIAL_DOUBLE_SIDED → RHI_BINDLESS."""
-    out: list[list[list[str]]] = []
-    for tangent in (False, True):
-        for double_sided in (False, True):
+        for use_bindless in (False, True):
             pairs: list[tuple[str, str]] = []
-            if tangent:
-                pairs.append(("HAS_TANGENT", "1"))
-            if double_sided:
-                pairs.append(("MATERIAL_DOUBLE_SIDED", "1"))
-            pairs.append(("RHI_BINDLESS", "1"))
+            if skinned:
+                pairs.append(("ID_SKINNING_MATRICES", "2"))
+            if use_bindless:
+                pairs.append(("RHI_BINDLESS", "1"))
             out.append(_defs(*pairs))
     return out
 
 
+def fur_material_permutation_axes() -> list[list[list[str]]]:
+    """Fur forward: same macro axes as PBRMaterialRender::InitShader (skinning × bindless, matching inner + shell)."""
+    return pbr_material_permutation_axes()
+
+
+def translucent_forward_permutation_axes() -> list[list[list[str]]]:
+    """TranslucentPBRForward PS: FilterMacrosTranslucentForwardPS leaves empty (D3D11) or RHI_BINDLESS (D3D12)."""
+    return [_defs(), _defs(("RHI_BINDLESS", "1"))]
+
+
 MANIFEST_COMMENT = (
-    "AUTO-GENERATED by Tools/gen_precompile_manifest.py — edit that script, then run it "
+    "AUTO-GENERATED by Tools/gen_precompile_manifest.py — GLFFViewer/Engine scope only; edit script then run "
     "(or build PrecompileMiniEngineShaders). Defines order must match C++ RHIShaderMacro push order."
 )
 
@@ -112,21 +97,31 @@ def build_shaders_list() -> list[dict]:
 
     shaders.extend(
         [
+            {"file": "PostProcess.hlsl", "entry": "VS_ScreenQuad", "profile": "vs_5_0", "defines": []},
             {"file": "PostProcess.hlsl", "entry": "PS_Tonemapping", "profile": "ps_5_0", "defines": []},
             {"file": "PostProcess.hlsl", "entry": "PS_ApplyBloom", "profile": "ps_5_0", "defines": []},
             {"file": "PostProcess.hlsl", "entry": "PS_ApplySSR", "profile": "ps_5_0", "defines": []},
             {"file": "PostProcess.hlsl", "entry": "CS_ExtractBloom", "profile": "cs_5_0", "defines": []},
             {"file": "PostProcess.hlsl", "entry": "CS_DownSample", "profile": "cs_5_0", "defines": []},
             {"file": "PostProcess.hlsl", "entry": "CS_UpSample", "profile": "cs_5_0", "defines": []},
+            {"file": "PostProcess.hlsl", "entry": "CS_Blur", "profile": "cs_5_0", "defines": []},
             {"file": "SSR.hlsl", "entry": "PS_SSR", "profile": "ps_5_0", "defines": []},
             {"file": "TAACS.hlsl", "entry": "TAA_Main", "profile": "cs_5_0", "defines": []},
             {"file": "TAASharpenerCS.hlsl", "entry": "mainCS", "profile": "cs_5_0", "defines": []},
+            {"file": "SkyLightRenderPass.hlsl", "entry": "VS_SkyFullscreen", "profile": "vs_5_0", "defines": []},
             {"file": "SkyLightRenderPass.hlsl", "entry": "PS", "profile": "ps_5_0", "defines": []},
+            {"file": "EnvironmentSkyIBL.hlsl", "entry": "VS_SkyCube", "profile": "vs_5_0", "defines": []},
             {"file": "EnvironmentSkyIBL.hlsl", "entry": "PS_GenIrradiance", "profile": "ps_5_0", "defines": []},
             {"file": "EnvironmentSkyIBL.hlsl", "entry": "PS_GenPrefiltered", "profile": "ps_5_0", "defines": []},
+            {"file": "IBLLongLatToCube.hlsl", "entry": "VS_SkyCube", "profile": "vs_5_0", "defines": []},
             {"file": "IBLLongLatToCube.hlsl", "entry": "PS_LongLatToCube", "profile": "ps_5_0", "defines": []},
             {"file": "SkyAtmosphere.hlsl", "entry": "PS_ProceduralSkyCube", "profile": "ps_5_0", "defines": []},
+            {"file": "GenerateMips.hlsl", "entry": "VS_Main_Cube", "profile": "vs_5_0", "defines": []},
             {"file": "GenerateMips.hlsl", "entry": "PS_Main_Cube", "profile": "ps_5_0", "defines": []},
+            {"file": "DeferredLighting.hlsl", "entry": "VS_ScreenQuad", "profile": "vs_5_0", "defines": []},
+            {"file": "ShadowDebugWire.hlsl", "entry": "VS", "profile": "vs_5_0", "defines": []},
+            {"file": "ShadowDebugWire.hlsl", "entry": "PS", "profile": "ps_5_0", "defines": []},
+            {"file": "FXAA.xsf", "entry": "FXAA_3_11_PixelShader", "profile": "ps_5_0", "defines": []},
         ]
     )
 
@@ -137,6 +132,10 @@ def build_shaders_list() -> list[dict]:
     for defs in pbr_material_permutation_axes():
         shaders.append({"file": "PBRMaterial.hlsl", "entry": "MainPS", "profile": "ps_5_1", "defines": defs})
         shaders.append({"file": "PBRMaterial.hlsl", "entry": "MainVS", "profile": "vs_5_0", "defines": defs})
+
+    for defs in fur_material_permutation_axes():
+        shaders.append({"file": "FurMaterial.hlsl", "entry": "MainPS", "profile": "ps_5_1", "defines": defs})
+        shaders.append({"file": "FurPass-VS.hlsl", "entry": "MainVS", "profile": "vs_5_0", "defines": defs})
 
     return shaders
 

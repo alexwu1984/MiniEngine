@@ -163,6 +163,11 @@ namespace Engine
 		return d->DoubleSided;
 	}
 
+	bool GltfMaterial::WantsRHIBindless() const
+	{
+		return true;
+	}
+
 	void GltfMaterial::SetTransparent(bool Transparent)
 	{
 		C_P(GltfMaterial);

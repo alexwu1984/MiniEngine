@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngine)
 
@@ -157,9 +157,8 @@ if(MINIENGINE_PYTHON_EXECUTABLE)
 		COMMENT "Incremental precompile HLSL -> Render/ShaderLibDX/Built")
 	set_target_properties(PrecompileMiniEngineShaders PROPERTIES FOLDER Tools)
 	# Run before robocopy ShaderLibDX so exe-side Built/ always has fresh .cso when building apps.
+	# Offline bytecode is sized for the main GLTF viewer; DemoRunner/SoftwareRender JIT extras as needed.
 	add_dependencies(GLFFViewer_RuntimeAssets PrecompileMiniEngineShaders)
-	add_dependencies(SoftwareRender_RuntimeAssets PrecompileMiniEngineShaders)
-	add_dependencies(DemoRunner_RuntimeAssets PrecompileMiniEngineShaders)
 else()
 	message(STATUS "MiniEngine: Python not found (python/python3/py); offline shader precompile disabled (JIT only).")
 endif()

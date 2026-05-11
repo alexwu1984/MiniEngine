@@ -26,13 +26,12 @@ namespace Engine
 
 	protected:
 		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures) override;
-		virtual bool WantsRHIBindless() const override { return false; }
 		bool ShouldCompileTranslucentForwardPixelShader() const override { return false; }
+		std::wstring GetVertexShaderFileNameSuffix() const override;
 
 	private:
 		void DrawDeferredInnerBase(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 		virtual std::wstring GetShaderFileName() const;
-		virtual void AddShaderMacro(std::vector<RenderCore::RHIShaderMacro>& ShaderMacros);
 		virtual void DrawMesh(RenderCore::RHICommandContext& RHIContext) override;
 		virtual void PreDrawMesh(RenderCore::RHICommandContext& RHIContext) override;
 		virtual bool IsNeedPreDraw() const override;

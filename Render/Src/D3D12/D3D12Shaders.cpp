@@ -43,11 +43,13 @@ namespace RenderCore
 	bool FD3D12VertexShader::CreateShader(const std::wstring& FileName, const std::string& VSMain, 
 											const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
+		const std::vector<RHIShaderMacro>& EffectiveMacros = MacroDefines;
+
 		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
-		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(EffectiveMacros, D3DShaderMacros);
 
 		std::vector<uint8_t> precompiledBC;
-		if (!TryLoadPrecompiledShaderBytecode(FileName, VSMain, "vs_5_0", MacroDefines, precompiledBC))
+		if (!TryLoadPrecompiledShaderBytecode(FileName, VSMain, "vs_5_0", EffectiveMacros, precompiledBC))
 		{
 			bool Ret = ShaderUtil::CompileShader(FileName, D3DShaderMacros.data(), VSMain, "vs_5_0", Code.get_init_ref());
 			if (!Ret)
@@ -91,7 +93,7 @@ namespace RenderCore
 		KeyName = core::format(Path.filename().string(),"_", VSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
 		Hash = core::Crc::HashState(VertexDeclare.GetDeclareDesc().data(), VertexDeclare.GetDeclareDesc().size(), Hash);
-		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
+		Hash = static_cast<uint32_t>(HashShaderMacros(EffectiveMacros, Hash));
 		Hash = core::Crc::MemCrc32(shaderCode.data(), (int32_t)shaderCode.size(), Hash);
 		return true;
 	}
@@ -104,13 +106,15 @@ namespace RenderCore
 
 	bool FD3D12PixelShader::CreateShader(const std::wstring& FileName, const std::string& PSMain, const std::vector<RHIShaderMacro>& MacroDefines)
 	{
-		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
-		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(MacroDefines, D3DShaderMacros);
+		const std::vector<RHIShaderMacro>& EffectiveMacros = MacroDefines;
 
-		const char* const psTarget = PixelShaderUsesBindlessMacros(MacroDefines) ? "ps_5_1" : "ps_5_0";
+		std::vector< D3D_SHADER_MACRO> D3DShaderMacros;
+		ShaderUtil::RHIShaderMarcoToD3DShaderMacro(EffectiveMacros, D3DShaderMacros);
+
+		const char* const psTarget = PixelShaderUsesBindlessMacros(EffectiveMacros) ? "ps_5_1" : "ps_5_0";
 
 		std::vector<uint8_t> precompiledBC;
-		TryLoadPrecompiledShaderBytecode(FileName, PSMain, psTarget, MacroDefines, precompiledBC);
+		TryLoadPrecompiledShaderBytecode(FileName, PSMain, psTarget, EffectiveMacros, precompiledBC);
 		if (!precompiledBC.empty())
 		{
 			HRESULT hrBlob = D3DCreateBlob(precompiledBC.size(), Code.get_init_ref());
@@ -153,7 +157,7 @@ namespace RenderCore
 		std::filesystem::path Path(core::ucs2_u8(FileName));
 		KeyName = core::format(Path.filename().string(), "_", PSMain);
 		Hash = core::Crc::MemCrc32(KeyName.data(), KeyName.size());
-		Hash = static_cast<uint32_t>(HashShaderMacros(MacroDefines, Hash));
+		Hash = static_cast<uint32_t>(HashShaderMacros(EffectiveMacros, Hash));
 		Hash = core::Crc::MemCrc32(shaderCode.data(), (int32_t)shaderCode.size(), Hash);
 		return true;
 	}

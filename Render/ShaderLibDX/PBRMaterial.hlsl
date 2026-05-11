@@ -47,20 +47,14 @@ PS_OUTPUT_SCENE MainPS(VS_OUTPUT_SCENE Input)
         float4 bc = AlbedoMap.Sample(SampleLinear, Input.UV0);
         float3 albedoLin = sRGBToLinear(bc.rgb);
         float3 emLin = sRGBToLinear(EmissMap.Sample(SampleLinear, Input.UV0).rgb);
-#if defined(WRITE_BASECOLOR_ALPHA_TO_GBUFFER)
-        Output.Target0 = float4(albedoLin + emLin, bc.a);
-#else
-        Output.Target0 = float4(albedoLin + emLin, 1.0);
-#endif
+        float unlitA = ((myMaterial.MaterialShaderFlags & kMatShaderFlag_WriteBaseColorAlpha) != 0) ? bc.a : 1.0;
+        Output.Target0 = float4(albedoLin + emLin, unlitA);
         return Output;
     }
 
     // Lit: G-buffer only; analytic + IBL lighting in DeferredLighting.hlsl (Target0 = linear base albedo, not shaded HDR).
     float4 baseTex = AlbedoMap.Sample(SampleLinear, Input.UV0);
-#if defined(WRITE_BASECOLOR_ALPHA_TO_GBUFFER)
-    Output.Target0 = float4(sRGBToLinear(baseTex.rgb), alpha);
-#else
-    Output.Target0 = float4(sRGBToLinear(baseTex.rgb), 1.0);
-#endif
+    float litA = ((myMaterial.MaterialShaderFlags & kMatShaderFlag_WriteBaseColorAlpha) != 0) ? alpha : 1.0;
+    Output.Target0 = float4(sRGBToLinear(baseTex.rgb), litA);
     return Output;
 }

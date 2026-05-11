@@ -54,6 +54,8 @@ namespace RenderCore
 
 		virtual const TCHAR* GetName() { return TEXT("D3D12"); }
 
+		RHIAPIType GetRHIAPIType() const override { return RHIAPIType::E_D3D12; }
+
 		virtual std::shared_ptr<RHICommandContext> GetDefaultCommandContext() override;
 		virtual std::shared_ptr<RHICommandContext> GetDefaultAsyncComputeContext() override;
 		win32::com_ptr<ID3D12CommandQueue> CreateCommandQueue(std::weak_ptr<FD3D12Device> Device, const D3D12_COMMAND_QUEUE_DESC& Desc);

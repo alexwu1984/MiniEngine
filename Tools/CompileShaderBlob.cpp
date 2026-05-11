@@ -1,4 +1,4 @@
-// Offline shader bytecode writer using D3DCompileFromFile (same path as runtime JIT).
+﻿// Offline shader bytecode writer using D3DCompileFromFile (same path as runtime JIT).
 // Usage: CompileShaderBlob.exe <output.cso> <input.hlsl> <entry> <profile> [MACRO=VALUE ...]
 
 #ifndef UNICODE

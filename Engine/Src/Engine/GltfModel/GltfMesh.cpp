@@ -6,6 +6,8 @@
 #include "GltfModel/GltfSkeleton.h"
 #include "math/matrix4x4.h"
 #include "tinygltf/tiny_gltf.h"
+#include <cmath>
+#include <vector>
 
 namespace Engine
 {
@@ -13,6 +15,85 @@ namespace Engine
 
 	namespace
 	{
+		/** Lengyel-style tangent + handedness when glTF has no TANGENT attribute (mirrors Assimp CalcTangentSpace intent). */
+		static bool GeneratePerVertexTangents(
+			uint32_t nVert,
+			uint32_t nFaces,
+			const Vector3* pos,
+			const Vector3* normals,
+			const Vector2* uv,
+			const uint16_t* idx16,
+			const uint32_t* idx32,
+			std::vector<Vector4>& outTangents)
+		{
+			if (!pos || !normals || !uv || nVert == 0u || nFaces == 0u)
+				return false;
+			std::vector<Vector3> tan1(nVert, Vector3::Zero);
+			std::vector<Vector3> tan2(nVert, Vector3::Zero);
+
+			auto cornerIndex = [&](uint32_t face, int k) -> uint32_t {
+				const uint32_t ix = face * 3u + static_cast<uint32_t>(k);
+				if (idx16)
+					return idx16[ix];
+				return idx32[ix];
+			};
+
+			for (uint32_t f = 0; f < nFaces; ++f)
+			{
+				const uint32_t i0 = cornerIndex(f, 0);
+				const uint32_t i1 = cornerIndex(f, 1);
+				const uint32_t i2 = cornerIndex(f, 2);
+				if (i0 >= nVert || i1 >= nVert || i2 >= nVert)
+					continue;
+
+				const Vector3& v0 = pos[i0];
+				const Vector3& v1 = pos[i1];
+				const Vector3& v2 = pos[i2];
+				const Vector2& w0 = uv[i0];
+				const Vector2& w1 = uv[i1];
+				const Vector2& w2 = uv[i2];
+
+				const Vector3 e1 = v1 - v0;
+				const Vector3 e2 = v2 - v0;
+				const float x1 = w1.x - w0.x;
+				const float x2 = w2.x - w0.x;
+				const float y1 = w1.y - w0.y;
+				const float y2 = w2.y - w0.y;
+				const float denom = x1 * y2 - x2 * y1;
+				if (std::fabs(denom) < 1e-8f)
+					continue;
+				const float r = 1.0f / denom;
+				const Vector3 sdir = (e1 * y2 - e2 * y1) * r;
+				const Vector3 tdir = (e2 * x1 - e1 * x2) * r;
+				tan1[i0] += sdir;
+				tan1[i1] += sdir;
+				tan1[i2] += sdir;
+				tan2[i0] += tdir;
+				tan2[i1] += tdir;
+				tan2[i2] += tdir;
+			}
+
+			outTangents.resize(nVert);
+			for (uint32_t i = 0; i < nVert; ++i)
+			{
+				const Vector3 n = normals[i].Normalize();
+				Vector3 t = tan1[i];
+				if (t.GetSqrLength() < 1e-12f)
+				{
+					const Vector3 up(std::fabs(n.y) < 0.99f ? 0.f : 1.f, std::fabs(n.y) < 0.99f ? 1.f : 0.f, 0.f);
+					t = Vector3::Cross(up, n).Normalize();
+				}
+				else
+				{
+					t = (t - n * Vector3::Dot(n, t)).Normalize();
+				}
+				const Vector3 b = Vector3::Cross(n, t);
+				const float handedness = (Vector3::Dot(b, tan2[i]) < 0.0f) ? -1.0f : 1.0f;
+				outTangents[i] = Vector4(t.x, t.y, t.z, handedness);
+			}
+			return true;
+		}
+
 		void DfsCollectNodesWithMesh(const tinygltf::Model& model, int nodeIdx, int meshIndex, std::vector<int>& outOrdered)
 		{
 			if (nodeIdx < 0 || nodeIdx >= static_cast<int>(model.nodes.size()))
@@ -65,6 +146,8 @@ namespace Engine
 		std::shared_ptr<VertexBoneID> OwnedConvertedJointIds;
 		/** When TEXCOORD_* is vec3/vec4 in glTF, GPU stream must be vec2 — owned XY copy (do not alias vec3 buffer as Vector2*). */
 		std::shared_ptr<std::vector<Vector2>> OwnedTexCoords0;
+		/** Filled when primitive has no TANGENT attribute; keeps GPU IL stable without HAS_TANGENT shader permutations. */
+		std::shared_ptr<std::vector<Vector4>> OwnedGeneratedTangents;
 	};
 
 	GltfMesh::GltfMesh(tinygltf::Model* Model, GltfModel* Owner)
@@ -204,6 +287,35 @@ namespace Engine
 			else if (attribute.first == "WEIGHTS_0")
 			{
 				d->Mesh->BoneWeights = (VertexBoneWeight*)Getdata(attribute.second, d->Mesh->nNumVertices, type);
+			}
+		}
+
+		// Tangents: generate when missing so VS always uses the same layout as OBJ/Assimp (aiProcess_CalcTangentSpace).
+		if (d->Mesh->nNumVertices > 0u && d->Mesh->Vertices && d->Mesh->Normals && (d->Mesh->FacesIndex || d->Mesh->FacesIndex32))
+		{
+			if (!d->Mesh->TextureCoords)
+			{
+				d->OwnedTexCoords0 = std::make_shared<std::vector<Vector2>>(d->Mesh->nNumVertices, Vector2(0.f, 0.f));
+				d->Mesh->TextureCoords = d->OwnedTexCoords0->data();
+			}
+			if (!d->Mesh->Tangents)
+			{
+				d->OwnedGeneratedTangents = std::make_shared<std::vector<Vector4>>();
+				if (GeneratePerVertexTangents(
+						d->Mesh->nNumVertices,
+						d->Mesh->nNumFaces,
+						d->Mesh->Vertices,
+						d->Mesh->Normals,
+						d->Mesh->TextureCoords,
+						d->Mesh->FacesIndex,
+						d->Mesh->FacesIndex32,
+						*d->OwnedGeneratedTangents))
+					d->Mesh->Tangents = d->OwnedGeneratedTangents->data();
+			}
+			if (!d->Mesh->Tangents && d->Mesh->nNumVertices > 0u)
+			{
+				d->OwnedGeneratedTangents = std::make_shared<std::vector<Vector4>>(d->Mesh->nNumVertices, Vector4(1.f, 0.f, 0.f, 1.f));
+				d->Mesh->Tangents = d->OwnedGeneratedTangents->data();
 			}
 		}
 

@@ -108,15 +108,18 @@ float GetRangeAttenuation(float Range, float Distance)
 	float d = max(Distance, 0.0);
 	float d2 = d * d;
 	float distanceAttenuation = rcp(max(d2, 1e-8) + 1.0);
-	if (Range < 0.0)
-		return distanceAttenuation;
-	float r = max(Range, 1e-4);
-	float invR = 1.0 / r;
-	float dd = max(d2 * (invR * invR), 0.0);
-	float dd4 = dd * dd;
-	float lightRadiusMaskSq = saturate(1.0 - dd4);
-	float lightRadiusMask = lightRadiusMaskSq * lightRadiusMaskSq;
-	return distanceAttenuation * lightRadiusMask;
+	float result = distanceAttenuation;
+	if (Range >= 0.0)
+	{
+		float r = max(Range, 1e-4);
+		float invR = 1.0 / r;
+		float dd = max(d2 * (invR * invR), 0.0);
+		float dd4 = dd * dd;
+		float lightRadiusMaskSq = saturate(1.0 - dd4);
+		float lightRadiusMask = lightRadiusMaskSq * lightRadiusMaskSq;
+		result = distanceAttenuation * lightRadiusMask;
+	}
+	return result;
 }
 
 float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterConeCos, float InnerConeCos)
@@ -127,9 +130,10 @@ float GetSpotAttenuation(float3 PointToLight, float3 SpotDirection, float OuterC
 	float3 ax = normalize(SpotDirection);
 	float3 toSurf = normalize(-PointToLight);
 	float cosTheta = dot(ax, toSurf);
+	float result = saturate(smoothstep(lo, hi, cosTheta));
 	if (hi - lo < 1e-5)
-		return cosTheta >= lo - 1e-5 ? 1.0 : 0.0;
-	return saturate(smoothstep(lo, hi, cosTheta));
+		result = cosTheta >= lo - 1e-5 ? 1.0 : 0.0;
+	return result;
 }
 
 float ComputeShadow(float4 ShadowCoord, float3 Normal)
@@ -143,23 +147,25 @@ float ComputeShadow(float4 ShadowCoord, float3 Normal)
 // broken stripes. Use stable PCF + stronger bias (extra from shell coverage).
 float ComputeShadowHair(float4 ShadowCoord, float3 Normal, float coverageAlpha)
 {
-	float vis = 1.0;
+	float outVis = 1.0;
 	const float w = ShadowCoord.w;
-	if (abs(w) < 1e-6)
-		return vis;
-	const float3 proj = ShadowCoord.xyz / w;
-	if (proj.z <= 0.0 || proj.z >= 1.0)
-		return vis;
-	const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
-	if (any(uv < 0.0) || any(uv > 1.0))
-		return vis;
-
-	const float zR = clamp(proj.z, 0.0, 1.0);
-	float bias = ShadowDepthBiasPCSS(Normal);
-	// Pull receivers off the occluder depth from the inner shell; wispy tips need more slack.
-	bias += 0.00115 + saturate(1.0 - coverageAlpha) * 0.00135;
-	const float fixedPcfRadius = 0.0020;
-	return PCF_ShadowR32(uv, zR, fixedPcfRadius, bias);
+	if (abs(w) >= 1e-6)
+	{
+		const float3 proj = ShadowCoord.xyz / w;
+		if (proj.z > 0.0 && proj.z < 1.0)
+		{
+			const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+			if (all(uv >= float2(0.0, 0.0)) && all(uv <= float2(1.0, 1.0)))
+			{
+				const float zR = clamp(proj.z, 0.0, 1.0);
+				float bias = ShadowDepthBiasPCSS(Normal);
+				bias += 0.00115 + saturate(1.0 - coverageAlpha) * 0.00135;
+				const float fixedPcfRadius = 0.0020;
+				outVis = PCF_ShadowR32(uv, zR, fixedPcfRadius, bias);
+			}
+		}
+	}
+	return outVis;
 }
 #endif // !MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR
 
@@ -168,26 +174,31 @@ int PointShadowCubeFaceIndex(float3 dirW)
 	float3 a = abs(dirW);
 	if (a.x >= a.y && a.x >= a.z)
 		return dirW.x > 0.0 ? 0 : 1;
-	if (a.y >= a.z)
+	else if (a.y >= a.z)
 		return dirW.y > 0.0 ? 2 : 3;
-	return dirW.z > 0.0 ? 4 : 5;
+	else
+		return dirW.z > 0.0 ? 4 : 5;
 }
 
 float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float lightRange)
 {
-	if (PointShadowEnabled == 0)
-		return 1.0;
-	float3 toFrag = worldPos - lightPos;
-	float dist = length(toFrag);
-	if (dist >= lightRange - 1e-3)
-		return 1.0;
-	float3 dir = toFrag / max(dist, 1e-5);
-	int face = PointShadowCubeFaceIndex(dir);
-	float4 clip = mul(float4(worldPos, 1.0), PointFaceVP[face]);
-	float zR = clip.z / max(clip.w, 1e-6);
-	float zMap = PointShadowCube.SampleLevel(SampleShadow, dir, 0).r;
-	float bias = 0.002;
-	return (zR <= zMap + bias) ? 1.0 : 0.0;
+	float outVis = 1.0;
+	if (PointShadowEnabled != 0)
+	{
+		float3 toFrag = worldPos - lightPos;
+		float dist = length(toFrag);
+		if (dist < lightRange - 1e-3)
+		{
+			float3 dir = toFrag / max(dist, 1e-5);
+			int face = PointShadowCubeFaceIndex(dir);
+			float4 clip = mul(float4(worldPos, 1.0), PointFaceVP[face]);
+			float zR = clip.z / max(clip.w, 1e-6);
+			float zMap = PointShadowCube.SampleLevel(SampleShadow, dir, 0).r;
+			float bias = 0.002;
+			outVis = (zR <= zMap + bias) ? 1.0 : 0.0;
+		}
+	}
+	return outVis;
 }
 
 #ifndef MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR

@@ -347,6 +347,7 @@ namespace Engine
 			MaterialType GetMaterialType() const override { return MaterialType::PBR; }
 			std::string GetMaterialName() const override { return "ProceduralPBR"; }
 			bool IsTransparent() const override { return false; }
+			bool WantsRHIBindless() const override { return true; }
 			std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const override { return BaseColorTex; }
 			std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const override { return MetalRoughTex; }
 			std::shared_ptr<RenderCore::RHITexture2D> GetNormalTexture() const override { return NormalTex; }

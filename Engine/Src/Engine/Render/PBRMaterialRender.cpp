@@ -4,6 +4,7 @@
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "Thread/RenderThread.h"
+#include "RHI/DynamicRHI.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIRenderTarget.h"
@@ -31,7 +32,7 @@ namespace Engine
 			Out.reserve(Src.size());
 			for (const RHIShaderMacro& M : Src)
 			{
-				if (M.Name == "WRITE_BASECOLOR_ALPHA_TO_GBUFFER" || M.Name == "ID_SKINNING_MATRICES" || M.Name == "HAS_WEIGHTS_0")
+				if (M.Name == "ID_SKINNING_MATRICES")
 					continue;
 				Out.push_back(M);
 			}
@@ -122,16 +123,13 @@ namespace Engine
 		return L"PBRMaterial.hlsl";
 	}
 
-	void PBRMaterialRender::AddShaderMacro(std::vector< RenderCore::RHIShaderMacro>& ShaderMacros)
-	{
-
-	}
-
 	void PBRMaterialRender::InitShader(const std::wstring& Path)
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND([Path, this](RenderCore::DynamicRHI* RHI) {
 			C_P(PBRMaterialRender);
-			std::wstring ShaderPath = Path + GetShaderFileName();
+			const std::wstring psPath = Path + GetShaderFileName();
+			const std::wstring vsSuffix = GetVertexShaderFileNameSuffix();
+			const std::wstring vsPath = vsSuffix.empty() ? psPath : (Path + vsSuffix);
 
 			const uint32_t VtxFeat = d->MeshBuffer->GetDeclaredVertexFeatures();
 			RHIVertexDeclare VertexDeclareRHI;
@@ -141,42 +139,22 @@ namespace Engine
 
 			std::vector< RHIShaderMacro> ShaderMacros;
 			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
-			{
 				ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
-			}
+
 			int32_t Index = 2;
-			if (VtxFeat & MeshBufferVertexFeatures::Tangent)
-			{
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
-				ShaderMacros.push_back({ "HAS_TANGENT","1" });
-			}
+			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 
 			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
-				ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
-			}
-
-			//ShaderMacros.push_back({"MATERIAL_UNLIT","0"});
-
-			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
-			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 			}
 
-			AddShaderMacro(ShaderMacros);
-
-			if (d->MeshMaterial->IsTransparent())
-				ShaderMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
-
-			if (d->MeshMaterial->IsDoubleSided())
-				ShaderMacros.push_back({ "MATERIAL_DOUBLE_SIDED", "1" });
-
-			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0 && WantsRHIBindless())
+			if (d->MeshMaterial && d->MeshMaterial->WantsRHIBindless() && RHI->GetRHIAPIType() == RHIAPIType::E_D3D12)
 				ShaderMacros.push_back({ "RHI_BINDLESS", "1" });
 
-			d->VertexShader = RHI->RHICreateVertexShader(ShaderPath, "MainVS", VertexDeclareRHI, ShaderMacros);
-			d->PixelShader = RHI->RHICreatePixelShader(ShaderPath, "MainPS", ShaderMacros);
+			d->VertexShader = RHI->RHICreateVertexShader(vsPath, "MainVS", VertexDeclareRHI, ShaderMacros);
+			d->PixelShader = RHI->RHICreatePixelShader(psPath, "MainPS", ShaderMacros);
 
 			if (this->ShouldCompileTranslucentForwardPixelShader())
 			{
@@ -257,7 +235,12 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaCutoff = d->MeshMaterial->GetMaterialAlphaCutoff();
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaMask = d->MeshMaterial->UsesMaterialAlphaMask() ? 1u : 0u;
-		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Padding = 0u;
+		uint32_t shaderFlags = 0u;
+		if (d->MeshMaterial->IsTransparent())
+			shaderFlags |= kMaterialShaderFlag_WriteBaseColorAlphaToGBuffer;
+		if (d->MeshMaterial->IsDoubleSided())
+			shaderFlags |= kMaterialShaderFlag_DoubleSidedShading;
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.MaterialShaderFlags = shaderFlags;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerMaterial));
 
 		if (d->RenderParam.HasSkin)

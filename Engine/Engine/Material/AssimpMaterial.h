@@ -21,6 +21,7 @@ namespace Engine
 		virtual std::string GetMaterialName() const override;
 		virtual bool IsTransparent() const override;
 		bool IsDoubleSided() const override;
+		bool WantsRHIBindless() const override;
 		virtual std::shared_ptr<RenderCore::RHITexture2D> GetBaseColorTexture() const override;
 		virtual std::shared_ptr<RenderCore::RHITexture2D> GetMetallicRoughnessTexture() const override;
 		virtual std::shared_ptr<RenderCore::RHITexture2D> GetNormalTexture() const override;

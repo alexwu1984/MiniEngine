@@ -49,97 +49,99 @@ float PCF_ShadowR32(float2 uvCenter, float zReceiver, float radiusUV, float bias
 
 float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 {
-	float vis = 1.0;
+	float outVis = 1.0;
 	const float w = ShadowCoord.w;
-	if (abs(w) < 1e-6)
-		return vis;
-	const float3 proj = ShadowCoord.xyz / w;
-	if (proj.z <= 0.0 || proj.z >= 1.0)
-		return vis;
-	const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
-	if (any(uv < 0.0) || any(uv > 1.0))
-		return vis;
-
-	const float zR = clamp(proj.z, 0.0, 1.0);
-	const float bias = ShadowDepthBiasPCSS(Normal);
-	float3 Lsun = normalize(GetMainLight().Direction);
-	float grazingSun = saturate(1.0 - abs(Lsun.y));
-
-	float sumBlocker = 0.0;
-	float cnt = 0.0;
-	[unroll]
-	for (int j = 0; j < 16; ++j)
+	if (abs(w) >= 1e-6)
 	{
-		float2 suv = uv + kPoissonDisk16[j] * kPCSSBlockerSearchRadiusUV;
-		suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-		float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-		if (d < zR - bias)
+		const float3 proj = ShadowCoord.xyz / w;
+		if (proj.z > 0.0 && proj.z < 1.0)
 		{
-			sumBlocker += d;
-			cnt += 1.0;
+			const float2 uv = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+			if (all(uv >= float2(0.0, 0.0)) && all(uv <= float2(1.0, 1.0)))
+			{
+				const float zR = clamp(proj.z, 0.0, 1.0);
+				const float bias = ShadowDepthBiasPCSS(Normal);
+				float3 Lsun = normalize(GetMainLight().Direction);
+				float grazingSun = saturate(1.0 - abs(Lsun.y));
+
+				float sumBlocker = 0.0;
+				float cnt = 0.0;
+				[unroll]
+				for (int j = 0; j < 16; ++j)
+				{
+					float2 suv = uv + kPoissonDisk16[j] * kPCSSBlockerSearchRadiusUV;
+					suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
+					float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
+					if (d < zR - bias)
+					{
+						sumBlocker += d;
+						cnt += 1.0;
+					}
+				}
+
+				float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
+				if (cnt >= 1.0)
+				{
+					float avgB = sumBlocker / cnt;
+					float pen = saturate((zR - avgB) * kPCSSPenumbraMul);
+					filterUV = lerp(kPCSSMinFilterRadiusUV, kPCSSMaxFilterRadiusUV, pen);
+				}
+
+				outVis = PCF_ShadowR32(uv, zR, filterUV, bias);
+			}
 		}
 	}
-
-	float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
-	if (cnt >= 1.0)
-	{
-		float avgB = sumBlocker / cnt;
-		float pen = saturate((zR - avgB) * kPCSSPenumbraMul);
-		filterUV = lerp(kPCSSMinFilterRadiusUV, kPCSSMaxFilterRadiusUV, pen);
-	}
-
-	return PCF_ShadowR32(uv, zR, filterUV, bias);
+	return outVis;
 }
 
 /** Vertical atlas: cascade `ci` occupies v in [ci/N, (ci+1)/N). `uvTile01` is x,y within the cascade tile (same mapping as ComputeShadowPCSS local uv). */
 float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN, float zReceiver, float3 Normal)
 {
-	float vis = 1.0;
-	if (zReceiver <= 0.0 || zReceiver >= 1.0)
-		return vis;
-	if (any(uvTile01 < 0.0) || any(uvTile01 > 1.0))
-		return vis;
-
-	float2 uvAtlas = float2(uvTile01.x, (cascadeIdx + uvTile01.y) * invN);
-	const float bias = ShadowDepthBiasPCSS(Normal);
-	float3 Lsun = normalize(GetMainLight().Direction);
-	float grazingSun = saturate(1.0 - abs(Lsun.y));
-
-	float sumBlocker = 0.0;
-	float cnt = 0.0;
-	[unroll]
-	for (int j = 0; j < 16; ++j)
+	float outVis = 1.0;
+	if (zReceiver > 0.0 && zReceiver < 1.0 && all(uvTile01 >= float2(0.0, 0.0)) && all(uvTile01 <= float2(1.0, 1.0)))
 	{
-		float2 ofs = float2(kPoissonDisk16[j].x, kPoissonDisk16[j].y * invN) * kPCSSBlockerSearchRadiusUV;
-		float2 suv = uvAtlas + ofs;
-		suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-		float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-		if (d < zReceiver - bias)
+		float2 uvAtlas = float2(uvTile01.x, (cascadeIdx + uvTile01.y) * invN);
+		const float bias = ShadowDepthBiasPCSS(Normal);
+		float3 Lsun = normalize(GetMainLight().Direction);
+		float grazingSun = saturate(1.0 - abs(Lsun.y));
+
+		float sumBlocker = 0.0;
+		float cnt = 0.0;
+		[unroll]
+		for (int j = 0; j < 16; ++j)
 		{
-			sumBlocker += d;
-			cnt += 1.0;
+			float2 ofs = float2(kPoissonDisk16[j].x, kPoissonDisk16[j].y * invN) * kPCSSBlockerSearchRadiusUV;
+			float2 suv = uvAtlas + ofs;
+			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
+			float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
+			if (d < zReceiver - bias)
+			{
+				sumBlocker += d;
+				cnt += 1.0;
+			}
 		}
-	}
 
-	float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
-	if (cnt >= 1.0)
-	{
-		float avgB = sumBlocker / cnt;
-		float pen = saturate((zReceiver - avgB) * kPCSSPenumbraMul);
-		filterUV = lerp(kPCSSMinFilterRadiusUV, kPCSSMaxFilterRadiusUV, pen);
-	}
+		float filterUV = kPCSSMinFilterRadiusUV + grazingSun * 0.00095;
+		if (cnt >= 1.0)
+		{
+			float avgB = sumBlocker / cnt;
+			float pen = saturate((zReceiver - avgB) * kPCSSPenumbraMul);
+			filterUV = lerp(kPCSSMinFilterRadiusUV, kPCSSMaxFilterRadiusUV, pen);
+		}
 
-	float2 filterOfsScale = float2(1.0, invN);
-	float lit = 0.0;
-	[unroll]
-	for (int i = 0; i < 16; ++i)
-	{
-		float2 suv = uvAtlas + kPoissonDisk16[i] * filterOfsScale * filterUV;
-		suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-		float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-		lit += (zReceiver <= d + bias) ? 1.0 : 0.0;
+		float2 filterOfsScale = float2(1.0, invN);
+		float lit = 0.0;
+		[unroll]
+		for (int i = 0; i < 16; ++i)
+		{
+			float2 suv = uvAtlas + kPoissonDisk16[i] * filterOfsScale * filterUV;
+			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
+			float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
+			lit += (zReceiver <= d + bias) ? 1.0 : 0.0;
+		}
+		outVis = lit * (1.0 / 16.0);
 	}
-	return lit * (1.0 / 16.0);
+	return outVis;
 }
 
 #endif // MINIENGINE_SHADOW_PCSS_HLSL

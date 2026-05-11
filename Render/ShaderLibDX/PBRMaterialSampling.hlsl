@@ -40,30 +40,7 @@ float3 getNormalTexture(VS_OUTPUT_SCENE Input)
 
 float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 {
-#ifndef HAS_TANGENT
-	float2 UV = Input.UV0;
-	float3 pos_dx = ddx(Input.WorldPos);
-	float3 pos_dy = ddy(Input.WorldPos);
-	float3 tex_dx = ddx(float3(UV, 0.0));
-	float3 tex_dy = ddy(float3(UV, 0.0));
-	float denom = tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y;
-	float3 tUnnorm = tex_dy.y * pos_dx - tex_dx.y * pos_dy;
-	float3 ng = normalize(Input.Normal);
-	float3 t;
-	if (abs(denom) > 1e-7)
-		t = tUnnorm / denom;
-	else
-	{
-		float3 up = abs(ng.y) < 0.99 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
-		t = normalize(cross(up, ng));
-	}
-
-	t = normalize(t - ng * dot(ng, t));
-	float3 b = normalize(cross(ng, t));
-	float3x3 tbn = float3x3(t, b, ng);
-#else
 	float3x3 tbn = float3x3(Input.Tangent, Input.Binormal, Input.Normal);
-#endif
 
 	float3 n = getNormalTexture(Input);
 	n = normalize(mul(n, tbn));
@@ -74,11 +51,12 @@ float3 getPixelNormal(VS_OUTPUT_SCENE Input, bool bIsFontFacing = false)
 /** glTF doubleSided: shading normal faces the camera (back faces flip N). Requires cbPerFrame / myPerFrame. */
 float3 ShadeNormalDoubleSided(float3 n, float3 worldPos)
 {
-#if defined(MATERIAL_DOUBLE_SIDED)
-	float3 v = normalize(myPerFrame.CameraPos.xyz - worldPos);
-	if (dot(n, v) < 0.0)
-		n = -n;
-#endif
+	if ((myMaterial.MaterialShaderFlags & kMatShaderFlag_DoubleSidedShading) != 0)
+	{
+		float3 v = normalize(myPerFrame.CameraPos.xyz - worldPos);
+		if (dot(n, v) < 0.0)
+			n = -n;
+	}
 	return n;
 }
 

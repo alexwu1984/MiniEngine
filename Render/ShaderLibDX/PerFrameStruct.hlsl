@@ -36,8 +36,12 @@ struct MaterialPerFrame
     float Metallic;
     float AlphaCutoff;
     uint AlphaMask;
-    uint Padding;
+    uint MaterialShaderFlags;
 };
+
+static const uint kMatShaderFlag_WriteBaseColorAlpha = 1u << 0;
+static const uint kMatShaderFlag_DoubleSidedShading = 1u << 1;
+static const uint kMatShaderFlag_ShadowAlphaClip = 1u << 2;
 
 struct PerFrame
 {
@@ -143,20 +147,26 @@ bool IsEnableShadow()
         && myPerFrame.Lights[idx].Type == LightType_Directional && myPerFrame.Lights[idx].ShadowMapIndex >= 0;
 }
 
+/** Slot into Lights[] for main directional; 0 when index invalid (matches legacy fallback to Lights[0]). */
+uint GetMainDirectionalLightSlot()
+{
+    const int i = myPerFrame.PrimaryDirectionalLightIndex;
+    uint outSlot = 0u;
+    if (i >= 0 && i < MAX_LIGHT_INSTANCES)
+        outSlot = (uint)i;
+    return outSlot;
+}
+
 matrix GetMainLightViewProj()
 {
-    int idx = myPerFrame.PrimaryDirectionalLightIndex;
-    if (idx < 0 || idx >= MAX_LIGHT_INSTANCES)
-        return myPerFrame.Lights[0].LightViewProj;
-    return myPerFrame.Lights[idx].LightViewProj;
+    const uint slot = GetMainDirectionalLightSlot();
+    return myPerFrame.Lights[slot].LightViewProj;
 }
 
 Light GetMainLight()
 {
-    int idx = myPerFrame.PrimaryDirectionalLightIndex;
-    if (idx < 0 || idx >= MAX_LIGHT_INSTANCES)
-        return myPerFrame.Lights[0];
-    return myPerFrame.Lights[idx];
+    const uint slot = GetMainDirectionalLightSlot();
+    return myPerFrame.Lights[slot];
 }
 
 #endif

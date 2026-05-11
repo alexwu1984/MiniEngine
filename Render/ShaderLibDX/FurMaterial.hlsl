@@ -1,7 +1,5 @@
-// One instanced draw for all forward shells (FurLevel instances); VS derives layer from SV_InstanceID.
-#define FUR_SHELL_INSTANCED_DRAW 1
-#include "GLTFPbrPass-VS.hlsl"
-#include "GLTFPbrPass-IO.hlsl"
+// Forward shell pass only: VS is FurPass-VS.hlsl (furVertexFactory); PS here. Inner fill uses PBRMaterial.hlsl.
+#include "FurPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
 #include "ShaderUtils.hlsl"
 #include "HairShading.hlsl"
@@ -16,7 +14,6 @@ Texture2D NoiseMap : register(t1);
 #endif
 SamplerState SampleLinear : register(s0);
 
-// Forward shell pass only (lit shells blended after deferred lighting). Inner fill uses PBRMaterial.hlsl.
 TextureCube IrradianceTex : register(t5);
 Texture2D BrdfLut : register(t6);
 TextureCube PrefilterCubeMap : register(t7);
@@ -55,7 +52,7 @@ struct PS_OUTPUT_FWD
 	float4 Color : SV_Target0;
 };
 
-PS_OUTPUT_FWD MainPS(VS_OUTPUT_SCENE Input)
+PS_OUTPUT_FWD MainPS(VS_OUTPUT_FUR Input)
 {
 	PS_OUTPUT_FWD Output;
 	Output.Color = float4(0, 0, 0, 0);
@@ -71,14 +68,7 @@ PS_OUTPUT_FWD MainPS(VS_OUTPUT_SCENE Input)
 	float Alpha = clamp((Noise * 2.0 - (shellT * shellT + (shellT * FurMask * 5.0))) * Tming, 0.0, 1.0);
 	clip(Alpha - 0.001);
 
-	float3 strandDir;
-#if defined(HAS_TANGENT)
-	strandDir = normalize(Input.Tangent);
-#else
-	float3 up = float3(0.0, 1.0, 0.0);
-	strandDir = cross(n, up);
-	strandDir = (dot(strandDir, strandDir) > 1e-8) ? normalize(strandDir) : normalize(cross(n, float3(1.0, 0.0, 0.0)));
-#endif
+	float3 strandDir = normalize(Input.Tangent);
 
 	float3 Vw = normalize(myPerFrame.CameraPos.xyz - Input.WorldPos);
 	float3 geomN = n;

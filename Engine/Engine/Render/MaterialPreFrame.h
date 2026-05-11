@@ -48,8 +48,12 @@ namespace Engine
 		float Metallic{ 0.f };
 		float AlphaCutoff{ 0.5f };
 		uint32_t AlphaMask{ 0 };
-		uint32_t Padding{ 0 };
+		/** Bit flags — keep sizeof(MaterialPerFrame)==16 and match PerFrameStruct.hlsl / ShadowPass-PS cbPerMaterial tail uint. */
+		uint32_t MaterialShaderFlags{ 0 };
 	};
+	inline constexpr uint32_t kMaterialShaderFlag_WriteBaseColorAlphaToGBuffer = 1u << 0;
+	inline constexpr uint32_t kMaterialShaderFlag_DoubleSidedShading = 1u << 1;
+	inline constexpr uint32_t kMaterialShaderFlag_ShadowAlphaClip = 1u << 2;
 
 	struct PerFrame
 	{

@@ -45,9 +45,7 @@ namespace Engine
 		std::shared_ptr< BlurCS> Blur;
 		std::shared_ptr<MeshBase> Mesh;
 		bool HasSkin = false;
-		bool ShadowBlendAlphaClip = false;
 		uint32_t CachedVtxFeat = 0;
-		bool CachedShadowBlendAlphaClip = false;
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerFrame)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerObject)
 		DECLARE_SHADER_STRUCT_MEMBER(CBPerSkeleton)
@@ -84,46 +82,33 @@ namespace Engine
 			ShaderMacros.push_back({ "ID_SKINNING_MATRICES","2" });
 
 		int32_t Index = 2;
-		if (VtxFeat & MeshBufferVertexFeatures::Tangent)
-		{
-			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
-			ShaderMacros.push_back({ "HAS_TANGENT","1" });
-		}
+		VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 
 		if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 		{
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
-			ShaderMacros.push_back({ "HAS_WEIGHTS_0","1" });
-		}
-
-		if (VtxFeat & MeshBufferVertexFeatures::Skinning)
-		{
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++Index, EVertexElementType::VET_Float4, false));
 		}
-
-		d->ShadowBlendAlphaClip = ShadowPassUseBlendAlphaClip(d->Mesh);
-		if (d->ShadowBlendAlphaClip)
-			ShaderMacros.push_back({ "SHADOW_ALPHA_CLIP", "1" });
 
 		d->VertexShader = d->RHI->RHICreateVertexShader(VSPath, "MainVS", VertexDeclareRHI, ShaderMacros);
 
 		std::wstring PSPath = ShaderPath + L"ShadowPass-PS.hlsl";
 		d->PixelShader = d->RHI->RHICreatePixelShader(PSPath, "MainPS", ShaderMacros);
 		d->CachedVtxFeat = VtxFeat;
-		d->CachedShadowBlendAlphaClip = d->ShadowBlendAlphaClip;
 	}
 
-	static void BindShadowBlendAlphaClipResources(RenderCore::RHICommandContext& RHIContext, ShadowPSPrivate* d)
+	static void BindShadowMaterialPSResources(RenderCore::RHICommandContext& RHIContext, ShadowPSPrivate* d)
 	{
-		const auto mat = d->Mesh->GetMaterial();
-		if (!mat)
-			return;
-		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Metallic = 0.f;
-		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaCutoff = mat->GetMaterialAlphaCutoff();
-		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaMask = 1u;
-		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Padding = 0u;
+		const auto mat = d->Mesh ? d->Mesh->GetMaterial() : nullptr;
+		const bool bAlphaClip = ShadowPassUseBlendAlphaClip(d->Mesh);
+		auto& M = d->GET_UNIFORMDATA(CBPerMaterial).myMaterial;
+		M.Metallic = 0.f;
+		M.AlphaCutoff = mat ? mat->GetMaterialAlphaCutoff() : 0.5f;
+		M.AlphaMask = bAlphaClip ? 1u : 0u;
+		M.MaterialShaderFlags = bAlphaClip ? kMaterialShaderFlag_ShadowAlphaClip : 0u;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerMaterial));
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, mat->GetBaseColorTexture());
+		if (mat && mat->GetBaseColorTexture())
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, mat->GetBaseColorTexture());
 	}
 
 
@@ -134,8 +119,7 @@ namespace Engine
 		const uint32_t VtxFeatNow = d->Mesh && d->Mesh->GetMeshBuffer()
 			? d->Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures()
 			: 0u;
-		const bool wantBlendAlphaClip = ShadowPassUseBlendAlphaClip(d->Mesh);
-		if (VtxFeatNow != d->CachedVtxFeat || wantBlendAlphaClip != d->CachedShadowBlendAlphaClip)
+		if (VtxFeatNow != d->CachedVtxFeat)
 			InitResource();
 		RenderCore::RHICommandMark Mark(RHIContext, "Shadow_Depth");
 
@@ -163,8 +147,7 @@ namespace Engine
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 		if (d->HasSkin)
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton));
-		if (d->ShadowBlendAlphaClip)
-			BindShadowBlendAlphaClipResources(RHIContext, d);
+		BindShadowMaterialPSResources(RHIContext, d);
 		RHIContext.DrawPrimitive(d->Mesh->GetMeshBuffer()->GetVerticesBuffer(), d->Mesh->GetMeshBuffer()->GetIndexBuffer());
 	}
 
@@ -175,8 +158,7 @@ namespace Engine
 		const uint32_t VtxFeatNow = d->Mesh && d->Mesh->GetMeshBuffer()
 			? d->Mesh->GetMeshBuffer()->GetDeclaredVertexFeatures()
 			: 0u;
-		const bool wantBlendAlphaClip = ShadowPassUseBlendAlphaClip(d->Mesh);
-		if (VtxFeatNow != d->CachedVtxFeat || wantBlendAlphaClip != d->CachedShadowBlendAlphaClip)
+		if (VtxFeatNow != d->CachedVtxFeat)
 			InitResource();
 		RenderCore::RHICommandMark Mark(RHIContext, "Shadow_PointCubeFace");
 
@@ -201,8 +183,7 @@ namespace Engine
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 		if (d->HasSkin)
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerSkeleton));
-		if (d->ShadowBlendAlphaClip)
-			BindShadowBlendAlphaClipResources(RHIContext, d);
+		BindShadowMaterialPSResources(RHIContext, d);
 		RHIContext.DrawPrimitive(d->Mesh->GetMeshBuffer()->GetVerticesBuffer(), d->Mesh->GetMeshBuffer()->GetIndexBuffer());
 	}
 

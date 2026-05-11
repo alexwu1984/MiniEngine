@@ -1,4 +1,5 @@
 ﻿#include "Engine/Render/FurMaterialRender.h"
+#include "RHI/DynamicRHI.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIPipeLineState.h"
@@ -59,33 +60,24 @@ namespace Engine
 			if (!RHI || !GetPBRMeshBuffer())
 				return;
 			const uint32_t VtxFeat = GetPBRMeshBuffer()->GetDeclaredVertexFeatures();
-			// Inner base uses PBRMaterial.hlsl only (see FurMaterial.hlsl header). Macros must match PBRMaterialRender::InitShader
-			// but without HASFUR — same as MainVS/MainPS pair.
+			// Inner base: PBRMaterial.hlsl MainVS/MainPS (same macros as PBRMaterialRender::InitShader).
 
 			RHIVertexDeclare VertexDeclareRHI;
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
 			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
 			int32_t DeclIndex = 2;
-			if (VtxFeat & MeshBufferVertexFeatures::Tangent)
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
+			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
 			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
+			{
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
-			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
+			}
 
 			std::vector<RHIShaderMacro> InnerMacros;
 			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
 				InnerMacros.push_back({ "ID_SKINNING_MATRICES","2" });
-			if (VtxFeat & MeshBufferVertexFeatures::Tangent)
-				InnerMacros.push_back({ "HAS_TANGENT","1" });
-			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
-				InnerMacros.push_back({ "HAS_WEIGHTS_0","1" });
-			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->IsTransparent())
-				InnerMacros.push_back({ "WRITE_BASECOLOR_ALPHA_TO_GBUFFER", "1" });
-			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->IsDoubleSided())
-				InnerMacros.push_back({ "MATERIAL_DOUBLE_SIDED", "1" });
-			if (RHI && lstrcmp(RHI->GetName(), TEXT("D3D12")) == 0 && WantsRHIBindless())
+			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->WantsRHIBindless() && RHI->GetRHIAPIType() == RHIAPIType::E_D3D12)
 				InnerMacros.push_back({ "RHI_BINDLESS", "1" });
 			const std::wstring PbrPath = ShaderRoot + L"PBRMaterial.hlsl";
 			d->InnerBaseVertexShader = RHI->RHICreateVertexShader(PbrPath, std::string("MainVS"), VertexDeclareRHI, InnerMacros);
@@ -115,9 +107,9 @@ namespace Engine
 		return L"FurMaterial.hlsl";
 	}
 
-	void FurMaterialRender::AddShaderMacro(std::vector<RHIShaderMacro>& ShaderMacros)
+	std::wstring FurMaterialRender::GetVertexShaderFileNameSuffix() const
 	{
-		ShaderMacros.push_back({ "HASFUR","1" });
+		return L"FurPass-VS.hlsl";
 	}
 
 	void FurMaterialRender::DrawDeferredInnerBase(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam)
@@ -214,7 +206,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFur).FurLevel = static_cast<float>(FurConfig.FurLevel);
 
 		const int32_t FurLevelCount = (std::max)(1, static_cast<int32_t>(FurConfig.FurLevel));
-		// One draw, FurLevel instances: VS derives shell depth from SV_InstanceID (FUR_SHELL_INSTANCED_DRAW in FurMaterial.hlsl).
+		// One draw, FurLevel instances: FurVertexFactory derives shell depth from SV_InstanceID when FurLevel >= 1.
 		d->GET_UNIFORMDATA(CBPerFur).FurOffset = 0.f;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerFur));
 		if (GetPBRMeshBuffer())

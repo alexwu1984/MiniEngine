@@ -9,6 +9,17 @@
 
 namespace Engine
 {
+	int FPointShadowCubePass::FindPointShadowCubeLightIndex(const std::vector<Light>& Lights)
+	{
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			const Light& L = Lights[static_cast<size_t>(i)];
+			if (L.Type == LightType_Point && L.ShadowMapIndex == kPointLightCubeShadowMapIndex)
+				return i;
+		}
+		return -1;
+	}
+
 	static math::Matrix4x4 ComputePointShadowFaceViewProj(const math::Vector3& lightPos, int face, float zNear, float zFar)
 	{
 		math::Vector3 forward;

@@ -8,6 +8,16 @@
 
 namespace Engine
 {
+	int FDirectionalShadowDepthPass::FindFirstDirectionalLightIndex(const std::vector<Light>& Lights)
+	{
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			if (Lights[static_cast<size_t>(i)].Type == LightType_Directional)
+				return i;
+		}
+		return -1;
+	}
+
 	static void RenderDirectionalShadowMapFullViewport(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<RenderCore::RHIRenderTarget>& DepthRenderBuffer,
 													 FShadowDepthMeshDrawer& MeshDrawer, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& MainLight)
 	{

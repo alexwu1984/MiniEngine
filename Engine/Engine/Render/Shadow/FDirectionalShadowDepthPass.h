@@ -32,6 +32,9 @@ namespace Engine
 	public:
 		static constexpr int kCascadeShadowResolution = 2048;
 
+		/** First directional in the view light list (ortho / CSM shadow applies to this slot only). */
+		static int FindFirstDirectionalLightIndex(const std::vector<Light>& Lights);
+
 		static void Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, std::vector<Light>& Lights,
 							int MainDirLightIndex, bool bSubjectValid, const math::AABB3& SubjectWorldAabb, bool bReceiverValid, const math::AABB3& ReceiverWorldAabb,
 							const FShadowProjectorSceneData& ShadowProjectorScene, const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustumDriver,

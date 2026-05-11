@@ -14,38 +14,6 @@
 
 namespace Engine
 {
-	static int FindFirstDirectionalLightIndex(const std::vector<Light>& Lights)
-	{
-		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
-		{
-			if (Lights[static_cast<size_t>(i)].Type == LightType_Directional)
-				return i;
-		}
-		return -1;
-	}
-
-	static int FindPointShadowCubeLightIndex(const std::vector<Light>& Lights)
-	{
-		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
-		{
-			const Light& L = Lights[static_cast<size_t>(i)];
-			if (L.Type == LightType_Point && L.ShadowMapIndex == kPointLightCubeShadowMapIndex)
-				return i;
-		}
-		return -1;
-	}
-
-	static int FindSpotShadowLightIndex(const std::vector<Light>& Lights)
-	{
-		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
-		{
-			const Light& L = Lights[static_cast<size_t>(i)];
-			if (L.Type == LightType_Spot && L.ShadowMapIndex == kSpotLightShadowMapIndex)
-				return i;
-		}
-		return -1;
-	}
-
 	struct ShadowRenderPassPrivate
 	{
 		RenderCore::DynamicRHI* RHI;
@@ -159,9 +127,9 @@ namespace Engine
 		if (d->MeshDrawer)
 			d->MeshDrawer->PruneStaleMeshShadowPasses(ShadowCasterMeshes, FrustumBoundsMeshes);
 
-		const int mainDirIdx = FindFirstDirectionalLightIndex(Lights);
-		const int pointShadowIdx = FindPointShadowCubeLightIndex(Lights);
-		const int spotShadowIdx = FindSpotShadowLightIndex(Lights);
+		const int mainDirIdx = FDirectionalShadowDepthPass::FindFirstDirectionalLightIndex(Lights);
+		const int pointShadowIdx = FPointShadowCubePass::FindPointShadowCubeLightIndex(Lights);
+		const int spotShadowIdx = FSpotShadowDepthPass::FindSpotShadowLightIndex(Lights);
 
 		math::AABB3 subjectWorldAabb;
 		bool subjectValid = false;

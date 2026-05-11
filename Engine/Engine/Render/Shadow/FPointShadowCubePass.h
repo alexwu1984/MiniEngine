@@ -22,6 +22,9 @@ namespace Engine
 	public:
 		static constexpr int kCubeFaceResolution = 512;
 
+		/** First point light that owns the single cubemap shadow slot (`kPointLightCubeShadowMapIndex`). */
+		static int FindPointShadowCubeLightIndex(const std::vector<Light>& Lights);
+
 		struct FOutputs
 		{
 			math::Matrix4x4 CachedPointFaceVP[6]{};

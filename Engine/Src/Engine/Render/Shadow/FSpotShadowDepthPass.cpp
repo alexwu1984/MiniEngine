@@ -8,6 +8,17 @@
 
 namespace Engine
 {
+	int FSpotShadowDepthPass::FindSpotShadowLightIndex(const std::vector<Light>& Lights)
+	{
+		for (int i = 0; i < static_cast<int>(Lights.size()); ++i)
+		{
+			const Light& L = Lights[static_cast<size_t>(i)];
+			if (L.Type == LightType_Spot && L.ShadowMapIndex == kSpotLightShadowMapIndex)
+				return i;
+		}
+		return -1;
+	}
+
 	static float MaxAlongAxisFromEyeToAabb(const math::Vector3& eye, const math::Vector3& axisUnit, const math::AABB3& box)
 	{
 		math::Vector3 corners[8]{};

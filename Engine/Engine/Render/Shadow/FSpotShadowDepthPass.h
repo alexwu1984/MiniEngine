@@ -21,6 +21,9 @@ namespace Engine
 	public:
 		static constexpr int kSpotShadowTextureSize = 2048;
 
+		/** First spotlight that owns the single spot shadow depth slot (`kSpotLightShadowMapIndex`). */
+		static int FindSpotShadowLightIndex(const std::vector<Light>& Lights);
+
 		struct FOutputs
 		{
 			math::Matrix4x4 CachedSpotLightViewProj{};

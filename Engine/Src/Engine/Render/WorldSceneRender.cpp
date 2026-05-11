@@ -19,7 +19,7 @@
 #include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 #include "Render/Shadow/ShadowRenderPass.h"
-#include "Render/Shadow/ShadowMap.h"
+#include "Render/Shadow/ShadowProjectorTypes.h"
 #include "Scene/Component.h"
 #include "Scene/FScene.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"

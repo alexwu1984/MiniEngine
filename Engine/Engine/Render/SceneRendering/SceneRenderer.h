@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/SceneViewData.h"
-#include "Render/Shadow/ShadowMap.h"
+#include "Render/Shadow/ShadowProjectorTypes.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Scene/SceneMeshComponent.h"
 #include <memory>

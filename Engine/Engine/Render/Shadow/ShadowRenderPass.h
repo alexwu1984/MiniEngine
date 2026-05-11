@@ -2,7 +2,7 @@
 #include "core/inc.h"
 #include "math/vector4.h"
 #include "Render/MaterialPreFrame.h"
-#include "Render/Shadow/ShadowMap.h"
+#include "Render/Shadow/ShadowProjectorTypes.h"
 #include <memory>
 #include <vector>
 

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Scene/DeviceInputState.h"
 #include "Render/MaterialPreFrame.h"
-#include "Render/Shadow/ShadowMap.h"
+#include "Render/Shadow/ShadowProjectorTypes.h"
 #include "Render/SkyLightEnvironment.h"
 
 namespace Engine

@@ -13,14 +13,11 @@
         "LightType": 0
       },
       {
-        "LightColor": "0.6,0.84,1.0",
-        "LightDir": "0.401,-0.474,-0.784",
-        "LightStrength": 27.0,
-        "LightType": 2,
-        "LightPosition": "-0.33,1.48,-1.5",
-        "LightRange": 76.0,
-        "InnerConeDeg": 25.0,
-        "OuterConeDeg": 76.0,
+        "LightColor": "1.0,0.94,0.82",
+        "LightStrength": 90.0,
+        "LightType": 1,
+        "LightPosition": "2.35,2.69,-2.2",
+        "LightRange": 14.0,
         "CastShadow": true
       }
     ],
@@ -34,15 +31,6 @@
         "Size": "60,60",
         "Segments": "220,220",
         "UVScale": 8.0
-      },
-      "ProjShadow": true
-    },
-    {
-      "Model": "Model3.glb",
-      "Scale": 1.0,
-      "Position": "-1.2,0.0,-2.2",
-      "Material": {
-        "Metallic": 1.0
       },
       "ProjShadow": true
     },

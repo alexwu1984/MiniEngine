@@ -34,7 +34,17 @@ namespace Engine
 			bool bCachedPointShadowValid = false;
 		};
 
-		static void Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& PointLight, int PointLightIndex,
-						  const std::shared_ptr<RenderCore::RHITextureCube>& PointShadowCube, FShadowDepthMeshDrawer& MeshDrawer, FOutputs& OutOutputs);
+		struct FPointShadowCubePassParameters
+		{
+			RenderCore::RHICommandContext* RHICmdList = nullptr;
+			const std::vector<GltfSceneMeshInfo>* ShadowCasterMeshes = nullptr;
+			const Light* PointLight = nullptr;
+			int PointLightListIndex = -1;
+			std::shared_ptr<RenderCore::RHITextureCube> PointShadowCube{};
+			FShadowDepthMeshDrawer* MeshDrawer = nullptr;
+			FOutputs* OutOutputs = nullptr;
+		};
+
+		static void Render(const FPointShadowCubePassParameters& Params);
 	};
 }

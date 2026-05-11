@@ -5,7 +5,7 @@
 #include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "Render/Shadow/FPointShadowCubePass.h"
 #include "Render/Shadow/FShadowDepthMeshDrawer.h"
-#include "Render/Shadow/FShadowSceneBounds.h"
+#include "Render/Shadow/FShadowViewData.h"
 #include "Render/Shadow/FSpotShadowDepthPass.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
@@ -122,28 +122,29 @@ namespace Engine
 		if (ShadowCasterMeshes.empty() && FrustumBoundsMeshes.empty() && !ShadowProjectorScene.bValid)
 			return;
 
-		const std::vector<GltfSceneMeshInfo>* subjectMeshList =
-			FShadowSceneBounds::SelectShadowSubjectMeshListForFrustum(ShadowCasterMeshes, FrustumBoundsMeshes, ShadowProjectorScene);
 		if (d->MeshDrawer)
 			d->MeshDrawer->PruneStaleMeshShadowPasses(ShadowCasterMeshes, FrustumBoundsMeshes);
 
-		const int mainDirIdx = FDirectionalShadowDepthPass::FindFirstDirectionalLightIndex(Lights);
-		const int pointShadowIdx = FPointShadowCubePass::FindPointShadowCubeLightIndex(Lights);
-		const int spotShadowIdx = FSpotShadowDepthPass::FindSpotShadowLightIndex(Lights);
+		const FShadowViewData viewData = FShadowViewData::Build(ShadowCasterMeshes, FrustumBoundsMeshes, Lights, ShadowProjectorScene);
 
-		math::AABB3 subjectWorldAabb;
-		bool subjectValid = false;
-		FShadowSceneBounds::BuildMergedShadowSubjectWorldAabb(subjectMeshList, ShadowProjectorScene, subjectWorldAabb, subjectValid);
-
-		math::AABB3 receiverWorldAabb;
-		bool receiverValid = false;
-		FShadowSceneBounds::BuildMergedShadowReceiverWorldAabb(FrustumBoundsMeshes, receiverWorldAabb, receiverValid);
-
-		if (mainDirIdx >= 0 && subjectValid && d->MeshDrawer)
+		if (viewData.LightSlots.DirectionalLightListIndex >= 0 && viewData.bSubjectValid && d->MeshDrawer)
 		{
 			FDirectionalShadowDepthPassOutputs dirOut{};
-			FDirectionalShadowDepthPass::Render(RHIContext, ShadowCasterMeshes, Lights, mainDirIdx, subjectValid, subjectWorldAabb, receiverValid, receiverWorldAabb,
-												ShadowProjectorScene, subjectMeshList, d->DepthRenderBuffer, *d->MeshDrawer, dirOut);
+			FDirectionalShadowDepthPassParameters dirParams{};
+			dirParams.RHICmdList = &RHIContext;
+			dirParams.ShadowCasterMeshes = viewData.ShadowCasterMeshes;
+			dirParams.FrameLights = viewData.FrameLights;
+			dirParams.MainDirectionalLightListIndex = viewData.LightSlots.DirectionalLightListIndex;
+			dirParams.bSubjectValid = viewData.bSubjectValid;
+			dirParams.SubjectWorldAabb = viewData.SubjectWorldAabb;
+			dirParams.bReceiverValid = viewData.bReceiverValid;
+			dirParams.ReceiverWorldAabb = viewData.ReceiverWorldAabb;
+			dirParams.ProjectorScene = &viewData.ProjectorScene;
+			dirParams.SubjectMeshListForFrustumDriver = viewData.SubjectMeshListForFrustum;
+			dirParams.DepthRenderBuffer = d->DepthRenderBuffer;
+			dirParams.MeshDrawer = d->MeshDrawer.get();
+			dirParams.OutOutputs = &dirOut;
+			FDirectionalShadowDepthPass::Render(dirParams);
 			d->CachedMainLightForShading = dirOut.CachedMainLightForShading;
 			d->bCachedMainLightValid = dirOut.bCachedMainLightValid;
 			d->CachedMainDirectionalShadowLightListIndex = dirOut.CachedMainDirectionalShadowLightListIndex;
@@ -151,11 +152,20 @@ namespace Engine
 			d->bCachedDirectionalCSMParamsValid = dirOut.bCachedDirectionalCSMParamsValid;
 		}
 
-		if (pointShadowIdx >= 0 && d->PointShadowCube && !ShadowCasterMeshes.empty() && d->MeshDrawer)
+		if (viewData.LightSlots.PointCubeShadowLightListIndex >= 0 && d->PointShadowCube && viewData.ShadowCasterMeshes && !viewData.ShadowCasterMeshes->empty()
+			&& d->MeshDrawer)
 		{
 			FPointShadowCubePass::FOutputs ptOut{};
-			FPointShadowCubePass::Render(RHIContext, ShadowCasterMeshes, Lights[static_cast<size_t>(pointShadowIdx)], pointShadowIdx, d->PointShadowCube, *d->MeshDrawer,
-										 ptOut);
+			const int ptIdx = viewData.LightSlots.PointCubeShadowLightListIndex;
+			FPointShadowCubePass::FPointShadowCubePassParameters ptParams{};
+			ptParams.RHICmdList = &RHIContext;
+			ptParams.ShadowCasterMeshes = viewData.ShadowCasterMeshes;
+			ptParams.PointLight = &Lights[static_cast<size_t>(ptIdx)];
+			ptParams.PointLightListIndex = ptIdx;
+			ptParams.PointShadowCube = d->PointShadowCube;
+			ptParams.MeshDrawer = d->MeshDrawer.get();
+			ptParams.OutOutputs = &ptOut;
+			FPointShadowCubePass::Render(ptParams);
 			for (int i = 0; i < 6; ++i)
 				d->CachedPointFaceVP[i] = ptOut.CachedPointFaceVP[i];
 			d->CachedPointLightPos = ptOut.CachedPointLightPos;
@@ -164,32 +174,27 @@ namespace Engine
 			d->bCachedPointShadowValid = ptOut.bCachedPointShadowValid;
 		}
 
-		if (spotShadowIdx >= 0 && d->SpotShadowBuffer && d->MeshDrawer)
+		if (viewData.LightSlots.SpotShadowLightListIndex >= 0 && d->SpotShadowBuffer && d->MeshDrawer)
 		{
-			const std::vector<GltfSceneMeshInfo>& spotMeshList = !ShadowCasterMeshes.empty() ? ShadowCasterMeshes : FrustumBoundsMeshes;
-			if (!spotMeshList.empty())
-			{
-				Light& spotL = Lights[static_cast<size_t>(spotShadowIdx)];
-				math::AABB3 spotZFarBounds{};
-				bool spotZFarOk = false;
-				if (subjectValid)
-				{
-					spotZFarBounds = subjectWorldAabb;
-					spotZFarOk = true;
-				}
-				if (receiverValid)
-				{
-					spotZFarBounds = spotZFarOk ? spotZFarBounds.MergeAABB(receiverWorldAabb) : receiverWorldAabb;
-					spotZFarOk = true;
-				}
-				FSpotShadowDepthPass::SetupSpotShadowViewProjection(spotL, spotZFarOk ? &spotZFarBounds : nullptr, spotZFarOk);
-				FSpotShadowDepthPass::FOutputs spotOut{};
-				FSpotShadowDepthPass::Render(RHIContext, spotMeshList, spotL, spotShadowIdx, d->SpotShadowBuffer, *d->MeshDrawer, spotOut);
-				d->CachedSpotLightViewProj = spotOut.CachedSpotLightViewProj;
-				d->CachedSpotLightView = spotOut.CachedSpotLightView;
-				d->CachedSpotShadowLightIndex = spotOut.CachedSpotShadowLightIndex;
-				d->bCachedSpotShadowValid = spotOut.bCachedSpotShadowValid;
-			}
+			FSpotShadowDepthPass::FOutputs spotOut{};
+			FSpotShadowDepthPass::FSpotShadowDepthPassParameters spParams{};
+			spParams.RHICmdList = &RHIContext;
+			spParams.ShadowCasterMeshes = viewData.ShadowCasterMeshes;
+			spParams.FrustumBoundsMeshes = viewData.FrustumBoundsMeshes;
+			spParams.FrameLights = viewData.FrameLights;
+			spParams.SpotLightListIndex = viewData.LightSlots.SpotShadowLightListIndex;
+			spParams.bSubjectValid = viewData.bSubjectValid;
+			spParams.SubjectWorldAabb = viewData.SubjectWorldAabb;
+			spParams.bReceiverValid = viewData.bReceiverValid;
+			spParams.ReceiverWorldAabb = viewData.ReceiverWorldAabb;
+			spParams.SpotShadowBuffer = d->SpotShadowBuffer;
+			spParams.MeshDrawer = d->MeshDrawer.get();
+			spParams.OutOutputs = &spotOut;
+			FSpotShadowDepthPass::Render(spParams);
+			d->CachedSpotLightViewProj = spotOut.CachedSpotLightViewProj;
+			d->CachedSpotLightView = spotOut.CachedSpotLightView;
+			d->CachedSpotShadowLightIndex = spotOut.CachedSpotShadowLightIndex;
+			d->bCachedSpotShadowValid = spotOut.bCachedSpotShadowValid;
 		}
 
 		if (d->DepthRenderBuffer)

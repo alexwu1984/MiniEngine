@@ -39,12 +39,19 @@ namespace Engine
 		return view * proj;
 	}
 
-	void FPointShadowCubePass::Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& PointLight,
-									  int PointLightIndex, const std::shared_ptr<RenderCore::RHITextureCube>& PointShadowCube, FShadowDepthMeshDrawer& MeshDrawer, FOutputs& OutOutputs)
+	void FPointShadowCubePass::Render(const FPointShadowCubePassParameters& P)
 	{
-		OutOutputs.bCachedPointShadowValid = false;
-		if (!PointShadowCube || ShadowCasterMeshes.empty())
+		if (!P.OutOutputs || !P.RHICmdList || !P.MeshDrawer || !P.PointLight || !P.ShadowCasterMeshes || P.ShadowCasterMeshes->empty() || !P.PointShadowCube)
 			return;
+
+		FOutputs& OutOutputs = *P.OutOutputs;
+		OutOutputs.bCachedPointShadowValid = false;
+
+		RenderCore::RHICommandContext& RHIContext = *P.RHICmdList;
+		const Light& PointLight = *P.PointLight;
+		const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes = *P.ShadowCasterMeshes;
+		FShadowDepthMeshDrawer& MeshDrawer = *P.MeshDrawer;
+		const std::shared_ptr<RenderCore::RHITextureCube>& PointShadowCube = P.PointShadowCube;
 
 		const float zNear = 0.05f;
 		const float zFar = (std::max)(PointLight.Range, zNear + 0.1f);
@@ -52,7 +59,7 @@ namespace Engine
 			OutOutputs.CachedPointFaceVP[face] = ComputePointShadowFaceViewProj(PointLight.Position, face, zNear, zFar);
 		OutOutputs.CachedPointLightPos = PointLight.Position;
 		OutOutputs.CachedPointLightRange = PointLight.Range;
-		OutOutputs.CachedPointShadowLightIndex = PointLightIndex;
+		OutOutputs.CachedPointShadowLightIndex = P.PointLightListIndex;
 
 		const core::vec2i cubeSize = PointShadowCube->GetSize();
 		for (int face = 0; face < 6; ++face)

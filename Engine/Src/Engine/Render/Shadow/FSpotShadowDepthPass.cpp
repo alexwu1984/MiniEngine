@@ -65,21 +65,50 @@ namespace Engine
 		spotLight.LightViewProj = view * proj;
 	}
 
-	void FSpotShadowDepthPass::Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, Light& SpotLight, int SpotLightIndex,
-									  const std::shared_ptr<RenderCore::RHIRenderTarget>& SpotShadowBuffer, FShadowDepthMeshDrawer& MeshDrawer, FOutputs& OutOutputs)
+	void FSpotShadowDepthPass::Render(const FSpotShadowDepthPassParameters& P)
 	{
-		OutOutputs.bCachedSpotShadowValid = false;
-		if (!SpotShadowBuffer)
+		if (!P.OutOutputs || !P.RHICmdList || !P.FrameLights || !P.MeshDrawer || !P.SpotShadowBuffer)
 			return;
+
+		FOutputs& OutOutputs = *P.OutOutputs;
+		OutOutputs.bCachedSpotShadowValid = false;
+
+		const std::vector<GltfSceneMeshInfo>* meshList = nullptr;
+		if (P.ShadowCasterMeshes && !P.ShadowCasterMeshes->empty())
+			meshList = P.ShadowCasterMeshes;
+		else if (P.FrustumBoundsMeshes && !P.FrustumBoundsMeshes->empty())
+			meshList = P.FrustumBoundsMeshes;
+
+		if (!meshList || P.SpotLightListIndex < 0)
+			return;
+
+		Light& spotL = (*P.FrameLights)[static_cast<size_t>(P.SpotLightListIndex)];
+		math::AABB3 spotZFarBounds{};
+		bool spotZFarOk = false;
+		if (P.bSubjectValid)
+		{
+			spotZFarBounds = P.SubjectWorldAabb;
+			spotZFarOk = true;
+		}
+		if (P.bReceiverValid)
+		{
+			spotZFarBounds = spotZFarOk ? spotZFarBounds.MergeAABB(P.ReceiverWorldAabb) : P.ReceiverWorldAabb;
+			spotZFarOk = true;
+		}
+		SetupSpotShadowViewProjection(spotL, spotZFarOk ? &spotZFarBounds : nullptr, spotZFarOk);
+
+		RenderCore::RHICommandContext& RHIContext = *P.RHICmdList;
+		FShadowDepthMeshDrawer& MeshDrawer = *P.MeshDrawer;
+		const std::shared_ptr<RenderCore::RHIRenderTarget>& SpotShadowBuffer = P.SpotShadowBuffer;
 
 		RHIContext.Clear(SpotShadowBuffer, core::FLinearColor::White, 1.f, 0);
 		const auto TargetSize = SpotShadowBuffer->GetSize();
 		RHIContext.SetViewPort(0, 0, TargetSize.x, TargetSize.y);
-		MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, SpotLight, SpotShadowBuffer);
+		MeshDrawer.DrawDirectional(RHIContext, *meshList, spotL, SpotShadowBuffer);
 
-		OutOutputs.CachedSpotLightViewProj = SpotLight.LightViewProj;
-		OutOutputs.CachedSpotLightView = SpotLight.LightView;
-		OutOutputs.CachedSpotShadowLightIndex = SpotLightIndex;
+		OutOutputs.CachedSpotLightViewProj = spotL.LightViewProj;
+		OutOutputs.CachedSpotLightView = spotL.LightView;
+		OutOutputs.CachedSpotShadowLightIndex = P.SpotLightListIndex;
 		OutOutputs.bCachedSpotShadowValid = true;
 	}
 }

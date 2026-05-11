@@ -3,8 +3,6 @@
 #include "math/vector4.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowProjectorTypes.h"
-#include <memory>
-#include <vector>
 
 namespace RenderCore
 {

@@ -34,7 +34,23 @@ namespace Engine
 
 		static void SetupSpotShadowViewProjection(Light& spotLight, const math::AABB3* pSceneBoundsWorld, bool bSceneBoundsValid);
 
-		static void Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, Light& SpotLight, int SpotLightIndex,
-						   const std::shared_ptr<RenderCore::RHIRenderTarget>& SpotShadowBuffer, FShadowDepthMeshDrawer& MeshDrawer, FOutputs& OutOutputs);
+		/** UE-style parameters: setup (view-proj from bounds) + rasterize depth in one call (B initializer-style batching). */
+		struct FSpotShadowDepthPassParameters
+		{
+			RenderCore::RHICommandContext* RHICmdList = nullptr;
+			const std::vector<GltfSceneMeshInfo>* ShadowCasterMeshes = nullptr;
+			const std::vector<GltfSceneMeshInfo>* FrustumBoundsMeshes = nullptr;
+			std::vector<Light>* FrameLights = nullptr;
+			int SpotLightListIndex = -1;
+			bool bSubjectValid = false;
+			math::AABB3 SubjectWorldAabb{};
+			bool bReceiverValid = false;
+			math::AABB3 ReceiverWorldAabb{};
+			std::shared_ptr<RenderCore::RHIRenderTarget> SpotShadowBuffer{};
+			FShadowDepthMeshDrawer* MeshDrawer = nullptr;
+			FOutputs* OutOutputs = nullptr;
+		};
+
+		static void Render(const FSpotShadowDepthPassParameters& Params);
 	};
 }

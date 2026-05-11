@@ -27,26 +27,32 @@ namespace Engine
 		MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, MainLight, DepthRenderBuffer);
 	}
 
-	void FDirectionalShadowDepthPass::Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, std::vector<Light>& Lights,
-											 int MainDirLightIndex, bool bSubjectValid, const math::AABB3& SubjectWorldAabb, bool bReceiverValid,
-											 const math::AABB3& ReceiverWorldAabb, const FShadowProjectorSceneData& ShadowProjectorScene,
-											 const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustumDriver, const std::shared_ptr<RenderCore::RHIRenderTarget>& DepthRenderBuffer,
-											 FShadowDepthMeshDrawer& MeshDrawer, FDirectionalShadowDepthPassOutputs& OutOutputs)
+	void FDirectionalShadowDepthPass::Render(const FDirectionalShadowDepthPassParameters& P)
 	{
+		if (!P.OutOutputs || !P.RHICmdList || !P.ShadowCasterMeshes || !P.FrameLights || !P.ProjectorScene || !P.MeshDrawer)
+			return;
+
+		FDirectionalShadowDepthPassOutputs& OutOutputs = *P.OutOutputs;
 		OutOutputs.bCachedMainLightValid = false;
 		OutOutputs.CachedMainDirectionalShadowLightListIndex = -1;
 		OutOutputs.bCachedDirectionalCSMParamsValid = false;
 		OutOutputs.CachedDirectionalCSM = CBDirectionalShadowCSM{};
 
-		if (MainDirLightIndex < 0 || !bSubjectValid || !DepthRenderBuffer)
+		if (P.MainDirectionalLightListIndex < 0 || !P.bSubjectValid || !P.DepthRenderBuffer)
 			return;
 
-		Light& mainLightRef = Lights[static_cast<size_t>(MainDirLightIndex)];
+		RenderCore::RHICommandContext& RHIContext = *P.RHICmdList;
+		std::vector<Light>& Lights = *P.FrameLights;
+		const FShadowProjectorSceneData& ShadowProjectorScene = *P.ProjectorScene;
+		const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes = *P.ShadowCasterMeshes;
+		FShadowDepthMeshDrawer& MeshDrawer = *P.MeshDrawer;
+
+		Light& mainLightRef = Lights[static_cast<size_t>(P.MainDirectionalLightListIndex)];
 		mainLightRef.ShadowMapIndex = 0;
-		const core::vec2i fullTexSize = DepthRenderBuffer->GetSize();
+		const core::vec2i fullTexSize = P.DepthRenderBuffer->GetSize();
 		const core::vec2i cascadeTexSize{ kCascadeShadowResolution, kCascadeShadowResolution };
 		const bool bReceiverRelativeFrustumAdjust =
-			bReceiverValid && FShadowSceneBounds::kPreferTightShadowFrustumFromCasters && SubjectMeshListForFrustumDriver == &ShadowCasterMeshes;
+			P.bReceiverValid && FShadowSceneBounds::kPreferTightShadowFrustumFromCasters && P.SubjectMeshListForFrustumDriver == &ShadowCasterMeshes;
 
 		OutOutputs.bCachedDirectionalCSMParamsValid = true;
 		OutOutputs.CachedDirectionalCSM = CBDirectionalShadowCSM{};
@@ -63,7 +69,7 @@ namespace Engine
 			OutOutputs.CachedDirectionalCSM.CameraForwardInvCount =
 				math::Vector4(ShadowProjectorScene.CameraForwardWorld.x, ShadowProjectorScene.CameraForwardWorld.y, ShadowProjectorScene.CameraForwardWorld.z, invN);
 
-			RHIContext.Clear(DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+			RHIContext.Clear(P.DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
 
 			const float camNear = ShadowProjectorScene.CameraNearZ;
 			Light firstCascadeLight{};
@@ -73,32 +79,32 @@ namespace Engine
 				const float zFarSlice = splitEnds[ci];
 				const math::AABB3 sliceBounds = FDirectionalShadowFrustumFitter::WorldBoundsFromViewProjSliceInverse(
 					ShadowProjectorScene.CameraView, ShadowProjectorScene.CameraFovYRad, ShadowProjectorScene.CameraAspectWH, zNearSlice, zFarSlice);
-				const math::AABB3 cascadeSubject = SubjectWorldAabb.MergeAABB(sliceBounds);
+				const math::AABB3 cascadeSubject = P.SubjectWorldAabb.MergeAABB(sliceBounds);
 
 				Light Li = mainLightRef;
-				FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, cascadeSubject, bReceiverRelativeFrustumAdjust, ReceiverWorldAabb, cascadeTexSize,
+				FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, cascadeSubject, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, cascadeTexSize,
 																					ShadowProjectorScene, false);
 				OutOutputs.CachedDirectionalCSM.CascadeViewProj[ci] = Li.LightViewProj;
 				if (ci == 0)
 					firstCascadeLight = Li;
 
 				RHIContext.SetViewPort(0, ci * kCascadeShadowResolution, kCascadeShadowResolution, kCascadeShadowResolution);
-				MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, Li, DepthRenderBuffer);
+				MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, Li, P.DepthRenderBuffer);
 			}
 			OutOutputs.CachedMainLightForShading = firstCascadeLight;
 			OutOutputs.CachedMainLightForShading.ShadowMapIndex = 0;
-			OutOutputs.CachedMainDirectionalShadowLightListIndex = MainDirLightIndex;
+			OutOutputs.CachedMainDirectionalShadowLightListIndex = P.MainDirectionalLightListIndex;
 			OutOutputs.bCachedMainLightValid = true;
 		}
 		else
 		{
-			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(mainLightRef, SubjectWorldAabb, bReceiverRelativeFrustumAdjust, ReceiverWorldAabb, fullTexSize,
+			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(mainLightRef, P.SubjectWorldAabb, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, fullTexSize,
 																					ShadowProjectorScene, true);
 			OutOutputs.CachedMainLightForShading = mainLightRef;
-			OutOutputs.CachedMainDirectionalShadowLightListIndex = MainDirLightIndex;
+			OutOutputs.CachedMainDirectionalShadowLightListIndex = P.MainDirectionalLightListIndex;
 			OutOutputs.bCachedMainLightValid = true;
 			RHIContext.SetViewPort(0, 0, fullTexSize.x, fullTexSize.y);
-			RenderDirectionalShadowMapFullViewport(RHIContext, DepthRenderBuffer, MeshDrawer, ShadowCasterMeshes, mainLightRef);
+			RenderDirectionalShadowMapFullViewport(RHIContext, P.DepthRenderBuffer, MeshDrawer, ShadowCasterMeshes, mainLightRef);
 		}
 	}
 }

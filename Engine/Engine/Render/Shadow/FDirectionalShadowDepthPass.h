@@ -26,6 +26,24 @@ namespace Engine
 		bool bCachedDirectionalCSMParamsValid = false;
 	};
 
+	/** UE-style parameters bundle for directional / CSM shadow depth (A). */
+	struct FDirectionalShadowDepthPassParameters
+	{
+		RenderCore::RHICommandContext* RHICmdList = nullptr;
+		const std::vector<GltfSceneMeshInfo>* ShadowCasterMeshes = nullptr;
+		std::vector<Light>* FrameLights = nullptr;
+		int MainDirectionalLightListIndex = -1;
+		bool bSubjectValid = false;
+		math::AABB3 SubjectWorldAabb{};
+		bool bReceiverValid = false;
+		math::AABB3 ReceiverWorldAabb{};
+		const FShadowProjectorSceneData* ProjectorScene = nullptr;
+		const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustumDriver = nullptr;
+		std::shared_ptr<RenderCore::RHIRenderTarget> DepthRenderBuffer{};
+		FShadowDepthMeshDrawer* MeshDrawer = nullptr;
+		FDirectionalShadowDepthPassOutputs* OutOutputs = nullptr;
+	};
+
 	/** UE-style: directional shadow map (single atlas or CSM tiles) + CSM uniform fill. */
 	class FDirectionalShadowDepthPass
 	{
@@ -35,10 +53,6 @@ namespace Engine
 		/** First directional in the view light list (ortho / CSM shadow applies to this slot only). */
 		static int FindFirstDirectionalLightIndex(const std::vector<Light>& Lights);
 
-		static void Render(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, std::vector<Light>& Lights,
-							int MainDirLightIndex, bool bSubjectValid, const math::AABB3& SubjectWorldAabb, bool bReceiverValid, const math::AABB3& ReceiverWorldAabb,
-							const FShadowProjectorSceneData& ShadowProjectorScene, const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustumDriver,
-							const std::shared_ptr<RenderCore::RHIRenderTarget>& DepthRenderBuffer, FShadowDepthMeshDrawer& MeshDrawer,
-							FDirectionalShadowDepthPassOutputs& OutOutputs);
+		static void Render(const FDirectionalShadowDepthPassParameters& Params);
 	};
 }

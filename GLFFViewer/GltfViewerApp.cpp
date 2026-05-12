@@ -192,6 +192,14 @@ void GltfViewApp::BindImGuiToSceneRender()
 				}
 
 				ImGui::Separator();
+				ImGui::TextUnformatted("Viewport");
+				{
+					bool bShowBounds = Scene->GetShowSceneMeshBoundsDebug();
+					if (ImGui::Checkbox("Show model bounds (UE-style)", &bShowBounds))
+						Scene->SetShowSceneMeshBoundsDebug(bShowBounds);
+				}
+
+				ImGui::Separator();
 				ImGui::TextUnformatted("Scene light components");
 
 				const std::vector<std::shared_ptr<DirectionalLightComponent>> dirs =
@@ -468,6 +476,7 @@ void GltfViewApp::BindImGuiToSceneRender()
 				}
 			}
 			ImGui::End();
+
 		},
 		this);
 }

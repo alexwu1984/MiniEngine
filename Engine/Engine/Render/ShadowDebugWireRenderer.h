@@ -56,6 +56,16 @@ namespace Engine
 		FPointSphere Point[kMaxDebugLights]{};
 		int NumSpot = 0;
 		FSpotCone Spot[kMaxDebugLights]{};
+
+		/** Oriented mesh local bounds in world (8 corners per box). Filled by SceneRenderer when World requests it. */
+		static constexpr int kMaxMeshBoundsBoxes = 48;
+		struct FMeshBoundsWire
+		{
+			math::Vector3 CornersWorld[8]{};
+			math::Vector4 Color{ 0.93f, 0.93f, 0.1f, 1.f };
+		};
+		int NumMeshBounds = 0;
+		FMeshBoundsWire MeshBounds[kMaxMeshBoundsBoxes]{};
 	};
 
 	/** GPU line-list overlay for debug gizmos. */

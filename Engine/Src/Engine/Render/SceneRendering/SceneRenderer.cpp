@@ -21,12 +21,14 @@
 #include "Scene/DirectionalLightComponent.h"
 #include "Scene/PointLightComponent.h"
 #include "Scene/SpotLightComponent.h"
+#include "Scene/SceneMeshComponent.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
+#include "math/aabb3.h"
 
 using namespace RenderCore;
 
@@ -409,14 +411,42 @@ namespace Engine
 			"ShadowDebugWire",
 			{},
 			{},
-			[d, CommandContext, ViewConst]()
+			[d, CommandContext, ViewConst, Self]()
 			{
-				if (d->ShadowDebugSubmit.NumDir <= 0 && d->ShadowDebugSubmit.NumSpot <= 0 && d->ShadowDebugSubmit.NumPoint <= 0)
+				FShadowDebugWireSubmit sub = d->ShadowDebugSubmit;
+				sub.OverlayWorldToClip = ViewConst->SsrViewProjMatrix;
+
+				std::shared_ptr<World> W = Self ? Self->GetWorld() : nullptr;
+				if (W && W->GetShowSceneMeshBoundsDebug())
+				{
+					sub.NumMeshBounds = 0;
+					const std::vector<std::shared_ptr<Actor>> actors = W->GetAllActorsCopy();
+					for (const auto& act : actors)
+					{
+						if (!act)
+							continue;
+						if (sub.NumMeshBounds >= FShadowDebugWireSubmit::kMaxMeshBoundsBoxes)
+							break;
+						const auto sm = act->GetComponent<SceneMeshComponent>();
+						if (!sm)
+							continue;
+						const math::AABB3 localBox = sm->GetModelBox();
+						if ((localBox.GetMaxPoint() - localBox.GetMinPoint()).GetSqrLength() < 1e-16f)
+							continue;
+						math::Vector3 corners[8];
+						localBox.GetPoint(corners);
+						const math::Matrix4x4 M = act->GetWorldTransform();
+						FShadowDebugWireSubmit::FMeshBoundsWire box{};
+						for (int ci = 0; ci < 8; ++ci)
+							box.CornersWorld[ci] = M.TransformPosition(corners[ci]);
+						sub.MeshBounds[sub.NumMeshBounds++] = box;
+					}
+				}
+
+				if (sub.NumDir <= 0 && sub.NumSpot <= 0 && sub.NumPoint <= 0 && sub.NumMeshBounds <= 0)
 					return;
 				if (!d->ShadowDebugWire)
 					return;
-				FShadowDebugWireSubmit sub = d->ShadowDebugSubmit;
-				sub.OverlayWorldToClip = ViewConst->SsrViewProjMatrix;
 				d->ShadowDebugWire->Render(*CommandContext, *d->MainViewPort, sub);
 			}});
 

@@ -28,7 +28,7 @@ namespace Engine
 			math::Vector4 Color{ 1.f, 1.f, 1.f, 1.f };
 		};
 
-		static constexpr int32_t kMaxWireVertices = 256;
+		static constexpr int32_t kMaxWireVertices = 2048;
 		static void AppendLine(const math::Vector3& a, const math::Vector3& b, const math::Vector4& rgba, std::vector<FShadowDebugWireVertex>& Out)
 		{
 			FShadowDebugWireVertex va{}, vb{};
@@ -146,6 +146,17 @@ namespace Engine
 				AppendLine(apex, onCircle, rgba, Out);
 			}
 		}
+
+		static void AppendWireOrientedBox(const math::Vector3 cornersWorld[8], const math::Vector4& rgba, std::vector<FShadowDebugWireVertex>& Out)
+		{
+			static const int kEdges[12][2] = {
+				{0, 1}, {1, 2}, {2, 3}, {3, 0},
+				{4, 5}, {5, 6}, {6, 7}, {7, 4},
+				{0, 4}, {1, 5}, {2, 6}, {3, 7},
+			};
+			for (const auto& e : kEdges)
+				AppendLine(cornersWorld[e[0]], cornersWorld[e[1]], rgba, Out);
+		}
 	} // namespace
 
 	using CBShadowDebugWireWrap = RenderCore::TUniformBufferBinding<CBShadowDebugWire, 0u>;
@@ -198,6 +209,8 @@ namespace Engine
 			AppendWireSphere(Submit.Point[i].Center, Submit.Point[i].Radius, Submit.Point[i].Color, verts);
 		for (int i = 0; i < Submit.NumSpot; ++i)
 			AppendWireCone(Submit.Spot[i].Apex, Submit.Spot[i].ConeAxis, Submit.Spot[i].Range, Submit.Spot[i].OuterConeCos, Submit.Spot[i].Color, verts);
+		for (int i = 0; i < Submit.NumMeshBounds; ++i)
+			AppendWireOrientedBox(Submit.MeshBounds[i].CornersWorld, Submit.MeshBounds[i].Color, verts);
 
 		if (verts.empty())
 			return;

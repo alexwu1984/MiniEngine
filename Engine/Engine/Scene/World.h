@@ -97,6 +97,10 @@ namespace Engine
 		/** True if current scene JSON listed a RoamCamera entry (after last LoadScene). */
 		bool UsesRoamCameraScene() const;
 
+		/** When true, deferred frame draws wireframe of each SceneMeshComponent local bounds in world (viewer / debug). */
+		void SetShowSceneMeshBoundsDebug(bool bIn);
+		bool GetShowSceneMeshBoundsDebug() const;
+
 	private:
 		WorldPrivate* d_ptr = nullptr;
 	};

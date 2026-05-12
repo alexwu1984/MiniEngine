@@ -17,6 +17,7 @@ namespace RenderCore
 
 namespace Engine
 {
+	class World;
 	struct FShadowDebugWireRendererPrivate;
 
 	/** Filled on the render thread; consumed by the wire overlay pass. */
@@ -57,7 +58,7 @@ namespace Engine
 		int NumSpot = 0;
 		FSpotCone Spot[kMaxDebugLights]{};
 
-		/** Oriented mesh local bounds in world (8 corners per box). Filled by SceneRenderer when World requests it. */
+		/** Oriented mesh local bounds in world (8 corners per box). Filled inside FShadowDebugWireRenderer::Render when enabled. */
 		static constexpr int kMaxMeshBoundsBoxes = 48;
 		struct FMeshBoundsWire
 		{
@@ -76,7 +77,8 @@ namespace Engine
 		~FShadowDebugWireRenderer();
 
 		void InitResource();
-		void Render(RenderCore::RHICommandContext& Ctx, RenderCore::RHIViewPort& ViewPort, const FShadowDebugWireSubmit& Submit);
+		/** @param WorldForMeshBoundsDebug If non-null and World::GetShowSceneMeshBoundsDebug(), appends mesh bounds wires into Submit before draw. */
+		void Render(RenderCore::RHICommandContext& Ctx, RenderCore::RHIViewPort& ViewPort, FShadowDebugWireSubmit Submit, World* WorldForMeshBoundsDebug);
 
 	private:
 		RenderCore::DynamicRHI* RHI = nullptr;

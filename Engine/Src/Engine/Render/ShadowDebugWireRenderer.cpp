@@ -8,8 +8,14 @@
 #include "RHI/RHIShaderDefine.h"
 #include "core/system.h"
 #include "math/aabb3.h"
+#include "math/matrix4x4.h"
 #include "math/vector4.h"
+#include "Scene/Actor.h"
+#include "Scene/SceneMeshComponent.h"
+#include "Scene/World.h"
 #include <cmath>
+#include <memory>
+#include <vector>
 
 using namespace RenderCore;
 
@@ -157,6 +163,34 @@ namespace Engine
 			for (const auto& e : kEdges)
 				AppendLine(cornersWorld[e[0]], cornersWorld[e[1]], rgba, Out);
 		}
+
+		static void GatherSceneMeshBoundsIntoSubmit(FShadowDebugWireSubmit& Submit, World& W)
+		{
+			Submit.NumMeshBounds = 0;
+			if (!W.GetShowSceneMeshBoundsDebug())
+				return;
+			const std::vector<std::shared_ptr<Actor>> actors = W.GetAllActorsCopy();
+			for (const auto& act : actors)
+			{
+				if (!act)
+					continue;
+				if (Submit.NumMeshBounds >= FShadowDebugWireSubmit::kMaxMeshBoundsBoxes)
+					break;
+				const auto sm = act->GetComponent<SceneMeshComponent>();
+				if (!sm)
+					continue;
+				const math::AABB3 localBox = sm->GetModelBox();
+				if ((localBox.GetMaxPoint() - localBox.GetMinPoint()).GetSqrLength() < 1e-16f)
+					continue;
+				math::Vector3 corners[8];
+				localBox.GetPoint(corners);
+				const math::Matrix4x4 M = act->GetWorldTransform();
+				FShadowDebugWireSubmit::FMeshBoundsWire box{};
+				for (int ci = 0; ci < 8; ++ci)
+					box.CornersWorld[ci] = M.TransformPosition(corners[ci]);
+				Submit.MeshBounds[Submit.NumMeshBounds++] = box;
+			}
+		}
 	} // namespace
 
 	using CBShadowDebugWireWrap = RenderCore::TUniformBufferBinding<CBShadowDebugWire, 0u>;
@@ -196,10 +230,13 @@ namespace Engine
 		VertexBuffer = RHI->RHICreateVertexBuffer(zeros.data(), vbUsage, sizeof(FShadowDebugWireVertex), kMaxWireVertices);
 	}
 
-	void FShadowDebugWireRenderer::Render(RHICommandContext& Ctx, RHIViewPort& ViewPort, const FShadowDebugWireSubmit& Submit)
+	void FShadowDebugWireRenderer::Render(RHICommandContext& Ctx, RHIViewPort& ViewPort, FShadowDebugWireSubmit Submit, World* WorldForMeshBoundsDebug)
 	{
 		if (!VertexShader || !PixelShader || !VertexBuffer || !d)
 			return;
+
+		if (WorldForMeshBoundsDebug)
+			GatherSceneMeshBoundsIntoSubmit(Submit, *WorldForMeshBoundsDebug);
 
 		std::vector<FShadowDebugWireVertex> verts;
 		verts.reserve(128);

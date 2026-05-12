@@ -6,9 +6,6 @@
 #include "GltfModel/GltfModel.h"
 #include "core/logger.h"
 #include "core/strings.h"
-#include <algorithm>
-#include <chrono>
-#include <cmath>
 
 namespace Engine
 {

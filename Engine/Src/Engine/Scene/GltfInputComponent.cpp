@@ -6,8 +6,6 @@
 #include "Scene/DeviceInputState.h"
 #include "win/cpu_clock.h"
 #include "win/win32.h"
-#include <algorithm>
-#include <cmath>
 
 namespace Engine
 {

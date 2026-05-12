@@ -4,8 +4,6 @@
 #include "App/AppWindow.h"
 #include "Scene/Actor.h"
 #include "math/vector2.h"
-#include <algorithm>
-#include <cmath>
 
 namespace Engine
 {

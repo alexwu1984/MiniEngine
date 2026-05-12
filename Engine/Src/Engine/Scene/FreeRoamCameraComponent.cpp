@@ -5,7 +5,6 @@
 #include "Engine.h"
 #include "App/AppWindow.h"
 #include "math/math.h"
-#include <cmath>
 
 namespace Engine
 {

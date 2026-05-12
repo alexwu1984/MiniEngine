@@ -6,7 +6,6 @@
 #include "Scene/PointLightComponent.h"
 #include "Scene/SpotLightComponent.h"
 #include "Scene/World.h"
-#include <algorithm>
 
 namespace Engine
 {

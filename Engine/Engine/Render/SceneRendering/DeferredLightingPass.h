@@ -91,5 +91,7 @@ namespace Engine
 		mutable std::shared_ptr<RenderCore::RHIStructuredBuffer> ClusterLightIndexListBuffer;
 		mutable std::unique_ptr<CBClusterBuildWrap> ClusterBuildUniform;
 		mutable std::shared_ptr<RenderCore::RHIComputeShader> ClusterBuildShader;
+		/** Throttles clustered Forward+ CPU split logs; RDG pass timing still records every frame. */
+		mutable uint32_t ClusterTimingLogFrameCounter = 0u;
 	};
 }

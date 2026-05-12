@@ -531,15 +531,18 @@ namespace Engine
 				groundEnvSrvFur = std::move(gt);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrvFur);
 
-		// SceneLights + cluster outputs share the SRV table with the IBL/shadow textures above; the buffers are owned
-		// here so DispatchClusterLightCulling can populate them once per frame, and BindFurForwardSharedSRVs simply
-		// rebinds the SRVs on each material draw (translucent + fur both call this helper).
-		if (SceneLightBuffer)
-			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
-		if (ClusterLightOffsetCountBuffer)
-			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightOffsetCountSrvSlot, ClusterLightOffsetCountBuffer);
-		if (ClusterLightIndexListBuffer)
-			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightIndexListSrvSlot, ClusterLightIndexListBuffer);
+		{
+			// SceneLights + cluster outputs share the SRV table with the IBL/shadow textures above; the buffers are owned
+			// here so DispatchClusterLightCulling can populate them once per frame, and BindFurForwardSharedSRVs simply
+			// rebinds the SRVs on each material draw (translucent + fur both call this helper).
+			RHICommandMark ClusterSrvMark(RHIContext, "ClusteredForward_LightSRVs");
+			if (SceneLightBuffer)
+				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
+			if (ClusterLightOffsetCountBuffer)
+				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightOffsetCountSrvSlot, ClusterLightOffsetCountBuffer);
+			if (ClusterLightIndexListBuffer)
+				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightIndexListSrvSlot, ClusterLightIndexListBuffer);
+		}
 	}
 
 	void DeferredLightingPass::DispatchClusterLightCulling(RHICommandContext& RHIContext, const std::shared_ptr<const FSceneViewData>& ViewData) const
@@ -551,6 +554,14 @@ namespace Engine
 		const uintptr_t ViewKey = reinterpret_cast<uintptr_t>(ViewData.get());
 		if (ViewKey == SceneLightLastUploadedViewKey && SceneLightBuffer && ClusterLightOffsetCountBuffer && ClusterLightIndexListBuffer && ClusterBuildShader)
 			return;
+
+		core::WallSplitTimer Timing;
+		const bool bCreateSceneLights = !SceneLightBuffer;
+		const bool bCreateOffsetCount = !ClusterLightOffsetCountBuffer;
+		const bool bCreateIndexList = !ClusterLightIndexListBuffer;
+		const bool bCreateUniform = !ClusterBuildUniform;
+		const bool bCreateShader = !ClusterBuildShader;
+		const bool bCreatedAnyResource = bCreateSceneLights || bCreateOffsetCount || bCreateIndexList || bCreateUniform || bCreateShader;
 
 		// Lazy create on first use. Lights buffer stays dynamic (CPU-renewed each frame); cluster outputs are static
 		// DEFAULT-heap with UAV bind because the CS owns the writes and the PS sees them via SRV in the same frame.
@@ -571,9 +582,16 @@ namespace Engine
 			const std::wstring Path = core::process_directory().wstring() + L"/ShaderLibDX/ClusterLightBuildCS.hlsl";
 			ClusterBuildShader = RHI->RHICreateComputeShader(Path, "MainCS", {});
 		}
+		const double MsCreate = Timing.split_ms();
 		if (!SceneLightBuffer || !ClusterLightOffsetCountBuffer || !ClusterLightIndexListBuffer || !ClusterBuildUniform
 			|| !ClusterBuildUniform->GetRHIBuffer() || !ClusterBuildShader)
 		{
+			core::inf() << core::perf::hdr(core::perf::kRenderRec, "ClusteredForwardBuildFailed") << "create_ms=" << MsCreate
+						<< " scene_lights=" << (SceneLightBuffer ? 1 : 0)
+						<< " offset_count=" << (ClusterLightOffsetCountBuffer ? 1 : 0)
+						<< " index_list=" << (ClusterLightIndexListBuffer ? 1 : 0)
+						<< " uniform=" << (ClusterBuildUniform && ClusterBuildUniform->GetRHIBuffer() ? 1 : 0)
+						<< " shader=" << (ClusterBuildShader ? 1 : 0) << "\n";
 			return;
 		}
 
@@ -583,6 +601,7 @@ namespace Engine
 		const uint32_t LightCount = (std::min)(static_cast<uint32_t>(ViewLights.size()), kSceneLightBufferCapacity);
 		if (LightCount > 0)
 			SceneLightBuffer->UpdateStructuredBuffer(ViewLights.data(), LightCount * static_cast<uint32_t>(sizeof(Light)));
+		const double MsUploadLights = Timing.split_ms();
 
 		// Build the CS CB. View + proj inverse are split out from CurrViewProjInverseMatrix because the cluster
 		// algorithm needs only the projection inverse (NDC -> view) — combining with view would break the math.
@@ -592,6 +611,7 @@ namespace Engine
 		ClusterBuildUniform->Data.ClusterFarZ = ViewData->CameraFarZ;
 		ClusterBuildUniform->Data.ClusterLightCount = LightCount;
 		ClusterBuildUniform->Data.ClusterPad0 = 0u;
+		const double MsBuildCB = Timing.split_ms();
 
 		RHICommandMark Mark(RHIContext, "BuildClusteredLights");
 
@@ -602,6 +622,7 @@ namespace Engine
 		RHIContext.RHISetShaderStructuredBuffer(SF_Compute, 0u, SceneLightBuffer);
 		RHIContext.RHISetShaderStructuredBufferUAV(0u, ClusterLightOffsetCountBuffer);
 		RHIContext.RHISetShaderStructuredBufferUAV(1u, ClusterLightIndexListBuffer);
+		const double MsBind = Timing.split_ms();
 
 		constexpr uint32_t ThreadGroupSize = 64u;
 		const uint32_t GroupCount = (ClusterLightCulling::kClusterCount + ThreadGroupSize - 1u) / ThreadGroupSize;
@@ -611,7 +632,32 @@ namespace Engine
 		// same resources to PIXEL_SHADER_RESOURCE without the D3D11 simultaneous-bind warning.
 		RHIContext.RHISetShaderStructuredBufferUAV(0u, std::shared_ptr<RHIStructuredBuffer>{});
 		RHIContext.RHISetShaderStructuredBufferUAV(1u, std::shared_ptr<RHIStructuredBuffer>{});
+		const double MsDispatchRecord = Timing.split_ms();
 
 		SceneLightLastUploadedViewKey = ViewKey;
+
+		const double MsTotal = Timing.total_ms();
+		const uint32_t TimingFrame = ++ClusterTimingLogFrameCounter;
+		const bool bVerbose = core::CommandLine::Get().GetName("cluster_timing_verbose");
+		const bool bPeriodic = TimingFrame <= 8u || (TimingFrame % 120u) == 0u;
+		if (bVerbose || bCreatedAnyResource || bPeriodic || MsTotal >= 1.0)
+		{
+			core::inf() << core::perf::hdr(core::perf::kRenderRec, "ClusteredForwardBuild") << "wall_ms=" << MsTotal
+						<< " create_ms=" << MsCreate
+						<< " upload_lights_ms=" << MsUploadLights
+						<< " build_cb_ms=" << MsBuildCB
+						<< " bind_ms=" << MsBind
+						<< " dispatch_record_ms=" << MsDispatchRecord
+						<< " lights=" << LightCount
+						<< " source_lights=" << static_cast<uint32_t>(ViewLights.size())
+						<< " clusters=" << ClusterLightCulling::kClusterCount
+						<< " max_lights_per_cluster=" << ClusterLightCulling::kMaxLightsPerCluster
+						<< " groups=" << GroupCount
+						<< " created_scene_lights=" << (bCreateSceneLights ? 1 : 0)
+						<< " created_offset_count=" << (bCreateOffsetCount ? 1 : 0)
+						<< " created_index_list=" << (bCreateIndexList ? 1 : 0)
+						<< " created_uniform=" << (bCreateUniform ? 1 : 0)
+						<< " created_shader=" << (bCreateShader ? 1 : 0) << "\n";
+		}
 	}
 }

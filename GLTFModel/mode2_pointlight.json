@@ -1,7 +1,6 @@
 ﻿{
   "Evn": {
     "Hdr": "ProceduralSky",
-    "DisableProcSkyAutoSpotSunKey": true,
     "AmbientStrength": 1.48,
     "SunDirection": "0.780661,0.300872,0.547763",
     "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",

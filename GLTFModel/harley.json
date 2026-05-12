@@ -8,7 +8,7 @@
       {
         "LightColor": "1.0,1.0,1.0",
         "LightDir": "0.781,0.301,0.548",
-        "LightStrength": 16.0,
+        "LightStrength": 1.0,
         "LightType": 0
       }
     ],

@@ -3,7 +3,6 @@
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
     "IBLIntensity": 1.0,
-    "DisableProcSkyAutoSpotSunKey": true,
     "SunDirection": "0,0,-1",
     "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
     "Light": [

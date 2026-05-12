@@ -434,8 +434,6 @@ namespace Engine
 		mutable bool ShadowProjectorCacheDirty = true;
 		mutable std::weak_ptr<Actor> ShadowProjectorCache;
 		bool bLoadedSceneUsesRoamCamera = false;
-		/** When false (default): procedural sky + exactly one shadow-casting spot → treat it as sun key (position/axis from skylight sun; Evn directional may still exist for fill). */
-		bool bDisableProcSkyAutoSpotSunKey = false;
 	};
 
 	World::World()
@@ -512,15 +510,6 @@ namespace Engine
 			}
 
 			nlohmann::json evnJson = Root["Evn"];
-			d->bDisableProcSkyAutoSpotSunKey = false;
-			try
-			{
-				if (evnJson.find("DisableProcSkyAutoSpotSunKey") != evnJson.end() && evnJson["DisableProcSkyAutoSpotSunKey"].is_boolean())
-					d->bDisableProcSkyAutoSpotSunKey = evnJson["DisableProcSkyAutoSpotSunKey"].get<bool>();
-			}
-			catch (const std::exception&)
-			{
-			}
 			SpawnConfigSkyLightActor(self, evnJson);
 
 			const nlohmann::json lightJsons = evnJson["Light"];
@@ -863,28 +852,12 @@ namespace Engine
 
 		const auto slSky = FindPrimarySkyLightComponent();
 		const bool bProcSky = slSky && slSky->IsEnabled() && slSky->IsProceduralSky();
-		std::shared_ptr<SpotLightComponent> procSkyAutoSunSpot;
-		if (bProcSky && !d->bDisableProcSkyAutoSpotSunKey)
-		{
-			int shadowSpotCount = 0;
-			for (const auto& c : spotComps)
-			{
-				if (c->GetCastShadow())
-				{
-					++shadowSpotCount;
-					procSkyAutoSunSpot = c;
-				}
-			}
-			if (shadowSpotCount != 1)
-				procSkyAutoSunSpot.reset();
-		}
 		for (const auto& comp : spotComps)
 		{
 			if (out.size() >= MAX_LIGHT_INSTANCES)
 				break;
 			Light L = comp->BuildLight();
-			const bool bPlaceAsProcSunKey = bProcSky && slSky
-				&& (comp->IsProceduralSunFill() || (procSkyAutoSunSpot && comp == procSkyAutoSunSpot && !comp->IsProceduralSunFill()));
+			const bool bPlaceAsProcSunKey = bProcSky && slSky && comp->IsProceduralSunFill();
 			if (bPlaceAsProcSunKey)
 			{
 				math::Vector3 sunDir = slSky->GetProceduralSunDirectionTowardSource();
@@ -909,36 +882,6 @@ namespace Engine
 			out.push_back(std::move(L));
 		}
 		return out;
-	}
-
-	bool World::DoesSpotUseProceduralSunKeyInGather(const std::shared_ptr<SpotLightComponent>& comp) const
-	{
-		if (!comp || !comp->IsEnabled())
-			return false;
-		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		const auto spotComps = CollectSpotLightComponentsSorted(d->Actors, d->PendingActors);
-		const auto slSky = FindPrimarySkyLightComponent();
-		const bool bProcSky = slSky && slSky->IsEnabled() && slSky->IsProceduralSky();
-		if (!bProcSky || !slSky)
-			return false;
-		if (comp->IsProceduralSunFill())
-			return true;
-		if (d->bDisableProcSkyAutoSpotSunKey)
-			return false;
-		std::shared_ptr<SpotLightComponent> procSkyAutoSunSpot;
-		int shadowSpotCount = 0;
-		for (const auto& c : spotComps)
-		{
-			if (c->GetCastShadow())
-			{
-				++shadowSpotCount;
-				procSkyAutoSunSpot = c;
-			}
-		}
-		if (shadowSpotCount != 1 || !procSkyAutoSunSpot)
-			return false;
-		return procSkyAutoSunSpot == comp;
 	}
 
 	void World::RefreshShadowProjectorForActor(std::shared_ptr<Actor> actor)

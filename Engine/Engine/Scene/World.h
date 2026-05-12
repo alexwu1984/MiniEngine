@@ -66,15 +66,9 @@ namespace Engine
 		std::vector<Light> GatherLightsForView() const;
 
 		/**
-		 * True when GatherLightsForView applies procedural-sun placement to this spot
-		 * (SyncProceduralSun / IsProceduralSunFill, or the single auto "sun key" shadow spot under procedural sky).
-		 */
-		bool DoesSpotUseProceduralSunKeyInGather(const std::shared_ptr<SpotLightComponent>& comp) const;
-
-		/**
-		 * Aim used by GatherLights procedural-sun placement. If the component aim is (0,0,0) (unset / default) and shadow
-		 * projector bounds exist, returns (center.x, 0, center.z) so the cone targets the ground under shadow casters
-		 * (AMD glTFSample-style outdoor framing). Otherwise returns the authored aim.
+		 * Aim used by GatherLights procedural-sun placement (spots with IsProceduralSunFill). If the component aim is
+		 * (0,0,0) (unset / default) and shadow projector bounds exist, returns (center.x, 0, center.z) so the cone targets
+		 * the ground under shadow casters (AMD glTFSample-style outdoor framing). Otherwise returns the authored aim.
 		 */
 		math::Vector3 ResolveProceduralSunAimWorldForGather(const SpotLightComponent& comp) const;
 

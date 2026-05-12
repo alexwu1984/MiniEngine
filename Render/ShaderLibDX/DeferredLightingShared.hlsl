@@ -248,13 +248,8 @@ float3 ApplyDirectionalLightHair(float3 worldPos, Light light, float3 baseColor,
 	float visibility = 1.0f;
 	if (light.ShadowMapIndex >= 0)
 	{
-		if (DirectionalCSMEnabled != 0)
-			visibility = clamp(ComputeShadowHairCascadeAtlas(worldPos, geomN, coverageAlpha), 0.0, 1.0);
-		else
-		{
-			float4 lightClipPos = mul(float4(worldPos, 1.0), GetMainLightViewProj());
-			visibility = clamp(ComputeShadowHair(lightClipPos, geomN, coverageAlpha), 0.0, 1.0);
-		}
+		float4 lightClipPos = mul(float4(worldPos, 1.0), GetMainLightViewProj());
+		visibility = clamp(ComputeShadowHair(lightClipPos, geomN, coverageAlpha), 0.0, 1.0);
 	}
 	float specMask = saturate(NdotL * 0.55 + 0.38);
 	return light.Intensity * light.Color * (diffKK * NdotL + specKK * specMask) * ao * visibility;

@@ -2,7 +2,7 @@
 // Bindings: material t0-t4 + cbPerMaterial b6 (PBRMaterialSampling); IBL + shadows t5-t8, t10-t11 + b4/b5/b7 (matches DeferredLightingPass::BindFurForwardSharedSRVs).
 //
 // Skip fur/hair-only helpers + HairShading include to shrink JIT compile (see MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR).
-// Directional shadow: TranslucentShadowLite.hlsl (fixed-tap PCF + CSM splits) instead of PCSS - faster compile, softer contact than PCSS.
+// Directional shadow: TranslucentShadowLite.hlsl (fixed-tap PCF) instead of PCSS — faster compile, softer contact than PCSS.
 #define MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR 1
 
 #include "PBRMaterialSampling.hlsl"
@@ -17,13 +17,10 @@ Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
 
-cbuffer cbDirectionalShadowCSM : register(b7)
+cbuffer cbDirectionalShadow : register(b7)
 {
-	row_major matrix CascadeViewProj[3];
-	float4 CascadeSplits;
-	float4 CameraForwardInvCount;
-	int DirectionalCSMEnabled;
-	int3 _PadDirectionalCSM;
+	row_major matrix DirectionalShadowViewProj;
+	float4 _PadDirectionalShadow;
 };
 
 #include "TranslucentShadowLite.hlsl"

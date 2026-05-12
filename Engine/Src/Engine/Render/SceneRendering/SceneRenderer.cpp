@@ -435,7 +435,7 @@ namespace Engine
 				// ImGui draws to the swapchain; re-bind OM after post-process / debug overlays (same immediate context as DX11 backend).
 				if (d->MainViewPort)
 					d->MainViewPort->SetRenderTarget();
-				// CSM / atlas passes use RSSetViewports with non-zero TopLeft; ImGui assumes full back-buffer viewport at origin.
+				// Shadow / atlas passes use RSSetViewports with non-zero TopLeft; ImGui assumes full back-buffer viewport at origin.
 				if (CommandContext && d->MainViewPort)
 				{
 					const core::vec2u VpSz = d->MainViewPort->GetSize();

@@ -145,17 +145,14 @@ namespace Engine
 	static_assert(sizeof(CBSpotShadow) % 16u == 0u, "cbSpotShadow must be 16-byte aligned");
 	using CBSpotShadowWrap = RenderCore::TUniformBufferBinding<CBSpotShadow, 5u>;
 
-	/** Matches DeferredLighting.hlsl cbDirectionalShadowCSM (register b7). */
-	struct CBDirectionalShadowCSM
+	/** Matches DeferredLighting.hlsl / FurMaterial cbDirectionalShadow (register b7). */
+	struct CBDirectionalShadow
 	{
-		math::Matrix4x4 CascadeViewProj[3]{};
-		math::Vector4 CascadeSplits{};
-		math::Vector4 CameraForwardInvCount{};
-		int32_t DirectionalCSMEnabled = 0;
-		int32_t _PadDirectionalCSM[3]{};
+		math::Matrix4x4 ViewProj{};
+		math::Vector4 _Pad{};
 	};
-	static_assert(sizeof(CBDirectionalShadowCSM) % 16u == 0u, "cbDirectionalShadowCSM must be 16-byte aligned");
-	using CBDirectionalShadowCSMWrap = RenderCore::TUniformBufferBinding<CBDirectionalShadowCSM, 7u>;
+	static_assert(sizeof(CBDirectionalShadow) % 16u == 0u, "cbDirectionalShadow must be 16-byte aligned");
+	using CBDirectionalShadowWrap = RenderCore::TUniformBufferBinding<CBDirectionalShadow, 7u>;
 
 	struct CBPerObject
 	{

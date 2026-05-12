@@ -388,7 +388,7 @@ namespace Engine
 		shadowProjectorScene.ViewWorldBoundsAabb = ViewConst->ViewFrustum.bbox;
 		shadowProjectorScene.bHasViewWorldBoundsForDirectionalReceiverXY = true;
 
-		// Cascade split camera payload (Near/Far/View/Fov/...) for directional CSM.
+		// Shadow projector camera payload (Near/Far/View/Fov/...) for directional frustum fitting.
 		shadowProjectorScene.CameraView = ViewConst->ViewMatrix;
 		shadowProjectorScene.CameraWorldPos = ViewConst->CameraPos;
 		shadowProjectorScene.CameraNearZ = ViewConst->CameraNearZ;
@@ -397,8 +397,8 @@ namespace Engine
 			ViewFamily.RenderSizeY > 0 ? static_cast<float>(ViewFamily.RenderSizeX) / static_cast<float>(ViewFamily.RenderSizeY) : 1.f;
 		if (World->GetMainCamera())
 			shadowProjectorScene.CameraFovYRad = World->GetMainCamera()->GetFovVerticalRadians();
-		// CSM split metric uses dot(worldPos - cam, fwd); fwd MUST match view matrix depth axis (same as WorldBoundsFromViewProjSliceInverse / NearZ–FarZ splits).
-		// Frustum corner averages can diverge slightly from MatrixLookAtLH forward → wrong cascade index → blocky/wrong shadow sampling.
+		// Camera forward for directional shadow frustum fitting; keep consistent with view matrix depth axis.
+		// Frustum corner averages can diverge slightly from MatrixLookAtLH forward → wrong shadow sampling.
 		{
 			const math::Matrix4x4& V = ViewConst->ViewMatrix;
 			math::Vector3 fwd(V._02, V._12, V._22);

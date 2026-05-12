@@ -16,16 +16,16 @@ namespace Engine
 	struct GltfSceneMeshInfo;
 	class FShadowDepthMeshDrawer;
 
-	/** Outputs written by the directional + CSM depth pass for deferred / base pass consumers. */
+	/** Outputs written by the directional shadow depth pass for deferred / base pass consumers. */
 	struct FDirectionalShadowDepthPassOutputs
 	{
 		Light CachedMainLightForShading{};
 		bool bCachedMainLightValid = false;
 		int CachedMainDirectionalShadowLightListIndex = -1;
-		CBDirectionalShadowCSM CachedDirectionalCSM{};
+		CBDirectionalShadow CachedDirectionalShadow{};
 	};
 
-	/** UE-style parameters bundle for directional / CSM shadow depth (A). */
+	/** Parameters bundle for directional shadow depth. */
 	struct FDirectionalShadowDepthPassParameters
 	{
 		RenderCore::RHICommandContext* RHICmdList = nullptr;
@@ -43,13 +43,13 @@ namespace Engine
 		FDirectionalShadowDepthPassOutputs* OutOutputs = nullptr;
 	};
 
-	/** UE-style: directional shadow depth as vertical CSM atlas + per-cascade uniform fill. */
+	/** Directional shadow depth into a single square depth map. */
 	class FDirectionalShadowDepthPass
 	{
 	public:
-		static constexpr int kCascadeShadowResolution = 2048;
+		static constexpr int kDirectionalShadowMapResolution = 2048;
 
-		/** First directional in the view light list (ortho / CSM shadow applies to this slot only). */
+		/** First directional in the view light list (ortho shadow applies to this slot only). */
 		static int FindFirstDirectionalLightIndex(const std::vector<Light>& Lights);
 
 		static void Render(const FDirectionalShadowDepthPassParameters& Params);

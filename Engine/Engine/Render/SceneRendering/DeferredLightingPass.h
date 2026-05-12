@@ -38,7 +38,7 @@ namespace Engine
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
-		/** Binds IBL + shadow SRVs (t5–t11) and cbPointShadow / cbSpotShadow / cbDirectionalShadowCSM (b7) for fur/translucent forward (cbPerFrame from material draw). */
+		/** Binds IBL + shadow SRVs (t5–t11) and cbPointShadow / cbSpotShadow / cbDirectionalShadow (b7) for fur/translucent forward (cbPerFrame from material draw). */
 		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures, FWorldSceneRender* WorldSceneRender,
 									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
@@ -51,7 +51,7 @@ namespace Engine
 		mutable std::unique_ptr<CBPerFrameWrap> PerFrameUniform;
 		mutable std::unique_ptr<CBPointShadowWrap> PointShadowUniform;
 		mutable std::unique_ptr<CBSpotShadowWrap> SpotShadowUniform;
-		mutable std::unique_ptr<CBDirectionalShadowCSMWrap> DirectionalShadowCSMUniform;
+		mutable std::unique_ptr<CBDirectionalShadowWrap> DirectionalShadowUniform;
 		mutable std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
 		mutable std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
 		/** Bound to t5/t7 when IBL cubemaps are missing so PS never samples stale 2D PBR textures as cubes. */

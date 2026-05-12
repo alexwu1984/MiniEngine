@@ -33,7 +33,7 @@ namespace Engine
 
 		/**
 		 * glTFSample-style (GetAABBInGivenSpace + merge): for each shadow-writing mesh, world AABB → 8 corners in light space, merge min/max.
-		 * When OptionalWorldClipAabb is set (e.g. CSM cascade hull), each mesh box is intersected with it first so the frustum matches visible casters in that slice.
+		 * When OptionalWorldClipAabb is set (e.g. tight subject hull), each mesh box is intersected with it first so the frustum matches visible casters in that region.
 		 */
 		static bool TryMergeSubjectMeshesLightSpaceExtents(const std::vector<GltfSceneMeshInfo>* SubjectMeshList, const math::Matrix4x4& LightView,
 														  const math::AABB3* OptionalWorldClipAabb, math::Vector3& OutLsMin, math::Vector3& OutLsMax);

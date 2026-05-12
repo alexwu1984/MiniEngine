@@ -78,7 +78,7 @@ namespace Engine
 		/** First actor that owns a SceneMeshComponent with project-shadow enabled (same order as scene iteration). */
 		std::shared_ptr<Actor> GetShadowProjectorActor() const;
 
-		/** Union world AABB of every ProjShadow mesh (multi-caster); drives shadow cascade + fallback frustum. */
+		/** Union world AABB of every ProjShadow mesh (multi-caster); drives directional shadow frustum + fallback bounds. */
 		FShadowProjectorSceneData BuildShadowProjectorAggregateData() const;
 
 		/**

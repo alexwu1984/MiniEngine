@@ -1,5 +1,6 @@
 ﻿#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "Render/Shadow/FShadowSceneBounds.h"
+#include "math/aabb3.h"
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
@@ -158,42 +159,6 @@ namespace
 namespace Engine
 {
 	static constexpr float kMinDirectionalLightDistance = 4.0f;
-
-	void FDirectionalShadowFrustumFitter::ComputeDirectionalCascadeSplitEnds(float n, float f, float outEnds[FDirectionalShadowFrustumFitter::kCascadeCount])
-	{
-		const float fn = std::max(f, n + 1e-2f);
-		for (int i = 0; i < kCascadeCount; ++i)
-		{
-			const float ratio = static_cast<float>(i + 1) / static_cast<float>(kCascadeCount);
-			const float logd = n * std::pow(fn / n, ratio);
-			const float unid = n + (fn - n) * ratio;
-			outEnds[i] = kCSMSplitLambda * logd + (1.f - kCSMSplitLambda) * unid;
-		}
-	}
-
-	math::AABB3 FDirectionalShadowFrustumFitter::WorldBoundsFromViewProjSliceInverse(const math::Matrix4x4& CameraView, float fovy, float aspectWH, float zn, float zf)
-	{
-		const math::Matrix4x4 proj = math::Matrix4x4::MatrixPerspectiveFovLH(fovy, aspectWH, zn, zf);
-		const math::Matrix4x4 vp = CameraView * proj;
-		const math::Matrix4x4 invVP = vp.Inverse();
-		std::vector<math::Vector3> pts;
-		pts.reserve(8);
-		const float sx[] = { -1.f, 1.f };
-		const float sy[] = { -1.f, 1.f };
-		const float sz[] = { 0.f, 1.f };
-		for (float x : sx)
-			for (float y : sy)
-				for (float z : sz)
-				{
-					const math::Vector4 clip(x, y, z, 1.f);
-					const math::Vector4 wh = clip * invVP;
-					const float iw = (std::fabs(wh.w) > 1e-8f) ? (1.f / wh.w) : 1.f;
-					pts.emplace_back(wh.x * iw, wh.y * iw, wh.z * iw);
-				}
-		math::AABB3 box;
-		box.CreateAABB(pts);
-		return box;
-	}
 
 	void FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Light& MainLight, const math::AABB3& SubjectWorldAabb, bool bReceiverRelativeFrustumAdjust,
 																			   const math::AABB3& ReceiverWorldAabb, const core::vec2i& ShadowMapSize,

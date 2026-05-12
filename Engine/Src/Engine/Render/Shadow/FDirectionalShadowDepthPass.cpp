@@ -26,7 +26,7 @@ namespace Engine
 		FDirectionalShadowDepthPassOutputs& OutOutputs = *P.OutOutputs;
 		OutOutputs.bCachedMainLightValid = false;
 		OutOutputs.CachedMainDirectionalShadowLightListIndex = -1;
-		OutOutputs.CachedDirectionalCSM = CBDirectionalShadowCSM{};
+		OutOutputs.CachedDirectionalShadow = CBDirectionalShadow{};
 
 		if (P.MainDirectionalLightListIndex < 0 || !P.bSubjectValid || !P.DepthRenderBuffer)
 			return;
@@ -39,45 +39,21 @@ namespace Engine
 
 		Light& mainLightRef = Lights[static_cast<size_t>(P.MainDirectionalLightListIndex)];
 		mainLightRef.ShadowMapIndex = 0;
-		const core::vec2i cascadeTexSize{ kCascadeShadowResolution, kCascadeShadowResolution };
+		const core::vec2i shadowTexSize{ kDirectionalShadowMapResolution, kDirectionalShadowMapResolution };
 		const bool bReceiverRelativeFrustumAdjust =
 			P.bReceiverValid && FShadowSceneBounds::kPreferTightShadowFrustumFromCasters && P.SubjectMeshListForFrustumDriver == &ShadowCasterMeshes;
 
-		OutOutputs.CachedDirectionalCSM = CBDirectionalShadowCSM{};
-		OutOutputs.CachedDirectionalCSM.DirectionalCSMEnabled = 1;
-
-		float splitEnds[FDirectionalShadowFrustumFitter::kCascadeCount];
-		FDirectionalShadowFrustumFitter::ComputeDirectionalCascadeSplitEnds(ShadowProjectorScene.CameraNearZ, ShadowProjectorScene.CameraFarZ, splitEnds);
-		OutOutputs.CachedDirectionalCSM.CascadeSplits =
-			math::Vector4(splitEnds[0], splitEnds[1], ShadowProjectorScene.CameraFarZ, static_cast<float>(FDirectionalShadowFrustumFitter::kCascadeCount));
-		const float invN = 1.f / static_cast<float>(FDirectionalShadowFrustumFitter::kCascadeCount);
-		OutOutputs.CachedDirectionalCSM.CameraForwardInvCount =
-			math::Vector4(ShadowProjectorScene.CameraForwardWorld.x, ShadowProjectorScene.CameraForwardWorld.y, ShadowProjectorScene.CameraForwardWorld.z, invN);
-
-		RHIContext.Clear(P.DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
-
-		Light firstCascadeLight{};
-		for (int ci = 0; ci < FDirectionalShadowFrustumFitter::kCascadeCount; ++ci)
-		{
-			// Fit ortho to merged shadow casters only. Do NOT clip SubjectWorldAabb by the slice's *world AABB*:
-			// that AABB is only a loose hull of the frustum wedge; intersecting can shrink below the real slice
-			// and crop casters out of the shadow map (CSM0 shows a tiny silhouette). Merge(Subject, slice) was
-			// equally wrong (union → huge waste). Per-cascade split is applied in deferred sampling, not here.
-			const math::AABB3& cascadeSubject = P.SubjectWorldAabb;
-
-			Light Li = mainLightRef;
-			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, cascadeSubject, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, cascadeTexSize,
-																					ShadowProjectorScene, false, P.SubjectMeshListForFrustumDriver, nullptr);
-			OutOutputs.CachedDirectionalCSM.CascadeViewProj[ci] = Li.LightViewProj;
-			if (ci == 0)
-				firstCascadeLight = Li;
-
-			RHIContext.SetViewPort(0, ci * kCascadeShadowResolution, kCascadeShadowResolution, kCascadeShadowResolution);
-			MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, Li, P.DepthRenderBuffer);
-		}
-		OutOutputs.CachedMainLightForShading = firstCascadeLight;
+		Light Li = mainLightRef;
+		FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, P.SubjectWorldAabb, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, shadowTexSize,
+																				ShadowProjectorScene, false, P.SubjectMeshListForFrustumDriver, nullptr);
+		OutOutputs.CachedDirectionalShadow.ViewProj = Li.LightViewProj;
+		OutOutputs.CachedMainLightForShading = Li;
 		OutOutputs.CachedMainLightForShading.ShadowMapIndex = 0;
 		OutOutputs.CachedMainDirectionalShadowLightListIndex = P.MainDirectionalLightListIndex;
 		OutOutputs.bCachedMainLightValid = true;
+
+		RHIContext.Clear(P.DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
+		RHIContext.SetViewPort(0, 0, kDirectionalShadowMapResolution, kDirectionalShadowMapResolution);
+		MeshDrawer.DrawDirectional(RHIContext, ShadowCasterMeshes, Li, P.DepthRenderBuffer);
 	}
 }

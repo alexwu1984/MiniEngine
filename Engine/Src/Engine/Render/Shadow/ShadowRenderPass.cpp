@@ -2,7 +2,6 @@
 #include <memory>
 #include "core/vec2.h"
 #include "Render/Shadow/FDirectionalShadowDepthPass.h"
-#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "Render/Shadow/FPointShadowCubePass.h"
 #include "Render/Shadow/FShadowDepthMeshDrawer.h"
 #include "Render/Shadow/FShadowViewData.h"
@@ -36,7 +35,7 @@ namespace Engine
 		int CachedSpotShadowLightIndex = -1;
 		bool bCachedSpotShadowValid = false;
 
-		CBDirectionalShadowCSM CachedDirectionalCSM{};
+		CBDirectionalShadow CachedDirectionalShadow{};
 
 		explicit ShadowRenderPassPrivate(RenderCore::DynamicRHI* InRHI)
 			: RHI(InRHI)
@@ -58,9 +57,9 @@ namespace Engine
 	void ShadowRenderPass::InitResource()
 	{
 		C_P(ShadowRenderPass);
-		const int32_t SHADOW_WIDTH = FDirectionalShadowDepthPass::kCascadeShadowResolution;
-		const int32_t SHADOW_HEIGHT = FDirectionalShadowDepthPass::kCascadeShadowResolution * FDirectionalShadowFrustumFitter::kCascadeCount;
-		// D32 depth + comparison sampling (hardware PCF) for directional atlas; no R32 color target.
+		const int32_t SHADOW_WIDTH = FDirectionalShadowDepthPass::kDirectionalShadowMapResolution;
+		const int32_t SHADOW_HEIGHT = FDirectionalShadowDepthPass::kDirectionalShadowMapResolution;
+		// D32 depth + comparison sampling (hardware PCF) for directional map; no R32 color target.
 		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, false);
 		if (!d->PointShadowCube)
 			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_ShadowDepth, FPointShadowCubePass::kCubeFaceResolution,
@@ -76,7 +75,7 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
-		d->CachedDirectionalCSM = CBDirectionalShadowCSM{};
+		d->CachedDirectionalShadow = CBDirectionalShadow{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 	}
@@ -92,10 +91,10 @@ namespace Engine
 		return true;
 	}
 
-	const CBDirectionalShadowCSM& ShadowRenderPass::GetCachedDirectionalCSM() const
+	const CBDirectionalShadow& ShadowRenderPass::GetCachedDirectionalShadow() const
 	{
 		C_P(const ShadowRenderPass);
-		return d->CachedDirectionalCSM;
+		return d->CachedDirectionalShadow;
 	}
 
 	void ShadowRenderPass::ClearCachedMeshShadowPasses()
@@ -111,7 +110,7 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
-		d->CachedDirectionalCSM = CBDirectionalShadowCSM{};
+		d->CachedDirectionalShadow = CBDirectionalShadow{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 
@@ -144,7 +143,7 @@ namespace Engine
 			d->CachedMainLightForShading = dirOut.CachedMainLightForShading;
 			d->bCachedMainLightValid = dirOut.bCachedMainLightValid;
 			d->CachedMainDirectionalShadowLightListIndex = dirOut.CachedMainDirectionalShadowLightListIndex;
-			d->CachedDirectionalCSM = dirOut.CachedDirectionalCSM;
+			d->CachedDirectionalShadow = dirOut.CachedDirectionalShadow;
 		}
 
 		if (viewData.LightSlots.PointCubeShadowLightListIndex >= 0 && d->PointShadowCube && viewData.ShadowCasterMeshes && !viewData.ShadowCasterMeshes->empty()

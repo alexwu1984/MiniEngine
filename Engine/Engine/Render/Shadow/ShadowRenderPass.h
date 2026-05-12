@@ -38,8 +38,8 @@ namespace Engine
 		/** Last frame's main directional light after shadow pass (LightViewProj + ShadowMapIndex); for base pass CB. */
 		bool TryGetCachedMainLightForShading(Light& OutLight, int* OutLightListIndexInLastShadowPassLights = nullptr);
 
-		/** Last directional shadow pass CSM uniform snapshot (zeros if no directional shadow this frame). */
-		const CBDirectionalShadowCSM& GetCachedDirectionalCSM() const;
+		/** Last directional shadow uniform snapshot (zeros if no directional shadow this frame). */
+		const CBDirectionalShadow& GetCachedDirectionalShadow() const;
 
 		/** Fills FaceVP / Light index / xyz+range.w after point cubemap shadow render; false if no cached cube pass. */
 		bool TryGetCachedPointShadowForDeferred(int& OutLightIndex, math::Matrix4x4 OutFaceVp[6], math::Vector4& OutPosRange) const;

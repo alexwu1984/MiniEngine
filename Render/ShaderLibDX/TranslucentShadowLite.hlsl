@@ -1,9 +1,9 @@
 // Lightweight directional shadow for TranslucentPBRForward only (no PCSS / no blocker search).
-// Include after: PBRMaterialSampling, ShadowMap (t8), SampleShadow (s1), ShadowCompareSampler (s2), cbDirectionalShadowCSM (b7).
+// Include after: PBRMaterialSampling, ShadowMap (t8), SampleShadow (s1), ShadowCompareSampler (s2), cbDirectionalShadow (b7).
 // Provides: kPoissonDisk16 (for SpotShadowSampling), ComputeShadowPCSS (for DeferredLightingShared.ComputeShadow),
 // DirectionalShadowVisibility, PrimaryDirectionalShadowVisForIBL.
 //
-// Trade: stable PCF + cascade selection matches full path layout; softer penumbra than PCSS, much faster FXC compile.
+// Trade: stable PCF + single-tile atlas UV layout matches deferred PCSS path; softer penumbra than PCSS, much faster FXC compile.
 
 #ifndef MINIENGINE_TRANSLUCENT_SHADOW_LITE_HLSL
 #define MINIENGINE_TRANSLUCENT_SHADOW_LITE_HLSL
@@ -19,7 +19,7 @@ static const float2 kPoissonDisk16[16] =
 };
 
 static const float kTranslucentDirPcfRadiusFull = 0.00105;
-static const float kTranslucentDirPcfRadiusCascade = 0.00155;
+static const float kTranslucentDirPcfRadiusAtlasTile = 0.00155;
 
 float ShadowDepthBiasTranslucent(float3 Normal)
 {
@@ -33,7 +33,7 @@ float ShadowDepthBiasTranslucent(float3 Normal)
 	return baseBias + slopeBias * (1.0 - NdotL) + horizonBias;
 }
 
-float ShadowDepthBiasTranslucent_Cascade(float3 Normal)
+float ShadowDepthBiasTranslucent_AtlasTile(float3 Normal)
 {
 	return ShadowDepthBiasTranslucent(Normal) + 0.00055 + (1.0 - abs(dot(normalize(Normal), normalize(GetMainLight().Direction)))) * 0.00085;
 }
@@ -54,13 +54,13 @@ float TranslucentPCF_FullAtlas(float2 uv01, float zReceiver, float radiusUV, flo
 	return lit * (1.0 / 9.0);
 }
 
-float TranslucentPCF_CascadeTile(float2 uvTile01, float cascadeIdx, float invN, float zReceiver, float3 Normal, float radiusUV)
+float TranslucentPCF_AtlasTile(float2 uvTile01, float atlasRowIndex, float invAtlasRows, float zReceiver, float3 Normal, float radiusUV)
 {
 	float result = 1.0;
 	if (zReceiver > 0.0 && zReceiver < 1.0 && all(uvTile01 >= float2(0.0, 0.0)) && all(uvTile01 <= float2(1.0, 1.0)))
 	{
-		float2 uvAtlas = float2(uvTile01.x, (cascadeIdx + uvTile01.y) * invN);
-		float bias = ShadowDepthBiasTranslucent_Cascade(Normal);
+		float2 uvAtlas = float2(uvTile01.x, (atlasRowIndex + uvTile01.y) * invAtlasRows);
+		float bias = ShadowDepthBiasTranslucent_AtlasTile(Normal);
 		const float ref = zReceiver - bias;
 		float lit = 0.0;
 		[unroll]
@@ -68,7 +68,7 @@ float TranslucentPCF_CascadeTile(float2 uvTile01, float cascadeIdx, float invN, 
 		{
 			int ox = (i % 3) - 1;
 			int oy = (i / 3) - 1;
-			float2 ofs = float2((float)ox * radiusUV, (float)oy * radiusUV * invN);
+			float2 ofs = float2((float)ox * radiusUV, (float)oy * radiusUV * invAtlasRows);
 			float2 suv = uvAtlas + ofs;
 			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
 			lit += ShadowMap.SampleCmpLevelZero(ShadowCompareSampler, suv, ref);
@@ -78,16 +78,10 @@ float TranslucentPCF_CascadeTile(float2 uvTile01, float cascadeIdx, float invN, 
 	return result;
 }
 
-float DirectionalShadowVisSampleCascade(float3 worldPos, float3 normal, int ci)
+float DirectionalShadowVisibility(float3 worldPos, float3 normal)
 {
-	row_major matrix vp = CascadeViewProj[0];
-	if (ci == 1)
-		vp = CascadeViewProj[1];
-	else if (ci == 2)
-		vp = CascadeViewProj[2];
-
 	float outVis = 1.0;
-	float4 clip = mul(float4(worldPos, 1.0), vp);
+	float4 clip = mul(float4(worldPos, 1.0), DirectionalShadowViewProj);
 	float w = clip.w;
 	if (abs(w) >= 1e-6)
 	{
@@ -97,68 +91,10 @@ float DirectionalShadowVisSampleCascade(float3 worldPos, float3 normal, int ci)
 			float2 uvTile = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
 			if (all(uvTile >= float2(0.0, 0.0)) && all(uvTile <= float2(1.0, 1.0)))
 			{
-				float invN = CameraForwardInvCount.w;
-				outVis = clamp(TranslucentPCF_CascadeTile(uvTile, (float)ci, invN, proj.z, normal, kTranslucentDirPcfRadiusCascade), 0.0, 1.0);
+				const float zR = clamp(proj.z, 0.0, 1.0);
+				outVis = clamp(TranslucentPCF_AtlasTile(uvTile, 0.0, 1.0, zR, normal, kTranslucentDirPcfRadiusAtlasTile), 0.0, 1.0);
 			}
 		}
-	}
-	return outVis;
-}
-
-float DirectionalShadowVisibility(float3 worldPos, float3 normal)
-{
-	float outVis = 1.0;
-	if (DirectionalCSMEnabled == 0)
-	{
-		float4 clip = mul(float4(worldPos, 1.0), GetMainLightViewProj());
-		float w = clip.w;
-		if (abs(w) >= 1e-6)
-		{
-			float3 proj = clip.xyz / w;
-			if (proj.z > 0.0 && proj.z < 1.0)
-			{
-				float2 uvTile = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
-				if (all(uvTile >= float2(0.0, 0.0)) && all(uvTile <= float2(1.0, 1.0)))
-				{
-					float invN = CameraForwardInvCount.w;
-					if (invN < 1e-5)
-						invN = 0.33333334;
-					const float zR = clamp(proj.z, 0.0, 1.0);
-					outVis = clamp(TranslucentPCF_CascadeTile(uvTile, 0.0, invN, zR, normal, kTranslucentDirPcfRadiusCascade), 0.0, 1.0);
-				}
-			}
-		}
-	}
-	else
-	{
-		const float ze = dot(worldPos - myPerFrame.CameraPos.xyz, CameraForwardInvCount.xyz);
-		const float s0 = CascadeSplits.x;
-		const float s1 = CascadeSplits.y;
-		const float camNear = myPerFrame.CameraNearZ;
-		const float span0 = max(s0 - camNear, 1e-2);
-		const float span1 = max(s1 - s0, 1e-2);
-		static const float kCascadeBlendFrac = 0.28;
-		const float B0 = span0 * kCascadeBlendFrac;
-		const float B1 = span1 * kCascadeBlendFrac;
-
-		if (ze < s0 - B0)
-			outVis = DirectionalShadowVisSampleCascade(worldPos, normal, 0);
-		else if (ze < s0 + B0)
-		{
-			const float v0 = DirectionalShadowVisSampleCascade(worldPos, normal, 0);
-			const float v1 = DirectionalShadowVisSampleCascade(worldPos, normal, 1);
-			outVis = lerp(v0, v1, smoothstep(s0 - B0, s0 + B0, ze));
-		}
-		else if (ze < s1 - B1)
-			outVis = DirectionalShadowVisSampleCascade(worldPos, normal, 1);
-		else if (ze < s1 + B1)
-		{
-			const float v1 = DirectionalShadowVisSampleCascade(worldPos, normal, 1);
-			const float v2 = DirectionalShadowVisSampleCascade(worldPos, normal, 2);
-			outVis = lerp(v1, v2, smoothstep(s1 - B1, s1 + B1, ze));
-		}
-		else
-			outVis = DirectionalShadowVisSampleCascade(worldPos, normal, 2);
 	}
 	return outVis;
 }
@@ -171,7 +107,7 @@ float PrimaryDirectionalShadowVisForIBL(float3 worldPos, float3 normal)
 	return vis;
 }
 
-/** Matches ShadowPCSS.hlsl entry point used by DeferredLightingShared.ComputeShadow (single atlas, no CSM tile). */
+/** Matches ShadowPCSS.hlsl entry point used by DeferredLightingShared.ComputeShadow (full single map UV). */
 float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 {
 	float outVis = 1.0;

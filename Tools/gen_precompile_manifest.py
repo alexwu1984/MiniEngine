@@ -20,6 +20,11 @@ C++ sources of truth (Engine paths used by the viewer):
 
 Vertex layout: tangent always on CPU when missing. Skinning uses ID_SKINNING_MATRICES only.
 
+Directional shadow helpers (`ShadowPCSS.hlsl`, `DirectionalShadow.hlsl`, `TranslucentShadowLite.hlsl`, …) are **not**
+manifest roots: they are reached only via quoted `#include` from listed files (e.g. `DeferredLighting.hlsl`,
+`FurMaterial.hlsl`, `TranslucentPBRForward.hlsl`). `Tools/build_precompiled_shaders.py` walks that include tree for
+incremental hashes / rebuilds — no extra manifest rows when those files are added or renamed.
+
 Material shaders (PBR / Fur / translucent PS): manifest lists **both** macro sets — without `RHI_BINDLESS` (D3D11
 runtime) and with `RHI_BINDLESS=1` (D3D12 when material `WantsRHIBindless()` is true) — so offline `.cso` can match
 either API; macro order matches C++ push order per variant.

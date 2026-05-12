@@ -10,7 +10,7 @@ static const float kPCSSBlockerSearchRadiusUV = 0.010;
 static const float kPCSSMinFilterRadiusUV = 0.00065;
 static const float kPCSSMaxFilterRadiusUV = 0.0045;
 static const float kPCSSPenumbraMul = 14.0;
-// Full-atlas single directional (no CSM): same UV kernel covers more world space than per-cascade tiles — tame penumbra
+// Full-atlas single directional map: same UV kernel covers more world space than stacked atlas rows — tame penumbra
 // or contact shadows and high-tess floors read as huge average blocker distance and "melt" (worse after FXAA).
 static const float kPCSSMinFilterRadiusUV_SingleMap = 0.00052f;
 static const float kPCSSMaxFilterRadiusUV_SingleMap = 0.0028f;
@@ -39,8 +39,8 @@ float ShadowDepthBiasPCSS(float3 Normal)
 	return baseBias + slopeBias * (1.0 - NdotL) + horizonBias;
 }
 
-/** Stronger bias for vertical CSM atlas + PCSS: same stripe root as contact acne; UE-style is extra const + slope on receivers. */
-float ShadowDepthBiasPCSS_Cascade(float3 Normal)
+/** Stronger bias when sampling a sub-rect inside a stacked shadow atlas (PCSS); extra const + slope on receivers. */
+float ShadowDepthBiasPCSS_AtlasTile(float3 Normal)
 {
 	const float b = ShadowDepthBiasPCSS(Normal);
 	const float extra = 0.00055 + (1.0 - abs(dot(normalize(Normal), normalize(GetMainLight().Direction)))) * 0.00085;
@@ -108,28 +108,28 @@ float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 	return outVis;
 }
 
-/** Vertical atlas: cascade `ci` occupies v in [ci/N, (ci+1)/N). `worldPos` rotates the Poisson disk to break fixed 4x4-ish block patterns (motorcycle / drone scenes). */
-float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN, float zReceiver, float3 Normal, float3 worldPos)
+/** Stacked atlas: row `atlasRowIndex` occupies v in [row/N, (row+1)/N). `worldPos` rotates the Poisson disk to break fixed patterns. */
+float ComputeShadowPCSSAtlasTile(float2 uvTile01, float atlasRowIndex, float invAtlasRows, float zReceiver, float3 Normal, float3 worldPos)
 {
 	float outVis = 1.0;
 	if (zReceiver > 0.0 && zReceiver < 1.0 && all(uvTile01 >= float2(0.0, 0.0)) && all(uvTile01 <= float2(1.0, 1.0)))
 	{
-		float2 uvAtlas = float2(uvTile01.x, (cascadeIdx + uvTile01.y) * invN);
-		const float bias = ShadowDepthBiasPCSS_Cascade(Normal);
+		float2 uvAtlas = float2(uvTile01.x, (atlasRowIndex + uvTile01.y) * invAtlasRows);
+		const float bias = ShadowDepthBiasPCSS_AtlasTile(Normal);
 		float3 Lsun = normalize(GetMainLight().Direction);
 		float grazingSun = saturate(1.0 - abs(Lsun.y));
-		// CSM tiles are 1/N atlas height: same absolute UV kernel covers fewer texels in Y → harsher blockiness without wider min filter.
-		static const float kCascadePCSSMinMul = 2.75;
-		static const float kCascadePCSSBlockerMul = 1.35;
-		static const float kCascadePCSSMaxMul = 1.12;
-		// Lower than kPCSSPenumbraMul: wide penumbra on contact + tall atlas exaggerates horizontal banding (many engines cap PCSS on dir-CSM).
-		static const float kCascadePenumbraMul = 8.5;
-		const float minF = kPCSSMinFilterRadiusUV * kCascadePCSSMinMul;
-		const float maxF = kPCSSMaxFilterRadiusUV * kCascadePCSSMaxMul;
-		const float blockerR = kPCSSBlockerSearchRadiusUV * kCascadePCSSBlockerMul;
-		// Per-pixel rotation in tile space (then squash V by invN for atlas), breaks screen-aligned Poisson moiré.
+		// Sub-rows are 1/N atlas height: same absolute UV kernel covers fewer texels in Y → harsher blockiness without wider min filter.
+		static const float kAtlasTilePCSSMinMul = 2.75;
+		static const float kAtlasTilePCSSBlockerMul = 1.35;
+		static const float kAtlasTilePCSSMaxMul = 1.12;
+		// Lower than kPCSSPenumbraMul: wide penumbra on contact + tall atlas exaggerates horizontal banding.
+		static const float kAtlasTilePenumbraMul = 8.5;
+		const float minF = kPCSSMinFilterRadiusUV * kAtlasTilePCSSMinMul;
+		const float maxF = kPCSSMaxFilterRadiusUV * kAtlasTilePCSSMaxMul;
+		const float blockerR = kPCSSBlockerSearchRadiusUV * kAtlasTilePCSSBlockerMul;
+		// Per-pixel rotation in tile space (then squash V by invAtlasRows for atlas), breaks screen-aligned Poisson moiré.
 		float rotAng = 6.28318530718 * frac(
-			0.6180339887 * dot(worldPos.xz, float2(0.724, 0.311)) + 0.381 * worldPos.y + cascadeIdx * 0.271828 + zReceiver * 3.14159);
+			0.6180339887 * dot(worldPos.xz, float2(0.724, 0.311)) + 0.381 * worldPos.y + atlasRowIndex * 0.271828 + zReceiver * 3.14159);
 		float sa, ca;
 		sincos(rotAng, sa, ca);
 
@@ -140,7 +140,7 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 		{
 			float2 disk = kPoissonDisk16[j];
 			float2 rd = float2(ca * disk.x - sa * disk.y, sa * disk.x + ca * disk.y);
-			float2 ofs = float2(rd.x, rd.y * invN) * blockerR;
+			float2 ofs = float2(rd.x, rd.y * invAtlasRows) * blockerR;
 			float2 suv = uvAtlas + ofs;
 			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
 			float dmap = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
@@ -155,7 +155,7 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 		if (cnt >= 1.0)
 		{
 			float avgB = sumBlocker / cnt;
-			float pen = saturate((zReceiver - avgB) * kCascadePenumbraMul);
+			float pen = saturate((zReceiver - avgB) * kAtlasTilePenumbraMul);
 			filterUV = lerp(minF, maxF, pen);
 			// Contact / near-contact: PCSS blocker average is noisy on tessellated floors → variable huge kernel → stripes. Lock to tight PCF.
 			static const float kContactPenCap = 0.22;
@@ -163,7 +163,7 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 				filterUV = lerp(filterUV, minF * 1.35, saturate((kContactPenCap - pen) / kContactPenCap));
 		}
 
-		float2 filterOfsScale = float2(1.0, invN);
+		float2 filterOfsScale = float2(1.0, invAtlasRows);
 		const float ref = zReceiver - bias;
 		float lit = 0.0;
 		[unroll]

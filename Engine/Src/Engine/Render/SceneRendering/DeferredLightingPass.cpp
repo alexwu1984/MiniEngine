@@ -39,7 +39,7 @@ namespace Engine
 		}
 
 		static void FillPerFrameFromView(CBPerFrameWrap& Out, CBPointShadowWrap* OutPointShadow, CBSpotShadowWrap* OutSpotShadow,
-										 CBDirectionalShadowCSMWrap* OutDirectionalCSM, const FSceneViewData& View, USkyLightComponent* SkyLightIBL,
+										 CBDirectionalShadowWrap* OutDirectionalShadow, const FSceneViewData& View, USkyLightComponent* SkyLightIBL,
 										 FWorldSceneRender* WorldSceneRender)
 		{
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
@@ -230,13 +230,13 @@ namespace Engine
 			else
 				Out.Data.myPerFrame.IBLMIpCount = 1.f;
 
-			if (OutDirectionalCSM)
+			if (OutDirectionalShadow)
 			{
-				OutDirectionalCSM->Data = CBDirectionalShadowCSM{};
+				OutDirectionalShadow->Data = CBDirectionalShadow{};
 				if (WorldSceneRender)
 				{
 					if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-						OutDirectionalCSM->Data = ShadowPass->GetCachedDirectionalCSM();
+						OutDirectionalShadow->Data = ShadowPass->GetCachedDirectionalShadow();
 				}
 			}
 		}
@@ -270,9 +270,9 @@ namespace Engine
 			SpotShadowUniform = std::make_unique<CBSpotShadowWrap>(RHI);
 			if (!SpotShadowUniform->GetRHIBuffer())
 				SpotShadowUniform.reset();
-			DirectionalShadowCSMUniform = std::make_unique<CBDirectionalShadowCSMWrap>(RHI);
-			if (!DirectionalShadowCSMUniform->GetRHIBuffer())
-				DirectionalShadowCSMUniform.reset();
+			DirectionalShadowUniform = std::make_unique<CBDirectionalShadowWrap>(RHI);
+			if (!DirectionalShadowUniform->GetRHIBuffer())
+				DirectionalShadowUniform.reset();
 		}
 		const double MsUniforms = Wall.split_ms();
 		const double MsBuffersWall = MsFallbackTex + MsUniforms;
@@ -338,7 +338,7 @@ namespace Engine
 			SkyLightIBL = WorldSceneRender->GetUSkyLightComponent().get();
 
 		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr,
-							 DirectionalShadowCSMUniform ? DirectionalShadowCSMUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
+							 DirectionalShadowUniform ? DirectionalShadowUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
 
 		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
 		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
@@ -349,8 +349,8 @@ namespace Engine
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
 		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer())
 			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *SpotShadowUniform);
-		if (DirectionalShadowCSMUniform && DirectionalShadowCSMUniform->GetRHIBuffer())
-			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *DirectionalShadowCSMUniform);
+		if (DirectionalShadowUniform && DirectionalShadowUniform->GetRHIBuffer())
+			RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *DirectionalShadowUniform);
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
@@ -447,13 +447,13 @@ namespace Engine
 		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer())
 		{
 			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr,
-								 DirectionalShadowCSMUniform ? DirectionalShadowCSMUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
+								 DirectionalShadowUniform ? DirectionalShadowUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
 			if (PointShadowUniform && PointShadowUniform->GetRHIBuffer())
 				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
 			if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer())
 				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *SpotShadowUniform);
-			if (DirectionalShadowCSMUniform && DirectionalShadowCSMUniform->GetRHIBuffer())
-				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *DirectionalShadowCSMUniform);
+			if (DirectionalShadowUniform && DirectionalShadowUniform->GetRHIBuffer())
+				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *DirectionalShadowUniform);
 		}
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);

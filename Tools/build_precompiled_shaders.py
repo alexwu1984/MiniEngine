@@ -5,7 +5,8 @@ By default CMake passes --built-dir to the per-configuration runtime ShaderLibDX
 tree so Debug/Release do not share one source-tree Built/. HLSL inputs always come from --shader-root.
 
 Incremental: skips CompileShaderBlob when the .cso is newer than the manifest, this script,
-CompileShaderBlob.exe, and the entry HLSL file plus all reachable quoted #includes.
+CompileShaderBlob.exe, and the entry HLSL file plus all reachable quoted #includes (include-only files such as
+`DirectionalShadow.hlsl` are covered here and do **not** need their own manifest rows).
 
 Lookup hash matches RenderCore::ShaderPrecompileLookupHash: FNV on basename|entry|profile|cpt=tier and macros,
 then FNV on quoted-include dependency raw bytes (0x00 between files), then FNV on 8-byte tree hash.

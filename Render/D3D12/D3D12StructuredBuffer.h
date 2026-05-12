@@ -17,6 +17,9 @@ namespace RenderCore
 	 *                   slot, memcpys into that slot, and points GetSRV() at the matching descriptor. Slot
 	 *                   count matches RHIRecommendedParallelFrameResourceSlots so a Update->Draw pair issued
 	 *                   on frame N never overwrites the region the GPU is still reading from frames N-1/N-2.
+	 *   - BUF_Static | BUF_UnorderedAccess : DEFAULT-heap with ALLOW_UNORDERED_ACCESS; one offline SRV + one
+	 *                   offline UAV descriptor. Used for GPU-produced data (cluster light tables) that is
+	 *                   written by a compute pass and read by subsequent draws.
 	 * The SRV is created at construction (offline descriptors) and consumed by FD3D12StateCache through the
 	 * existing per-frequency SRV cache, so structured buffers share register space with texture SRVs.
 	 */
@@ -31,8 +34,11 @@ namespace RenderCore
 
 		virtual uint32_t GetElementStride() const override;
 		virtual uint32_t GetElementCount() const override;
+		virtual bool HasUAV() const override;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE GetSRV() const;
+		/** Valid only when created with BUF_UnorderedAccess; D3D12_CPU_DESCRIPTOR_HANDLE_NULL otherwise. */
+		D3D12_CPU_DESCRIPTOR_HANDLE GetUAV() const;
 		D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const;
 		FD3D12Resource* GetResource() const;
 		bool IsDynamic() const;

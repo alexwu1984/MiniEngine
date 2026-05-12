@@ -4,7 +4,7 @@
 #define FUR_FORWARD_ACCUMULATE_HLSL
 
 float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT, float3 view, float3 baseColor,
-	float perceptualRoughness, float coverageAlpha)
+	float perceptualRoughness, float coverageAlpha, uint clusterIndex)
 {
 	const float aoDiffuse = 1.0;
 	const float aoSpec = max(1.0, 0.2);
@@ -12,10 +12,13 @@ float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT
 	DecodeMaterialFromGBuffer(baseColor, 0.0, max(perceptualRoughness, 0.82), materialInfo);
 
 	float3 color = float3(0, 0, 0);
+	// Clustered Forward+: caller (FurMaterial MainPS) computes the cluster index from SV_Position before the shell
+	// loop tessellates per-strand work; here we walk only the lights flagged by ClusterLightBuildCS for that cluster.
+	const uint2 ClusterRange = _ClusterLightOffsetCount[clusterIndex];
 	[loop]
-	for (int i = 0; i < myPerFrame.LightCount; ++i)
+	for (uint slot = 0u; slot < ClusterRange.y; ++slot)
 	{
-		// _SceneLights is declared in FurMaterial.hlsl right before this file is included (PR2 PR2 step toward clustered Forward+).
+		const uint i = _ClusterLightIndexList[ClusterRange.x + slot];
 		Light light = _SceneLights[i];
 		if (light.Type == LightType_Directional)
 			color += ApplyDirectionalLightHair(worldPos, light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, view, coverageAlpha);

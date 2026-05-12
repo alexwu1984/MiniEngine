@@ -158,6 +158,32 @@ namespace Engine
 	static_assert(sizeof(CBDirectionalShadow) % 16u == 0u, "cbDirectionalShadow must be 16-byte aligned");
 	using CBDirectionalShadowWrap = RenderCore::TUniformBufferBinding<CBDirectionalShadow, 7u>;
 
+	/**
+	 * Cluster grid dimensions for the clustered Forward+ light culling pass. Mirrors `CLUSTER_GRID_*` in
+	 * `ClusterLightBuildCS.hlsl` / forward shaders — keep all four constants in sync across HLSL and C++.
+	 */
+	namespace ClusterLightCulling
+	{
+		inline constexpr uint32_t kClusterGridX = 24u;
+		inline constexpr uint32_t kClusterGridY = 12u;
+		inline constexpr uint32_t kClusterGridZ = 24u;
+		inline constexpr uint32_t kClusterCount = kClusterGridX * kClusterGridY * kClusterGridZ;
+		inline constexpr uint32_t kMaxLightsPerCluster = 64u;
+	}
+
+	/** cbClusterBuild (register b0) for `ClusterLightBuildCS.hlsl`. Matches the HLSL layout byte-for-byte. */
+	struct CBClusterBuild
+	{
+		math::Matrix4x4 ClusterViewMatrix{};
+		math::Matrix4x4 ClusterInvProjMatrix{};
+		float ClusterNearZ{ 0.1f };
+		float ClusterFarZ{ 1000.f };
+		uint32_t ClusterLightCount{ 0u };
+		uint32_t ClusterPad0{ 0u };
+	};
+	static_assert(sizeof(CBClusterBuild) % 16u == 0u, "cbClusterBuild must be 16-byte aligned");
+	using CBClusterBuildWrap = RenderCore::TUniformBufferBinding<CBClusterBuild, 0u>;
+
 	struct CBPerObject
 	{
 		math::Matrix4x4 myPerObject_u_mCurrWorld;

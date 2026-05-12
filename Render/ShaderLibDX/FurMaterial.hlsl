@@ -23,9 +23,11 @@ Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
 
-// Forward fur shell lighting loop sources lights from this StructuredBuffer<Light> (declared before
-// FurForwardAccumulate.hlsl which iterates over it); bound by DeferredLightingPass::BindFurForwardSharedSRVs.
+// Clustered Forward+ light source for fur shells. FurForwardAccumulate.hlsl iterates over the per-cluster index
+// list helper (`ClusterLightLookup.hlsl`) declared right after this so the same SRV registers are visible there.
 StructuredBuffer<Light> _SceneLights : register(t13);
+
+#include "ClusterLightLookup.hlsl"
 
 cbuffer cbPointShadow : register(b4)
 {
@@ -53,6 +55,7 @@ PS_OUTPUT_FWD MainPS(VS_OUTPUT_FUR Input)
 {
 	PS_OUTPUT_FWD Output;
 	Output.Color = float4(0, 0, 0, 0);
+	const uint ClusterIdx = ClusterIndexFromPixel(Input.svPosition);
 
 	float3 BaseColor = sRGBToLinear(AlbedoMap.Sample(SampleLinear, Input.UV1).rgb);
 	float3 n = normalize(Input.Normal);
@@ -80,7 +83,7 @@ PS_OUTPUT_FWD MainPS(VS_OUTPUT_FUR Input)
 	RimLight *= 0.55 * Input.SH * BaseColor * FurAmbientStrength * FurLightExposure;
 
 	float3 shellAlbedo = BaseColor * FurLightExposure;
-	float3 lit = AccumulateFurForwardShading(Input.WorldPos, geomN, strandDir, Vw, shellAlbedo, kRough, Alpha);
+	float3 lit = AccumulateFurForwardShading(Input.WorldPos, geomN, strandDir, Vw, shellAlbedo, kRough, Alpha, ClusterIdx);
 	lit += RimLight;
 
 	if (myPerFrame.bUnlit != 0)

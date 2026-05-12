@@ -785,6 +785,32 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::RHISetShaderStructuredBufferUAV(uint32_t UAVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI)
+	{
+		D3D11StructuredBuffer* Buffer = RHIResourceCast(BufferRHI.get());
+		ID3D11UnorderedAccessView* UAV = (Buffer && Buffer->HasUAV()) ? Buffer->GetUAV() : nullptr;
+		ID3D11DeviceContext* const ctx = Impl->D3D11RHI->GetDeviceContext();
+		if (!ctx)
+			return;
+		// Drop any cached PS / VS / CS SRV bindings to the same underlying buffer before this UAV slot picks it up;
+		// D3D11 will otherwise emit warning #3146080 (DEVICE_*_SETSHADERRESOURCES_HAZARD) on the next draw.
+		if (UAV)
+		{
+			win32::com_ptr<ID3D11Resource> uavResource;
+			UAV->GetResource(uavResource.get_init_ref());
+			if (uavResource)
+			{
+#if D3D11_ALLOW_STATE_CACHE
+				Impl->D3D11RHI->GetStateCache().UnbindShaderResourceViewsBoundToResource(uavResource.get());
+#else
+				D3D11UnbindShaderResourceViewsUsingResource(ctx, uavResource.get());
+#endif
+			}
+		}
+		uint32_t InitialCount = static_cast<uint32_t>(-1);
+		ctx->CSSetUnorderedAccessViews(UAVIndex, 1, &UAV, &InitialCount);
+	}
+
 	void D3D11CommandContext::DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI)
 	{
 		DrawPrimitiveInstanced(VertexBufferRHI, IndexBufferRHI, 1u, 0u);

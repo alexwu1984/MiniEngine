@@ -363,6 +363,18 @@ namespace RenderCore
 		}
 	}
 
+	void FD3D12StateCache::SetUAV(uint32_t UAVIndex, std::shared_ptr<D3D12StructuredBuffer> StructuredBuffer)
+	{
+		Assert(UAVIndex < MAX_UAVS);
+		// Null binding (clearing) goes through with a null handle so a stale UAV slot doesn't survive across shader swaps.
+		const D3D12_CPU_DESCRIPTOR_HANDLE Handle = StructuredBuffer ? StructuredBuffer->GetUAV() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		if (UAVCache.Views[UAVIndex].ptr != Handle.ptr)
+		{
+			UAVCache.Views[UAVIndex] = Handle;
+			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+		}
+	}
+
 	void FD3D12StateCache::SetDescriptorHeap(D3D12CommandListHandle& CommandList, D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr)
 	{
 		// Avoid redundant SetDescriptorHeaps when the dynamic ring hands back the same heap pointer.

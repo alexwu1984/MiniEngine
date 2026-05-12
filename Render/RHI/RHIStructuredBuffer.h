@@ -4,13 +4,14 @@
 namespace RenderCore
 {
 	/**
-	 * GPU-readable typed buffer (HLSL `StructuredBuffer<T>`), bound through the SRV table
-	 * alongside textures. Dynamic instances allow per-frame Update() before draw; Static
-	 * instances are initialized once at creation.
-	 *
-	 * PR1 plumbing: a single backing resource per buffer (no ring) - the caller must ensure
-	 * Update() isn't issued between GPU reads of the same slot in flight. A multi-slot
-	 * ring will be layered on once the clustered light pass exercises this path.
+	 * GPU-typed buffer (HLSL `StructuredBuffer<T>` SRV, optional `RWStructuredBuffer<T>` UAV).
+	 * Usage flag combinations:
+	 *   - BUF_Static                       : DEFAULT heap, initial CPU upload, SRV-only.
+	 *   - BUF_Dynamic                      : UPLOAD heap ring (RHIRecommendedParallelFrameResourceSlots slots);
+	 *                                        UpdateStructuredBuffer rotates ring slots, SRV-only.
+	 *   - BUF_Static | BUF_UnorderedAccess : DEFAULT heap with ALLOW_UNORDERED_ACCESS, both SRV and UAV;
+	 *                                        no CPU update path (cluster CS / GPU writes the contents).
+	 *   - BUF_Dynamic | BUF_UnorderedAccess: invalid (UPLOAD heap forbids UAV writes).
 	 */
 	class RHIStructuredBuffer
 	{
@@ -24,6 +25,8 @@ namespace RenderCore
 
 		virtual uint32_t GetElementStride() const = 0;
 		virtual uint32_t GetElementCount() const = 0;
+		/** True when created with BUF_UnorderedAccess; UAV-only setters require this. */
+		virtual bool HasUAV() const { return false; }
 		uint32_t GetSizeInBytes() const { return GetElementStride() * GetElementCount(); }
 	};
 }

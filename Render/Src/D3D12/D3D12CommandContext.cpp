@@ -644,6 +644,23 @@ namespace RenderCore
 		CurrentStateCache->SetUAV(UAVIndex, TexRHI);
 	}
 
+	void D3D12CommandContext::RHISetShaderStructuredBufferUAV(uint32_t UAVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI)
+	{
+		if (!CurrentStateCache)
+			return;
+		D3D12StructuredBuffer* Buffer = RHIResourceCast(BufferRHI.get());
+		if (!Buffer || !Buffer->HasUAV())
+		{
+			CurrentStateCache->SetUAV(UAVIndex, std::shared_ptr<D3D12StructuredBuffer>{});
+			return;
+		}
+		// Transition to UAV state before the upcoming dispatch; the subsequent SRV bind in the consuming pass will
+		// transition back to PIXEL_SHADER_RESOURCE / NON_PIXEL_SHADER_RESOURCE as needed.
+		if (FD3D12Resource* const Res = Buffer->GetResource(); Res && Res->RequiresResourceStateTracking())
+			TransitionResource(Res, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, false);
+		CurrentStateCache->SetUAV(UAVIndex, std::static_pointer_cast<D3D12StructuredBuffer>(BufferRHI));
+	}
+
 	void D3D12CommandContext::RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI)
 	{
 		if (!CurrentStateCache)

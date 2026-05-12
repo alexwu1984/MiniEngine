@@ -12,10 +12,12 @@ namespace RenderCore
 		D3D11DynamicRHI* D3D11RHI{ nullptr };
 		win32::com_ptr<ID3D11Buffer> Buffer;
 		win32::com_ptr<ID3D11ShaderResourceView> SRV;
+		win32::com_ptr<ID3D11UnorderedAccessView> UAV;
 		uint32_t Stride{ 0 };
 		uint32_t Count{ 0 };
 		uint32_t SizeBytes{ 0 };
 		bool bDynamic{ false };
+		bool bHasUAV{ false };
 	};
 
 	D3D11StructuredBuffer::D3D11StructuredBuffer(D3D11DynamicRHI* InRHI)
@@ -40,16 +42,26 @@ namespace RenderCore
 		d->Count = ElementCount;
 		d->SizeBytes = ElementStride * ElementCount;
 		d->bDynamic = (Usage & BUF_AnyDynamic) != 0;
+		d->bHasUAV = (Usage & BUF_UnorderedAccess) != 0;
+		// D3D11 forbids USAGE_DYNAMIC with UAV bind; fail early so the caller hears about the mistake here.
+		if (d->bDynamic && d->bHasUAV)
+			return false;
 
 		D3D11_BUFFER_DESC Desc{};
 		Desc.ByteWidth = d->SizeBytes;
-		Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | (d->bHasUAV ? D3D11_BIND_UNORDERED_ACCESS : 0u);
 		Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		Desc.StructureByteStride = ElementStride;
 		if (d->bDynamic)
 		{
 			Desc.Usage = D3D11_USAGE_DYNAMIC;
 			Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		}
+		else if (d->bHasUAV)
+		{
+			// UAV buffers must live in DEFAULT (GPU-writable); IMMUTABLE would forbid the bind flag.
+			Desc.Usage = D3D11_USAGE_DEFAULT;
+			Desc.CPUAccessFlags = 0;
 		}
 		else
 		{
@@ -75,6 +87,19 @@ namespace RenderCore
 		hr = d->D3D11RHI->GetDevice()->CreateShaderResourceView(d->Buffer.get(), &SrvDesc, d->SRV.get_init_ref());
 		if (FAILED(hr) || !d->SRV.is_valid())
 			return false;
+
+		if (d->bHasUAV)
+		{
+			D3D11_UNORDERED_ACCESS_VIEW_DESC UavDesc{};
+			UavDesc.Format = DXGI_FORMAT_UNKNOWN;
+			UavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+			UavDesc.Buffer.FirstElement = 0;
+			UavDesc.Buffer.NumElements = ElementCount;
+			UavDesc.Buffer.Flags = 0;
+			hr = d->D3D11RHI->GetDevice()->CreateUnorderedAccessView(d->Buffer.get(), &UavDesc, d->UAV.get_init_ref());
+			if (FAILED(hr) || !d->UAV.is_valid())
+				return false;
+		}
 
 		return true;
 	}
@@ -122,9 +147,21 @@ namespace RenderCore
 		return d->SRV.get();
 	}
 
+	ID3D11UnorderedAccessView* D3D11StructuredBuffer::GetUAV() const
+	{
+		C_P(const D3D11StructuredBuffer);
+		return d->UAV.get();
+	}
+
 	ID3D11Buffer* D3D11StructuredBuffer::GetNativeBuffer() const
 	{
 		C_P(const D3D11StructuredBuffer);
 		return d->Buffer.get();
+	}
+
+	bool D3D11StructuredBuffer::HasUAV() const
+	{
+		C_P(const D3D11StructuredBuffer);
+		return d->bHasUAV;
 	}
 }

@@ -8,9 +8,13 @@ namespace RenderCore
 	struct D3D11StructuredBufferPrivate;
 
 	/**
-	 * D3D11 backing for `RHIStructuredBuffer`. PR1: a single ID3D11Buffer + ID3D11ShaderResourceView per instance.
-	 *   - BUF_Static  : D3D11_USAGE_IMMUTABLE/DEFAULT (depending on InitialData); UpdateStructuredBuffer is unsupported.
-	 *   - BUF_Dynamic : D3D11_USAGE_DYNAMIC + WRITE_DISCARD on update.
+	 * D3D11 backing for `RHIStructuredBuffer`. Single ID3D11Buffer per instance, with SRV always present and an
+	 * optional UAV created when the caller passes BUF_UnorderedAccess. Driver renaming on D3D11_USAGE_DYNAMIC
+	 * (Map WRITE_DISCARD) supplies the cross-frame safety that D3D12 fulfils via the ring slots.
+	 *   - BUF_Static                       : D3D11_USAGE_IMMUTABLE/DEFAULT, SRV-only.
+	 *   - BUF_Dynamic                      : D3D11_USAGE_DYNAMIC + WRITE_DISCARD on update, SRV-only.
+	 *   - BUF_Static | BUF_UnorderedAccess : D3D11_USAGE_DEFAULT + UAV; UpdateStructuredBuffer not supported.
+	 *   - BUF_Dynamic | BUF_UnorderedAccess: rejected (D3D11 forbids the combination).
 	 */
 	class D3D11StructuredBuffer : public RHIStructuredBuffer
 	{
@@ -23,8 +27,11 @@ namespace RenderCore
 
 		virtual uint32_t GetElementStride() const override;
 		virtual uint32_t GetElementCount() const override;
+		virtual bool HasUAV() const override;
 
 		ID3D11ShaderResourceView* GetSRV() const;
+		/** Valid only when created with BUF_UnorderedAccess. */
+		ID3D11UnorderedAccessView* GetUAV() const;
 		ID3D11Buffer* GetNativeBuffer() const;
 
 	private:

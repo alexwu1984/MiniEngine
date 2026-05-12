@@ -292,6 +292,21 @@ namespace Engine
 				ERDGPassQueue::Graphics,
 				true});
 			Graph.AddPass(FRDGPassDescriptor{
+				"BuildClusteredLights",
+				{},
+				{},
+				[d, CommandContext, ViewConst]()
+				{
+					// Clustered Forward+ pass-1: uploads SceneLights (StructuredBuffer<Light>) for this view and
+					// dispatches `ClusterLightBuildCS` so the forward translucent + fur PS can do per-cluster light
+					// lookups instead of iterating cbPerFrame.Lights[80] every pixel. Idempotent inside DeferredLightingPass.
+					if (d->DeferredLighting && ViewConst)
+						d->DeferredLighting->DispatchClusterLightCulling(*CommandContext, ViewConst);
+				},
+				false,
+				RDG_Compute,
+				ERDGPassQueue::Graphics});
+			Graph.AddPass(FRDGPassDescriptor{
 				"RenderTranslucentForward",
 				SceneTexturesIO,
 				SceneTexturesIO,
@@ -399,6 +414,10 @@ namespace Engine
 			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
 			Graph.AddPassDependency("RenderTranslucentForward", "RenderFurForward");
 			Graph.AddPassDependency("RenderFurForward", "Tonemapping");
+			// Cluster CS writes the SRVs consumed by both forward passes — order it explicitly so the cull dispatch
+			// can't slip after the rasterized draws.
+			Graph.AddPassDependency("BuildClusteredLights", "RenderTranslucentForward");
+			Graph.AddPassDependency("BuildClusteredLights", "RenderFurForward");
 		}
 
 		// After tonemapping: optional shadow debug lines, then ImGui composite and present.

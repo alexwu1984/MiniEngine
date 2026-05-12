@@ -189,6 +189,8 @@ namespace RenderCore
 		void SetDynamicConstantBuffer(EShaderFrequency ShaderType,uint32_t BufferIndex, std::shared_ptr<D3D12UniformBuffer> UniformBuffer);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
 		void SetUAV(uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
+		/** Structured-buffer UAVs share the global UAV cache with texture UAVs (root signature has a single UAV table). */
+		void SetUAV(uint32_t UAVIndex, std::shared_ptr<D3D12StructuredBuffer> StructuredBuffer);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<D3D12TextureCube> TextureCube);
 		/** Structured-buffer SRVs share the per-frequency SRV cache with texture SRVs (same root descriptor table). */
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<D3D12StructuredBuffer> StructuredBuffer);

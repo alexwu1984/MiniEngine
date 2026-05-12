@@ -61,6 +61,12 @@ namespace RenderCore
 		 * Default no-op so backends can opt in incrementally.
 		 */
 		virtual void RHISetShaderStructuredBuffer(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI) {}
+		/**
+		 * Bind the UAV side of an `RHIStructuredBuffer` (HLSL RWStructuredBuffer<T>) at register u#`UAVIndex`. The buffer must
+		 * have been created with BUF_UnorderedAccess. Used for GPU-produced data (clustered light table, indirect dispatch
+		 * args, etc.). Default no-op so backends opt in once they have a UAV path.
+		 */
+		virtual void RHISetShaderStructuredBufferUAV(uint32_t UAVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI) {}
 		/** D3D12: forwards to SetGraphicsRoot32BitConstants (small per-draw constants). Other RHIs may no-op. */
 		virtual void RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues = 0) {}
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) = 0;

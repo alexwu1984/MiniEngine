@@ -14,9 +14,11 @@ Texture2D ShadowMap : register(t8);
 TextureCube PointShadowCube : register(t10);
 Texture2D GroundEnvLatLong : register(t12);
 
-// Forward lighting loop reads from this StructuredBuffer<Light> instead of cbPerFrame.Lights[80]; PR2 step toward
-// clustered Forward+ (PR3 will narrow this with per-pixel cluster lookup). Bound by DeferredLightingPass::BindFurForwardSharedSRVs.
+// Clustered Forward+ light source: forward translucent + fur read this StructuredBuffer<Light> indirectly via
+// the per-cluster index list (`ClusterLightLookup.hlsl`). Bound by DeferredLightingPass::BindFurForwardSharedSRVs.
 StructuredBuffer<Light> _SceneLights : register(t13);
+
+#include "ClusterLightLookup.hlsl"
 
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
@@ -76,9 +78,13 @@ float4 MainPS_TranslucentForward(VS_OUTPUT_SCENE Input) : SV_Target0
 
 	float3 color = float3(0, 0, 0);
 
+	// Clustered Forward+: walk only the lights this pixel's cluster intersects (built each frame by
+	// ClusterLightBuildCS.hlsl). Directional lights are always included by the CS so they still appear here.
+	const uint2 ClusterRange = _ClusterLightOffsetCount[ClusterIndexFromPixel(Input.svPosition)];
 	[loop]
-	for (int i = 0; i < myPerFrame.LightCount; ++i)
+	for (uint slot = 0u; slot < ClusterRange.y; ++slot)
 	{
+		const uint i = _ClusterLightIndexList[ClusterRange.x + slot];
 		Light light = _SceneLights[i];
 		if (light.Type == LightType_Directional)
 			color += ApplyDirectionalLightDeferred(worldPos, light, materialInfo, normal, view);

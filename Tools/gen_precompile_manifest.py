@@ -119,6 +119,7 @@ def build_shaders_list() -> list[dict]:
             {"file": "SSR.hlsl", "entry": "PS_SSR", "profile": "ps_5_0", "defines": []},
             {"file": "TAACS.hlsl", "entry": "TAA_Main", "profile": "cs_5_0", "defines": []},
             {"file": "TAASharpenerCS.hlsl", "entry": "mainCS", "profile": "cs_5_0", "defines": []},
+            {"file": "ClusterLightBuildCS.hlsl", "entry": "MainCS", "profile": "cs_5_0", "defines": []},
             {"file": "SkyLightRenderPass.hlsl", "entry": "VS_SkyFullscreen", "profile": "vs_5_0", "defines": []},
             {"file": "SkyLightRenderPass.hlsl", "entry": "PS", "profile": "ps_5_0", "defines": []},
             {"file": "EnvironmentSkyIBL.hlsl", "entry": "VS_SkyCube", "profile": "vs_5_0", "defines": []},

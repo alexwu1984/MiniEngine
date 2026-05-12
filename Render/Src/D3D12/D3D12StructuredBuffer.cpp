@@ -24,6 +24,7 @@ namespace RenderCore
 		/** Per-slot payload size (== Stride * Count). Total resource size for dynamic = SlotSizeBytes * RingSlotCount. */
 		uint32_t SlotSizeBytes = 0;
 		bool bDynamic = false;
+		bool bHasUAV = false;
 		/** Persistent map base; per-slot CPU pointer derived via SlotSizeBytes offset. Static path leaves null. */
 		uint8_t* MappedPtr = nullptr;
 
@@ -33,6 +34,9 @@ namespace RenderCore
 		/** Block of `RingSlotCount` contiguous offline SRV descriptors. Index `CurrentSlot` is the one consumed by GetSRV. */
 		FD3D12ResourceAllocator::FDescriptorAllocation SrvAlloc{};
 		std::array<D3D12_CPU_DESCRIPTOR_HANDLE, kDynamicRingSlots> SrvHandles{};
+		/** Single offline UAV descriptor; only valid for BUF_UnorderedAccess buffers (always DEFAULT heap → no ring). */
+		FD3D12ResourceAllocator::FDescriptorAllocation UavAlloc{};
+		D3D12_CPU_DESCRIPTOR_HANDLE UavHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 
 		~D3D12StructuredBufferPrivate()
 		{
@@ -57,14 +61,19 @@ namespace RenderCore
 
 	D3D12StructuredBuffer::~D3D12StructuredBuffer()
 	{
-		// Return the offline SRV descriptor back to the allocator before the resource is released - otherwise every
-		// per-frame structured buffer (clustered light table, etc.) would leak a CPU descriptor slot per frame.
-		if (d_ptr && d_ptr->SrvAlloc.IsValid())
+		// Return the offline SRV/UAV descriptors back to the allocator before the resource is released - otherwise
+		// every per-frame structured buffer (clustered light table, etc.) would leak CPU descriptor slots per frame.
+		if (d_ptr)
 		{
 			if (std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter())
 			{
 				if (std::shared_ptr<FD3D12Device> Device = Adapter->GetDevice())
-					Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->SrvAlloc);
+				{
+					if (d_ptr->SrvAlloc.IsValid())
+						Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->SrvAlloc);
+					if (d_ptr->UavAlloc.IsValid())
+						Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->UavAlloc);
+				}
 			}
 		}
 		delete d_ptr;
@@ -88,6 +97,11 @@ namespace RenderCore
 		d->Count = ElementCount;
 		d->SlotSizeBytes = ElementStride * ElementCount;
 		d->bDynamic = (Usage & BUF_AnyDynamic) != 0;
+		d->bHasUAV = (Usage & BUF_UnorderedAccess) != 0;
+		// UPLOAD heap can't be UAV-bound; reject the combo at the boundary so the caller sees the error here, not
+		// inside the D3D validation layer at first dispatch.
+		if (d->bDynamic && d->bHasUAV)
+			return false;
 		d->RingSlotCount = d->bDynamic ? kDynamicRingSlots : 1u;
 		d->CurrentSlot = 0u;
 
@@ -97,7 +111,7 @@ namespace RenderCore
 		ResDesc.Alignment = 0;
 		ResDesc.DepthOrArraySize = 1;
 		ResDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		ResDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		ResDesc.Flags = d->bHasUAV ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
 		ResDesc.Format = DXGI_FORMAT_UNKNOWN;
 		ResDesc.Width = (UINT64)TotalSizeBytes;
 		ResDesc.Height = 1;
@@ -138,8 +152,13 @@ namespace RenderCore
 		else
 		{
 			HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-			std::wstring Name = core::formatw("W:", d->SlotSizeBytes, "_Structured_", Counter);
-			hr = Adapter->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_COMMON, nullptr, &d->Resource, Name.c_str());
+			// Start UAV-capable buffers in COMMON so the first SRV / UAV transition picks up a known state; pure SRV
+			// buffers also start in COMMON and transition to PIXEL_SHADER_RESOURCE on first bind (existing path).
+			const D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON;
+			std::wstring Name = d->bHasUAV
+				? core::formatw("W:", d->SlotSizeBytes, "_StructuredUAV_", Counter)
+				: core::formatw("W:", d->SlotSizeBytes, "_Structured_", Counter);
+			hr = Adapter->CreateCommittedResource(ResDesc, HeapProps, InitialState, nullptr, &d->Resource, Name.c_str());
 			if (FAILED(hr) || !d->Resource)
 				return false;
 			if (InitialData)
@@ -170,6 +189,21 @@ namespace RenderCore
 			SrvDesc.Buffer.StructureByteStride = d->Stride;
 			SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			Device->GetDevice()->CreateShaderResourceView(d->Resource->GetResource(), &SrvDesc, Handle);
+		}
+
+		if (d->bHasUAV)
+		{
+			d->UavAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+			d->UavHandle = d->UavAlloc.Cpu;
+			D3D12_UNORDERED_ACCESS_VIEW_DESC UavDesc{};
+			UavDesc.Format = DXGI_FORMAT_UNKNOWN;
+			UavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+			UavDesc.Buffer.FirstElement = 0;
+			UavDesc.Buffer.NumElements = d->Count;
+			UavDesc.Buffer.StructureByteStride = d->Stride;
+			UavDesc.Buffer.CounterOffsetInBytes = 0;
+			UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+			Device->GetDevice()->CreateUnorderedAccessView(d->Resource->GetResource(), nullptr, &UavDesc, d->UavHandle);
 		}
 
 		return true;
@@ -216,6 +250,18 @@ namespace RenderCore
 		// Match the slot UpdateStructuredBuffer just wrote so the SRV the dynamic descriptor table picks up corresponds
 		// to the freshly written data; Static buffers always return slot 0.
 		return d->SrvHandles[d->CurrentSlot];
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12StructuredBuffer::GetUAV() const
+	{
+		C_P(const D3D12StructuredBuffer);
+		return d->UavHandle;
+	}
+
+	bool D3D12StructuredBuffer::HasUAV() const
+	{
+		C_P(const D3D12StructuredBuffer);
+		return d->bHasUAV;
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS D3D12StructuredBuffer::GetGPUVirtualAddress() const

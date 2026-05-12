@@ -35,6 +35,9 @@ namespace Engine
 
 		/** SF_Pixel slot for `StructuredBuffer<Light> _SceneLights` in forward translucent + fur HLSL. */
 		constexpr uint32_t kSceneLightsSrvSlot = 13u;
+		/** SF_Pixel slots for clustered Forward+ outputs (RWStructuredBuffer in CS, StructuredBuffer in PS). */
+		constexpr uint32_t kClusterLightOffsetCountSrvSlot = 14u;
+		constexpr uint32_t kClusterLightIndexListSrvSlot = 15u;
 
 		GraphicsPipelineStateInitializer MakeFullscreenPSO(std::shared_ptr<RHIVertexShader> VS, std::shared_ptr<RHIPixelShader> PS)
 		{
@@ -528,24 +531,87 @@ namespace Engine
 				groundEnvSrvFur = std::move(gt);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrvFur);
 
-		// SceneLights structured buffer (t13) — mirrors cbPerFrame.Lights for the forward lighting loop without the
-		// MAX_LIGHT_INSTANCES cap. PR3 (clustered Forward+) layers cluster table / index list SRVs on top of this.
+		// SceneLights + cluster outputs share the SRV table with the IBL/shadow textures above; the buffers are owned
+		// here so DispatchClusterLightCulling can populate them once per frame, and BindFurForwardSharedSRVs simply
+		// rebinds the SRVs on each material draw (translucent + fur both call this helper).
+		if (SceneLightBuffer)
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
+		if (ClusterLightOffsetCountBuffer)
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightOffsetCountSrvSlot, ClusterLightOffsetCountBuffer);
+		if (ClusterLightIndexListBuffer)
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightIndexListSrvSlot, ClusterLightIndexListBuffer);
+	}
+
+	void DeferredLightingPass::DispatchClusterLightCulling(RHICommandContext& RHIContext, const std::shared_ptr<const FSceneViewData>& ViewData) const
+	{
+		if (!RHI || !ViewData)
+			return;
+		// Skip when the same FSceneViewData identity already drove a build this frame — translucent + fur share the
+		// pass, so without this guard the second call would rerun the upload + dispatch over a still-busy ring slot.
+		const uintptr_t ViewKey = reinterpret_cast<uintptr_t>(ViewData.get());
+		if (ViewKey == SceneLightLastUploadedViewKey && SceneLightBuffer && ClusterLightOffsetCountBuffer && ClusterLightIndexListBuffer && ClusterBuildShader)
+			return;
+
+		// Lazy create on first use. Lights buffer stays dynamic (CPU-renewed each frame); cluster outputs are static
+		// DEFAULT-heap with UAV bind because the CS owns the writes and the PS sees them via SRV in the same frame.
 		if (!SceneLightBuffer)
 			SceneLightBuffer = RHI->RHICreateStructuredBuffer(sizeof(Light), kSceneLightBufferCapacity, BUF_Dynamic, nullptr);
-		if (SceneLightBuffer)
+		if (!ClusterLightOffsetCountBuffer)
+			ClusterLightOffsetCountBuffer = RHI->RHICreateStructuredBuffer(
+				static_cast<uint32_t>(sizeof(uint32_t) * 2u), ClusterLightCulling::kClusterCount,
+				static_cast<EBufferUsageFlags>(BUF_Static | BUF_UnorderedAccess), nullptr);
+		if (!ClusterLightIndexListBuffer)
+			ClusterLightIndexListBuffer = RHI->RHICreateStructuredBuffer(
+				static_cast<uint32_t>(sizeof(uint32_t)), ClusterLightCulling::kClusterCount * ClusterLightCulling::kMaxLightsPerCluster,
+				static_cast<EBufferUsageFlags>(BUF_Static | BUF_UnorderedAccess), nullptr);
+		if (!ClusterBuildUniform)
+			ClusterBuildUniform = std::make_unique<CBClusterBuildWrap>(RHI);
+		if (!ClusterBuildShader)
 		{
-			// Refresh only on the first call per frame (per FSceneViewData identity); subsequent translucent / fur
-			// meshes in the same frame rebind the existing ring slot. Avoids exhausting the N-slot ring inside a frame.
-			const uintptr_t ViewKey = reinterpret_cast<uintptr_t>(ViewData.get());
-			if (ViewKey != SceneLightLastUploadedViewKey)
-			{
-				const std::vector<Light>& ViewLights = ViewData->Lights;
-				const uint32_t LightCount = (std::min)(static_cast<uint32_t>(ViewLights.size()), kSceneLightBufferCapacity);
-				if (LightCount > 0)
-					SceneLightBuffer->UpdateStructuredBuffer(ViewLights.data(), LightCount * static_cast<uint32_t>(sizeof(Light)));
-				SceneLightLastUploadedViewKey = ViewKey;
-			}
-			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
+			const std::wstring Path = core::process_directory().wstring() + L"/ShaderLibDX/ClusterLightBuildCS.hlsl";
+			ClusterBuildShader = RHI->RHICreateComputeShader(Path, "MainCS", {});
 		}
+		if (!SceneLightBuffer || !ClusterLightOffsetCountBuffer || !ClusterLightIndexListBuffer || !ClusterBuildUniform
+			|| !ClusterBuildUniform->GetRHIBuffer() || !ClusterBuildShader)
+		{
+			return;
+		}
+
+		// Upload the per-view light list once. Both forward translucent / fur and the CS read this buffer; the dynamic
+		// ring-buffer in D3D12 advances slot so the GPU still sees the previous frame's payload until the dispatch lands.
+		const std::vector<Light>& ViewLights = ViewData->Lights;
+		const uint32_t LightCount = (std::min)(static_cast<uint32_t>(ViewLights.size()), kSceneLightBufferCapacity);
+		if (LightCount > 0)
+			SceneLightBuffer->UpdateStructuredBuffer(ViewLights.data(), LightCount * static_cast<uint32_t>(sizeof(Light)));
+
+		// Build the CS CB. View + proj inverse are split out from CurrViewProjInverseMatrix because the cluster
+		// algorithm needs only the projection inverse (NDC -> view) — combining with view would break the math.
+		ClusterBuildUniform->Data.ClusterViewMatrix = ViewData->ViewMatrix;
+		ClusterBuildUniform->Data.ClusterInvProjMatrix = ViewData->ProjMatrix.Inverse();
+		ClusterBuildUniform->Data.ClusterNearZ = ViewData->CameraNearZ;
+		ClusterBuildUniform->Data.ClusterFarZ = ViewData->CameraFarZ;
+		ClusterBuildUniform->Data.ClusterLightCount = LightCount;
+		ClusterBuildUniform->Data.ClusterPad0 = 0u;
+
+		RHICommandMark Mark(RHIContext, "BuildClusteredLights");
+
+		ComputePipelineStateInitializer Init;
+		Init.ComputeShader = ClusterBuildShader;
+		RHIContext.RHISetComputePipelineState(Init);
+		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, *ClusterBuildUniform, SF_Compute);
+		RHIContext.RHISetShaderStructuredBuffer(SF_Compute, 0u, SceneLightBuffer);
+		RHIContext.RHISetShaderStructuredBufferUAV(0u, ClusterLightOffsetCountBuffer);
+		RHIContext.RHISetShaderStructuredBufferUAV(1u, ClusterLightIndexListBuffer);
+
+		constexpr uint32_t ThreadGroupSize = 64u;
+		const uint32_t GroupCount = (ClusterLightCulling::kClusterCount + ThreadGroupSize - 1u) / ThreadGroupSize;
+		RHIContext.RHIDispatchComputeShader(GroupCount, 1u, 1u);
+
+		// Detach the UAVs after dispatch so the subsequent SetShaderStructuredBuffer(SF_Pixel, ...) can transition the
+		// same resources to PIXEL_SHADER_RESOURCE without the D3D11 simultaneous-bind warning.
+		RHIContext.RHISetShaderStructuredBufferUAV(0u, std::shared_ptr<RHIStructuredBuffer>{});
+		RHIContext.RHISetShaderStructuredBufferUAV(1u, std::shared_ptr<RHIStructuredBuffer>{});
+
+		SceneLightLastUploadedViewKey = ViewKey;
 	}
 }

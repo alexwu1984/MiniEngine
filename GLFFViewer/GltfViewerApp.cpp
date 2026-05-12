@@ -197,6 +197,9 @@ void GltfViewApp::BindImGuiToSceneRender()
 					bool bShowBounds = Scene->GetShowSceneMeshBoundsDebug();
 					if (ImGui::Checkbox("Show model bounds (UE-style)", &bShowBounds))
 						Scene->SetShowSceneMeshBoundsDebug(bShowBounds);
+					bool bShowCasterBounds = Scene->GetShowShadowCasterMeshBoundsDebug();
+					if (ImGui::Checkbox("Show shadow caster bounds", &bShowCasterBounds))
+						Scene->SetShowShadowCasterMeshBoundsDebug(bShowCasterBounds);
 				}
 
 				ImGui::Separator();

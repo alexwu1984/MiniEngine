@@ -415,7 +415,7 @@ namespace Engine
 				sub.OverlayWorldToClip = ViewConst->SsrViewProjMatrix;
 
 				std::shared_ptr<World> W = Self ? Self->GetWorld() : nullptr;
-				const bool bMayDrawMeshBounds = W && W->GetShowSceneMeshBoundsDebug();
+				const bool bMayDrawMeshBounds = W && (W->GetShowSceneMeshBoundsDebug() || W->GetShowShadowCasterMeshBoundsDebug());
 				if (sub.NumDir <= 0 && sub.NumSpot <= 0 && sub.NumPoint <= 0 && !bMayDrawMeshBounds)
 					return;
 				if (!d->ShadowDebugWire)

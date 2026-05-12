@@ -100,6 +100,9 @@ namespace Engine
 		/** When true, deferred frame draws wireframe of each SceneMeshComponent local bounds in world (viewer / debug). */
 		void SetShowSceneMeshBoundsDebug(bool bIn);
 		bool GetShowSceneMeshBoundsDebug() const;
+		/** When true, deferred frame draws world AABB wire per ProjShadow mesh (shadow frustum / fur bounds). */
+		void SetShowShadowCasterMeshBoundsDebug(bool bIn);
+		bool GetShowShadowCasterMeshBoundsDebug() const;
 
 	private:
 		WorldPrivate* d_ptr = nullptr;

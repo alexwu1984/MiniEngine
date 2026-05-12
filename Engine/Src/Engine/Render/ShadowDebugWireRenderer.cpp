@@ -34,7 +34,7 @@ namespace Engine
 			math::Vector4 Color{ 1.f, 1.f, 1.f, 1.f };
 		};
 
-		static constexpr int32_t kMaxWireVertices = 2048;
+		static constexpr int32_t kMaxWireVertices = 4096;
 		static void AppendLine(const math::Vector3& a, const math::Vector3& b, const math::Vector4& rgba, std::vector<FShadowDebugWireVertex>& Out)
 		{
 			FShadowDebugWireVertex va{}, vb{};
@@ -191,6 +191,34 @@ namespace Engine
 				Submit.MeshBounds[Submit.NumMeshBounds++] = box;
 			}
 		}
+
+		static void GatherShadowCasterMeshBoundsIntoSubmit(FShadowDebugWireSubmit& Submit, World& W)
+		{
+			Submit.NumShadowCasterMeshBounds = 0;
+			if (!W.GetShowShadowCasterMeshBoundsDebug())
+				return;
+			const std::vector<std::shared_ptr<Actor>> actors = W.GetAllActorsCopy();
+			for (const auto& act : actors)
+			{
+				if (!act)
+					continue;
+				if (Submit.NumShadowCasterMeshBounds >= FShadowDebugWireSubmit::kMaxMeshBoundsBoxes)
+					break;
+				const auto sm = act->GetComponent<SceneMeshComponent>();
+				if (!sm || !sm->IsProjectShadow())
+					continue;
+				const math::AABB3 worldBox = sm->GetShadowFrustumWorldBounds();
+				if ((worldBox.GetMaxPoint() - worldBox.GetMinPoint()).GetSqrLength() < 1e-16f)
+					continue;
+				math::Vector3 corners[8];
+				worldBox.GetPoint(corners);
+				FShadowDebugWireSubmit::FMeshBoundsWire box{};
+				for (int ci = 0; ci < 8; ++ci)
+					box.CornersWorld[ci] = corners[ci];
+				box.Color = math::Vector4(0.95f, 0.38f, 0.08f, 1.f);
+				Submit.ShadowCasterMeshBounds[Submit.NumShadowCasterMeshBounds++] = box;
+			}
+		}
 	} // namespace
 
 	using CBShadowDebugWireWrap = RenderCore::TUniformBufferBinding<CBShadowDebugWire, 0u>;
@@ -230,13 +258,16 @@ namespace Engine
 		VertexBuffer = RHI->RHICreateVertexBuffer(zeros.data(), vbUsage, sizeof(FShadowDebugWireVertex), kMaxWireVertices);
 	}
 
-	void FShadowDebugWireRenderer::Render(RHICommandContext& Ctx, RHIViewPort& ViewPort, FShadowDebugWireSubmit Submit, World* WorldForMeshBoundsDebug)
+	void FShadowDebugWireRenderer::Render(RHICommandContext& Ctx, RHIViewPort& ViewPort, FShadowDebugWireSubmit Submit, World* WorldForDebugWire)
 	{
 		if (!VertexShader || !PixelShader || !VertexBuffer || !d)
 			return;
 
-		if (WorldForMeshBoundsDebug)
-			GatherSceneMeshBoundsIntoSubmit(Submit, *WorldForMeshBoundsDebug);
+		if (WorldForDebugWire)
+		{
+			GatherSceneMeshBoundsIntoSubmit(Submit, *WorldForDebugWire);
+			GatherShadowCasterMeshBoundsIntoSubmit(Submit, *WorldForDebugWire);
+		}
 
 		std::vector<FShadowDebugWireVertex> verts;
 		verts.reserve(128);
@@ -248,6 +279,8 @@ namespace Engine
 			AppendWireCone(Submit.Spot[i].Apex, Submit.Spot[i].ConeAxis, Submit.Spot[i].Range, Submit.Spot[i].OuterConeCos, Submit.Spot[i].Color, verts);
 		for (int i = 0; i < Submit.NumMeshBounds; ++i)
 			AppendWireOrientedBox(Submit.MeshBounds[i].CornersWorld, Submit.MeshBounds[i].Color, verts);
+		for (int i = 0; i < Submit.NumShadowCasterMeshBounds; ++i)
+			AppendWireOrientedBox(Submit.ShadowCasterMeshBounds[i].CornersWorld, Submit.ShadowCasterMeshBounds[i].Color, verts);
 
 		if (verts.empty())
 			return;

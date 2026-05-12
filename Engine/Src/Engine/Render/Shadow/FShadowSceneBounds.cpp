@@ -1,5 +1,5 @@
 ﻿#include "Render/Shadow/FShadowSceneBounds.h"
-#include "GltfModel/GltfMesh.h"
+#include "GltfModel/MeshBase.h"
 #include "Material/FurMaterial.h"
 #include "Material/MaterialBase.h"
 #include "Scene/SceneMeshComponent.h"
@@ -31,6 +31,14 @@ namespace Engine
 		return math::ExpandAabbByMargin(TransformedMeshBox, Reach);
 	}
 
+	/** Same transform as SceneMeshComponent::GatherMesh culling / base pass: mesh local AABB × (node/skin matrix × actor world). */
+	static math::AABB3 WorldBoundsFromMeshDrawTransform(const std::shared_ptr<MeshBase>& Mesh, const math::Matrix4x4& ActorWorld)
+	{
+		if (!Mesh)
+			return {};
+		return Mesh->GetBoundingBox().Transform(Mesh->GetMeshMat() * ActorWorld);
+	}
+
 	const std::vector<GltfSceneMeshInfo>* FShadowSceneBounds::SelectShadowSubjectMeshListForFrustum(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
 																									const std::vector<GltfSceneMeshInfo>& FrustumBoundsMeshes,
 																									const FShadowProjectorSceneData& ShadowProjectorScene)
@@ -60,7 +68,7 @@ namespace Engine
 				{
 					if (!Mesh || !MeshWritesShadowMapDepth(Mesh))
 						continue;
-					math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
+					math::AABB3 wbox = WorldBoundsFromMeshDrawTransform(Mesh, MeshInfo.WorldTransform);
 					wbox = WorldMeshBoundsForShadowFrustum(Mesh, wbox);
 					OutSubjectWorldAabb = OutSubjectValid ? OutSubjectWorldAabb.MergeAABB(wbox) : wbox;
 					OutSubjectValid = true;
@@ -84,7 +92,7 @@ namespace Engine
 			{
 				if (!Mesh)
 					continue;
-				math::AABB3 wbox = Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform);
+				math::AABB3 wbox = WorldBoundsFromMeshDrawTransform(Mesh, MeshInfo.WorldTransform);
 				OutReceiverWorldAabb = OutReceiverValid ? OutReceiverWorldAabb.MergeAABB(wbox) : wbox;
 				OutReceiverValid = true;
 			}
@@ -105,7 +113,7 @@ namespace Engine
 			{
 				if (!MeshWritesShadowMapDepth(Mesh))
 					continue;
-				math::AABB3 wbox = WorldMeshBoundsForShadowFrustum(Mesh, Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform));
+				math::AABB3 wbox = WorldMeshBoundsForShadowFrustum(Mesh, WorldBoundsFromMeshDrawTransform(Mesh, MeshInfo.WorldTransform));
 				if (OptionalWorldClipAabb)
 				{
 					math::AABB3 clipVol = *OptionalWorldClipAabb;

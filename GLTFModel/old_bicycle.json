@@ -31,7 +31,17 @@
       "Material": {
         "Metallic": 1.0
       },
-      "ProjShadow": true
+      "ProjShadow": true,
+      "OrbitCamera": {
+        "target": [ 0.0, 0.55, 0.0 ],
+        "distance": 3.5,
+        "yawDeg": 0.0,
+        "pitchDeg": 0.0
+      },
+      "Camera": {
+        "defaultFrom": [ 0.0, 0.0, 3.5 ],
+        "defaultTo": [ 0.0, 0.0, 0.0 ]
+      }
     }
   ],
   "Tonemapping": {

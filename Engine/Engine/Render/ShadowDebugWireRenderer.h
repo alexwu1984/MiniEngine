@@ -67,6 +67,10 @@ namespace Engine
 		};
 		int NumMeshBounds = 0;
 		FMeshBoundsWire MeshBounds[kMaxMeshBoundsBoxes]{};
+
+		/** World-space AABB wire per shadow-casting mesh (GetShadowFrustumWorldBounds). Filled in FShadowDebugWireRenderer::Render when enabled. */
+		int NumShadowCasterMeshBounds = 0;
+		FMeshBoundsWire ShadowCasterMeshBounds[kMaxMeshBoundsBoxes]{};
 	};
 
 	/** GPU line-list overlay for debug gizmos. */
@@ -77,8 +81,8 @@ namespace Engine
 		~FShadowDebugWireRenderer();
 
 		void InitResource();
-		/** @param WorldForMeshBoundsDebug If non-null and World::GetShowSceneMeshBoundsDebug(), appends mesh bounds wires into Submit before draw. */
-		void Render(RenderCore::RHICommandContext& Ctx, RenderCore::RHIViewPort& ViewPort, FShadowDebugWireSubmit Submit, World* WorldForMeshBoundsDebug);
+		/** @param WorldForDebugWire If non-null, may append mesh-bounds and/or shadow-caster-bounds wires from World flags before draw. */
+		void Render(RenderCore::RHICommandContext& Ctx, RenderCore::RHIViewPort& ViewPort, FShadowDebugWireSubmit Submit, World* WorldForDebugWire);
 
 	private:
 		RenderCore::DynamicRHI* RHI = nullptr;

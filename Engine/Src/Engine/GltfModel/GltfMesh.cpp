@@ -421,6 +421,22 @@ namespace Engine
 				d->MeshMat = AllNodeInfos[d->NodeID]->FinalMeshMat;
 		}
 
+		if (d->Mesh->Vertices && d->Mesh->nNumVertices > 0u)
+		{
+			const math::Vector3 ext = d->BoundingBox.GetMaxPoint() - d->BoundingBox.GetMinPoint();
+			const float extSqr = ext.GetSqrLength();
+			const bool badExtent = extSqr < 1e-16f || !std::isfinite(extSqr) || d->BoundingBox.GetMinPoint().x > d->BoundingBox.GetMaxPoint().x
+				|| d->BoundingBox.GetMinPoint().y > d->BoundingBox.GetMaxPoint().y || d->BoundingBox.GetMinPoint().z > d->BoundingBox.GetMaxPoint().z;
+			if (badExtent)
+			{
+				std::vector<Vector3> pts;
+				pts.reserve(d->Mesh->nNumVertices);
+				for (uint32_t vi = 0; vi < d->Mesh->nNumVertices; ++vi)
+					pts.push_back(d->Mesh->Vertices[vi]);
+				d->BoundingBox.CreateAABB(pts);
+			}
+		}
+
 		d->MeshBuffer->InitMesh(d->Mesh);
 	}
 

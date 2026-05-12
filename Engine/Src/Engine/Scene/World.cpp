@@ -435,6 +435,7 @@ namespace Engine
 		mutable std::weak_ptr<Actor> ShadowProjectorCache;
 		bool bLoadedSceneUsesRoamCamera = false;
 		bool bShowSceneMeshBoundsDebug = false;
+		bool bShowShadowCasterMeshBoundsDebug = false;
 	};
 
 	World::World()
@@ -1039,5 +1040,19 @@ namespace Engine
 		C_P(const World);
 		std::lock_guard<std::recursive_mutex> l(d->lock);
 		return d->bShowSceneMeshBoundsDebug;
+	}
+
+	void World::SetShowShadowCasterMeshBoundsDebug(bool bIn)
+	{
+		C_P(World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		d->bShowShadowCasterMeshBoundsDebug = bIn;
+	}
+
+	bool World::GetShowShadowCasterMeshBoundsDebug() const
+	{
+		C_P(const World);
+		std::lock_guard<std::recursive_mutex> l(d->lock);
+		return d->bShowShadowCasterMeshBoundsDebug;
 	}
 }

@@ -56,19 +56,18 @@ namespace Engine
 
 		RHIContext.Clear(P.DepthRenderBuffer, core::FLinearColor::White, 1.f, 0);
 
-		const float camNear = ShadowProjectorScene.CameraNearZ;
 		Light firstCascadeLight{};
 		for (int ci = 0; ci < FDirectionalShadowFrustumFitter::kCascadeCount; ++ci)
 		{
-			const float zNearSlice = (ci == 0) ? camNear : splitEnds[ci - 1];
-			const float zFarSlice = splitEnds[ci];
-			const math::AABB3 sliceBounds = FDirectionalShadowFrustumFitter::WorldBoundsFromViewProjSliceInverse(
-				ShadowProjectorScene.CameraView, ShadowProjectorScene.CameraFovYRad, ShadowProjectorScene.CameraAspectWH, zNearSlice, zFarSlice);
-			const math::AABB3 cascadeSubject = P.SubjectWorldAabb.MergeAABB(sliceBounds);
+			// Fit ortho to merged shadow casters only. Do NOT clip SubjectWorldAabb by the slice's *world AABB*:
+			// that AABB is only a loose hull of the frustum wedge; intersecting can shrink below the real slice
+			// and crop casters out of the shadow map (CSM0 shows a tiny silhouette). Merge(Subject, slice) was
+			// equally wrong (union → huge waste). Per-cascade split is applied in deferred sampling, not here.
+			const math::AABB3& cascadeSubject = P.SubjectWorldAabb;
 
 			Light Li = mainLightRef;
 			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, cascadeSubject, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, cascadeTexSize,
-																					ShadowProjectorScene, false, P.SubjectMeshListForFrustumDriver, &cascadeSubject);
+																					ShadowProjectorScene, false, P.SubjectMeshListForFrustumDriver, nullptr);
 			OutOutputs.CachedDirectionalCSM.CascadeViewProj[ci] = Li.LightViewProj;
 			if (ci == 0)
 				firstCascadeLight = Li;

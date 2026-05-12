@@ -23,6 +23,10 @@ Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
 
+// Forward fur shell lighting loop sources lights from this StructuredBuffer<Light> (declared before
+// FurForwardAccumulate.hlsl which iterates over it); bound by DeferredLightingPass::BindFurForwardSharedSRVs.
+StructuredBuffer<Light> _SceneLights : register(t13);
+
 cbuffer cbPointShadow : register(b4)
 {
 	row_major matrix PointFaceVP[6];

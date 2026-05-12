@@ -10,13 +10,14 @@ namespace RenderCore
 	class FD3D12Resource;
 
 	/**
-	 * D3D12 implementation of `RHIStructuredBuffer`. Backing model (PR1):
+	 * D3D12 implementation of `RHIStructuredBuffer`. Backing model:
 	 *   - BUF_Static  : committed DEFAULT-heap resource, initial upload via the default command context.
-	 *   - BUF_Dynamic : committed UPLOAD-heap resource + persistent Map() + memcpy on UpdateStructuredBuffer.
-	 * Single-slot dynamic path means callers must not Update while previous-frame GPU work still references
-	 * the buffer; the clustered light pass will layer a fence-aware ring on top of this primitive once that
-	 * concrete consumer lands.
-	 * The SRV is created at construction (offline descriptor) and consumed by FD3D12StateCache through the
+	 *   - BUF_Dynamic : committed UPLOAD-heap resource sized for `kDynamicRingSlots` back-to-back copies of
+	 *                   the user payload, with one offline SRV per slot. UpdateStructuredBuffer advances the
+	 *                   slot, memcpys into that slot, and points GetSRV() at the matching descriptor. Slot
+	 *                   count matches RHIRecommendedParallelFrameResourceSlots so a Update->Draw pair issued
+	 *                   on frame N never overwrites the region the GPU is still reading from frames N-1/N-2.
+	 * The SRV is created at construction (offline descriptors) and consumed by FD3D12StateCache through the
 	 * existing per-frequency SRV cache, so structured buffers share register space with texture SRVs.
 	 */
 	class D3D12StructuredBuffer : public RHIStructuredBuffer, public FD3D12AdapterChild

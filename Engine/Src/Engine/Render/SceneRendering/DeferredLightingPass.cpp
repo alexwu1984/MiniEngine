@@ -9,6 +9,7 @@
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITextureCube.h"
 #include "RHI/RHIDefinitions.h"
+#include "RHI/RHIStructuredBuffer.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIPipeLineState.h"
@@ -27,6 +28,14 @@ namespace Engine
 
 	namespace
 	{
+		// Capacity ceiling for the forward path's StructuredBuffer<Light>. Picked to give clustered Forward+ headroom
+		// (still well under typical 64KB CB / SRV sizing) without making cluster culling pass over an oversized list.
+		// 256 * sizeof(Light) (== ~144 bytes on this engine) ≈ 36 KB GPU mem per slot, ×3 ring slots ≈ 108 KB.
+		constexpr uint32_t kSceneLightBufferCapacity = 256u;
+
+		/** SF_Pixel slot for `StructuredBuffer<Light> _SceneLights` in forward translucent + fur HLSL. */
+		constexpr uint32_t kSceneLightsSrvSlot = 13u;
+
 		GraphicsPipelineStateInitializer MakeFullscreenPSO(std::shared_ptr<RHIVertexShader> VS, std::shared_ptr<RHIPixelShader> PS)
 		{
 			GraphicsPipelineStateInitializer Init;
@@ -518,5 +527,25 @@ namespace Engine
 			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
 				groundEnvSrvFur = std::move(gt);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrvFur);
+
+		// SceneLights structured buffer (t13) — mirrors cbPerFrame.Lights for the forward lighting loop without the
+		// MAX_LIGHT_INSTANCES cap. PR3 (clustered Forward+) layers cluster table / index list SRVs on top of this.
+		if (!SceneLightBuffer)
+			SceneLightBuffer = RHI->RHICreateStructuredBuffer(sizeof(Light), kSceneLightBufferCapacity, BUF_Dynamic, nullptr);
+		if (SceneLightBuffer)
+		{
+			// Refresh only on the first call per frame (per FSceneViewData identity); subsequent translucent / fur
+			// meshes in the same frame rebind the existing ring slot. Avoids exhausting the N-slot ring inside a frame.
+			const uintptr_t ViewKey = reinterpret_cast<uintptr_t>(ViewData.get());
+			if (ViewKey != SceneLightLastUploadedViewKey)
+			{
+				const std::vector<Light>& ViewLights = ViewData->Lights;
+				const uint32_t LightCount = (std::min)(static_cast<uint32_t>(ViewLights.size()), kSceneLightBufferCapacity);
+				if (LightCount > 0)
+					SceneLightBuffer->UpdateStructuredBuffer(ViewLights.data(), LightCount * static_cast<uint32_t>(sizeof(Light)));
+				SceneLightLastUploadedViewKey = ViewKey;
+			}
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
+		}
 	}
 }

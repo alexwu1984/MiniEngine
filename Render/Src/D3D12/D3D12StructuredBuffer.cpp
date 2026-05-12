@@ -4,21 +4,35 @@
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12WindowDevice.h"
+#include <array>
 #include <cstring>
 
 namespace RenderCore
 {
+	namespace
+	{
+		// Sized for the worst case among supported D3D12 RHIs (RHIRecommendedParallelFrameResourceSlots == 3).
+		// One Update->Draw round-trip per frame keeps GPU reads on slot N safe while CPU writes slot (N+1)%kDynamicRingSlots.
+		constexpr uint32_t kDynamicRingSlots = 3u;
+	}
+
 	struct D3D12StructuredBufferPrivate
 	{
 		FD3D12Resource* Resource = nullptr;
 		uint32_t Stride = 0;
 		uint32_t Count = 0;
-		uint32_t SizeBytes = 0;
+		/** Per-slot payload size (== Stride * Count). Total resource size for dynamic = SlotSizeBytes * RingSlotCount. */
+		uint32_t SlotSizeBytes = 0;
 		bool bDynamic = false;
-		void* MappedPtr = nullptr;
+		/** Persistent map base; per-slot CPU pointer derived via SlotSizeBytes offset. Static path leaves null. */
+		uint8_t* MappedPtr = nullptr;
 
+		uint32_t RingSlotCount = 1u;
+		uint32_t CurrentSlot = 0u;
+
+		/** Block of `RingSlotCount` contiguous offline SRV descriptors. Index `CurrentSlot` is the one consumed by GetSRV. */
 		FD3D12ResourceAllocator::FDescriptorAllocation SrvAlloc{};
-		D3D12_CPU_DESCRIPTOR_HANDLE SrvHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		std::array<D3D12_CPU_DESCRIPTOR_HANDLE, kDynamicRingSlots> SrvHandles{};
 
 		~D3D12StructuredBufferPrivate()
 		{
@@ -72,8 +86,12 @@ namespace RenderCore
 
 		d->Stride = ElementStride;
 		d->Count = ElementCount;
-		d->SizeBytes = ElementStride * ElementCount;
+		d->SlotSizeBytes = ElementStride * ElementCount;
 		d->bDynamic = (Usage & BUF_AnyDynamic) != 0;
+		d->RingSlotCount = d->bDynamic ? kDynamicRingSlots : 1u;
+		d->CurrentSlot = 0u;
+
+		const uint32_t TotalSizeBytes = d->SlotSizeBytes * d->RingSlotCount;
 
 		D3D12_RESOURCE_DESC ResDesc{};
 		ResDesc.Alignment = 0;
@@ -81,7 +99,7 @@ namespace RenderCore
 		ResDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 		ResDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 		ResDesc.Format = DXGI_FORMAT_UNKNOWN;
-		ResDesc.Width = (UINT64)d->SizeBytes;
+		ResDesc.Width = (UINT64)TotalSizeBytes;
 		ResDesc.Height = 1;
 		ResDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		ResDesc.MipLevels = 1;
@@ -95,53 +113,64 @@ namespace RenderCore
 		HeapProps.VisibleNodeMask = 1;
 
 		std::shared_ptr<FD3D12Adapter> Adapter = GetParentAdapter();
-		Assert(Adapter);
+		Assert(Adapter.get());
 		HRESULT hr = E_FAIL;
 		static int32_t sCounter = 0;
 		const int32_t Counter = ++sCounter;
 		if (d->bDynamic)
 		{
 			HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-			std::wstring Name = core::formatw("W:", d->SizeBytes, "_StructuredUpload_", Counter);
+			std::wstring Name = core::formatw("W:", TotalSizeBytes, "_StructuredUploadRing", d->RingSlotCount, "_", Counter);
 			hr = Adapter->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, &d->Resource, Name.c_str());
 			if (FAILED(hr) || !d->Resource)
 				return false;
-			// Persistent map: upload heaps allow concurrent CPU writes / GPU reads while mapped.
-			d->MappedPtr = d->Resource->Map(nullptr);
+			d->MappedPtr = reinterpret_cast<uint8_t*>(d->Resource->Map(nullptr));
 			if (!d->MappedPtr)
 				return false;
+			// Seed every slot with InitialData so any consumer that binds before the first Update() sees deterministic
+			// payload regardless of which ring slot CurrentSlot starts on.
 			if (InitialData)
-				std::memcpy(d->MappedPtr, InitialData, d->SizeBytes);
+			{
+				for (uint32_t Slot = 0; Slot < d->RingSlotCount; ++Slot)
+					std::memcpy(d->MappedPtr + (size_t)Slot * d->SlotSizeBytes, InitialData, d->SlotSizeBytes);
+			}
 		}
 		else
 		{
 			HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-			std::wstring Name = core::formatw("W:", d->SizeBytes, "_Structured_", Counter);
+			std::wstring Name = core::formatw("W:", d->SlotSizeBytes, "_Structured_", Counter);
 			hr = Adapter->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_COMMON, nullptr, &d->Resource, Name.c_str());
 			if (FAILED(hr) || !d->Resource)
 				return false;
 			if (InitialData)
 			{
 				if (std::shared_ptr<D3D12CommandContext> Ctx = GetParentDevice()->GetDefaultCommandContext())
-					Ctx->InitializeBuffer(d->Resource, InitialData, d->SizeBytes, 0);
+					Ctx->InitializeBuffer(d->Resource, InitialData, d->SlotSizeBytes, 0);
 			}
 		}
 
-		// One SRV descriptor (offline heap); persisted with the buffer and copied into the dynamic SRV table at Apply* time.
+		// One offline SRV descriptor per ring slot (offset into the same buffer). FD3D12StateCache copies the current
+		// slot's CPU handle into the dynamic SRV table at Apply* time, so structured buffers share register space with textures.
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
-		Assert(Device);
-		d->SrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
-		d->SrvHandle = d->SrvAlloc.Cpu;
+		Assert(Device.get());
+		d->SrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d->RingSlotCount);
+		const UINT IncrementSize = Device->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		for (uint32_t Slot = 0; Slot < d->RingSlotCount; ++Slot)
+		{
+			D3D12_CPU_DESCRIPTOR_HANDLE Handle{};
+			Handle.ptr = d->SrvAlloc.Cpu.ptr + (SIZE_T)Slot * IncrementSize;
+			d->SrvHandles[Slot] = Handle;
 
-		D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc{};
-		SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		SrvDesc.Buffer.FirstElement = 0;
-		SrvDesc.Buffer.NumElements = d->Count;
-		SrvDesc.Buffer.StructureByteStride = d->Stride;
-		SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		Device->GetDevice()->CreateShaderResourceView(d->Resource->GetResource(), &SrvDesc, d->SrvHandle);
+			D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc{};
+			SrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+			SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			SrvDesc.Buffer.FirstElement = (UINT64)Slot * d->Count;
+			SrvDesc.Buffer.NumElements = d->Count;
+			SrvDesc.Buffer.StructureByteStride = d->Stride;
+			SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			Device->GetDevice()->CreateShaderResourceView(d->Resource->GetResource(), &SrvDesc, Handle);
+		}
 
 		return true;
 	}
@@ -153,16 +182,18 @@ namespace RenderCore
 			return;
 		if (!d->Resource)
 			return;
-		const uint32_t NumBytes = SizeInBytes > d->SizeBytes ? d->SizeBytes : SizeInBytes;
+		const uint32_t NumBytes = SizeInBytes > d->SlotSizeBytes ? d->SlotSizeBytes : SizeInBytes;
 
 		if (d->bDynamic && d->MappedPtr)
 		{
-			// Single-slot upload heap: caller must ensure no in-flight GPU read of this region (ring buffering layered later).
-			std::memcpy(d->MappedPtr, Contents, NumBytes);
+			// Advance ring slot first so GetSRV() returns the slot we are about to write. The pipeline never reads
+			// the same slot the CPU is touching while RHIRecommendedParallelFrameResourceSlots-1 frames are still in flight.
+			d->CurrentSlot = (d->CurrentSlot + 1u) % d->RingSlotCount;
+			uint8_t* DstPtr = d->MappedPtr + (size_t)d->CurrentSlot * d->SlotSizeBytes;
+			std::memcpy(DstPtr, Contents, NumBytes);
 			return;
 		}
 
-		// DEFAULT heap path: re-upload via GPU copy through the default context.
 		if (std::shared_ptr<D3D12CommandContext> Ctx = GetParentDevice()->GetDefaultCommandContext())
 			Ctx->InitializeBuffer(d->Resource, Contents, NumBytes, 0);
 	}
@@ -182,7 +213,9 @@ namespace RenderCore
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12StructuredBuffer::GetSRV() const
 	{
 		C_P(const D3D12StructuredBuffer);
-		return d->SrvHandle;
+		// Match the slot UpdateStructuredBuffer just wrote so the SRV the dynamic descriptor table picks up corresponds
+		// to the freshly written data; Static buffers always return slot 0.
+		return d->SrvHandles[d->CurrentSlot];
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS D3D12StructuredBuffer::GetGPUVirtualAddress() const
@@ -190,7 +223,7 @@ namespace RenderCore
 		C_P(const D3D12StructuredBuffer);
 		if (!d->Resource)
 			return 0;
-		return d->Resource->GetGPUVirtualAddress();
+		return d->Resource->GetGPUVirtualAddress() + (UINT64)d->CurrentSlot * d->SlotSizeBytes;
 	}
 
 	FD3D12Resource* D3D12StructuredBuffer::GetResource() const

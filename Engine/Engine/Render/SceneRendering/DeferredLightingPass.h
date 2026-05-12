@@ -12,6 +12,7 @@ namespace RenderCore
 	class RHIViewPort;
 	class RHITexture2D;
 	class RHITextureCube;
+	class RHIStructuredBuffer;
 }
 
 namespace Engine
@@ -58,5 +59,21 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHITextureCube> FallbackIBLCube;
 		/** Bound to t6 when BRDF LUT is missing; matches PF_G32R32F integration LUT layout. */
 		std::shared_ptr<RenderCore::RHITexture2D> FallbackBrdfLut;
+
+		/**
+		 * `StructuredBuffer<Light>` consumed by forward translucent + fur PS at SF_Pixel slot 13. Sized at
+		 * kSceneLightBufferCapacity to give clustered Forward+ headroom beyond cbPerFrame.Lights[80]; allocated on
+		 * first BindFurForwardSharedSRVs and refreshed at most once per FSceneViewData (per frame). The CB array is
+		 * still filled in parallel because PerFrameStruct helpers (GetMainLight, IsEnableShadow, ...) index Lights[]
+		 * directly; PR3 will collapse the two paths.
+		 */
+		mutable std::shared_ptr<RenderCore::RHIStructuredBuffer> SceneLightBuffer;
+		/**
+		 * Pointer-identity of the FSceneViewData last consumed by SceneLightBuffer upload. Translucent/fur passes call
+		 * BindFurForwardSharedSRVs once per drawn mesh, but the dynamic structured buffer ring only has
+		 * RHIRecommendedParallelFrameResourceSlots slots — uploading every call would race ahead of in-flight GPU reads.
+		 * Each ExecuteFrame produces a fresh shared FSceneViewData so pointer compare uniquely identifies a frame.
+		 */
+		mutable uintptr_t SceneLightLastUploadedViewKey = 0;
 	};
 }

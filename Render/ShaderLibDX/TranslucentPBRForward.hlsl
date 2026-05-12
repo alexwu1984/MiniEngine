@@ -14,6 +14,10 @@ Texture2D ShadowMap : register(t8);
 TextureCube PointShadowCube : register(t10);
 Texture2D GroundEnvLatLong : register(t12);
 
+// Forward lighting loop reads from this StructuredBuffer<Light> instead of cbPerFrame.Lights[80]; PR2 step toward
+// clustered Forward+ (PR3 will narrow this with per-pixel cluster lookup). Bound by DeferredLightingPass::BindFurForwardSharedSRVs.
+StructuredBuffer<Light> _SceneLights : register(t13);
+
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
 
@@ -75,7 +79,7 @@ float4 MainPS_TranslucentForward(VS_OUTPUT_SCENE Input) : SV_Target0
 	[loop]
 	for (int i = 0; i < myPerFrame.LightCount; ++i)
 	{
-		Light light = myPerFrame.Lights[i];
+		Light light = _SceneLights[i];
 		if (light.Type == LightType_Directional)
 			color += ApplyDirectionalLightDeferred(worldPos, light, materialInfo, normal, view);
 		else if (light.Type == LightType_Point)

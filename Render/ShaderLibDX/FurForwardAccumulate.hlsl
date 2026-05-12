@@ -15,7 +15,8 @@ float3 AccumulateFurForwardShading(float3 worldPos, float3 geomN, float3 strandT
 	[loop]
 	for (int i = 0; i < myPerFrame.LightCount; ++i)
 	{
-		Light light = myPerFrame.Lights[i];
+		// _SceneLights is declared in FurMaterial.hlsl right before this file is included (PR2 PR2 step toward clustered Forward+).
+		Light light = _SceneLights[i];
 		if (light.Type == LightType_Directional)
 			color += ApplyDirectionalLightHair(worldPos, light, baseColor, perceptualRoughness, aoDiffuse, strandT, geomN, view, coverageAlpha);
 		else if (light.Type == LightType_Point)

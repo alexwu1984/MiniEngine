@@ -12,9 +12,11 @@
 #include "win/high_precision_tick.h"
 #include "Engine/Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIStructuredBuffer.h"
 #include "Engine/ComErrorLog.h"
 #include "core/logger.h"
 #include "core/wall_timer.h"
+#include <array>
 #include <functional>
 
 namespace Engine
@@ -79,6 +81,22 @@ namespace Engine
 			const double MsDynamicRHIInit = Wall.split_ms();
 			std::shared_ptr<RenderCore::RHIViewPort> ViewPort = d->DynamicRHI->RHICreateViewport(AppWin->GetWnd(), AppWin->GetWidth(), AppWin->GetHeight(), false, RenderCore::PF_B8G8R8A8);
 			const double MsCreateViewport = Wall.split_ms();
+
+			// Smoke test for RHIStructuredBuffer plumbing (clustered Forward+ prep): create + update a static and a
+			// dynamic 16-element buffer, then drop them. Catches misconfigured backends / D3D validation errors at
+			// engine init rather than at the first clustered-light pass. Stripped to a log line on success.
+			{
+				const std::array<uint32_t, 16> InitialPayload{ 0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u, 9u, 10u, 11u, 12u, 13u, 14u, 15u };
+				std::shared_ptr<RenderCore::RHIStructuredBuffer> StaticBuf = d->DynamicRHI->RHICreateStructuredBuffer(sizeof(uint32_t), (uint32_t)InitialPayload.size(),
+																													  RenderCore::BUF_Static, InitialPayload.data());
+				std::shared_ptr<RenderCore::RHIStructuredBuffer> DynamicBuf = d->DynamicRHI->RHICreateStructuredBuffer(sizeof(uint32_t), (uint32_t)InitialPayload.size(),
+																													   RenderCore::BUF_Dynamic, nullptr);
+				if (DynamicBuf)
+					DynamicBuf->UpdateStructuredBuffer(InitialPayload.data(), (uint32_t)(InitialPayload.size() * sizeof(uint32_t)));
+				core::inf() << core::perf::hdr(core::perf::kEngine, "RHIStructuredBufferSmoke") << "static=" << (StaticBuf ? 1 : 0)
+							<< " dynamic=" << (DynamicBuf ? 1 : 0) << " stride=" << sizeof(uint32_t) << " count=" << InitialPayload.size() << "\n";
+			}
+
 			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
 			const double MsRenderThreadCtor = Wall.split_ms();
 			d->ViewportClient->Init(AppWin);

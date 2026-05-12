@@ -608,6 +608,33 @@ namespace RenderCore
 		}
 	}
 
+	void D3D12CommandContext::RHISetShaderStructuredBuffer(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI)
+	{
+		if (!CurrentStateCache)
+			return;
+		D3D12StructuredBuffer* Buffer = RHIResourceCast(BufferRHI.get());
+		if (!Buffer)
+		{
+			CurrentStateCache->SetShaderResourceView(ShaderType, SRVIndex, std::shared_ptr<D3D12StructuredBuffer>{});
+			return;
+		}
+
+		// UPLOAD-heap buffers stay in GENERIC_READ; only DEFAULT-heap buffers need transition into a shader-read state.
+		if (!Buffer->IsDynamic() && (ShaderType == SF_Pixel || ShaderType == SF_Compute))
+		{
+			FD3D12Resource* const Res = Buffer->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+			{
+				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
+					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				TransitionResource(Res, TargetState, false);
+			}
+		}
+
+		CurrentStateCache->SetShaderResourceView(ShaderType, SRVIndex, std::static_pointer_cast<D3D12StructuredBuffer>(BufferRHI));
+	}
+
 	void D3D12CommandContext::RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV)
 	{
 		if (!CurrentStateCache)

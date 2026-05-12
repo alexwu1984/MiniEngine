@@ -14,6 +14,7 @@
 #include "D3D12/D3D12VertexBuffer.h"
 #include "D3D12/D3D12IndexBuffer.h"
 #include "D3D12/D3D12UnorderedAccessView.h"
+#include "D3D12/D3D12StructuredBuffer.h"
 #include "math/math.h"
 #include "core/timer.h"
 #include "RHI/RHICachedStates.h"
@@ -485,6 +486,14 @@ namespace RenderCore
 		{
 			return nullptr;
 		}
+	}
+
+	std::shared_ptr<RHIStructuredBuffer> D3D12DynamicRHI::RHICreateStructuredBuffer(uint32_t ElementStride, uint32_t ElementCount, EBufferUsageFlags Usage, const void* InitialData)
+	{
+		std::shared_ptr<D3D12StructuredBuffer> BufferRHI = std::make_shared<D3D12StructuredBuffer>(D3D12Adapter);
+		if (BufferRHI->CreateStructuredBuffer(ElementStride, ElementCount, Usage, InitialData))
+			return BufferRHI;
+		return nullptr;
 	}
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height, uint32_t NumMips, void* pBuffer /*= nullptr*/, int rowBytes /*= 0*/)

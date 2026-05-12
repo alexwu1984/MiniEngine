@@ -338,6 +338,21 @@ namespace RenderCore
 		}
 	}
 
+	void FD3D12StateCache::SetShaderResourceView(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<D3D12StructuredBuffer> StructuredBuffer)
+	{
+		Assert(SRVIndex < MAX_SRVS);
+		D3D12_CPU_DESCRIPTOR_HANDLE Stored{};
+		if (StructuredBuffer)
+			Stored = StructuredBuffer->GetSRV();
+		else
+			Stored.ptr = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		if (ShaderResourceViewCache.Views[ShaderType][SRVIndex].ptr != Stored.ptr)
+		{
+			ShaderResourceViewCache.Views[ShaderType][SRVIndex] = Stored;
+			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+		}
+	}
+
 	void FD3D12StateCache::SetUAV(uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D)
 	{
 		Assert(TextureIndex < MAX_UAVS);

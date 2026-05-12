@@ -54,6 +54,8 @@ namespace RenderCore
 		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(uint32_t ConstantBufferSize) override;
 		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize) override;
 
+		virtual std::shared_ptr< RHIStructuredBuffer> RHICreateStructuredBuffer(uint32_t ElementStride, uint32_t ElementCount, EBufferUsageFlags Usage, const void* InitialData) override;
+
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, uint32_t NumMips, void* InBuffer = nullptr, int RowBytes = 0) override;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) override;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const core::FLinearColor& Color) override;

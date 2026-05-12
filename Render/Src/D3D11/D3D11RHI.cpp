@@ -278,6 +278,14 @@ namespace RenderCore
 		}
 	}
 
+	std::shared_ptr<RHIStructuredBuffer> D3D11DynamicRHI::RHICreateStructuredBuffer(uint32_t ElementStride, uint32_t ElementCount, EBufferUsageFlags Usage, const void* InitialData)
+	{
+		std::shared_ptr<D3D11StructuredBuffer> BufferRHI = std::make_shared<D3D11StructuredBuffer>(this);
+		if (BufferRHI->CreateStructuredBuffer(ElementStride, ElementCount, Usage, InitialData))
+			return BufferRHI;
+		return nullptr;
+	}
+
 	std::shared_ptr< RHITexture2D> D3D11DynamicRHI::RHICreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, uint32_t NumMips, void* InBuffer /*= nullptr*/, int RowBytes /*= 0*/)
 	{
 		std::shared_ptr<D3D11Texture2D> Tex2DRHI = std::make_shared<D3D11Texture2D>(this);

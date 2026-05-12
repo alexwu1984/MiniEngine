@@ -8,6 +8,7 @@
 #include "D3D12/D3D12VertexBuffer.h"
 #include "D3D12/D3D12IndexBuffer.h"
 #include "D3D12/D3D12UnorderedAccessView.h"
+#include "D3D12/D3D12StructuredBuffer.h"
 
 namespace RenderCore
 {
@@ -92,6 +93,12 @@ namespace RenderCore
 	struct TD3D12ResourceTraits<RHIUnorderedAccessView>
 	{
 		typedef D3D12UnorderedAccessView TConcreteType;
+	};
+
+	template<>
+	struct TD3D12ResourceTraits<RHIStructuredBuffer>
+	{
+		typedef D3D12StructuredBuffer TConcreteType;
 	};
 
 	template<typename TRHIType>

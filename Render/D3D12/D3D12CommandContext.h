@@ -53,6 +53,7 @@ namespace RenderCore
 		void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip,std::shared_ptr<RHITextureCube> TextureCubeRHI);
 		virtual void RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV) override;
 		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) override;
+		virtual void RHISetShaderStructuredBuffer(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI) override;
 		virtual void RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues = 0) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) override;
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI) override;

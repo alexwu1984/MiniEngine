@@ -11,6 +11,7 @@ namespace RenderCore
 	class D3D12CommandListHandle;
 	class D3D12UniformBuffer;
 	class D3D12Texture2D;
+	class D3D12StructuredBuffer;
 
 	struct FD3D12SamplerStateCache 
 	{
@@ -189,6 +190,8 @@ namespace RenderCore
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
 		void SetUAV(uint32_t TextureIndex, std::shared_ptr<D3D12Texture2D> Texture2D);
 		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t TextureIndex, int32_t Mip, std::shared_ptr<D3D12TextureCube> TextureCube);
+		/** Structured-buffer SRVs share the per-frequency SRV cache with texture SRVs (same root descriptor table). */
+		void SetShaderResourceView(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<D3D12StructuredBuffer> StructuredBuffer);
 		void SetDescriptorHeap(D3D12CommandListHandle& CommandList,D3D12_DESCRIPTOR_HEAP_TYPE Type, win32::com_ptr<ID3D12DescriptorHeap> HeapPtr);
 		void BindDescriptorHeaps(D3D12CommandListHandle& CommandList);
 		void SetRenderTargetFormats(const std::vector<std::shared_ptr<RHITexture2D>>& Targets, std::shared_ptr< RHITexture2D> Depth);

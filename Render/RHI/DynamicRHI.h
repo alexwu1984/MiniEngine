@@ -35,6 +35,7 @@ namespace RenderCore
 	class RHIDepthStencilState;
 	class RHITextureCube;
 	class RHIUnorderedAccessView;
+	class RHIStructuredBuffer;
 	class RHITilePool;
 
 	/** Thread-safe latch: any D3D thread may set it when the GPU device is lost (removal / Present failure). */
@@ -114,6 +115,13 @@ namespace RenderCore
 
 		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(uint32_t ConstantBufferSize) = 0;
 		virtual std::shared_ptr< RHIUniformBuffer> RHICreateUniformBuffer(const void* Contents, uint32_t ConstantBufferSize) = 0;
+
+		/**
+		 * Create an HLSL `StructuredBuffer<T>` SRV; bound at draw time via RHISetShaderStructuredBuffer.
+		 * Pass BUF_Dynamic + Initial=null for buffers updated each frame (clustered light table, etc.).
+		 * Default returns null so backends can opt in incrementally; engine code must check the result.
+		 */
+		virtual std::shared_ptr< RHIStructuredBuffer> RHICreateStructuredBuffer(uint32_t ElementStride, uint32_t ElementCount, EBufferUsageFlags Usage, const void* InitialData) { return nullptr; }
 
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(EPixelFormat format, int32_t Flags, int32_t width, int32_t height,uint32_t NumMips, void* pBuffer = nullptr, int rowBytes = 0) = 0;
 		virtual std::shared_ptr< RHITexture2D> RHICreateTexture2D(const std::wstring& FileName) = 0;

@@ -22,6 +22,7 @@ namespace RenderCore
 	class RHIIndexBuffer;
 	class RHITextureCube;
 	class RHIComputeShader;
+	class RHIStructuredBuffer;
 	class RHIViewPort;
 
 	class RHICommandContext
@@ -54,6 +55,12 @@ namespace RenderCore
 		virtual void RHISetShaderTexture(EShaderFrequency ShaderType, uint32_t TextureIndex, std::shared_ptr<RHITextureCube> TextureCubeRHI) = 0;
 		virtual void RHISetUAVParameter(uint32_t UAVIndex, std::shared_ptr<RHIUnorderedAccessView> UAV) = 0;
 		virtual void RHISetShaderUniformBuffer(EShaderFrequency ShaderType, uint32_t BufferIndex, std::shared_ptr<RHIUniformBuffer> UniformBufferRHI) = 0;
+		/**
+		 * Bind an `RHIStructuredBuffer` (HLSL StructuredBuffer<T>) at register t#`SRVIndex`. Slot space is shared with
+		 * texture SRVs, so callers must coordinate with shader reflection / `RHISetShaderTexture` callsites.
+		 * Default no-op so backends can opt in incrementally.
+		 */
+		virtual void RHISetShaderStructuredBuffer(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI) {}
 		/** D3D12: forwards to SetGraphicsRoot32BitConstants (small per-draw constants). Other RHIs may no-op. */
 		virtual void RHISetGraphicsRoot32BitConstants(uint32_t RootParameterIndex, uint32_t Num32BitValues, const void* SrcData, uint32_t DestOffsetIn32BitValues = 0) {}
 		virtual void DrawPrimitive(std::shared_ptr<RHIVertexBuffer> VertexBufferRHI, std::shared_ptr<RHIIndexBuffer> IndexBufferRHI) = 0;

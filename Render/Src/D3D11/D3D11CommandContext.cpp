@@ -736,6 +736,27 @@ namespace RenderCore
 		}
 	}
 
+	void D3D11CommandContext::RHISetShaderStructuredBuffer(EShaderFrequency ShaderType, uint32_t SRVIndex, std::shared_ptr<RHIStructuredBuffer> BufferRHI)
+	{
+		D3D11StructuredBuffer* StructuredBuffer = RHIResourceCast(BufferRHI.get());
+		ID3D11ShaderResourceView* SRV = StructuredBuffer ? StructuredBuffer->GetSRV() : nullptr;
+		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
+		switch (ShaderType)
+		{
+		case SF_Vertex:
+			StateCache.SetShaderResourceView<SF_Vertex>(SRV, SRVIndex);
+			break;
+		case SF_Compute:
+			StateCache.SetShaderResourceView<SF_Compute>(SRV, SRVIndex);
+			break;
+		case SF_Pixel:
+			StateCache.SetShaderResourceView<SF_Pixel>(SRV, SRVIndex);
+			break;
+		default:
+			break;
+		}
+	}
+
 	void D3D11CommandContext::RHISetGraphicsRoot32BitConstants(uint32_t /*RootParameterIndex*/, uint32_t /*Num32BitValues*/, const void* /*SrcData*/, uint32_t /*DestOffsetIn32BitValues*/)
 	{
 	}

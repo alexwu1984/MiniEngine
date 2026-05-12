@@ -18,8 +18,6 @@ namespace Engine
 		math::AABB3 ModelLocalAABB{};
 		bool bHasViewWorldBoundsForDirectionalReceiverXY = false;
 		math::AABB3 ViewWorldBoundsAabb{};
-		/** When true, directional shadows use cascaded splits from the primary camera payload (filled in SubmitSceneForRendering). ShadowRenderPass sets this from depth span, SubjectWorldAabb diagonal, and subject/depth ratio (avoids CSM for tiny casters in a huge Far-Near frustum). */
-		bool bHasCascadeCameraParams = false;
 		math::Matrix4x4 CameraView{};
 		math::Vector3 CameraWorldPos{};
 		float CameraNearZ = 0.1f;

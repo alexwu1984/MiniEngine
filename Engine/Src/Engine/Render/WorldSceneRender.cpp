@@ -388,8 +388,7 @@ namespace Engine
 		shadowProjectorScene.ViewWorldBoundsAabb = ViewConst->ViewFrustum.bbox;
 		shadowProjectorScene.bHasViewWorldBoundsForDirectionalReceiverXY = true;
 
-		// Cascade split camera payload (Near/Far/View/Fov/...). Whether to actually use CSM is finalized in ShadowRenderPass.
-		shadowProjectorScene.bHasCascadeCameraParams = true;
+		// Cascade split camera payload (Near/Far/View/Fov/...) for directional CSM.
 		shadowProjectorScene.CameraView = ViewConst->ViewMatrix;
 		shadowProjectorScene.CameraWorldPos = ViewConst->CameraPos;
 		shadowProjectorScene.CameraNearZ = ViewConst->CameraNearZ;

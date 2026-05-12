@@ -25,9 +25,9 @@
     {
       "ProceduralFloor": {
         "Finish": "frosted",
-        "Size": "60,60",
-        "Segments": "220,220",
-        "UVScale": 24.0
+        "Size": "24,24",
+        "Segments": "48,48",
+        "UVScale": 5.0
       },
       "Position": "0.0,-0.15,0.0",
       "ProjShadow": true

@@ -236,7 +236,7 @@ namespace Engine
 				if (WorldSceneRender)
 				{
 					if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-						ShadowPass->TryGetCachedDirectionalCSM(OutDirectionalCSM->Data);
+						OutDirectionalCSM->Data = ShadowPass->GetCachedDirectionalCSM();
 				}
 			}
 		}

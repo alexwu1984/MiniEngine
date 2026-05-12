@@ -2,12 +2,12 @@
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
-    "SunDirection": "0.781,0.301,0.548",
+    "SunDirection": "0.326779,0.939806,-0.099900",
     "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.781,0.301,0.548",
+        "LightDir": "0.326779,0.939806,-0.099900",
         "LightStrength": 1.0,
         "LightType": 0
       }
@@ -19,9 +19,9 @@
     {
       "ProceduralFloor": {
         "Finish": "frosted",
-        "Size": "60,60",
-        "Segments": "220,220",
-        "UVScale": 12.0
+        "Size": "10,10",
+        "Segments": "48,48",
+        "UVScale": 5.0
       }
     },
     {

@@ -14,35 +14,6 @@
 
 namespace Engine
 {
-	namespace
-	{
-		/** CSM only when the view frustum is "deep" in absolute terms — not a tight turntable clip. */
-		constexpr float kMinViewDepthSpanForCSM = 170.f;
-		/** Subject world AABB diagonal (same merge as FShadowSceneBounds::BuildMergedShadowSubjectWorldAabb). */
-		constexpr float kMinShadowSubjectWorldDiagonalForCSM = 28.f;
-		/**
-		 * Default cameras use a huge Far (e.g. 500–5000) while Near ~0.1 → Far−Near is almost always >> 170, so the depth test alone
-		 * never turns CSM off for "small geometry" scenes. Require the shadow subject to occupy a non-trivial fraction of the view
-		 * depth span (world-units ratio) before enabling CSM; tiny props in a huge frustum stay on a single ortho tile (fewer atlas/PCSS issues).
-		 */
-		constexpr float kMinSubjectDiagOverViewDepthForCSM = 0.02f;
-
-		void ApplyDirectionalCascadeAutoOnProjectorScene(FShadowProjectorSceneData& Scene, const FShadowViewData& ViewData)
-		{
-			const float viewDepthSpan = Scene.CameraFarZ - Scene.CameraNearZ;
-			float subjectDiag = 0.f;
-			if (ViewData.bSubjectValid)
-			{
-				const math::Vector3 d = ViewData.SubjectWorldAabb.GetMaxPoint() - ViewData.SubjectWorldAabb.GetMinPoint();
-				subjectDiag = d.GetLength();
-			}
-			const float depthSpanSafe = (viewDepthSpan > 1e-3f) ? viewDepthSpan : 1.f;
-			const float subjectOverDepth = subjectDiag / depthSpanSafe;
-			Scene.bHasCascadeCameraParams = (viewDepthSpan >= kMinViewDepthSpanForCSM) && (subjectDiag >= kMinShadowSubjectWorldDiagonalForCSM)
-											&& (subjectOverDepth >= kMinSubjectDiagOverViewDepthForCSM);
-		}
-	} // namespace
-
 	struct ShadowRenderPassPrivate
 	{
 		RenderCore::DynamicRHI* RHI;
@@ -66,7 +37,6 @@ namespace Engine
 		bool bCachedSpotShadowValid = false;
 
 		CBDirectionalShadowCSM CachedDirectionalCSM{};
-		bool bCachedDirectionalCSMParamsValid = false;
 
 		explicit ShadowRenderPassPrivate(RenderCore::DynamicRHI* InRHI)
 			: RHI(InRHI)
@@ -106,7 +76,7 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
-		d->bCachedDirectionalCSMParamsValid = false;
+		d->CachedDirectionalCSM = CBDirectionalShadowCSM{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 	}
@@ -122,13 +92,10 @@ namespace Engine
 		return true;
 	}
 
-	bool ShadowRenderPass::TryGetCachedDirectionalCSM(CBDirectionalShadowCSM& Out) const
+	const CBDirectionalShadowCSM& ShadowRenderPass::GetCachedDirectionalCSM() const
 	{
 		C_P(const ShadowRenderPass);
-		if (!d->bCachedDirectionalCSMParamsValid)
-			return false;
-		Out = d->CachedDirectionalCSM;
-		return true;
+		return d->CachedDirectionalCSM;
 	}
 
 	void ShadowRenderPass::ClearCachedMeshShadowPasses()
@@ -144,7 +111,6 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
-		d->bCachedDirectionalCSMParamsValid = false;
 		d->CachedDirectionalCSM = CBDirectionalShadowCSM{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
@@ -156,7 +122,6 @@ namespace Engine
 			d->MeshDrawer->PruneStaleMeshShadowPasses(ShadowCasterMeshes, FrustumBoundsMeshes);
 
 		FShadowViewData viewData = FShadowViewData::Build(ShadowCasterMeshes, FrustumBoundsMeshes, Lights, ShadowProjectorScene);
-		ApplyDirectionalCascadeAutoOnProjectorScene(viewData.ProjectorScene, viewData);
 
 		if (viewData.LightSlots.DirectionalLightListIndex >= 0 && viewData.bSubjectValid && d->MeshDrawer)
 		{
@@ -180,7 +145,6 @@ namespace Engine
 			d->bCachedMainLightValid = dirOut.bCachedMainLightValid;
 			d->CachedMainDirectionalShadowLightListIndex = dirOut.CachedMainDirectionalShadowLightListIndex;
 			d->CachedDirectionalCSM = dirOut.CachedDirectionalCSM;
-			d->bCachedDirectionalCSMParamsValid = dirOut.bCachedDirectionalCSMParamsValid;
 		}
 
 		if (viewData.LightSlots.PointCubeShadowLightListIndex >= 0 && d->PointShadowCube && viewData.ShadowCasterMeshes && !viewData.ShadowCasterMeshes->empty()

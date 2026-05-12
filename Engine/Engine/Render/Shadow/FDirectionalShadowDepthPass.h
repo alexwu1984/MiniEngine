@@ -23,7 +23,6 @@ namespace Engine
 		bool bCachedMainLightValid = false;
 		int CachedMainDirectionalShadowLightListIndex = -1;
 		CBDirectionalShadowCSM CachedDirectionalCSM{};
-		bool bCachedDirectionalCSMParamsValid = false;
 	};
 
 	/** UE-style parameters bundle for directional / CSM shadow depth (A). */
@@ -44,7 +43,7 @@ namespace Engine
 		FDirectionalShadowDepthPassOutputs* OutOutputs = nullptr;
 	};
 
-	/** UE-style: directional shadow map (single atlas or CSM tiles) + CSM uniform fill. */
+	/** UE-style: directional shadow depth as vertical CSM atlas + per-cascade uniform fill. */
 	class FDirectionalShadowDepthPass
 	{
 	public:

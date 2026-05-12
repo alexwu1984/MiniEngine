@@ -63,6 +63,7 @@ namespace Engine
 		/** All enabled spot lights, same sort order as GatherLightsForView (priority high → low). */
 		std::vector<std::shared_ptr<SpotLightComponent>> GetSpotLightsForEditingSorted() const;
 
+		/** Snapshot for shading/shadows; respects Evn.DirectionalLightFollowProceduralSun (default true with Hdr ProceduralSky). */
 		std::vector<Light> GatherLightsForView() const;
 
 		/**

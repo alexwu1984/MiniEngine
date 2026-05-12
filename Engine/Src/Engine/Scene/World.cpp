@@ -436,6 +436,8 @@ namespace Engine
 		bool bLoadedSceneUsesRoamCamera = false;
 		bool bShowSceneMeshBoundsDebug = false;
 		bool bShowShadowCasterMeshBoundsDebug = false;
+		/** When true and primary skylight is procedural: primary directional matches skylight sun (GatherLights + Tick sync). Parsed from Evn.DirectionalLightFollowProceduralSun. */
+		bool bDirectionalLightFollowProceduralSun = false;
 	};
 
 	World::World()
@@ -512,6 +514,23 @@ namespace Engine
 			}
 
 			nlohmann::json evnJson = Root["Evn"];
+			d->bDirectionalLightFollowProceduralSun = false;
+			try
+			{
+				if (evnJson.find("Hdr") != evnJson.end() && evnJson["Hdr"].is_string())
+				{
+					const std::string hdrTok = evnJson["Hdr"].get<std::string>();
+					if (JsonHdrTokenIsProceduralSky(hdrTok))
+					{
+						d->bDirectionalLightFollowProceduralSun = true;
+						if (evnJson.find("DirectionalLightFollowProceduralSun") != evnJson.end() && evnJson["DirectionalLightFollowProceduralSun"].is_boolean())
+							d->bDirectionalLightFollowProceduralSun = evnJson["DirectionalLightFollowProceduralSun"].get<bool>();
+					}
+				}
+			}
+			catch (const std::exception&)
+			{
+			}
 			SpawnConfigSkyLightActor(self, evnJson);
 
 			const nlohmann::json lightJsons = evnJson["Light"];
@@ -555,7 +574,9 @@ namespace Engine
 				}
 			}
 
-			// Procedural sky: sun direction from (1) primary directional in Evn.Light[], else (2) Evn.SunDirection "x,y,z" string.
+			// Procedural sky: resolve sun direction for skylight + optional primary directional sync.
+			// When DirectionalLightFollowProceduralSun (default true for ProceduralSky): prefer Evn.SunDirection, then directional JSON, then first spot.
+			// When false: legacy order — primary directional first, then SunDirection, then spot.
 			if (const auto sl = self->FindPrimarySkyLightComponent())
 			{
 				if (sl->IsProceduralSky())
@@ -567,34 +588,53 @@ namespace Engine
 					catch (const std::exception&)
 					{
 					}
+					const bool follow = d->bDirectionalLightFollowProceduralSun;
 					math::Vector3 sunDir{};
 					bool haveSun = false;
-					if (const auto dir0 = self->GetPrimaryDirectionalLightForEditing())
-					{
-						sunDir = dir0->GetWorldDirection();
-						if (sunDir.GetSqrLength() >= 1e-10f)
-						{
-							sunDir = sunDir.Normalize();
-							haveSun = true;
-						}
-					}
-					if (!haveSun)
+					auto tryParseSunDirectionString = [&]() -> bool
 					{
 						try
 						{
 							if (evnJson.find("SunDirection") != evnJson.end() && evnJson["SunDirection"].is_string())
 							{
 								const std::string s = evnJson["SunDirection"].get<std::string>();
-								if (std::sscanf(s.c_str(), "%f,%f,%f", &sunDir.x, &sunDir.y, &sunDir.z) == 3 && sunDir.GetSqrLength() >= 1e-10f)
+								math::Vector3 dvec{};
+								if (std::sscanf(s.c_str(), "%f,%f,%f", &dvec.x, &dvec.y, &dvec.z) == 3 && dvec.GetSqrLength() >= 1e-10f)
 								{
-									sunDir = sunDir.Normalize();
-									haveSun = true;
+									sunDir = dvec.Normalize();
+									return true;
 								}
 							}
 						}
 						catch (const std::exception&)
 						{
 						}
+						return false;
+					};
+					auto tryPrimaryDirectional = [&]() -> bool
+					{
+						if (const auto dir0 = self->GetPrimaryDirectionalLightForEditing())
+						{
+							sunDir = dir0->GetWorldDirection();
+							if (sunDir.GetSqrLength() >= 1e-10f)
+							{
+								sunDir = sunDir.Normalize();
+								return true;
+							}
+						}
+						return false;
+					};
+					if (follow)
+					{
+						haveSun = tryParseSunDirectionString();
+						if (!haveSun)
+							haveSun = tryPrimaryDirectional();
+					}
+					else
+					{
+						haveSun = tryPrimaryDirectional();
+						if (!haveSun)
+							haveSun = tryParseSunDirectionString();
 					}
 					// (3) First spot LightDir: propagation toward scene → skylight "toward sun" is the opposite ray.
 					if (!haveSun && lightJsons.is_array())
@@ -697,6 +737,7 @@ namespace Engine
 		d->Actors.clear();
 		d->PendingActors.clear();
 		d->MainCamera.reset();
+		d->bDirectionalLightFollowProceduralSun = false;
 		RefreshShadowProjectorForActor(nullptr);
 	}
 
@@ -735,6 +776,23 @@ namespace Engine
 		}
 
 		d->PendingActors.clear();
+		if (d->bDirectionalLightFollowProceduralSun)
+		{
+			const auto sl = FindPrimarySkyLightComponent();
+			if (sl && sl->IsEnabled() && sl->IsProceduralSky())
+			{
+				if (const auto dir = GetPrimaryDirectionalLightForEditing())
+				{
+					if (dir->IsEnabled())
+					{
+						math::Vector3 sun = sl->GetProceduralSunDirectionTowardSource();
+						if (sun.GetSqrLength() < 1e-10f)
+							sun = math::Vector3(1.f, 0.05f, 0.f);
+						dir->SetWorldDirection(sun.Normalize());
+					}
+				}
+			}
+		}
 		RefreshShadowProjectorForActor(nullptr);
 	}
 
@@ -824,9 +882,8 @@ namespace Engine
 				break;
 			out.push_back(comp->BuildLight());
 		}
-		// If procedural sky is active, bind the primary directional light direction to the procedural sun direction
-		// so shadows + sun disk stay aligned (do not rely on JSON LightDir in this mode).
-		if (!out.empty())
+		// When Evn.DirectionalLightFollowProceduralSun is true (default for ProceduralSky), primary directional shading matches skylight sun.
+		if (!out.empty() && d->bDirectionalLightFollowProceduralSun)
 		{
 			const auto sl = FindPrimarySkyLightComponent();
 			if (sl && sl->IsEnabled() && sl->IsProceduralSky())

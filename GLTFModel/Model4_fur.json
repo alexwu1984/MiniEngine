@@ -3,6 +3,7 @@
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
     "SunDirection": "0.189635,0.788118,0.585584",
+    "DirectionalLightFollowProceduralSun": true,
     "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
     "Light": [
       {

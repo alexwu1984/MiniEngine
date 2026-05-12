@@ -12,6 +12,7 @@
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITextureCube.h"
+#include "math/aabb3.h"
 
 namespace Engine
 {
@@ -38,6 +39,8 @@ namespace Engine
 		bool bCachedSpotShadowValid = false;
 
 		CBDirectionalShadow CachedDirectionalShadow{};
+		int DirCascadeSubjectAabbDebugCount = 0;
+		math::AABB3 DirCascadeSubjectWorldAabbDebug[3]{};
 
 		explicit ShadowRenderPassPrivate(RenderCore::DynamicRHI* InRHI)
 			: RHI(InRHI)
@@ -78,8 +81,19 @@ namespace Engine
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
 		d->CachedDirectionalShadow = CBDirectionalShadow{};
+		d->DirCascadeSubjectAabbDebugCount = 0;
+		for (int i = 0; i < 3; ++i)
+			d->DirCascadeSubjectWorldAabbDebug[i] = math::AABB3{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
+	}
+
+	void ShadowRenderPass::GetDirectionalCSMCascadeSubjectAABBs(int& OutCount, math::AABB3 OutBoxes[3]) const
+	{
+		C_P(const ShadowRenderPass);
+		OutCount = (std::clamp)(d->DirCascadeSubjectAabbDebugCount, 0, 3);
+		for (int i = 0; i < 3; ++i)
+			OutBoxes[i] = d->DirCascadeSubjectWorldAabbDebug[i];
 	}
 
 	bool ShadowRenderPass::TryGetCachedMainLightForShading(Light& OutLight, int* OutLightListIndexInLastShadowPassLights)
@@ -113,6 +127,9 @@ namespace Engine
 		d->bCachedMainLightValid = false;
 		d->CachedMainDirectionalShadowLightListIndex = -1;
 		d->CachedDirectionalShadow = CBDirectionalShadow{};
+		d->DirCascadeSubjectAabbDebugCount = 0;
+		for (int i = 0; i < 3; ++i)
+			d->DirCascadeSubjectWorldAabbDebug[i] = math::AABB3{};
 		d->bCachedPointShadowValid = false;
 		d->bCachedSpotShadowValid = false;
 
@@ -159,6 +176,9 @@ namespace Engine
 			d->bCachedMainLightValid = dirOut.bCachedMainLightValid;
 			d->CachedMainDirectionalShadowLightListIndex = dirOut.CachedMainDirectionalShadowLightListIndex;
 			d->CachedDirectionalShadow = dirOut.CachedDirectionalShadow;
+			d->DirCascadeSubjectAabbDebugCount = dirOut.CascadeSubjectAabbDebugCount;
+			for (int i = 0; i < 3; ++i)
+				d->DirCascadeSubjectWorldAabbDebug[i] = dirOut.CascadeSubjectWorldAabbDebug[i];
 		}
 
 		if (viewData.LightSlots.PointCubeShadowLightListIndex >= 0 && d->PointShadowCube && viewData.ShadowCasterMeshes && !viewData.ShadowCasterMeshes->empty()

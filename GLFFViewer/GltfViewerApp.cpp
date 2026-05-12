@@ -2,6 +2,8 @@
 #include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/World.h"
+#include "Engine/Scene/WorldSceneDebugDraw.h"
+#include "Engine/Scene/WorldDirectionalShadowCSMSettings.h"
 #include "Scene/SkyLightComponent.h"
 #include "Engine/Scene/DirectionalLightComponent.h"
 #include "Scene/PointLightComponent.h"
@@ -195,34 +197,37 @@ void GltfViewApp::BindImGuiToSceneRender()
 				ImGui::Separator();
 				ImGui::TextUnformatted("Viewport");
 				{
-					bool bShowBounds = Scene->GetShowSceneMeshBoundsDebug();
+					bool bShowBounds = Scene->GetSceneDebugDraw().GetShowSceneMeshBoundsDebug();
 					if (ImGui::Checkbox("Show model bounds (UE-style)", &bShowBounds))
-						Scene->SetShowSceneMeshBoundsDebug(bShowBounds);
-					bool bShowCasterBounds = Scene->GetShowShadowCasterMeshBoundsDebug();
+						Scene->GetSceneDebugDraw().SetShowSceneMeshBoundsDebug(bShowBounds);
+					bool bShowCasterBounds = Scene->GetSceneDebugDraw().GetShowShadowCasterMeshBoundsDebug();
 					if (ImGui::Checkbox("Show shadow caster bounds", &bShowCasterBounds))
-						Scene->SetShowShadowCasterMeshBoundsDebug(bShowCasterBounds);
+						Scene->GetSceneDebugDraw().SetShowShadowCasterMeshBoundsDebug(bShowCasterBounds);
 				}
 
-				if (Scene->GetDirectionalShadowCSMShowUi())
+				if (Scene->GetDirectionalShadowCSMSettings().GetShowUi())
 				{
 					ImGui::Separator();
 					ImGui::TextUnformatted("Directional CSM (scene)");
 					ImGui::TextWrapped("Split0/1 are linear in [Near,Far] on ze=dot(world-cam,viewForward). With Far=1000, "
 									   "use small values (e.g. 0.002~0.02) so cuts fall near the bike; large defaults put the first cut at tens of meters.");
-					bool csmEn = Scene->GetDirectionalShadowCSMEnabled();
+					bool csmEn = Scene->GetDirectionalShadowCSMSettings().GetEnabled();
 					if (ImGui::Checkbox("Enable cascades", &csmEn))
-						Scene->SetDirectionalShadowCSMEnabled(csmEn);
-					int casc = static_cast<int>(Scene->GetDirectionalShadowCSMCascadeCount());
+						Scene->GetDirectionalShadowCSMSettings().SetEnabled(csmEn);
+					int casc = static_cast<int>(Scene->GetDirectionalShadowCSMSettings().GetCascadeCount());
 					if (ImGui::SliderInt("Cascade count", &casc, 2, 3))
-						Scene->SetDirectionalShadowCSMCascadeCount(static_cast<int32_t>(casc));
-					float s0 = Scene->GetDirectionalShadowCSMSplit0();
+						Scene->GetDirectionalShadowCSMSettings().SetCascadeCount(static_cast<int32_t>(casc));
+					float s0 = Scene->GetDirectionalShadowCSMSettings().GetSplit0();
 					const float smin = Engine::FDirectionalShadowFrustumFitter::kCascadeSplitNormMin;
 					const float smax = Engine::FDirectionalShadowFrustumFitter::kCascadeSplitNormMax;
 					if (ImGui::SliderFloat("Split0 (linear along near..far)", &s0, smin, smax))
-						Scene->SetDirectionalShadowCSMSplit0(s0);
-					float s1 = Scene->GetDirectionalShadowCSMSplit1();
+						Scene->GetDirectionalShadowCSMSettings().SetSplit0(s0);
+					float s1 = Scene->GetDirectionalShadowCSMSettings().GetSplit1();
 					if (ImGui::SliderFloat("Split1 (3 cascades only)", &s1, smin, smax))
-						Scene->SetDirectionalShadowCSMSplit1(s1);
+						Scene->GetDirectionalShadowCSMSettings().SetSplit1(s1);
+					bool bCasBounds = Scene->GetSceneDebugDraw().GetShowDirectionalCSMCascadeSubjectBoundsDebug();
+					if (ImGui::Checkbox("Draw CSM cascade subject AABBs (green/cyan/magenta)", &bCasBounds))
+						Scene->GetSceneDebugDraw().SetShowDirectionalCSMCascadeSubjectBoundsDebug(bCasBounds);
 				}
 
 				ImGui::Separator();

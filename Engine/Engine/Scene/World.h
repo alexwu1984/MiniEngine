@@ -13,6 +13,8 @@ namespace Engine
 	class PointLightComponent;
 	class SpotLightComponent;
 	class FScene;
+	class WorldSceneDebugDraw;
+	class WorldDirectionalShadowCSMSettings;
 	struct WorldPrivate;
 
 	/** Game-thread world: actors, lights, main camera (UE world / scene subset; no input, no tick). */
@@ -98,22 +100,13 @@ namespace Engine
 		/** True if current scene JSON listed a RoamCamera entry (after last LoadScene). */
 		bool UsesRoamCameraScene() const;
 
-		/** When true, deferred frame draws wireframe of each SceneMeshComponent local bounds in world (viewer / debug). */
-		void SetShowSceneMeshBoundsDebug(bool bIn);
-		bool GetShowSceneMeshBoundsDebug() const;
-		/** When true, deferred frame draws world AABB wire per ProjShadow mesh (shadow frustum / fur bounds). */
-		void SetShowShadowCasterMeshBoundsDebug(bool bIn);
-		bool GetShowShadowCasterMeshBoundsDebug() const;
+		/** Viewer / overlay debug (mesh bounds, shadow caster wires, CSM cascade subject snapshot). */
+		WorldSceneDebugDraw& GetSceneDebugDraw();
+		const WorldSceneDebugDraw& GetSceneDebugDraw() const;
 
-		bool GetDirectionalShadowCSMShowUi() const;
-		bool GetDirectionalShadowCSMEnabled() const;
-		void SetDirectionalShadowCSMEnabled(bool b);
-		int32_t GetDirectionalShadowCSMCascadeCount() const;
-		void SetDirectionalShadowCSMCascadeCount(int32_t n);
-		float GetDirectionalShadowCSMSplit0() const;
-		void SetDirectionalShadowCSMSplit0(float v);
-		float GetDirectionalShadowCSMSplit1() const;
-		void SetDirectionalShadowCSMSplit1(float v);
+		/** Runtime directional CSM (Evn + viewer UI); not part of the actor graph. */
+		WorldDirectionalShadowCSMSettings& GetDirectionalShadowCSMSettings();
+		const WorldDirectionalShadowCSMSettings& GetDirectionalShadowCSMSettings() const;
 
 	private:
 		WorldPrivate* d_ptr = nullptr;

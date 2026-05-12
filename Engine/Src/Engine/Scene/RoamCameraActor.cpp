@@ -78,6 +78,26 @@ namespace Engine
 		{
 		}
 
+		try
+		{
+			if (RoamJson.find("NearZ") != RoamJson.end() && RoamJson["NearZ"].is_number())
+			{
+				const float n = static_cast<float>(RoamJson["NearZ"].get<double>());
+				float farZ = cam->GetFarPlane();
+				if (RoamJson.find("FarZ") != RoamJson.end() && RoamJson["FarZ"].is_number())
+					farZ = static_cast<float>(RoamJson["FarZ"].get<double>());
+				cam->SetClipDistancePlanes(n, farZ);
+			}
+			else if (RoamJson.find("FarZ") != RoamJson.end() && RoamJson["FarZ"].is_number())
+			{
+				const float farZ = static_cast<float>(RoamJson["FarZ"].get<double>());
+				cam->SetClipDistancePlanes(cam->GetNearPlane(), farZ);
+			}
+		}
+		catch (const std::exception&)
+		{
+		}
+
 		AddComponent(cam);
 
 		auto input = std::make_shared<GltfDeviceInputComponent>(shared_from_this());

@@ -71,6 +71,11 @@ namespace Engine
 		/** World-space AABB wire per shadow-casting mesh (GetShadowFrustumWorldBounds). Filled in FShadowDebugWireRenderer::Render when enabled. */
 		int NumShadowCasterMeshBounds = 0;
 		FMeshBoundsWire ShadowCasterMeshBounds[kMaxMeshBoundsBoxes]{};
+
+		/** CSM: per-cascade directional shadow subject AABB (world), wire colors distinguish cascade index. */
+		static constexpr int kMaxCascadeSubjectBoxes = 3;
+		int NumCascadeSubjectBoxes = 0;
+		FMeshBoundsWire CascadeSubjectBoxes[kMaxCascadeSubjectBoxes]{};
 	};
 
 	/** GPU line-list overlay for debug gizmos. */

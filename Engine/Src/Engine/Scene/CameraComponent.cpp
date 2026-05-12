@@ -4,6 +4,7 @@
 #include "App/AppWindow.h"
 #include "Scene/Actor.h"
 #include "math/vector2.h"
+#include <algorithm>
 #include <cmath>
 
 namespace Engine
@@ -156,6 +157,15 @@ namespace Engine
 	{
 		C_P(CameraComponent);
 		d->CameraPos = Pos;
+	}
+
+	void CameraComponent::SetClipDistancePlanes(float NearZ, float FarZ)
+	{
+		C_P(CameraComponent);
+		const float n = (std::max)(1e-4f, NearZ);
+		const float f = (std::max)(n + 1e-2f, FarZ);
+		d->Near = n;
+		d->Far = f;
 	}
 
 	void CameraComponent::SetExplicitLookAtWorldTarget(const math::Vector3& worldLookAt, bool bEnable)

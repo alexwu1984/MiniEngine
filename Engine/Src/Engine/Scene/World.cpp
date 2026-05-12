@@ -8,6 +8,8 @@
 #include "Scene/PointLightComponent.h"
 #include "Scene/SpotLightComponent.h"
 #include "Scene/RoamCameraActor.h"
+#include "Scene/WorldSceneDebugDraw.h"
+#include "Scene/WorldDirectionalShadowCSMSettings.h"
 #include "Scene/FScene.h"
 #include "Engine.h"
 #include "Engine/JsonConfig.h"
@@ -435,16 +437,11 @@ namespace Engine
 		mutable bool ShadowProjectorCacheDirty = true;
 		mutable std::weak_ptr<Actor> ShadowProjectorCache;
 		bool bLoadedSceneUsesRoamCamera = false;
-		bool bShowSceneMeshBoundsDebug = false;
-		bool bShowShadowCasterMeshBoundsDebug = false;
+		WorldSceneDebugDraw SceneDebugDraw{};
 		/** When true and primary skylight is procedural: primary directional matches skylight sun (GatherLights + Tick sync). Parsed from Evn.DirectionalLightFollowProceduralSun. */
 		bool bDirectionalLightFollowProceduralSun = false;
 
-		bool bDirectionalShadowCSMRuntime = false;
-		bool bDirectionalShadowCSMShowUi = false;
-		int32_t DirectionalShadowCSMCascadeCountRuntime = 3;
-		float DirectionalShadowCSMSplit0Runtime = 0.008f;
-		float DirectionalShadowCSMSplit1Runtime = 0.028f;
+		WorldDirectionalShadowCSMSettings DirectionalShadowCSMSettings{};
 	};
 
 	World::World()
@@ -538,33 +535,32 @@ namespace Engine
 			catch (const std::exception&)
 			{
 			}
-			d->bDirectionalShadowCSMRuntime = false;
-			d->bDirectionalShadowCSMShowUi = false;
-			d->DirectionalShadowCSMCascadeCountRuntime = 3;
-			d->DirectionalShadowCSMSplit0Runtime = 0.008f;
-			d->DirectionalShadowCSMSplit1Runtime = 0.028f;
+			d->DirectionalShadowCSMSettings.ResetToDefaults();
+			d->SceneDebugDraw.SetShowDirectionalCSMCascadeSubjectBoundsDebug(false);
 			try
 			{
 				if (evnJson.find("DirectionalShadowCSM") != evnJson.end() && evnJson["DirectionalShadowCSM"].is_object())
 				{
 					const auto& cj = evnJson["DirectionalShadowCSM"];
 					if (cj.find("Enable") != cj.end() && cj["Enable"].is_boolean())
-						d->bDirectionalShadowCSMRuntime = cj["Enable"].get<bool>();
+						d->DirectionalShadowCSMSettings.SetEnabled(cj["Enable"].get<bool>());
 					if (cj.find("ShowUi") != cj.end() && cj["ShowUi"].is_boolean())
-						d->bDirectionalShadowCSMShowUi = cj["ShowUi"].get<bool>();
+						d->DirectionalShadowCSMSettings.SetShowUi(cj["ShowUi"].get<bool>());
 					if (cj.find("CascadeCount") != cj.end() && cj["CascadeCount"].is_number_integer())
-						d->DirectionalShadowCSMCascadeCountRuntime = static_cast<int32_t>(cj["CascadeCount"].get<int>());
+						d->DirectionalShadowCSMSettings.SetCascadeCount(static_cast<int32_t>(cj["CascadeCount"].get<int>()));
 					if (cj.find("Split0") != cj.end() && cj["Split0"].is_number())
-						d->DirectionalShadowCSMSplit0Runtime = static_cast<float>(cj["Split0"].get<double>());
+						d->DirectionalShadowCSMSettings.SetSplit0(static_cast<float>(cj["Split0"].get<double>()));
 					if (cj.find("Split1") != cj.end() && cj["Split1"].is_number())
-						d->DirectionalShadowCSMSplit1Runtime = static_cast<float>(cj["Split1"].get<double>());
+						d->DirectionalShadowCSMSettings.SetSplit1(static_cast<float>(cj["Split1"].get<double>()));
+					if (cj.find("ShowCascadeSubjectBounds") != cj.end() && cj["ShowCascadeSubjectBounds"].is_boolean())
+						d->SceneDebugDraw.SetShowDirectionalCSMCascadeSubjectBoundsDebug(cj["ShowCascadeSubjectBounds"].get<bool>());
 				}
 			}
 			catch (const std::exception&)
 			{
 			}
-			d->DirectionalShadowCSMCascadeCountRuntime =
-				(std::clamp)(d->DirectionalShadowCSMCascadeCountRuntime, 2, FDirectionalShadowFrustumFitter::kMaxDirectionalCascades);
+			d->DirectionalShadowCSMSettings.SetCascadeCount(d->DirectionalShadowCSMSettings.GetCascadeCount());
+			d->DirectionalShadowCSMSettings.SetSplit1(d->DirectionalShadowCSMSettings.GetSplit1());
 			SpawnConfigSkyLightActor(self, evnJson);
 
 			const nlohmann::json lightJsons = evnJson["Light"];
@@ -772,11 +768,8 @@ namespace Engine
 		d->PendingActors.clear();
 		d->MainCamera.reset();
 		d->bDirectionalLightFollowProceduralSun = false;
-		d->bDirectionalShadowCSMRuntime = false;
-		d->bDirectionalShadowCSMShowUi = false;
-		d->DirectionalShadowCSMCascadeCountRuntime = 3;
-		d->DirectionalShadowCSMSplit0Runtime = 0.008f;
-		d->DirectionalShadowCSMSplit1Runtime = 0.028f;
+		d->DirectionalShadowCSMSettings.ResetToDefaults();
+		d->SceneDebugDraw.ResetDirectionalCascadeSubjectOverlay(true);
 		RefreshShadowProjectorForActor(nullptr);
 	}
 
@@ -1054,10 +1047,10 @@ namespace Engine
 		out.bValid = true;
 		out.WorldTransform = math::Matrix4x4::ms_Materix3X3WIdentity;
 		out.ModelLocalAABB = merged;
-		out.bDirectionalShadowCSM = d->bDirectionalShadowCSMRuntime;
-		out.DirectionalShadowCSMCascadeCount = d->DirectionalShadowCSMCascadeCountRuntime;
-		out.DirectionalShadowCSMSplit0 = d->DirectionalShadowCSMSplit0Runtime;
-		out.DirectionalShadowCSMSplit1 = d->DirectionalShadowCSMSplit1Runtime;
+		out.bDirectionalShadowCSM = d->DirectionalShadowCSMSettings.GetEnabled();
+		out.DirectionalShadowCSMCascadeCount = d->DirectionalShadowCSMSettings.GetCascadeCount();
+		out.DirectionalShadowCSMSplit0 = d->DirectionalShadowCSMSettings.GetSplit0();
+		out.DirectionalShadowCSMSplit1 = d->DirectionalShadowCSMSettings.GetSplit1();
 		return out;
 	}
 
@@ -1128,96 +1121,27 @@ namespace Engine
 		return d->bLoadedSceneUsesRoamCamera;
 	}
 
-	void World::SetShowSceneMeshBoundsDebug(bool bIn)
+	WorldSceneDebugDraw& World::GetSceneDebugDraw()
 	{
 		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		d->bShowSceneMeshBoundsDebug = bIn;
+		return d->SceneDebugDraw;
 	}
 
-	bool World::GetShowSceneMeshBoundsDebug() const
+	const WorldSceneDebugDraw& World::GetSceneDebugDraw() const
 	{
 		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->bShowSceneMeshBoundsDebug;
+		return d->SceneDebugDraw;
 	}
 
-	void World::SetShowShadowCasterMeshBoundsDebug(bool bIn)
+	WorldDirectionalShadowCSMSettings& World::GetDirectionalShadowCSMSettings()
 	{
 		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		d->bShowShadowCasterMeshBoundsDebug = bIn;
+		return d->DirectionalShadowCSMSettings;
 	}
 
-	bool World::GetShowShadowCasterMeshBoundsDebug() const
+	const WorldDirectionalShadowCSMSettings& World::GetDirectionalShadowCSMSettings() const
 	{
 		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->bShowShadowCasterMeshBoundsDebug;
-	}
-
-	bool World::GetDirectionalShadowCSMShowUi() const
-	{
-		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->bDirectionalShadowCSMShowUi;
-	}
-
-	bool World::GetDirectionalShadowCSMEnabled() const
-	{
-		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->bDirectionalShadowCSMRuntime;
-	}
-
-	void World::SetDirectionalShadowCSMEnabled(bool b)
-	{
-		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		d->bDirectionalShadowCSMRuntime = b;
-	}
-
-	int32_t World::GetDirectionalShadowCSMCascadeCount() const
-	{
-		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->DirectionalShadowCSMCascadeCountRuntime;
-	}
-
-	void World::SetDirectionalShadowCSMCascadeCount(int32_t n)
-	{
-		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		d->DirectionalShadowCSMCascadeCountRuntime = (std::clamp)(n, 2, FDirectionalShadowFrustumFitter::kMaxDirectionalCascades);
-	}
-
-	float World::GetDirectionalShadowCSMSplit0() const
-	{
-		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->DirectionalShadowCSMSplit0Runtime;
-	}
-
-	void World::SetDirectionalShadowCSMSplit0(float v)
-	{
-		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		d->DirectionalShadowCSMSplit0Runtime = (std::clamp)(v, FDirectionalShadowFrustumFitter::kCascadeSplitNormMin, FDirectionalShadowFrustumFitter::kCascadeSplitNormMax);
-	}
-
-	float World::GetDirectionalShadowCSMSplit1() const
-	{
-		C_P(const World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		return d->DirectionalShadowCSMSplit1Runtime;
-	}
-
-	void World::SetDirectionalShadowCSMSplit1(float v)
-	{
-		C_P(World);
-		std::lock_guard<std::recursive_mutex> l(d->lock);
-		const float lo = d->DirectionalShadowCSMSplit0Runtime + FDirectionalShadowFrustumFitter::kCascadeSplitPairMinGap;
-		d->DirectionalShadowCSMSplit1Runtime =
-			(std::clamp)(v, lo, FDirectionalShadowFrustumFitter::kCascadeSplitNormMax);
+		return d->DirectionalShadowCSMSettings;
 	}
 }

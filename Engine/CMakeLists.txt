@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 project(Engine)
 
 #-------------------------------------------------------------------------------------------
@@ -61,6 +61,8 @@ set(Engine_Scene_Source
 	Src/Engine/Scene/SceneManager.cpp
 	Src/Engine/Scene/SkyLightComponent.cpp
 	Src/Engine/Scene/World.cpp
+	Src/Engine/Scene/WorldSceneDebugDraw.cpp
+	Src/Engine/Scene/WorldDirectionalShadowCSMSettings.cpp
 )
 file(GLOB Engine_GltfModel_Source CONFIGURE_DEPENDS Src/Engine/GltfModel/*.cpp)
 file(GLOB Engine_AssimpModel_Source CONFIGURE_DEPENDS Src/Engine/AssimpModel/*.cpp)

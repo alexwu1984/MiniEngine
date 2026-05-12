@@ -90,6 +90,8 @@ namespace
 			const math::AABB3 cascadeSubject = FDirectionalShadowFrustumFitter::ComputeCascadeSubjectWorldAabb(cascadeSubjectParams);
 
 			Light Li = C.MainLightRef;
+			// CSM must clip mesh extents to this cascade's world subject; otherwise TryMergeSubjectMeshesLightSpaceExtents
+			// fits the full caster every time and all tiles get identical ortho + depth.
 			const FDirectionalShadowFrustumFitParams fitParams{
 				cascadeSubject,
 				C.Pass.ReceiverWorldAabb,
@@ -98,10 +100,12 @@ namespace
 				C.bReceiverRelativeFrustumAdjust,
 				false,
 				C.Pass.SubjectMeshListForFrustumDriver,
-				nullptr,
+				&cascadeSubject,
 			};
 			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, fitParams);
 			cb.CascadeViewProj[ci] = Li.LightViewProj;
+			if (ci < FDirectionalShadowDepthPassOutputs::kMaxCascadeSubjectDebug)
+				C.OutOutputs.CascadeSubjectWorldAabbDebug[ci] = cascadeSubject;
 			if (ci == 0)
 				firstCascadeLight = Li;
 
@@ -109,6 +113,7 @@ namespace
 			C.RHIContext.SetViewPort(0, vpY, C.TilePx, C.TilePx);
 			C.MeshDrawer.DrawDirectional(C.RHIContext, C.ShadowCasterMeshes, Li, C.Pass.DepthRenderBuffer);
 		}
+		C.OutOutputs.CascadeSubjectAabbDebugCount = cascadeCount;
 
 		C.OutOutputs.CachedMainLightForShading = firstCascadeLight;
 		C.OutOutputs.CachedMainLightForShading.ShadowMapIndex = 0;
@@ -138,6 +143,9 @@ namespace Engine
 		OutOutputs.bCachedMainLightValid = false;
 		OutOutputs.CachedMainDirectionalShadowLightListIndex = -1;
 		OutOutputs.CachedDirectionalShadow = CBDirectionalShadow{};
+		OutOutputs.CascadeSubjectAabbDebugCount = 0;
+		for (int i = 0; i < FDirectionalShadowDepthPassOutputs::kMaxCascadeSubjectDebug; ++i)
+			OutOutputs.CascadeSubjectWorldAabbDebug[i] = math::AABB3{};
 
 		if (P.MainDirectionalLightListIndex < 0 || !P.bSubjectValid || !P.DepthRenderBuffer)
 			return;

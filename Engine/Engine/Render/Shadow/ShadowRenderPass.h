@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "math/aabb3.h"
 #include "math/vector4.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowProjectorTypes.h"
@@ -40,6 +41,9 @@ namespace Engine
 
 		/** Last directional shadow uniform snapshot (zeros if no directional shadow this frame). */
 		const CBDirectionalShadow& GetCachedDirectionalShadow() const;
+
+		/** CSM only: last frame per-cascade subject world AABBs (count 0..3); for debug visualization. */
+		void GetDirectionalCSMCascadeSubjectAABBs(int& OutCount, math::AABB3 OutBoxes[3]) const;
 
 		/** Fills FaceVP / Light index / xyz+range.w after point cubemap shadow render; false if no cached cube pass. */
 		bool TryGetCachedPointShadowForDeferred(int& OutLightIndex, math::Matrix4x4 OutFaceVp[6], math::Vector4& OutPosRange) const;

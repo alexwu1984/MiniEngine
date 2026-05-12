@@ -13,6 +13,8 @@
 #include "Scene/Actor.h"
 #include "Scene/SceneMeshComponent.h"
 #include "Scene/World.h"
+#include "Scene/WorldSceneDebugDraw.h"
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -167,7 +169,7 @@ namespace Engine
 		static void GatherSceneMeshBoundsIntoSubmit(FShadowDebugWireSubmit& Submit, World& W)
 		{
 			Submit.NumMeshBounds = 0;
-			if (!W.GetShowSceneMeshBoundsDebug())
+			if (!W.GetSceneDebugDraw().GetShowSceneMeshBoundsDebug())
 				return;
 			const std::vector<std::shared_ptr<Actor>> actors = W.GetAllActorsCopy();
 			for (const auto& act : actors)
@@ -195,7 +197,7 @@ namespace Engine
 		static void GatherShadowCasterMeshBoundsIntoSubmit(FShadowDebugWireSubmit& Submit, World& W)
 		{
 			Submit.NumShadowCasterMeshBounds = 0;
-			if (!W.GetShowShadowCasterMeshBoundsDebug())
+			if (!W.GetSceneDebugDraw().GetShowShadowCasterMeshBoundsDebug())
 				return;
 			const std::vector<std::shared_ptr<Actor>> actors = W.GetAllActorsCopy();
 			for (const auto& act : actors)
@@ -217,6 +219,34 @@ namespace Engine
 					box.CornersWorld[ci] = corners[ci];
 				box.Color = math::Vector4(0.95f, 0.38f, 0.08f, 1.f);
 				Submit.ShadowCasterMeshBounds[Submit.NumShadowCasterMeshBounds++] = box;
+			}
+		}
+
+		static void GatherDirectionalCascadeSubjectBoundsIntoSubmit(FShadowDebugWireSubmit& Submit, World& W)
+		{
+			Submit.NumCascadeSubjectBoxes = 0;
+			if (!W.GetSceneDebugDraw().GetShowDirectionalCSMCascadeSubjectBoundsDebug())
+				return;
+			int n = 0;
+			math::AABB3 boxes[3]{};
+			W.GetSceneDebugDraw().GetDirectionalCSMCascadeSubjectDebugCopy(n, boxes);
+			static const math::Vector4 kCascadeColors[3] = {
+				math::Vector4(0.15f, 0.95f, 0.25f, 1.f),
+				math::Vector4(0.25f, 0.65f, 1.f, 1.f),
+				math::Vector4(1.f, 0.35f, 0.9f, 1.f),
+			};
+			n = (std::min)(n, FShadowDebugWireSubmit::kMaxCascadeSubjectBoxes);
+			for (int i = 0; i < n; ++i)
+			{
+				if ((boxes[i].GetMaxPoint() - boxes[i].GetMinPoint()).GetSqrLength() < 1e-20f)
+					continue;
+				math::Vector3 corners[8];
+				boxes[i].GetPoint(corners);
+				FShadowDebugWireSubmit::FMeshBoundsWire box{};
+				for (int ci = 0; ci < 8; ++ci)
+					box.CornersWorld[ci] = corners[ci];
+				box.Color = kCascadeColors[i];
+				Submit.CascadeSubjectBoxes[Submit.NumCascadeSubjectBoxes++] = box;
 			}
 		}
 	} // namespace
@@ -267,6 +297,7 @@ namespace Engine
 		{
 			GatherSceneMeshBoundsIntoSubmit(Submit, *WorldForDebugWire);
 			GatherShadowCasterMeshBoundsIntoSubmit(Submit, *WorldForDebugWire);
+			GatherDirectionalCascadeSubjectBoundsIntoSubmit(Submit, *WorldForDebugWire);
 		}
 
 		std::vector<FShadowDebugWireVertex> verts;
@@ -281,6 +312,8 @@ namespace Engine
 			AppendWireOrientedBox(Submit.MeshBounds[i].CornersWorld, Submit.MeshBounds[i].Color, verts);
 		for (int i = 0; i < Submit.NumShadowCasterMeshBounds; ++i)
 			AppendWireOrientedBox(Submit.ShadowCasterMeshBounds[i].CornersWorld, Submit.ShadowCasterMeshBounds[i].Color, verts);
+		for (int i = 0; i < Submit.NumCascadeSubjectBoxes; ++i)
+			AppendWireOrientedBox(Submit.CascadeSubjectBoxes[i].CornersWorld, Submit.CascadeSubjectBoxes[i].Color, verts);
 
 		if (verts.empty())
 			return;

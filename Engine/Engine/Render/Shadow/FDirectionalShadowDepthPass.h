@@ -19,10 +19,14 @@ namespace Engine
 	/** Outputs written by the directional shadow depth pass for deferred / base pass consumers. */
 	struct FDirectionalShadowDepthPassOutputs
 	{
+		static constexpr int kMaxCascadeSubjectDebug = 3;
 		Light CachedMainLightForShading{};
 		bool bCachedMainLightValid = false;
 		int CachedMainDirectionalShadowLightListIndex = -1;
 		CBDirectionalShadow CachedDirectionalShadow{};
+		/** CSM only: per-cascade subject AABB (world) used for ortho fit; for debug wire overlay. */
+		int CascadeSubjectAabbDebugCount = 0;
+		math::AABB3 CascadeSubjectWorldAabbDebug[kMaxCascadeSubjectDebug]{};
 	};
 
 	/** Parameters bundle for directional shadow depth. */

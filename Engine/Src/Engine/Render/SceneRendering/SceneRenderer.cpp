@@ -17,6 +17,7 @@
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/ShadowDebugWireRenderer.h"
 #include "Scene/World.h"
+#include "Scene/WorldSceneDebugDraw.h"
 #include "Scene/Actor.h"
 #include "Scene/DirectionalLightComponent.h"
 #include "Scene/PointLightComponent.h"
@@ -87,6 +88,8 @@ namespace Engine
 
 		d->ShadowDebugSubmit = {};
 
+		std::shared_ptr<World> WorldForShadowDebug = Self ? Self->GetWorld() : nullptr;
+
 		bool bAnyShadowLight = false;
 		for (const Light& L : ShadowPassLights)
 		{
@@ -122,6 +125,8 @@ namespace Engine
 		// Must run when frustumBounds-only receivers exist (no ProjShadow casters) or any light requests a shadow map; otherwise spot/optional dir depth never renders.
 		const bool bScheduleShadowPass =
 			!shadowCasters.empty() || !shadowFrustumBounds.empty() || ShadowProjectorSceneMoved.bValid || bAnyShadowLight;
+		if (!bScheduleShadowPass && WorldForShadowDebug)
+			WorldForShadowDebug->GetSceneDebugDraw().UpdateDirectionalCSMCascadeSubjectDebugFromShadowPass(nullptr);
 		if (bScheduleShadowPass)
 		{
 			Graph.AddPass(FRDGPassDescriptor{
@@ -133,6 +138,8 @@ namespace Engine
 					d->ShadowRender->Render(shadowCasters, shadowFrustumBounds, *CommandContext, ShadowPassLights, ShadowProjectorScene);
 
 					std::shared_ptr<World> W = Self ? Self->GetWorld() : nullptr;
+					if (W)
+						W->GetSceneDebugDraw().UpdateDirectionalCSMCascadeSubjectDebugFromShadowPass(d->ShadowRender.get());
 
 					Light Dir{};
 					int dirLi = -1;
@@ -415,7 +422,9 @@ namespace Engine
 				sub.OverlayWorldToClip = ViewConst->SsrViewProjMatrix;
 
 				std::shared_ptr<World> W = Self ? Self->GetWorld() : nullptr;
-				const bool bMayDrawMeshBounds = W && (W->GetShowSceneMeshBoundsDebug() || W->GetShowShadowCasterMeshBoundsDebug());
+				const bool bMayDrawMeshBounds =
+					W && (W->GetSceneDebugDraw().GetShowSceneMeshBoundsDebug() || W->GetSceneDebugDraw().GetShowShadowCasterMeshBoundsDebug()
+						  || W->GetSceneDebugDraw().GetShowDirectionalCSMCascadeSubjectBoundsDebug());
 				if (sub.NumDir <= 0 && sub.NumSpot <= 0 && sub.NumPoint <= 0 && !bMayDrawMeshBounds)
 					return;
 				if (!d->ShadowDebugWire)

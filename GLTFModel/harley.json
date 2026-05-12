@@ -18,9 +18,10 @@
     "DirectionalShadowCSM": {
       "Enable": true,
       "ShowUi": true,
+      "ShowCascadeSubjectBounds": false,
       "CascadeCount": 3,
-      "Split0": 0.008,
-      "Split1": 0.028
+      "Split0": 0.22,
+      "Split1": 0.52
     }
   },
   "Modles": [
@@ -30,7 +31,8 @@
         "Size": "10,10",
         "Segments": "48,48",
         "UVScale": 5.0
-      }
+      },
+      "ProjShadow": true
     },
     {
       "Model": "harley/harley.obj",
@@ -43,8 +45,10 @@
     },
     {
       "RoamCamera": {
-        "Position": "0,1.2,3.8",
-        "LookAt": "0,0.37,0",
+        "Position": "0,2.6,8.5",
+        "LookAt": "0,0.15,-1.5",
+        "NearZ": 0.1,
+        "FarZ": 55,
         "MainCamera": true,
         "MoveSpeed": 6.0,
         "LookSensitivity": 0.12

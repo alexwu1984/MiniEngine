@@ -19,6 +19,8 @@ namespace Engine
 
 		void SetViewMatrix(const math::Matrix4x4& view);
 		void SetCameraPos(const math::Vector3& Pos);
+		/** Perspective clip planes (LH); applied on next projection build (Tick / SetViewMatrix). */
+		void SetClipDistancePlanes(float NearZ, float FarZ);
 
 		/** World-space point the camera looks at (glTF viewer–style framing). Disable to restore legacy Target = +Z. */
 		void SetExplicitLookAtWorldTarget(const math::Vector3& worldLookAt, bool bEnable);

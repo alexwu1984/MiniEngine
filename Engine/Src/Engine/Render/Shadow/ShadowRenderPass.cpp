@@ -1,6 +1,8 @@
 ﻿#include "Render/Shadow/ShadowRenderPass.h"
+#include <algorithm>
 #include <memory>
 #include "core/vec2.h"
+#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "Render/Shadow/FDirectionalShadowDepthPass.h"
 #include "Render/Shadow/FPointShadowCubePass.h"
 #include "Render/Shadow/FShadowDepthMeshDrawer.h"
@@ -124,6 +126,19 @@ namespace Engine
 
 		if (viewData.LightSlots.DirectionalLightListIndex >= 0 && viewData.bSubjectValid && d->MeshDrawer)
 		{
+			const FShadowProjectorSceneData& projForAtlas = viewData.ProjectorScene;
+			int atlasLayers = 1;
+			if (projForAtlas.bDirectionalShadowCSM)
+				atlasLayers = (std::clamp)(projForAtlas.DirectionalShadowCSMCascadeCount, 2, FDirectionalShadowFrustumFitter::kMaxDirectionalCascades);
+			const int needW = FDirectionalShadowDepthPass::kDirectionalShadowMapResolution;
+			const int needH = FDirectionalShadowDepthPass::kDirectionalShadowMapResolution * atlasLayers;
+			if (!d->DepthRenderBuffer || d->DepthRenderBuffer->GetSize().x != needW || d->DepthRenderBuffer->GetSize().y != needH)
+			{
+				d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, needW, needH, 1, false, false);
+				if (d->MeshDrawer)
+					d->MeshDrawer->ClearCache();
+			}
+
 			FDirectionalShadowDepthPassOutputs dirOut{};
 			FDirectionalShadowDepthPassParameters dirParams{};
 			dirParams.RHICmdList = &RHIContext;

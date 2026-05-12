@@ -81,7 +81,37 @@ float TranslucentPCF_AtlasTile(float2 uvTile01, float atlasRowIndex, float invAt
 float DirectionalShadowVisibility(float3 worldPos, float3 normal)
 {
 	float outVis = 1.0;
-	float4 clip = mul(float4(worldPos, 1.0), DirectionalShadowViewProj);
+	const float3 camPos = myPerFrame.CameraPos.xyz;
+	if (DirectionalCSMEnabled == 0)
+	{
+		float4 clip = mul(float4(worldPos, 1.0), CascadeViewProj[0]);
+		float w = clip.w;
+		if (abs(w) >= 1e-6)
+		{
+			float3 proj = clip.xyz / w;
+			if (proj.z > 0.0 && proj.z < 1.0)
+			{
+				float2 uvTile = proj.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+				if (all(uvTile >= float2(0.0, 0.0)) && all(uvTile <= float2(1.0, 1.0)))
+				{
+					const float zR = clamp(proj.z, 0.0, 1.0);
+					outVis = clamp(TranslucentPCF_AtlasTile(uvTile, 0.0, 1.0, zR, normal, kTranslucentDirPcfRadiusAtlasTile), 0.0, 1.0);
+				}
+			}
+		}
+		return outVis;
+	}
+
+	const float3 fdir = CameraForwardInvCount.xyz;
+	const float ze = dot(worldPos - camPos, fdir);
+	int idx = 0;
+	if (CascadeCount >= 2 && ze >= CascadeSplits.x)
+		idx = 1;
+	if (CascadeCount >= 3 && ze >= CascadeSplits.y)
+		idx = 2;
+	idx = clamp(idx, 0, CascadeCount - 1);
+
+	float4 clip = mul(float4(worldPos, 1.0), CascadeViewProj[idx]);
 	float w = clip.w;
 	if (abs(w) >= 1e-6)
 	{
@@ -92,7 +122,7 @@ float DirectionalShadowVisibility(float3 worldPos, float3 normal)
 			if (all(uvTile >= float2(0.0, 0.0)) && all(uvTile <= float2(1.0, 1.0)))
 			{
 				const float zR = clamp(proj.z, 0.0, 1.0);
-				outVis = clamp(TranslucentPCF_AtlasTile(uvTile, 0.0, 1.0, zR, normal, kTranslucentDirPcfRadiusAtlasTile), 0.0, 1.0);
+				outVis = clamp(TranslucentPCF_AtlasTile(uvTile, (float)idx, CameraForwardInvCount.w, zR, normal, kTranslucentDirPcfRadiusAtlasTile), 0.0, 1.0);
 			}
 		}
 	}

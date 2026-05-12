@@ -12,6 +12,7 @@
 #include "App/AppWindow.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/MaterialPreFrame.h"
+#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "RHI/DynamicRHI.h"
 #include "Imgui/imgui.h"
 #include "core/strings.h"
@@ -200,6 +201,28 @@ void GltfViewApp::BindImGuiToSceneRender()
 					bool bShowCasterBounds = Scene->GetShowShadowCasterMeshBoundsDebug();
 					if (ImGui::Checkbox("Show shadow caster bounds", &bShowCasterBounds))
 						Scene->SetShowShadowCasterMeshBoundsDebug(bShowCasterBounds);
+				}
+
+				if (Scene->GetDirectionalShadowCSMShowUi())
+				{
+					ImGui::Separator();
+					ImGui::TextUnformatted("Directional CSM (scene)");
+					ImGui::TextWrapped("Split0/1 are linear in [Near,Far] on ze=dot(world-cam,viewForward). With Far=1000, "
+									   "use small values (e.g. 0.002~0.02) so cuts fall near the bike; large defaults put the first cut at tens of meters.");
+					bool csmEn = Scene->GetDirectionalShadowCSMEnabled();
+					if (ImGui::Checkbox("Enable cascades", &csmEn))
+						Scene->SetDirectionalShadowCSMEnabled(csmEn);
+					int casc = static_cast<int>(Scene->GetDirectionalShadowCSMCascadeCount());
+					if (ImGui::SliderInt("Cascade count", &casc, 2, 3))
+						Scene->SetDirectionalShadowCSMCascadeCount(static_cast<int32_t>(casc));
+					float s0 = Scene->GetDirectionalShadowCSMSplit0();
+					const float smin = Engine::FDirectionalShadowFrustumFitter::kCascadeSplitNormMin;
+					const float smax = Engine::FDirectionalShadowFrustumFitter::kCascadeSplitNormMax;
+					if (ImGui::SliderFloat("Split0 (linear along near..far)", &s0, smin, smax))
+						Scene->SetDirectionalShadowCSMSplit0(s0);
+					float s1 = Scene->GetDirectionalShadowCSMSplit1();
+					if (ImGui::SliderFloat("Split1 (3 cascades only)", &s1, smin, smax))
+						Scene->SetDirectionalShadowCSMSplit1(s1);
 				}
 
 				ImGui::Separator();

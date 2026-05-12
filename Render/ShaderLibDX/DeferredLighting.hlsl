@@ -21,12 +21,7 @@ SamplerComparisonState ShadowCompareSampler : register(s2);
 
 #include "ShadowPCSS.hlsl"
 
-cbuffer cbDirectionalShadow : register(b7)
-{
-	row_major matrix DirectionalShadowViewProj;
-	float4 _PadDirectionalShadow;
-};
-
+#include "DirectionalShadowCB.hlsl"
 #include "DirectionalShadow.hlsl"
 
 cbuffer cbPointShadow : register(b4)

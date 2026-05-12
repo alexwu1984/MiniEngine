@@ -154,17 +154,128 @@ namespace
 			return visSlice.MergeAABB(casterPad);
 		return ReceiverWorldAabb.MergeAABB(casterPad);
 	}
+
+	/** Intersection of world AABB with { p | zLo <= dot(p-cam, fwd) <= zHi } (same ze convention as CSM shader splits). */
+	static math::AABB3 ClipWorldAabbToCameraForwardZeSlab(const math::AABB3& box, const math::Vector3& camPos, const math::Vector3& fwdIn, float zn, float zf)
+	{
+		math::Vector3 fwd = fwdIn;
+		if (fwd.GetSqrLength() > 1e-12f)
+			fwd = fwdIn.Normalize();
+		else
+			fwd = math::Vector3(0.f, 0.f, 1.f);
+
+		float zLo = zn;
+		float zHi = zf;
+		if (zLo > zHi)
+			std::swap(zLo, zHi);
+
+		const auto evalZe = [&](const math::Vector3& worldPt) -> float { return math::Vector3::Dot(fwd, worldPt - camPos); };
+
+		std::vector<math::Vector3> pts;
+		pts.reserve(24);
+
+		math::Vector3 corners[8];
+		box.GetPoint(corners);
+		for (int i = 0; i < 8; ++i)
+		{
+			const float z = evalZe(corners[i]);
+			if (z >= zLo - 1e-3f && z <= zHi + 1e-3f)
+				pts.push_back(corners[i]);
+		}
+
+		static const int kEdgePairs[12][2] = {
+			{ 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },
+		};
+		for (int e = 0; e < 12; ++e)
+		{
+			const math::Vector3& pa = corners[kEdgePairs[e][0]];
+			const math::Vector3& pb = corners[kEdgePairs[e][1]];
+			const float za = evalZe(pa);
+			const float zb = evalZe(pb);
+			for (int pi = 0; pi < 2; ++pi)
+			{
+				const float planeZ = (pi == 0) ? zLo : zHi;
+				if (std::fabs(za - zb) < 1e-8f)
+					continue;
+				const float t = (planeZ - za) / (zb - za);
+				if (t < 0.f || t > 1.f)
+					continue;
+				pts.push_back(pa + (pb - pa) * t);
+			}
+		}
+
+		if (pts.empty())
+		{
+			const float zMid = 0.5f * (zLo + zHi);
+			const math::Vector3 c = camPos + fwd * zMid;
+			const float eps = 0.05f;
+			math::AABB3 out;
+			out.Set(math::Vector3(c.x + eps, c.y + eps, c.z + eps), math::Vector3(c.x - eps, c.y - eps, c.z - eps));
+			return out;
+		}
+
+		math::AABB3 out;
+		out.Set(pts[0], pts[0]);
+		for (size_t i = 1; i < pts.size(); ++i)
+			out.UpdateMinMax(pts[i]);
+		return out;
+	}
 } // namespace
 
 namespace Engine
 {
 	static constexpr float kMinDirectionalLightDistance = 4.0f;
 
-	void FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Light& MainLight, const math::AABB3& SubjectWorldAabb, bool bReceiverRelativeFrustumAdjust,
-																			   const math::AABB3& ReceiverWorldAabb, const core::vec2i& ShadowMapSize,
-																			   const FShadowProjectorSceneData& ShadowProjectorScene, bool bExpandOrthoXYFromReceivers,
-																			   const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustum, const math::AABB3* SubjectMeshWorldClipAabb)
+	void FDirectionalShadowFrustumFitter::FillLinearZeSplitEnds(float nearZ, float farZ, int cascadeCount, float split0Norm, float split1Norm, float outSplitZE[2])
 	{
+		outSplitZE[0] = 0.f;
+		outSplitZE[1] = 0.f;
+		if (farZ <= nearZ + 1e-5f || cascadeCount < 2)
+			return;
+		const float span = farZ - nearZ;
+		if (cascadeCount == 2)
+		{
+			const float t = (std::clamp)(split0Norm, kCascadeSplitNormMin, kCascadeSplitNormMax);
+			outSplitZE[0] = nearZ + span * t;
+			return;
+		}
+		const float t0 = (std::clamp)(split0Norm, kCascadeSplitNormMin, kCascadeSplitNormMax);
+		const float t1Min = t0 + kCascadeSplitPairMinGap;
+		const float t1 = (std::clamp)(split1Norm, t1Min, kCascadeSplitNormMax);
+		outSplitZE[0] = nearZ + span * t0;
+		outSplitZE[1] = nearZ + span * t1;
+	}
+
+	math::AABB3 FDirectionalShadowFrustumFitter::ComputeCascadeSubjectWorldAabb(const FCascadeSubjectWorldAabbParams& P)
+	{
+		(void)P.ReceiverWorld;
+		const float nearZ = P.Scene.CameraNearZ;
+		const float farZ = P.Scene.CameraFarZ;
+		const int cc = (std::clamp)(P.CascadeCount, 1, kMaxDirectionalCascades);
+		const int ci = (std::clamp)(P.CascadeIndex, 0, cc - 1);
+		const float zn = (ci <= 0) ? nearZ : P.ZeSplitBoundaries[ci - 1];
+		const float zf = (ci + 1 >= cc) ? farZ : P.ZeSplitBoundaries[ci];
+
+		math::Vector3 fwd = P.Scene.CameraForwardWorld;
+		if (fwd.GetSqrLength() > 1e-12f)
+			fwd = fwd.Normalize();
+		else
+			fwd = math::Vector3(0.f, 0.f, 1.f);
+
+		return ClipWorldAabbToCameraForwardZeSlab(P.CasterSubjectWorld, P.Scene.CameraWorldPos, fwd, zn, zf);
+	}
+
+	void FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Light& MainLight, const FDirectionalShadowFrustumFitParams& Params)
+	{
+		const math::AABB3& SubjectWorldAabb = Params.SubjectWorldAabb;
+		const math::AABB3& ReceiverWorldAabb = Params.ReceiverWorldAabb;
+		const core::vec2i& ShadowMapSize = Params.ShadowMapSize;
+		const FShadowProjectorSceneData& ShadowProjectorScene = Params.ShadowProjectorScene;
+		const bool bReceiverRelativeFrustumAdjust = Params.bReceiverRelativeFrustumAdjust;
+		const bool bExpandOrthoXYFromReceivers = Params.bExpandOrthoXYFromReceivers;
+		const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustum = Params.SubjectMeshListForFrustum;
+		const math::AABB3* SubjectMeshWorldClipAabb = Params.SubjectMeshWorldClipAabb;
+
 		math::Vector3 wsSceneCorners[8];
 		SubjectWorldAabb.GetPoint(wsSceneCorners);
 

@@ -105,6 +105,16 @@ namespace Engine
 		void SetShowShadowCasterMeshBoundsDebug(bool bIn);
 		bool GetShowShadowCasterMeshBoundsDebug() const;
 
+		bool GetDirectionalShadowCSMShowUi() const;
+		bool GetDirectionalShadowCSMEnabled() const;
+		void SetDirectionalShadowCSMEnabled(bool b);
+		int32_t GetDirectionalShadowCSMCascadeCount() const;
+		void SetDirectionalShadowCSMCascadeCount(int32_t n);
+		float GetDirectionalShadowCSMSplit0() const;
+		void SetDirectionalShadowCSMSplit0(float v);
+		float GetDirectionalShadowCSMSplit1() const;
+		void SetDirectionalShadowCSMSplit1(float v);
+
 	private:
 		WorldPrivate* d_ptr = nullptr;
 	};

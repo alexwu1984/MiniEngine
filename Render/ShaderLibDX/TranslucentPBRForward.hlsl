@@ -17,12 +17,7 @@ Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
 
-cbuffer cbDirectionalShadow : register(b7)
-{
-	row_major matrix DirectionalShadowViewProj;
-	float4 _PadDirectionalShadow;
-};
-
+#include "DirectionalShadowCB.hlsl"
 #include "TranslucentShadowLite.hlsl"
 
 cbuffer cbPointShadow : register(b4)

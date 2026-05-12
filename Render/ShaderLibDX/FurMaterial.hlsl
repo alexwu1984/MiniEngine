@@ -34,12 +34,7 @@ cbuffer cbPointShadow : register(b4)
 
 #include "ShadowPCSS.hlsl"
 
-cbuffer cbDirectionalShadow : register(b7)
-{
-	row_major matrix DirectionalShadowViewProj;
-	float4 _PadDirectionalShadow;
-};
-
+#include "DirectionalShadowCB.hlsl"
 #include "DirectionalShadow.hlsl"
 #include "SpotShadowSampling.hlsl"
 #include "DeferredLightingShared.hlsl"

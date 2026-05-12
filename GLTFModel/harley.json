@@ -1,4 +1,4 @@
-{
+﻿{
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
@@ -14,7 +14,14 @@
       }
     ],
     "EnableSSR": true,
-    "AAType": "TAA"
+    "AAType": "TAA",
+    "DirectionalShadowCSM": {
+      "Enable": true,
+      "ShowUi": true,
+      "CascadeCount": 3,
+      "Split0": 0.008,
+      "Split1": 0.028
+    }
   },
   "Modles": [
     {

@@ -26,5 +26,12 @@ namespace Engine
 		float CameraAspectWH = 1.f;
 		/** Unit depth axis in world space — should match primary ViewMatrix depth axis used for receiver heuristics. */
 		math::Vector3 CameraForwardWorld{ 0.f, 0.f, 1.f };
+
+		/** Optional cascaded directional shadow (vertical atlas). When false, single 2048² tile (CascadeCount treated as 1). */
+		bool bDirectionalShadowCSM = false;
+		int32_t DirectionalShadowCSMCascadeCount = 3;
+		/** Split positions in (0,1) along [CameraNearZ, CameraFarZ] for ze = dot(world - cam, CameraForwardWorld); use small values when Far is large (see FDirectionalShadowFrustumFitter::kCascadeSplitNormMin). */
+		float DirectionalShadowCSMSplit0 = 0.008f;
+		float DirectionalShadowCSMSplit1 = 0.028f;
 	};
 }

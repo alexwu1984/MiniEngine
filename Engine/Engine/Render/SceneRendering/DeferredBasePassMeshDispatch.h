@@ -3,11 +3,6 @@
 #include "Render/SceneRendering/DeferredBasePassDrawContext.h"
 #include <memory>
 
-namespace RenderCore
-{
-	class DynamicRHI;
-}
-
 namespace Engine
 {
 	class MeshBase;
@@ -16,7 +11,7 @@ namespace Engine
 	class FDeferredBasePassMeshDispatch
 	{
 	public:
-		static void Dispatch(RenderCore::DynamicRHI* RHI, const std::shared_ptr<MeshBase>& Mesh, const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
+		static void Dispatch(const std::shared_ptr<MeshBase>& Mesh, const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
 							 const std::shared_ptr<MaterialRender>& Material, bool bIsPrePass, const FDeferredBasePassDrawContext& DrawContext);
 	};
 }

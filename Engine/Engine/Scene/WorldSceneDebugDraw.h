@@ -1,10 +1,12 @@
 ﻿#pragma once
+#include "Render/MaterialPreFrame.h"
+#include "Render/ShadowDebugWireRenderer.h"
 #include "math/aabb3.h"
-#include <mutex>
 
 namespace Engine
 {
 	class ShadowRenderPass;
+	class World;
 
 	/** Viewer / overlay debug toggles and transient shadow-debug snapshots. Kept off `World` public surface. */
 	class WorldSceneDebugDraw
@@ -20,6 +22,14 @@ namespace Engine
 		bool GetShowDirectionalCSMCascadeSubjectBoundsDebug() const;
 		void GetDirectionalCSMCascadeSubjectDebugCopy(int& OutCount, math::AABB3 OutBoxes[3]) const;
 		void UpdateDirectionalCSMCascadeSubjectDebugFromShadowPass(const ShadowRenderPass* shadowPass);
+
+		/**
+		 * Appends per-light debug gizmos (directional arrow / spot cone / point sphere) into OutSubmit based on
+		 * the latest cached shadow indices and per-component GetShowShadowFrustumDebug() flags. `ShadowPassLights`
+		 * must be the same list submitted to the shadow pass (used to map cached light list index → per-type index).
+		 */
+		void CollectShadowDebugLightShapes(const World& WorldRef, ShadowRenderPass* ShadowPass,
+										   const std::vector<Light>& ShadowPassLights, FShadowDebugWireSubmit& OutSubmit) const;
 
 		/** Clears cascade-subject snapshot; optional cascade overlay flag (used on scene reset paths). */
 		void ResetDirectionalCascadeSubjectOverlay(bool bClearShowFlag);

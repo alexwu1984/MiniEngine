@@ -5,7 +5,6 @@
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIRenderTarget.h"
 #include "core/color.h"
-#include <algorithm>
 
 namespace
 {

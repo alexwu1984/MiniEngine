@@ -4,7 +4,6 @@
 #include "RHI/RHIRenderTarget.h"
 #include "core/color.h"
 #include "Scene/SceneMeshComponent.h"
-#include <cmath>
 
 namespace Engine
 {

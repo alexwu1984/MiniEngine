@@ -1,10 +1,6 @@
 ﻿#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "Render/Shadow/FShadowSceneBounds.h"
 #include "math/aabb3.h"
-#include <algorithm>
-#include <cmath>
-#include <cfloat>
-#include <vector>
 
 namespace
 {

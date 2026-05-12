@@ -9,7 +9,6 @@
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/RDGUtils.h"
 #include "Render/SceneTextures.h"
-#include "RHI/DynamicRHI.h"
 #include "Scene/SceneMeshComponent.h"
 #include "GltfModel/GltfMesh.h"
 #include "Material/GltfMaterial.h"
@@ -20,17 +19,90 @@
 
 namespace Engine
 {
-	void FDeferredShadingBasePassRenderer::RenderTranslucentForwardAfterDeferredLighting(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos,
-																					   const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache,
-																					   DeferredLightingPass* DeferredLighting)
+	void FDeferredShadingBasePassRenderer::RenderBasePassOpaque(const FDeferredBasePassDrawContext& DrawContext)
 	{
-		(void)RHI;
-		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender)
-			return;
-		if (DrawContext.ViewData->bUnlit || !DeferredLighting)
-			return;
+		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, true);
+		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, false);
+	}
 
+	void FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(const FDeferredBasePassDrawContext& DrawContext)
+	{
+		if (!DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
+			return;
+		const std::vector<GltfSceneMeshInfo>& SceneMeshInfos = *DrawContext.MeshesForDraw;
+		FMeshMaterialRenderCache& MaterialCache = *DrawContext.MaterialCache;
+		const math::Vector3 CamPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
+
+		std::vector<FTranslucentMeshSortKey> SortedKeys;
+		FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
+
+		for (const auto& Key : SortedKeys)
+		{
+			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+			if (Mesh->GetMaterial()->IsTransparent())
+			{
+				FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
+			}
+		}
+		for (const auto& Key : SortedKeys)
+		{
+			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+			if (Mesh->GetMaterial()->IsTransparent())
+			{
+				FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
+			}
+		}
+	}
+
+	void FDeferredShadingBasePassRenderer::RenderDeferredBasePassFullSequence(const FDeferredBasePassDrawContext& DrawContext)
+	{
+		if (!DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
+			return;
+		const std::vector<GltfSceneMeshInfo>& SceneMeshInfos = *DrawContext.MeshesForDraw;
+		FMeshMaterialRenderCache& MaterialCache = *DrawContext.MaterialCache;
+		const math::Vector3 CamPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
+
+		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, true);
+		{
+			std::vector<FTranslucentMeshSortKey> SortedKeys;
+			FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
+			for (const auto& Key : SortedKeys)
+			{
+				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+				if (Mesh->GetMaterial()->IsTransparent())
+				{
+					FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
+				}
+			}
+		}
+		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, false);
+		{
+			std::vector<FTranslucentMeshSortKey> SortedKeys;
+			FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
+			for (const auto& Key : SortedKeys)
+			{
+				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+				if (Mesh->GetMaterial()->IsTransparent())
+				{
+					FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
+														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
+				}
+			}
+		}
+	}
+
+	void FDeferredShadingBasePassRenderer::RenderTranslucentForward(const FDeferredBasePassDrawContext& DrawContext)
+	{
+		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender || !DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
+			return;
+		if (DrawContext.ViewData->bUnlit || !DrawContext.DeferredLighting)
+			return;
+		const std::vector<GltfSceneMeshInfo>& SceneMeshInfos = *DrawContext.MeshesForDraw;
 		const math::Vector3 CamPos = DrawContext.ViewData->CameraPos;
+		FMeshMaterialRenderCache& MaterialCache = *DrawContext.MaterialCache;
 		std::vector<FTranslucentMeshSortKey> SortedKeys;
 		FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
 
@@ -51,90 +123,20 @@ namespace Engine
 				continue;
 			MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 				DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
-			pbr->DrawTranslucentForwardLit(Cmd, P, DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
+			pbr->DrawTranslucentForwardLit(Cmd, P, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 		}
 	}
 
-	void FDeferredShadingBasePassRenderer::RenderBasePassOpaque(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const FDeferredBasePassDrawContext& DrawContext,
-															  FMeshMaterialRenderCache& MaterialCache)
+	void FDeferredShadingBasePassRenderer::RenderFurForward(const FDeferredBasePassDrawContext& DrawContext)
 	{
-		const math::Vector3 CamPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
-		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(RHI, SceneMeshInfos, CamPos, true, DrawContext, MaterialCache);
-		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(RHI, SceneMeshInfos, CamPos, false, DrawContext, MaterialCache);
-	}
-
-	void FDeferredShadingBasePassRenderer::RenderBasePassTranslucent(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos,
-																	 const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache)
-	{
-		const math::Vector3 CamPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
-		std::vector<FTranslucentMeshSortKey> SortedKeys;
-		FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
-
-		for (const auto& Key : SortedKeys)
-		{
-			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-			if (Mesh->GetMaterial()->IsTransparent())
-			{
-				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
-														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
-			}
-		}
-		for (const auto& Key : SortedKeys)
-		{
-			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-			if (Mesh->GetMaterial()->IsTransparent())
-			{
-				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
-														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
-			}
-		}
-	}
-
-	void FDeferredShadingBasePassRenderer::RenderDeferredBasePassFullSequence(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos,
-																			  const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache)
-	{
-		const math::Vector3 CamPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
-		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(RHI, SceneMeshInfos, CamPos, true, DrawContext, MaterialCache);
-		{
-			std::vector<FTranslucentMeshSortKey> SortedKeys;
-			FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
-			for (const auto& Key : SortedKeys)
-			{
-				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-				if (Mesh->GetMaterial()->IsTransparent())
-				{
-					FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
-														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
-				}
-			}
-		}
-		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(RHI, SceneMeshInfos, CamPos, false, DrawContext, MaterialCache);
-		{
-			std::vector<FTranslucentMeshSortKey> SortedKeys;
-			FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
-			for (const auto& Key : SortedKeys)
-			{
-				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-				if (Mesh->GetMaterial()->IsTransparent())
-				{
-					FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform,
-														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
-				}
-			}
-		}
-	}
-
-	void FDeferredShadingBasePassRenderer::RenderFurForwardAfterDeferredLighting(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos,
-																				 const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache,
-																				 DeferredLightingPass* DeferredLighting)
-	{
-		(void)RHI;
-		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender)
+		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender || !DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
 			return;
-		if (DrawContext.ViewData->bUnlit || !DeferredLighting)
+		if (DrawContext.ViewData->bUnlit || !DrawContext.DeferredLighting)
 			return;
 
+		const std::vector<GltfSceneMeshInfo>& SceneMeshInfos = *DrawContext.MeshesForDraw;
 		const math::Vector3 CamPos = DrawContext.ViewData->CameraPos;
+		FMeshMaterialRenderCache& MaterialCache = *DrawContext.MaterialCache;
 		std::vector<FTranslucentMeshSortKey> Flat;
 		for (const auto& SceneMeshInfo : SceneMeshInfos)
 			FTranslucentMeshSorter::AppendPerActorMeshSortKeys(SceneMeshInfo, CamPos, Flat);
@@ -170,7 +172,7 @@ namespace Engine
 			{
 				MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 					DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
-				fur->DrawForwardFur(Cmd, P, DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
+				fur->DrawForwardFur(Cmd, P, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 			}
 		}
 	}

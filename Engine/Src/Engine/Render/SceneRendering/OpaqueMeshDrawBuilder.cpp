@@ -4,9 +4,9 @@
 #include "Render/SceneRendering/TranslucentMeshSorter.h"
 #include "Render/SceneRendering/TranslucentMeshSortKey.h"
 #include "Render/SceneRendering/SceneMaterialShaderParameters.h"
+#include "Render/SceneRendering/SceneViewData.h"
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Engine/Render/FurMaterialRender.h"
-#include "RHI/DynamicRHI.h"
 #include "Scene/SceneMeshComponent.h"
 #include "GltfModel/GltfMesh.h"
 #include "GltfModel/GltfMeshBuffer.h"
@@ -64,9 +64,14 @@ namespace Engine
 		}
 	} // namespace
 
-	void FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(RenderCore::DynamicRHI* RHI, const std::vector<GltfSceneMeshInfo>& SceneMeshInfos, const math::Vector3& CameraWorldPos,
-													  bool bIsPrePass, const FDeferredBasePassDrawContext& DrawContext, FMeshMaterialRenderCache& MaterialCache)
+	void FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(const FDeferredBasePassDrawContext& DrawContext, bool bIsPrePass)
 	{
+		if (!DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
+			return;
+		const std::vector<GltfSceneMeshInfo>& SceneMeshInfos = *DrawContext.MeshesForDraw;
+		FMeshMaterialRenderCache& MaterialCache = *DrawContext.MaterialCache;
+		const math::Vector3 CameraWorldPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
+
 		std::vector<FTranslucentMeshSortKey> Flat;
 		for (const auto& SceneMeshInfo : SceneMeshInfos)
 			FTranslucentMeshSorter::AppendPerActorMeshSortKeys(SceneMeshInfo, CameraWorldPos, Flat);
@@ -164,7 +169,7 @@ namespace Engine
 					continue;
 				}
 
-				FDeferredBasePassMeshDispatch::Dispatch(RHI, Mesh, Key.WorldTransform, Key.PrevWorldTransform, Mat, bIsPrePass, DrawContext);
+				FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform, Mat, bIsPrePass, DrawContext);
 				++i;
 			}
 		};

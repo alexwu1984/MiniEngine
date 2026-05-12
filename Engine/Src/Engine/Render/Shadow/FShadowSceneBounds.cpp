@@ -3,8 +3,6 @@
 #include "Material/FurMaterial.h"
 #include "Material/MaterialBase.h"
 #include "Scene/SceneMeshComponent.h"
-#include <algorithm>
-#include <cfloat>
 
 namespace Engine
 {

@@ -7,9 +7,8 @@
 
 namespace Engine
 {
-	void FDeferredBasePassMeshDispatch::Dispatch(RenderCore::DynamicRHI* RHI, const std::shared_ptr<MeshBase>& Mesh, const math::Matrix4x4& WorldTransform,
-												 const math::Matrix4x4& PrevWorldTransform, const std::shared_ptr<MaterialRender>& Material, bool bIsPrePass,
-												 const FDeferredBasePassDrawContext& DrawContext)
+	void FDeferredBasePassMeshDispatch::Dispatch(const std::shared_ptr<MeshBase>& Mesh, const math::Matrix4x4& WorldTransform, const math::Matrix4x4& PrevWorldTransform,
+												 const std::shared_ptr<MaterialRender>& Material, bool bIsPrePass, const FDeferredBasePassDrawContext& DrawContext)
 	{
 		const FSceneViewData* ViewData = DrawContext.ViewData ? DrawContext.ViewData.get() : nullptr;
 		MaterialRenderParam Params = FSceneMaterialShaderParameters::BuildForDeferredBasePass(DrawContext.WorldSceneRender, ViewData, Mesh.get(), WorldTransform, PrevWorldTransform,
@@ -34,9 +33,9 @@ namespace Engine
 		}
 
 		RenderCore::RHICommandContext* CmdList = DrawContext.RHICmdList;
-		if (!CmdList)
+		if (!CmdList && DrawContext.RHI)
 		{
-			auto DefaultCtx = RHI->GetDefaultCommandContext();
+			auto DefaultCtx = DrawContext.RHI->GetDefaultCommandContext();
 			CmdList = DefaultCtx ? DefaultCtx.get() : nullptr;
 		}
 		if (!CmdList)

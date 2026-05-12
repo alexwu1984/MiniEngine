@@ -73,7 +73,7 @@ namespace Engine
 
 				Light Li = mainLightRef;
 				FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Li, cascadeSubject, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, cascadeTexSize,
-																					ShadowProjectorScene, false);
+																					ShadowProjectorScene, false, P.SubjectMeshListForFrustumDriver, &cascadeSubject);
 				OutOutputs.CachedDirectionalCSM.CascadeViewProj[ci] = Li.LightViewProj;
 				if (ci == 0)
 					firstCascadeLight = Li;
@@ -91,7 +91,7 @@ namespace Engine
 			// Match first CSM atlas tile (square 2048²): rendering to the full 2048×(2048·N) atlas with one ortho made UV
 			// kernels anisotropic in texel space (3× taller) and axis-aligned PCSS + texel snap caused strong vertical banding.
 			FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(mainLightRef, P.SubjectWorldAabb, bReceiverRelativeFrustumAdjust, P.ReceiverWorldAabb, cascadeTexSize,
-																					ShadowProjectorScene, true);
+																					ShadowProjectorScene, true, P.SubjectMeshListForFrustumDriver, nullptr);
 			const float invN = 1.f / static_cast<float>(FDirectionalShadowFrustumFitter::kCascadeCount);
 			OutOutputs.CachedDirectionalCSM.CameraForwardInvCount.w = invN;
 			OutOutputs.CachedMainLightForShading = mainLightRef;

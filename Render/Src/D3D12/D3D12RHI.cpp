@@ -269,7 +269,7 @@ namespace RenderCore
 		GPixelFormats[PF_X24_G8].BlockBytes = 4;
 		GPixelFormats[PF_DepthStencil].Supported = true;
 		GPixelFormats[PF_X24_G8].Supported = true;
-		GPixelFormats[PF_ShadowDepth].PlatformFormat = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+		GPixelFormats[PF_ShadowDepth].PlatformFormat = DXGI_FORMAT_R32_TYPELESS;
 		GPixelFormats[PF_ShadowDepth].BlockBytes = 4;
 		GPixelFormats[PF_ShadowDepth].Supported = true;
 		GPixelFormats[PF_R32_FLOAT].PlatformFormat = DXGI_FORMAT_R32_FLOAT;

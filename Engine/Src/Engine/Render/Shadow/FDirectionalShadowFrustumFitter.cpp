@@ -1,4 +1,5 @@
 ﻿#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
+#include "Render/Shadow/FShadowSceneBounds.h"
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
@@ -10,17 +11,9 @@ namespace
 	static constexpr float kXYMargin = 0.14f;
 	static constexpr int kFitSnapIterations = 2;
 
-	static void FitOrthoFromWorldCorners(const math::Vector3 wsSceneCorners[8], const math::Matrix4x4& lightView, float& nearValue, float& farValue, float& centerX,
-										 float& centerY, float& sizeX, float& sizeY)
+	static void FitOrthoFromLightSpaceMinMax(const math::Vector3& lsMin, const math::Vector3& lsMax, float& nearValue, float& farValue, float& centerX, float& centerY,
+											 float& sizeX, float& sizeY)
 	{
-		math::Vector3 lsMin(FLT_MAX, FLT_MAX, FLT_MAX);
-		math::Vector3 lsMax(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-		for (int i = 0; i < 8; ++i)
-		{
-			math::Vector3 lsCorner = lightView.TransformPosition(wsSceneCorners[i]);
-			lsMin = math::Vector3((std::min)(lsMin.x, lsCorner.x), (std::min)(lsMin.y, lsCorner.y), (std::min)(lsMin.z, lsCorner.z));
-			lsMax = math::Vector3((std::max)(lsMax.x, lsCorner.x), (std::max)(lsMax.y, lsCorner.y), (std::max)(lsMax.z, lsCorner.z));
-		}
 		float zLo = lsMin.z;
 		float zHi = lsMax.z;
 		if (zLo > zHi)
@@ -37,6 +30,20 @@ namespace
 		sizeY = (lsMax.y - lsMin.y) * 0.5f * (1.0f + kXYMargin);
 		centerX = (lsMin.x + lsMax.x) * 0.5f;
 		centerY = (lsMin.y + lsMax.y) * 0.5f;
+	}
+
+	static void FitOrthoFromWorldCorners(const math::Vector3 wsSceneCorners[8], const math::Matrix4x4& lightView, float& nearValue, float& farValue, float& centerX,
+										 float& centerY, float& sizeX, float& sizeY)
+	{
+		math::Vector3 lsMin(FLT_MAX, FLT_MAX, FLT_MAX);
+		math::Vector3 lsMax(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		for (int i = 0; i < 8; ++i)
+		{
+			math::Vector3 lsCorner = lightView.TransformPosition(wsSceneCorners[i]);
+			lsMin = math::Vector3((std::min)(lsMin.x, lsCorner.x), (std::min)(lsMin.y, lsCorner.y), (std::min)(lsMin.z, lsCorner.z));
+			lsMax = math::Vector3((std::max)(lsMax.x, lsCorner.x), (std::max)(lsMax.y, lsCorner.y), (std::max)(lsMax.z, lsCorner.z));
+		}
+		FitOrthoFromLightSpaceMinMax(lsMin, lsMax, nearValue, farValue, centerX, centerY, sizeX, sizeY);
 	}
 
 	static void ExpandOrthoDepthForReceiverBounds(const math::Matrix4x4& lightView, const math::AABB3& receiverWorldAabb, float& nearValue, float& farValue)
@@ -190,7 +197,8 @@ namespace Engine
 
 	void FDirectionalShadowFrustumFitter::SetupDirectionalShadowViewProjection(Light& MainLight, const math::AABB3& SubjectWorldAabb, bool bReceiverRelativeFrustumAdjust,
 																			   const math::AABB3& ReceiverWorldAabb, const core::vec2i& ShadowMapSize,
-																			   const FShadowProjectorSceneData& ShadowProjectorScene, bool bExpandOrthoXYFromReceivers)
+																			   const FShadowProjectorSceneData& ShadowProjectorScene, bool bExpandOrthoXYFromReceivers,
+																			   const std::vector<GltfSceneMeshInfo>* SubjectMeshListForFrustum, const math::AABB3* SubjectMeshWorldClipAabb)
 	{
 		math::Vector3 wsSceneCorners[8];
 		SubjectWorldAabb.GetPoint(wsSceneCorners);
@@ -214,12 +222,22 @@ namespace Engine
 		float sizeX = 1.f;
 		float sizeY = 1.f;
 
+		const auto fitOrthoSubject = [&]() {
+			math::Vector3 lsMin{};
+			math::Vector3 lsMax{};
+			if (SubjectMeshListForFrustum
+				&& FShadowSceneBounds::TryMergeSubjectMeshesLightSpaceExtents(SubjectMeshListForFrustum, MainLight.LightView, SubjectMeshWorldClipAabb, lsMin, lsMax))
+				FitOrthoFromLightSpaceMinMax(lsMin, lsMax, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+			else
+				FitOrthoFromWorldCorners(wsSceneCorners, MainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+		};
+
 		for (int iter = 0; iter < kFitSnapIterations; ++iter)
 		{
-			FitOrthoFromWorldCorners(wsSceneCorners, MainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+			fitOrthoSubject();
 			SnapLightViewTranslationToShadowTexels(MainLight.LightView, lightLookAt, sizeX, sizeY, ShadowMapSize.x, ShadowMapSize.y);
 		}
-		FitOrthoFromWorldCorners(wsSceneCorners, MainLight.LightView, nearValue, farValue, centerX, centerY, sizeX, sizeY);
+		fitOrthoSubject();
 
 		if (bReceiverRelativeFrustumAdjust)
 			ExpandOrthoDepthForReceiverBounds(MainLight.LightView, ReceiverWorldAabb, nearValue, farValue);

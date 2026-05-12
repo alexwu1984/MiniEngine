@@ -3,6 +3,7 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12CommandContext.h"
+#include "D3D12/D3D12FormatUtil.h"
 #include "DirectXTex/DirectXTex.h"
 #define STBI_FAILURE_USERMSG
 #include "tinygltf/stb_image.h"
@@ -73,7 +74,10 @@ namespace RenderCore
 		d->Size.cx = SizeX;
 		d->Size.cy = SizeY;
 		d->PixFormat = InFormat;
-		d->PlatformResourceFormat = FindSharedResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[InFormat].PlatformFormat,false);
+		if (InFormat == PF_ShadowDepth && (InFlags & TexCreate_DepthStencilTargetable))
+			d->PlatformResourceFormat = DXGI_FORMAT_R32_TYPELESS;
+		else
+			d->PlatformResourceFormat = FindSharedResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[InFormat].PlatformFormat, false);
 		d->InFlags = InFlags;
 		d->NumMipMaps = (NumMips == 0) ? ComputeNumMips(SizeX, SizeY) : NumMips;
 		D3D12_RESOURCE_FLAGS Flags = CombineResourceFlags(InFlags);
@@ -97,7 +101,19 @@ namespace RenderCore
 									(Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
 
 		D3D12_CLEAR_VALUE ClearValue = {};
-		ClearValue.Format = d->PlatformResourceFormat;
+		if (FillClearValue)
+		{
+			if ((Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) != 0 && d->PlatformResourceFormat == DXGI_FORMAT_R32_TYPELESS)
+			{
+				ClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+				ClearValue.DepthStencil.Depth = 1.0f;
+				ClearValue.DepthStencil.Stencil = 0;
+			}
+			else
+			{
+				ClearValue.Format = d->PlatformResourceFormat;
+			}
+		}
 		std::wstring Name = core::formatw("W:", SizeX, "_H:", SizeY,"_", ++gCounter);
 		HRESULT hr = GetParentAdapter()->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_COPY_DEST, FillClearValue ? &ClearValue : nullptr, &d->Resource, Name.c_str());
 		if (FAILED(hr))
@@ -365,7 +381,7 @@ namespace RenderCore
 		ID3D12Resource* Resource = d->Resource->GetResource();
 
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-		dsvDesc.Format = Format;
+		dsvDesc.Format = (Format == DXGI_FORMAT_R32_TYPELESS) ? DXGI_FORMAT_D32_FLOAT : Format;
 		if (Resource->GetDesc().SampleDesc.Count == 1)
 		{
 			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;

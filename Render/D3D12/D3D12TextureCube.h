@@ -17,7 +17,9 @@ namespace RenderCore
 		virtual bool CreateTextureCube(EPixelFormat InFormat, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth) override;
 		virtual core::vec2i GetSize() const override;
 		virtual uint32_t GetNumMips() const override;
-		
+
+		bool IsShadowDepthCube() const;
+
 		DXGI_FORMAT GetPlatformResourceFormat() const;
 		FD3D12Resource* GetResource() const;
 		FD3D12Resource* GetDepthResource() const;
@@ -26,6 +28,7 @@ namespace RenderCore
 		D3D12_CPU_DESCRIPTOR_HANDLE GetCubeSRV(int Mip = -1) const;
 		D3D12_CPU_DESCRIPTOR_HANDLE GetFaceMipSRV(int Face, int Mip) const;
 		D3D12_CPU_DESCRIPTOR_HANDLE GetDSV(void) const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetFaceDSV(int FaceIndex) const;
 		uint32_t GetSubresourceIndex(int Face, int Mip) const;
 	private:
 		std::shared_ptr<FD3D12Device> GetParentDevice() const;

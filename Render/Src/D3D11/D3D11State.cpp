@@ -56,6 +56,7 @@ namespace RenderCore
 		switch (SamplerComparisonFunction)
 		{
 		case SCF_Less: return D3D11_COMPARISON_LESS;
+		case SCF_LessEqual: return D3D11_COMPARISON_LESS_EQUAL;
 		case SCF_Never:
 		default: return D3D11_COMPARISON_NEVER;
 		};

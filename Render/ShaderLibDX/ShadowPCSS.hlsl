@@ -1,5 +1,6 @@
-// PCSS for directional shadow map (R32 linear/hardware depth in [0,1], same space as LightViewProj clip z/w).
-// Expects Texture2D ShadowMap, SamplerState SampleShadow, GetMainLight() from PerFrameStruct.hlsl.
+// PCSS for directional shadow map (depth atlas in [0,1] clip z space). Blocker search uses raw depth (SampleShadow);
+// PCF visibility uses hardware comparison filtering (ShadowCompareSampler + SampleCmpLevelZero).
+// Expects Texture2D ShadowMap, SamplerState SampleShadow, SamplerComparisonState ShadowCompareSampler, GetMainLight() from PerFrameStruct.hlsl.
 
 #ifndef MINIENGINE_SHADOW_PCSS_HLSL
 #define MINIENGINE_SHADOW_PCSS_HLSL
@@ -38,16 +39,24 @@ float ShadowDepthBiasPCSS(float3 Normal)
 	return baseBias + slopeBias * (1.0 - NdotL) + horizonBias;
 }
 
-float PCF_ShadowR32(float2 uvCenter, float zReceiver, float radiusUV, float bias)
+/** Stronger bias for vertical CSM atlas + PCSS: same stripe root as contact acne; UE-style is extra const + slope on receivers. */
+float ShadowDepthBiasPCSS_Cascade(float3 Normal)
 {
+	const float b = ShadowDepthBiasPCSS(Normal);
+	const float extra = 0.00055 + (1.0 - abs(dot(normalize(Normal), normalize(GetMainLight().Direction)))) * 0.00085;
+	return b + extra;
+}
+
+float PCF_ShadowHardware(float2 uvCenter, float zReceiver, float radiusUV, float bias)
+{
+	const float ref = zReceiver - bias;
 	float lit = 0.0;
 	[unroll]
 	for (int i = 0; i < 16; ++i)
 	{
 		float2 suv = uvCenter + kPoissonDisk16[i] * radiusUV;
 		suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-		float d = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-		lit += (zReceiver <= d + bias) ? 1.0 : 0.0;
+		lit += ShadowMap.SampleCmpLevelZero(ShadowCompareSampler, suv, ref);
 	}
 	return lit * (1.0 / 16.0);
 }
@@ -92,7 +101,7 @@ float ComputeShadowPCSS(float4 ShadowCoord, float3 Normal)
 					filterUV = lerp(kPCSSMinFilterRadiusUV_SingleMap, kPCSSMaxFilterRadiusUV_SingleMap, pen);
 				}
 
-				outVis = PCF_ShadowR32(uv, zR, filterUV, bias);
+				outVis = PCF_ShadowHardware(uv, zR, filterUV, bias);
 			}
 		}
 	}
@@ -106,13 +115,15 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 	if (zReceiver > 0.0 && zReceiver < 1.0 && all(uvTile01 >= float2(0.0, 0.0)) && all(uvTile01 <= float2(1.0, 1.0)))
 	{
 		float2 uvAtlas = float2(uvTile01.x, (cascadeIdx + uvTile01.y) * invN);
-		const float bias = ShadowDepthBiasPCSS(Normal);
+		const float bias = ShadowDepthBiasPCSS_Cascade(Normal);
 		float3 Lsun = normalize(GetMainLight().Direction);
 		float grazingSun = saturate(1.0 - abs(Lsun.y));
 		// CSM tiles are 1/N atlas height: same absolute UV kernel covers fewer texels in Y → harsher blockiness without wider min filter.
-		static const float kCascadePCSSMinMul = 2.35;
-		static const float kCascadePCSSBlockerMul = 1.5;
-		static const float kCascadePCSSMaxMul = 1.35;
+		static const float kCascadePCSSMinMul = 2.75;
+		static const float kCascadePCSSBlockerMul = 1.35;
+		static const float kCascadePCSSMaxMul = 1.12;
+		// Lower than kPCSSPenumbraMul: wide penumbra on contact + tall atlas exaggerates horizontal banding (many engines cap PCSS on dir-CSM).
+		static const float kCascadePenumbraMul = 8.5;
 		const float minF = kPCSSMinFilterRadiusUV * kCascadePCSSMinMul;
 		const float maxF = kPCSSMaxFilterRadiusUV * kCascadePCSSMaxMul;
 		const float blockerR = kPCSSBlockerSearchRadiusUV * kCascadePCSSBlockerMul;
@@ -140,15 +151,20 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 			}
 		}
 
-		float filterUV = minF + grazingSun * 0.00135;
+		float filterUV = minF + grazingSun * 0.00155;
 		if (cnt >= 1.0)
 		{
 			float avgB = sumBlocker / cnt;
-			float pen = saturate((zReceiver - avgB) * kPCSSPenumbraMul);
+			float pen = saturate((zReceiver - avgB) * kCascadePenumbraMul);
 			filterUV = lerp(minF, maxF, pen);
+			// Contact / near-contact: PCSS blocker average is noisy on tessellated floors → variable huge kernel → stripes. Lock to tight PCF.
+			static const float kContactPenCap = 0.22;
+			if (pen < kContactPenCap)
+				filterUV = lerp(filterUV, minF * 1.35, saturate((kContactPenCap - pen) / kContactPenCap));
 		}
 
 		float2 filterOfsScale = float2(1.0, invN);
+		const float ref = zReceiver - bias;
 		float lit = 0.0;
 		[unroll]
 		for (int i = 0; i < 16; ++i)
@@ -157,8 +173,7 @@ float ComputeShadowPCSSCascadeTile(float2 uvTile01, float cascadeIdx, float invN
 			float2 rd = float2(ca * disk.x - sa * disk.y, sa * disk.x + ca * disk.y);
 			float2 suv = uvAtlas + rd * filterOfsScale * filterUV;
 			suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-			float dmap = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-			lit += (zReceiver <= dmap + bias) ? 1.0 : 0.0;
+			lit += ShadowMap.SampleCmpLevelZero(ShadowCompareSampler, suv, ref);
 		}
 		outVis = lit * (1.0 / 16.0);
 	}

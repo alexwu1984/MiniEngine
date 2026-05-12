@@ -12,6 +12,7 @@
 #include "D3D12/D3D12GenerateMips.h"
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Resource.h"
+#include "D3D12/D3D12TextureCube.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12SubmitStats.h"
 #include "D3D12/D3D12PresentStats.h"
@@ -145,19 +146,33 @@ namespace RenderCore
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
-		if (RenderTargetRHI && RenderTargetRHI->GetMipRTV(IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		if (!RenderTargetRHI)
+			return;
+
+		const D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetMipRTV(IndexMip);
+		const bool bHasRtv = RTV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		const bool bBindDsv = RenderTargetRHI->GetDepthResource() && RenderTargetRHI->GetDSV().ptr != 0u;
+
+		if (bHasRtv)
 		{
 			TransitionSubResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, IndexMip, false);
-			const bool bBindDsv = RenderTargetRHI->GetDepthResource() && RenderTargetRHI->GetDSV().ptr != 0u;
 			if (bBindDsv)
 				TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
-			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetMipRTV(IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, bBindDsv ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
 			++otherWorkCounter;
 		}
-
+		else if (bBindDsv)
+		{
+			FD3D12Resource* const DepthRes = RenderTargetRHI->GetDepthResource();
+			if (DepthRes && DepthRes->RequiresResourceStateTracking())
+				TransitionResource(DepthRes, D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
+			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
+			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
+			++otherWorkCounter;
+		}
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip)
@@ -166,7 +181,28 @@ namespace RenderCore
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
-		if (TextureCubeRHI && TextureCubeRHI->GetRTV(IndexView,IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		if (!TextureCubeRHI)
+			return;
+
+		if (TextureCubeRHI->IsShadowDepthCube())
+		{
+			FD3D12Resource* const Res = TextureCubeRHI->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+			{
+				const uint32_t SubIdx = TextureCubeRHI->GetSubresourceIndex(IndexView, IndexMip);
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_DEPTH_WRITE, SubIdx, false);
+			}
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetFaceDSV(IndexView);
+			if (DSV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			{
+				CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
+				CurrentStateCache->SetRenderTargetFormat(TextureCubeRHI);
+				++otherWorkCounter;
+			}
+			return;
+		}
+
+		if (TextureCubeRHI->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			FD3D12Resource* const Res = TextureCubeRHI->GetResource();
 			if (Res && Res->RequiresResourceStateTracking())
@@ -190,7 +226,28 @@ namespace RenderCore
 		if (!CurrentStateCache)
 			return;
 		Assert(CommandListHandle.GraphicsCommandList());
-		if (TextureCube && TextureCube->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		if (!TextureCube)
+			return;
+
+		if (TextureCube->IsShadowDepthCube())
+		{
+			FD3D12Resource* const Res = TextureCube->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+			{
+				const uint32_t SubIdx = TextureCube->GetSubresourceIndex(IndexView, IndexMip);
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_DEPTH_WRITE, SubIdx, false);
+			}
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCube->GetFaceDSV(IndexView);
+			if (DSV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+			{
+				CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
+				CurrentStateCache->SetRenderTargetFormat(TextureCube);
+				++otherWorkCounter;
+			}
+			return;
+		}
+
+		if (TextureCube->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			FD3D12Resource* const Res = TextureCube->GetResource();
 			if (Res && Res->RequiresResourceStateTracking())
@@ -268,6 +325,23 @@ namespace RenderCore
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
 		if (!TextureCubeRHI)
 			return;
+
+		if (TextureCubeRHI->IsShadowDepthCube())
+		{
+			FD3D12Resource* const Res = TextureCubeRHI->GetResource();
+			if (Res && Res->RequiresResourceStateTracking())
+			{
+				const uint32_t SubresourceIndex = TextureCubeRHI->GetSubresourceIndex(Face, Mip);
+				TransitionSubResource(Res, D3D12_RESOURCE_STATE_DEPTH_WRITE, SubresourceIndex, false);
+			}
+			CommandListHandle.FlushResourceBarriers();
+			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetFaceDSV(Face);
+			if (DSV.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+				CommandListHandle.GraphicsCommandList()->ClearDepthStencilView(DSV, D3D12_CLEAR_FLAG_DEPTH, Depth, Stencil, 0, nullptr);
+			++numClears;
+			return;
+		}
+
 		if (TextureCubeRHI->GetRTV(Face, Mip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			// Only transition the specific face/mip we are clearing.
@@ -291,16 +365,20 @@ namespace RenderCore
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
 		if (!RenderTargetRHI)
 			return;
-		if (FD3D12Resource* const Res = RenderTargetRHI->GetResource())
+		const bool bHasRtv = RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		if (bHasRtv)
 		{
-			if (Res->RequiresResourceStateTracking())
-				TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
+			if (FD3D12Resource* const Res = RenderTargetRHI->GetResource())
+			{
+				if (Res->RequiresResourceStateTracking())
+					TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
+			}
 		}
 		if (RenderTargetRHI->GetDepthResource())
 			TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		CommandListHandle.FlushResourceBarriers();
 
-		if (RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+		if (bHasRtv)
 		{
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = RenderTargetRHI->GetRTV();
 			CommandListHandle.GraphicsCommandList()->ClearRenderTargetView(RTV, &Color.R, 0, nullptr);

@@ -6,6 +6,7 @@
 #include "core/logger.h"
 #define STBI_FAILURE_USERMSG
 #include "tinygltf/stb_image.h"
+#include <vector>
 
 namespace RenderCore
 {
@@ -16,6 +17,7 @@ namespace RenderCore
 		win32::com_ptr<ID3D11Texture2D> DepthTex;
 		win32::com_ptr<ID3D11ShaderResourceView> TexSRV;
 		win32::com_ptr<ID3D11DepthStencilView> TexDSV;
+		std::vector<win32::com_ptr<ID3D11DepthStencilView>> CubeFaceDSVs;
 
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> TexRTVS;
 
@@ -366,22 +368,36 @@ namespace RenderCore
 			D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
 			memset(&DSVDesc, 0, sizeof(DSVDesc));
 			DSVDesc.Format = FindDepthResourceDXGIFormat(PlatformResourceFormat);
-			if (d->IsMultisampled)
+			if (bCubeTexture && TextureDesc.ArraySize == 6u && !d->IsMultisampled)
+			{
+				d->CubeFaceDSVs.resize(6);
+				for (uint32_t face = 0; face < 6u; ++face)
+				{
+					DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
+					DSVDesc.Texture2DArray.MipSlice = 0;
+					DSVDesc.Texture2DArray.FirstArraySlice = face;
+					DSVDesc.Texture2DArray.ArraySize = 1;
+					hr = Device->CreateDepthStencilView(d->Tex2D.get(), &DSVDesc, d->CubeFaceDSVs[face].get_init_ref());
+					if (FAILED(hr))
+						return false;
+				}
+			}
+			else if (d->IsMultisampled)
 			{
 				DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
+				DSVDesc.Texture2D.MipSlice = 0;
+				hr = Device->CreateDepthStencilView(d->Tex2D.get(), &DSVDesc, d->TexDSV.get_init_ref());
+				if (FAILED(hr))
+					return false;
 			}
 			else
 			{
 				DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+				DSVDesc.Texture2D.MipSlice = 0;
+				hr = Device->CreateDepthStencilView(d->Tex2D.get(), &DSVDesc, d->TexDSV.get_init_ref());
+				if (FAILED(hr))
+					return false;
 			}
-
-			DSVDesc.Texture2D.MipSlice = 0;
-			hr = Device->CreateDepthStencilView(d->Tex2D.get(), &DSVDesc, d->TexDSV.get_init_ref());
-			if (FAILED(hr))
-			{
-				return false;
-			}
-
 		}
 
 		return true;
@@ -513,9 +529,17 @@ namespace RenderCore
 	ID3D11DepthStencilView* D3D11Texture2D::GetDSV() const
 	{
 		C_P(D3D11Texture2D);
+		if (!d->CubeFaceDSVs.empty())
+			return d->CubeFaceDSVs[0].get();
 		return d->TexDSV.get();
 	}
 
-
+	ID3D11DepthStencilView* D3D11Texture2D::GetCubeFaceDSV(uint32_t FaceIndex) const
+	{
+		C_P(D3D11Texture2D);
+		if (FaceIndex >= d->CubeFaceDSVs.size())
+			return nullptr;
+		return d->CubeFaceDSVs[FaceIndex].get();
+	}
 
 }

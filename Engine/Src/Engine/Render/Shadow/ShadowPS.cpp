@@ -166,10 +166,12 @@ namespace Engine
 		Init.PixelShader = d->PixelShader;
 		Init.VertexShader = d->VertexShader;
 		Init.BlendState = RHICachedStates::BlendOnAlphaOff;
-		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
+		Init.DepthStencilState = RHICachedStates::DepthStateEnable;
 		const auto cubeMat = d->Mesh ? d->Mesh->GetMaterial() : nullptr;
+		const bool bDoubleSided = cubeMat && cubeMat->IsDoubleSided();
 		Init.RasterizerState =
-			(cubeMat && cubeMat->IsDoubleSided()) ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
+			(faceLight.Type == LightType_Spot || faceLight.Type == LightType_Point || bDoubleSided) ? RHICachedStates::RasterizerStateCullNone
+																								   : RHICachedStates::RasterizerStateCullBack;
 
 		RHIContext.SetRenderTarget(cube, faceIndex, 0);
 		RHIContext.RHISetGraphicsPipelineState(Init);

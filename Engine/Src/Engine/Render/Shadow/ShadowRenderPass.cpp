@@ -14,6 +14,35 @@
 
 namespace Engine
 {
+	namespace
+	{
+		/** CSM only when the view frustum is "deep" in absolute terms — not a tight turntable clip. */
+		constexpr float kMinViewDepthSpanForCSM = 170.f;
+		/** Subject world AABB diagonal (same merge as FShadowSceneBounds::BuildMergedShadowSubjectWorldAabb). */
+		constexpr float kMinShadowSubjectWorldDiagonalForCSM = 28.f;
+		/**
+		 * Default cameras use a huge Far (e.g. 500–5000) while Near ~0.1 → Far−Near is almost always >> 170, so the depth test alone
+		 * never turns CSM off for "small geometry" scenes. Require the shadow subject to occupy a non-trivial fraction of the view
+		 * depth span (world-units ratio) before enabling CSM; tiny props in a huge frustum stay on a single ortho tile (fewer atlas/PCSS issues).
+		 */
+		constexpr float kMinSubjectDiagOverViewDepthForCSM = 0.02f;
+
+		void ApplyDirectionalCascadeAutoOnProjectorScene(FShadowProjectorSceneData& Scene, const FShadowViewData& ViewData)
+		{
+			const float viewDepthSpan = Scene.CameraFarZ - Scene.CameraNearZ;
+			float subjectDiag = 0.f;
+			if (ViewData.bSubjectValid)
+			{
+				const math::Vector3 d = ViewData.SubjectWorldAabb.GetMaxPoint() - ViewData.SubjectWorldAabb.GetMinPoint();
+				subjectDiag = d.GetLength();
+			}
+			const float depthSpanSafe = (viewDepthSpan > 1e-3f) ? viewDepthSpan : 1.f;
+			const float subjectOverDepth = subjectDiag / depthSpanSafe;
+			Scene.bHasCascadeCameraParams = (viewDepthSpan >= kMinViewDepthSpanForCSM) && (subjectDiag >= kMinShadowSubjectWorldDiagonalForCSM)
+											&& (subjectOverDepth >= kMinSubjectDiagOverViewDepthForCSM);
+		}
+	} // namespace
+
 	struct ShadowRenderPassPrivate
 	{
 		RenderCore::DynamicRHI* RHI;
@@ -61,14 +90,15 @@ namespace Engine
 		C_P(ShadowRenderPass);
 		const int32_t SHADOW_WIDTH = FDirectionalShadowDepthPass::kCascadeShadowResolution;
 		const int32_t SHADOW_HEIGHT = FDirectionalShadowDepthPass::kCascadeShadowResolution * FDirectionalShadowFrustumFitter::kCascadeCount;
-		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, true);
+		// D32 depth + comparison sampling (hardware PCF) for directional atlas; no R32 color target.
+		d->DepthRenderBuffer = d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, SHADOW_WIDTH, SHADOW_HEIGHT, 1, false, false);
 		if (!d->PointShadowCube)
-			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_R32_FLOAT, FPointShadowCubePass::kCubeFaceResolution,
+			d->PointShadowCube = d->RHI->RHICreateTextureCube(RenderCore::EPixelFormat::PF_ShadowDepth, FPointShadowCubePass::kCubeFaceResolution,
 															 FPointShadowCubePass::kCubeFaceResolution, 1, false);
 		if (!d->SpotShadowBuffer)
 			d->SpotShadowBuffer =
-				d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_R32_FLOAT, FSpotShadowDepthPass::kSpotShadowTextureSize,
-											  FSpotShadowDepthPass::kSpotShadowTextureSize, 1, false, true);
+				d->RHI->RHICreateRenderTarget(RenderCore::EPixelFormat::PF_ShadowDepth, FSpotShadowDepthPass::kSpotShadowTextureSize,
+											  FSpotShadowDepthPass::kSpotShadowTextureSize, 1, false, false);
 	}
 
 	void ShadowRenderPass::InvalidateCachedMainLightForShading()
@@ -125,7 +155,8 @@ namespace Engine
 		if (d->MeshDrawer)
 			d->MeshDrawer->PruneStaleMeshShadowPasses(ShadowCasterMeshes, FrustumBoundsMeshes);
 
-		const FShadowViewData viewData = FShadowViewData::Build(ShadowCasterMeshes, FrustumBoundsMeshes, Lights, ShadowProjectorScene);
+		FShadowViewData viewData = FShadowViewData::Build(ShadowCasterMeshes, FrustumBoundsMeshes, Lights, ShadowProjectorScene);
+		ApplyDirectionalCascadeAutoOnProjectorScene(viewData.ProjectorScene, viewData);
 
 		if (viewData.LightSlots.DirectionalLightListIndex >= 0 && viewData.bSubjectValid && d->MeshDrawer)
 		{

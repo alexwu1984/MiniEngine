@@ -10,6 +10,8 @@
 #include "D3D12/D3D12UniformBuffer.h"
 #include "D3D12/D3D12ReourceTraits.h"
 #include "D3D12/D3D12RenderTarget.h"
+#include "D3D12/D3D12FormatUtil.h"
+#include "D3D12/D3D12TextureCube.h"
 #include "core/logger.h"
 #include <atomic>
 #include <cstring>
@@ -439,7 +441,7 @@ namespace RenderCore
 		PSDesc.NumRenderTargets = (uint32_t)Targets.size();
 		D3D12Texture2D* DepthTex = Depth ? RHIResourceCast(Depth.get()) : nullptr;
 		const bool bDepthBindable = DepthTex && DepthTex->GetDSV().ptr != 0u;
-		PSDesc.DSVFormat = bDepthBindable ? DepthTex->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
+		PSDesc.DSVFormat = bDepthBindable ? GetPSODepthStencilFormatFromResourceFormat(DepthTex->GetPlatformResourceFormat()) : DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
 
@@ -455,26 +457,24 @@ namespace RenderCore
 		const uint32_t OldNum = PSDesc.NumRenderTargets;
 		const DXGI_FORMAT OldDsv = PSDesc.DSVFormat;
 
-		D3D12Texture2D* Tex2D = (RenderTarget && RenderTarget->GetTex()) ? RHIResourceCast(RenderTarget->GetTex().get()) : nullptr;
-		if (!Tex2D)
+		const bool bHasColorTex = RenderTarget && RenderTarget->GetTex() && RenderTarget->GetMipRTV(0).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+		if (bHasColorTex)
 		{
-			static bool sLoggedOnce = false;
-			if (!sLoggedOnce)
-			{
-				sLoggedOnce = true;
-				core::LOG(core::log_err, L"[D3D12] SetRenderTargetFormat: null render target (forcing DXGI_FORMAT_UNKNOWN)");
-			}
-			PSDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+			D3D12Texture2D* Tex2D = RHIResourceCast(RenderTarget->GetTex().get());
+			PSDesc.RTVFormats[0] = Tex2D ? Tex2D->GetPlatformResourceFormat() : DXGI_FORMAT_UNKNOWN;
+			for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
+				PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+			PSDesc.NumRenderTargets = 1;
 		}
 		else
 		{
-			PSDesc.RTVFormats[0] = Tex2D->GetPlatformResourceFormat();
+			for (uint32_t i = 0; i < MaxSimultaneousRenderTargets; ++i)
+				PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+			PSDesc.NumRenderTargets = 0;
 		}
-		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
-			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
-		PSDesc.NumRenderTargets = 1;
-		if (RenderTarget->GetDepthResource() && RenderTarget->GetDSV().ptr != 0u)
-			PSDesc.DSVFormat = RenderTarget->GetDepthResource()->GetDesc().Format;
+
+		if (RenderTarget && RenderTarget->GetDepthResource() && RenderTarget->GetDSV().ptr != 0u)
+			PSDesc.DSVFormat = GetPSODepthStencilFormatFromResourceFormat(RenderTarget->GetDepthResource()->GetDesc().Format);
 		else
 			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		PSDesc.SampleDesc.Count = 1;
@@ -492,14 +492,27 @@ namespace RenderCore
 		const uint32_t OldNum = PSDesc.NumRenderTargets;
 		const DXGI_FORMAT OldDsv = PSDesc.DSVFormat;
 
-		PSDesc.RTVFormats[0] = RenderTarget->GetPlatformResourceFormat();
-		for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
-			PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
-		PSDesc.NumRenderTargets = 1;
-		if (RenderTarget->GetDepthResource() && RenderTarget->GetDSV().ptr != 0u)
-			PSDesc.DSVFormat = RenderTarget->GetDepthResource()->GetDesc().Format;
+		if (RenderTarget->IsShadowDepthCube())
+		{
+			for (uint32_t i = 0; i < MaxSimultaneousRenderTargets; ++i)
+				PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+			PSDesc.NumRenderTargets = 0;
+			if (RenderTarget->GetDepthResource())
+				PSDesc.DSVFormat = GetPSODepthStencilFormatFromResourceFormat(RenderTarget->GetDepthResource()->GetDesc().Format);
+			else
+				PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		}
 		else
-			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		{
+			PSDesc.RTVFormats[0] = RenderTarget->GetPlatformResourceFormat();
+			for (uint32_t i = 1; i < MaxSimultaneousRenderTargets; ++i)
+				PSDesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+			PSDesc.NumRenderTargets = 1;
+			if (RenderTarget->GetDepthResource() && RenderTarget->GetDSV().ptr != 0u)
+				PSDesc.DSVFormat = GetPSODepthStencilFormatFromResourceFormat(RenderTarget->GetDepthResource()->GetDesc().Format);
+			else
+				PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		}
 		PSDesc.SampleDesc.Count = 1;
 		PSDesc.SampleDesc.Quality = 0;
 

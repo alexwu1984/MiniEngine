@@ -21,6 +21,7 @@ Texture2D ShadowMap : register(t8);
 TextureCube PointShadowCube : register(t10);
 Texture2D GroundEnvLatLong : register(t12);
 SamplerState SampleShadow : register(s1);
+SamplerComparisonState ShadowCompareSampler : register(s2);
 
 cbuffer cbPointShadow : register(b4)
 {

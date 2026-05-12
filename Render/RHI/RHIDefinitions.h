@@ -318,7 +318,8 @@ namespace RenderCore
 	enum ESamplerCompareFunction
 	{
 		SCF_Never,
-		SCF_Less
+		SCF_Less,
+		SCF_LessEqual
 	};
 
 	enum ERasterizerFillMode

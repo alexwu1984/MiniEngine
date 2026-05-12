@@ -1,5 +1,6 @@
 ﻿#include "D3D11/D3D11TextureCube.h"
 #include "D3D11/D3D11Texture2D.h"
+#include "RHI/RHIDefinitions.h"
 
 namespace RenderCore
 {
@@ -27,12 +28,20 @@ namespace RenderCore
 	bool D3D11TextureCube::CreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
 	{
 		C_P(D3D11TextureCube);
-		bool Ret =  d->Tex2D->CreateTexture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_GenerateMipCapable, SizeX, SizeY, 6,true, NumMips,nullptr,0);
+		if (Format == EPixelFormat::PF_ShadowDepth)
+		{
+			const int32_t flags = TexCreate_DepthStencilTargetable | TexCreate_ShaderResource;
+			if (!d->Tex2D->CreateTexture2D(Format, flags, SizeX, SizeY, 6, true, NumMips, nullptr, 0))
+				return false;
+			d->DepthTex = d->Tex2D;
+			return true;
+		}
+		bool Ret = d->Tex2D->CreateTexture2D(Format, TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_GenerateMipCapable, SizeX, SizeY, 6, true, NumMips, nullptr, 0);
 		if (CreateDepth)
 		{
 			Ret &= d->DepthTex->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY);
 		}
-		
+
 		return Ret;
 	}
 

@@ -22,7 +22,8 @@ Usage:
   python Tools/build_precompiled_shaders.py ... --force   # rebuild everything
   python Tools/build_precompiled_shaders.py ... --verbose # print each compile command
   python Tools/build_precompiled_shaders.py ... --no-progress  # only final summary line
-  python Tools/build_precompiled_shaders.py ... -j 8       # parallel compile (0 = auto)
+  python Tools/build_precompiled_shaders.py ... -j 16      # parallel compile (0 = auto from CPU / env)
+  Env MINIENGINE_PRECOMPILE_JOBS: when -j 0, if set to a positive integer, used as worker count (else auto).
   Default tier: 1 (OPT_LEVEL0) unless --compile-tier is set. CMake passes Debug→tier 2, non-Debug→tier 1. --full-opt = tier 0.
   --precompile-config Debug|Release selects Built/.precompile_fxc_tier.<name> (match VS bucket; non-Debug builds use Release).
   Timings: each rebuilt line shows subprocess seconds; final line includes sum of subprocess times and rebuild wall clock.
@@ -152,7 +153,20 @@ class _CompileJob:
 
 
 def _default_parallel_jobs() -> int:
-    return min(8, max(1, os.cpu_count() or 4))
+    """Parallel FXC processes (one manifest entry each). Cap avoids extreme oversubscription on huge CPU counts."""
+    cpu = os.cpu_count() or 4
+    return max(1, min(64, cpu))
+
+
+def _effective_parallel_jobs(cli_jobs: int) -> int:
+    if cli_jobs > 0:
+        return cli_jobs
+    env = os.environ.get("MINIENGINE_PRECOMPILE_JOBS", "").strip()
+    if env.isdigit():
+        n = int(env)
+        if n > 0:
+            return max(1, min(256, n))
+    return _default_parallel_jobs()
 
 
 def _run_compile_job(job: _CompileJob, print_lock: threading.Lock, progress: list[int], show_progress: bool) -> tuple[bool, float]:
@@ -203,7 +217,7 @@ def main() -> int:
         type=int,
         default=0,
         metavar="N",
-        help="Parallel compile threads (default 0 = auto, min(CPU,8)). Use 1 to force sequential.",
+        help="Parallel compile workers (default 0 = auto: env MINIENGINE_PRECOMPILE_JOBS or min(CPU,64)). Use 1 for sequential.",
     )
     ap.add_argument(
         "--full-opt",
@@ -274,7 +288,7 @@ def main() -> int:
     skipped = 0
     total = len(shaders)
     show_progress = not args.no_progress
-    jobs = args.jobs if args.jobs > 0 else _default_parallel_jobs()
+    jobs = _effective_parallel_jobs(args.jobs)
 
     if show_progress and total:
         print(f"[precompile] manifest: {total} shader entries", flush=True)

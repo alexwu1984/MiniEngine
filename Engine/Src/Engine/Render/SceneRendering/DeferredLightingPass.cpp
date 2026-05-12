@@ -354,6 +354,7 @@ namespace Engine
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
+		RHIContext.RHISetShaderSampler(SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 
 		RHIContext.RHISetShaderTexture(SF_Pixel, 0, SceneColorPreLighting);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 1, SceneTextures->GetNormalBuffer());
@@ -457,6 +458,7 @@ namespace Engine
 
 		RHIContext.RHISetShaderSampler(SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
+		RHIContext.RHISetShaderSampler(SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 
 		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
 		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;

@@ -5,6 +5,7 @@
 #include "RHIPrivate/D3D11StateCachePrivate.h"
 #include "D3D11/D3D11RHI.h"
 #include "D3D11/D3D11ReourceTraits.h"
+#include "D3D11/D3D11Texture2D.h"
 #include "core/logger.h"
 #include "win/high_precision_tick.h"
 
@@ -359,9 +360,21 @@ namespace RenderCore
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
 		if (RenderTargetRHI)
 		{
-			auto&  RTVS = RenderTargetRHI->GetRTVS();
-			auto RTV = RTVS[IndexMip][0];
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RTV, RenderTargetRHI->GetDSV());
+			auto& RTVS = RenderTargetRHI->GetRTVS();
+			const auto mipIt = RTVS.find(static_cast<uint32_t>(IndexMip));
+			if (mipIt != RTVS.end() && !mipIt->second.empty() && mipIt->second[0])
+			{
+				auto RTV = mipIt->second[0];
+				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RTV, RenderTargetRHI->GetDSV());
+			}
+			else if (RenderTargetRHI->GetDSV())
+			{
+				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, RenderTargetRHI->GetDSV());
+			}
+			else
+			{
+				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+			}
 		}
 		else
 		{
@@ -375,7 +388,25 @@ namespace RenderCore
 		if (TextureCubeRHI)
 		{
 			auto CubeRRVS = TextureCubeRHI->GetRTVS();
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &CubeRRVS[IndexMip][IndexView], TextureCubeRHI->GetDepthTex()->GetDSV());
+			ID3D11DepthStencilView* dsv = nullptr;
+			if (const auto dt = TextureCubeRHI->GetDepthTex())
+			{
+				if (ID3D11DepthStencilView* faceDsv = dt->GetCubeFaceDSV(static_cast<uint32_t>(IndexView)))
+					dsv = faceDsv;
+				else
+					dsv = dt->GetDSV();
+			}
+			auto mipIt = CubeRRVS.find(static_cast<uint32_t>(IndexMip));
+			const bool hasRtv = mipIt != CubeRRVS.end() && IndexView >= 0 && static_cast<size_t>(IndexView) < mipIt->second.size() && mipIt->second[static_cast<size_t>(IndexView)];
+			if (hasRtv)
+			{
+				ID3D11RenderTargetView* rtv = mipIt->second[static_cast<size_t>(IndexView)].get();
+				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &rtv, dsv);
+			}
+			else if (dsv)
+				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, dsv);
+			else
+				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
 		}
 		else
 		{
@@ -405,12 +436,18 @@ namespace RenderCore
 
 		if (TextureCubeRHI)
 		{
-			auto& CubeRRVS = TextureCubeRHI->GetRTVS();
-			auto& RTVs = CubeRRVS[Mip];
-			if (Mip < RTVs.size())
+			if (const auto dt = TextureCubeRHI->GetDepthTex())
 			{
-				DeviceContex->ClearRenderTargetView(RTVs[Face].get(), &Color.R);
+				if (ID3D11DepthStencilView* faceDsv = dt->GetCubeFaceDSV(static_cast<uint32_t>(Face)))
+				{
+					DeviceContex->ClearDepthStencilView(faceDsv, D3D11_CLEAR_DEPTH, Depth, Stencil);
+					return;
+				}
 			}
+			auto& CubeRRVS = TextureCubeRHI->GetRTVS();
+			const auto mipIt = CubeRRVS.find(static_cast<uint32_t>(Mip));
+			if (mipIt != CubeRRVS.end() && Face >= 0 && static_cast<size_t>(Face) < mipIt->second.size() && mipIt->second[static_cast<size_t>(Face)])
+				DeviceContex->ClearRenderTargetView(mipIt->second[static_cast<size_t>(Face)].get(), &Color.R);
 
 		}
 	}

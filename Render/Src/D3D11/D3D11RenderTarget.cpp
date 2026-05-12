@@ -36,6 +36,16 @@ namespace RenderCore
 	{
 		C_P(D3D11RenderTarget);
 		d->Size = core::vec2i(SizeX, SizeY);
+		// Single-surface depth (R32_TYPELESS + D32 DSV + R32 SRV) for directional shadow atlas — no color RT.
+		if (Format == EPixelFormat::PF_ShadowDepth)
+		{
+			d->Tex2D.reset();
+			d->DepthTex = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
+			const int32_t depthFlags = ETextureCreateFlags::TexCreate_DepthStencilTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
+			if (IsMultiSampled)
+				return false;
+			return d->DepthTex->CreateTexture2D(EPixelFormat::PF_ShadowDepth, depthFlags, SizeX, SizeY, 1, NumMips);
+		}
 		d->Tex2D = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
 		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
 		//if (NumMips > 1)
@@ -74,7 +84,10 @@ namespace RenderCore
 	void D3D11RenderTarget::Bind()
 	{
 		C_P(D3D11RenderTarget);
-		d->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(d->Tex2D,d->DepthTex);
+		if (d->Tex2D)
+			d->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(d->Tex2D, d->DepthTex);
+		else if (d->DepthTex)
+			d->D3D11RHI->GetDefaultCommandContext()->SetRenderTarget(nullptr, d->DepthTex);
 	}
 
 	void D3D11RenderTarget::UnBind()
@@ -86,11 +99,11 @@ namespace RenderCore
 	ID3D11Texture2D* D3D11RenderTarget::GetNativeTex() const
 	{
 		C_P(D3D11RenderTarget);
-		if (!d->Tex2D)
-		{
-			return nullptr;
-		}
-		return d->Tex2D->GetNativeTex();
+		if (d->Tex2D)
+			return d->Tex2D->GetNativeTex();
+		if (d->DepthTex)
+			return d->DepthTex->GetNativeTex();
+		return nullptr;
 	}
 
 	ID3D11RenderTargetView* D3D11RenderTarget::GetRTV() const
@@ -106,11 +119,11 @@ namespace RenderCore
 	ID3D11ShaderResourceView* D3D11RenderTarget::GetSRV() const
 	{
 		C_P(const D3D11RenderTarget);
-		if (!d->Tex2D)
-		{
-			return nullptr;
-		}
-		return d->Tex2D->GetSRV();
+		if (d->Tex2D)
+			return d->Tex2D->GetSRV();
+		if (d->DepthTex)
+			return d->DepthTex->GetSRV();
+		return nullptr;
 	}
 
 	ID3D11DepthStencilView* D3D11RenderTarget::GetDSV() const
@@ -126,19 +139,27 @@ namespace RenderCore
 	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>> D3D11RenderTarget::GetRTVS() const
 	{
 		C_P(const D3D11RenderTarget);
+		static const std::map<uint32_t, std::vector<win32::com_ptr<ID3D11RenderTargetView>>> s_empty;
+		if (!d->Tex2D)
+			return s_empty;
 		return d->Tex2D->GetRTVS();
 	}
 
 	std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& D3D11RenderTarget::GetRTVS()
 	{
-		C_P(const D3D11RenderTarget);
+		C_P(D3D11RenderTarget);
+		static std::map<uint32_t, std::vector<win32::com_ptr<ID3D11RenderTargetView>>> s_emptyMutable;
+		if (!d->Tex2D)
+			return s_emptyMutable;
 		return d->Tex2D->GetRTVS();
 	}
 
 	std::shared_ptr< RenderCore::RHITexture2D> D3D11RenderTarget::GetTex() const
 	{
 		C_P(const D3D11RenderTarget);
-		return d->Tex2D;
+		if (d->Tex2D)
+			return d->Tex2D;
+		return d->DepthTex;
 	}
 
 }

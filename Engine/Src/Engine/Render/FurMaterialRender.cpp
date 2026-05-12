@@ -188,7 +188,7 @@ namespace Engine
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
-		BindDrawUniformBuffers(RHIContext);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, GetPBRMeshMaterial()->GetBaseColorTexture());

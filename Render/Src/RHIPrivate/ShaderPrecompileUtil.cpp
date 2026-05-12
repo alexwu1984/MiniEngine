@@ -210,8 +210,7 @@ namespace RenderCore
 		outBytecode.clear();
 		if (core::CommandLine::Get().GetSwitch("shaderjit"))
 			return false;
-		// Vertex shaders are always JIT; offline .cso tier matches Built/.precompile_fxc_tier (see Tools/build_precompiled_shaders.py).
-		// Non-zero JIT flags (e.g. shaderdebug) + optimized PS -> VS/PS I/O mismatch at CreateGraphicsPipelineState.
+		// Non-zero FXC flags (e.g. shaderdebug=1 in Debug) force full JIT so offline PS bytecode matches VS compile flags.
 		if (ShaderUtil::GetD3DCompileFlagsForBuild() != 0)
 			return false;
 

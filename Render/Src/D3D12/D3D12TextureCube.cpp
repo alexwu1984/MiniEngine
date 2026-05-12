@@ -3,6 +3,8 @@
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12Resource.h"
+#include "D3D12/D3D12Util.h"
+#include "RHI/RHIDefinitions.h"
 
 namespace RenderCore
 {
@@ -19,9 +21,12 @@ namespace RenderCore
 		FD3D12ResourceAllocator::FDescriptorAllocation RtvAlloc{};
 		FD3D12ResourceAllocator::FDescriptorAllocation CubeSrvAlloc{};
 		FD3D12ResourceAllocator::FDescriptorAllocation FaceMipSrvAlloc{};
+		FD3D12ResourceAllocator::FDescriptorAllocation DsvFaceAlloc{};
 
 		D3D12_CPU_DESCRIPTOR_HANDLE RTVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE CubeSRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL }, FaceMipSRVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		uint32_t DsvDescriptorSize = 0;
+		bool bShadowDepthCube = false;
 
 		~D3D12TextureCubePrivate()
 		{
@@ -46,6 +51,7 @@ namespace RenderCore
 			std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 			if (Device)
 			{
+				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, d_ptr->DsvFaceAlloc);
 				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, d_ptr->RtvAlloc);
 				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->CubeSrvAlloc);
 				Device->FreeDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, d_ptr->FaceMipSrvAlloc);
@@ -57,6 +63,75 @@ namespace RenderCore
 	bool D3D12TextureCube::CreateTextureCube(EPixelFormat InFormat, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth)
 	{
 		C_P(D3D12TextureCube);
+		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
+		if (!Device)
+			return false;
+
+		if (InFormat == EPixelFormat::PF_ShadowDepth)
+		{
+			d->bShadowDepthCube = true;
+			d->PixFormat = InFormat;
+			d->Size.cx = SizeX;
+			d->Size.cy = SizeY;
+			d->NumMipMaps = (NumMips == 0) ? 1u : NumMips;
+			d->InFlags = TexCreate_DepthStencilTargetable | TexCreate_ShaderResource;
+			d->PlatformResourceFormat = DXGI_FORMAT_R32_TYPELESS;
+			D3D12_RESOURCE_FLAGS Flags = CombineResourceFlags(d->InFlags);
+			D3D12_RESOURCE_DESC ResDesc = DescribeTex2D(SizeX, SizeY, 6, d->NumMipMaps, d->PlatformResourceFormat, Flags);
+			ResDesc.SampleDesc.Count = 1;
+			ResDesc.SampleDesc.Quality = 0;
+
+			CD3DX12_HEAP_PROPERTIES HeapProps(D3D12_HEAP_TYPE_DEFAULT);
+			D3D12_CLEAR_VALUE ClearValue = {};
+			ClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+			ClearValue.DepthStencil.Depth = 1.0f;
+			ClearValue.DepthStencil.Stencil = 0;
+
+			static uint32_t gShadowCubeCounter = 0;
+			std::wstring Name = core::formatw("W:", SizeX, "_H:", SizeY, "_ShadowCube_", ++gShadowCubeCounter);
+			HRESULT hr = GetParentAdapter()->CreateCommittedResource(ResDesc, HeapProps, D3D12_RESOURCE_STATE_COMMON, &ClearValue, &d->Resource, Name.c_str());
+			if (FAILED(hr))
+				return false;
+
+			ID3D12Device* D3DDevice = Device->GetDevice();
+			Assert(D3DDevice);
+			d->DsvDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+			d->DsvFaceAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 6);
+			if (!d->DsvFaceAlloc.IsValid())
+				return false;
+
+			D3D12_CPU_DESCRIPTOR_HANDLE CurDsv = d->DsvFaceAlloc.Cpu;
+			for (uint32_t face = 0; face < 6u; ++face)
+			{
+				D3D12_DEPTH_STENCIL_VIEW_DESC DsvDesc = {};
+				DsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+				DsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+				DsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+				DsvDesc.Texture2DArray.MipSlice = 0;
+				DsvDesc.Texture2DArray.FirstArraySlice = face;
+				DsvDesc.Texture2DArray.ArraySize = 1;
+				D3DDevice->CreateDepthStencilView(d->Resource->GetResource(), &DsvDesc, CurDsv);
+				CurDsv.ptr += d->DsvDescriptorSize;
+			}
+
+			d->CubeSrvAlloc = Device->AllocateDescriptorBlock(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+			if (!d->CubeSrvAlloc.IsValid())
+				return false;
+			d->CubeSRVHandle = d->CubeSrvAlloc.Cpu;
+			D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
+			SrvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+			SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+			SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			SrvDesc.TextureCube.MostDetailedMip = 0;
+			SrvDesc.TextureCube.MipLevels = d->NumMipMaps;
+			SrvDesc.TextureCube.ResourceMinLODClamp = 0.f;
+			D3DDevice->CreateShaderResourceView(d->Resource->GetResource(), &SrvDesc, d->CubeSRVHandle);
+
+			return true;
+		}
+
+		d->bShadowDepthCube = false;
+		d->DsvDescriptorSize = 0;
 		d->Size.cx = SizeX;
 		d->Size.cy = SizeY;
 		d->PixFormat = InFormat;
@@ -84,9 +159,11 @@ namespace RenderCore
 		{
 			return false;
 		}
-		
+
 		if (CreateDepth)
 		{
+			if (!d->DepthTex)
+				d->DepthTex = std::make_shared<D3D12Texture2D>(GetParentAdapter());
 			if (!d->DepthTex->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, SizeX, SizeY))
 				return false;
 		}
@@ -107,6 +184,12 @@ namespace RenderCore
 		return d->NumMipMaps;
 	}
 
+	bool D3D12TextureCube::IsShadowDepthCube() const
+	{
+		C_P(const D3D12TextureCube);
+		return d->bShadowDepthCube;
+	}
+
 	DXGI_FORMAT D3D12TextureCube::GetPlatformResourceFormat() const
 	{
 		C_P(const D3D12TextureCube);
@@ -122,6 +205,8 @@ namespace RenderCore
 	FD3D12Resource* D3D12TextureCube::GetDepthResource() const
 	{
 		C_P(const D3D12TextureCube);
+		if (d->bShadowDepthCube)
+			return d->Resource;
 		if (!d->DepthTex)
 			return nullptr;
 		return d->DepthTex->GetResource();
@@ -130,6 +215,8 @@ namespace RenderCore
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetRTV(int Face, int Mip) const
 	{
 		C_P(D3D12TextureCube);
+		if (d->bShadowDepthCube)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		Assert(Device.get());
 		uint32_t RTVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -141,6 +228,8 @@ namespace RenderCore
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetCubeSRV(int Mip /*= -1*/) const
 	{
 		C_P(D3D12TextureCube);
+		if (d->bShadowDepthCube)
+			return d->CubeSRVHandle;
 		if (Mip < 0)
 		{
 			return d->CubeSRVHandle; // -1 means whole mipmap chain
@@ -157,6 +246,8 @@ namespace RenderCore
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetFaceMipSRV(int Face, int Mip) const
 	{
 		C_P(D3D12TextureCube);
+		if (d->bShadowDepthCube)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		Assert(Device.get());
 		uint32_t SRVDescriptorSize = Device->GetDescriptorSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -169,9 +260,21 @@ namespace RenderCore
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetDSV(void) const
 	{
 		C_P(const D3D12TextureCube);
+		if (d->bShadowDepthCube)
+			return d->DsvFaceAlloc.IsValid() ? d->DsvFaceAlloc.Cpu : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		if (!d->DepthTex)
 			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		return d->DepthTex->GetDSV();
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE D3D12TextureCube::GetFaceDSV(int FaceIndex) const
+	{
+		C_P(const D3D12TextureCube);
+		if (!d->bShadowDepthCube || !d->DsvFaceAlloc.IsValid() || FaceIndex < 0 || FaceIndex >= 6 || d->DsvDescriptorSize == 0)
+			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
+		D3D12_CPU_DESCRIPTOR_HANDLE h = d->DsvFaceAlloc.Cpu;
+		h.ptr += static_cast<uint64_t>(d->DsvDescriptorSize) * static_cast<uint32_t>(FaceIndex);
+		return h;
 	}
 
 	std::shared_ptr<FD3D12Device> D3D12TextureCube::GetParentDevice() const

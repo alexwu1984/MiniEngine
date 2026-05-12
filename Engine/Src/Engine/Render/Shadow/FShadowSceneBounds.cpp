@@ -3,6 +3,8 @@
 #include "Material/FurMaterial.h"
 #include "Material/MaterialBase.h"
 #include "Scene/SceneMeshComponent.h"
+#include <algorithm>
+#include <cfloat>
 
 namespace Engine
 {
@@ -87,5 +89,46 @@ namespace Engine
 				OutReceiverValid = true;
 			}
 		}
+	}
+
+	bool FShadowSceneBounds::TryMergeSubjectMeshesLightSpaceExtents(const std::vector<GltfSceneMeshInfo>* SubjectMeshList, const math::Matrix4x4& LightView,
+																	const math::AABB3* OptionalWorldClipAabb, math::Vector3& OutLsMin, math::Vector3& OutLsMax)
+	{
+		if (!SubjectMeshList || SubjectMeshList->empty())
+			return false;
+		math::Vector3 lsMin(FLT_MAX, FLT_MAX, FLT_MAX);
+		math::Vector3 lsMax(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		bool any = false;
+		for (const auto& MeshInfo : *SubjectMeshList)
+		{
+			for (const auto& Mesh : MeshInfo.Meshes)
+			{
+				if (!MeshWritesShadowMapDepth(Mesh))
+					continue;
+				math::AABB3 wbox = WorldMeshBoundsForShadowFrustum(Mesh, Mesh->GetBoundingBox().Transform(MeshInfo.WorldTransform));
+				if (OptionalWorldClipAabb)
+				{
+					math::AABB3 clipVol = *OptionalWorldClipAabb;
+					math::AABB3 clipped;
+					if (!wbox.GetIntersect(clipVol, clipped))
+						continue;
+					wbox = clipped;
+				}
+				math::Vector3 corners[8];
+				wbox.GetPoint(corners);
+				for (int i = 0; i < 8; ++i)
+				{
+					const math::Vector3 ls = LightView.TransformPosition(corners[i]);
+					lsMin = math::Vector3((std::min)(lsMin.x, ls.x), (std::min)(lsMin.y, ls.y), (std::min)(lsMin.z, ls.z));
+					lsMax = math::Vector3((std::max)(lsMax.x, ls.x), (std::max)(lsMax.y, ls.y), (std::max)(lsMax.z, ls.z));
+				}
+				any = true;
+			}
+		}
+		if (!any)
+			return false;
+		OutLsMin = lsMin;
+		OutLsMax = lsMax;
+		return true;
 	}
 }

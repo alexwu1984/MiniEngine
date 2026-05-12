@@ -71,7 +71,11 @@ def fur_material_permutation_axes() -> list[list[list[str]]]:
 
 
 def translucent_forward_permutation_axes() -> list[list[list[str]]]:
-    """TranslucentPBRForward PS: FilterMacrosTranslucentForwardPS leaves empty (D3D11) or RHI_BINDLESS (D3D12)."""
+    """TranslucentPBRForward PS: FilterMacrosTranslucentForwardPS leaves empty (D3D11) or RHI_BINDLESS (D3D12).
+
+    Profile must match runtime: D3D11 always ps_5_0; D3D12 uses ps_5_1 only when RHI_BINDLESS (see D3D12Shaders.cpp).
+    Precompiling the empty-macro variant as ps_5_1 would never hit TryLoadPrecompiledShaderBytecode and forces a very slow JIT.
+    """
     return [_defs(), _defs(("RHI_BINDLESS", "1"))]
 
 
@@ -87,11 +91,12 @@ def build_shaders_list() -> list[dict]:
     shaders.append({"file": "DeferredLighting.hlsl", "entry": "PS_DeferredLighting", "profile": "ps_5_0", "defines": []})
 
     for defs in translucent_forward_permutation_axes():
+        profile = "ps_5_1" if defs else "ps_5_0"
         shaders.append(
             {
                 "file": "TranslucentPBRForward.hlsl",
                 "entry": "MainPS_TranslucentForward",
-                "profile": "ps_5_1",
+                "profile": profile,
                 "defines": defs,
             }
         )

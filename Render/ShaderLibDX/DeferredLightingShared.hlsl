@@ -1,6 +1,6 @@
 // Shared split-sum IBL decode + hair strand analytic lights (directional/point/spot + cube shadow).
 // Include after: ShaderUtils, PerFrameStruct, HairShading (optional; guarded), IrradianceTex/BrdfLut/PrefilterCubeMap (t5–t7),
-// ShadowMap/PointShadowCube, GroundEnvLatLong (t12, optional split hemi), SampleLinear/SampleShadow, ShadowPCSS.hlsl, cbPointShadow.
+// ShadowMap/PointShadowCube, GroundEnvLatLong (t12, optional split hemi), SampleLinear/SampleShadow, ShadowCompareSampler (s2), ShadowPCSS.hlsl (or TranslucentShadowLite for translucent forward), cbPointShadow.
 //
 // Define MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR before including this file (e.g. TranslucentPBRForward) to drop HairShading + fur-only shadow/light helpers for faster PS compile.
 
@@ -161,7 +161,7 @@ float ComputeShadowHair(float4 ShadowCoord, float3 Normal, float coverageAlpha)
 				float bias = ShadowDepthBiasPCSS(Normal);
 				bias += 0.00115 + saturate(1.0 - coverageAlpha) * 0.00135;
 				const float fixedPcfRadius = 0.0020;
-				outVis = PCF_ShadowR32(uv, zR, fixedPcfRadius, bias);
+				outVis = PCF_ShadowHardware(uv, zR, fixedPcfRadius, bias);
 			}
 		}
 	}
@@ -180,6 +180,32 @@ int PointShadowCubeFaceIndex(float3 dirW)
 		return dirW.z > 0.0 ? 4 : 5;
 }
 
+float PointShadowCubeReceiverBias(float3 toFragDir)
+{
+	float3 d = normalize(toFragDir);
+	const float baseBias = 0.0021;
+	const float grazing = saturate(1.0 - abs(d.z));
+	return baseBias + 0.0014 * grazing;
+}
+
+float PCF_PointShadowCube(float3 dirW, float ref)
+{
+	float3 d0 = normalize(dirW);
+	float3 t = abs(d0.y) < 0.9 ? cross(d0, float3(0.0, 1.0, 0.0)) : cross(d0, float3(1.0, 0.0, 0.0));
+	t = normalize(t);
+	float3 b = normalize(cross(d0, t));
+	const float radius = 0.0035;
+	float lit = 0.0;
+	[unroll]
+	for (int i = 0; i < 16; ++i)
+	{
+		float2 o = kPoissonDisk16[i] * radius;
+		float3 sdir = normalize(d0 + t * o.x + b * o.y);
+		lit += PointShadowCube.SampleCmpLevelZero(ShadowCompareSampler, sdir, ref);
+	}
+	return lit * (1.0 / 16.0);
+}
+
 float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float lightRange)
 {
 	float outVis = 1.0;
@@ -193,9 +219,9 @@ float SamplePointShadowCubeVisibility(float3 worldPos, float3 lightPos, float li
 			int face = PointShadowCubeFaceIndex(dir);
 			float4 clip = mul(float4(worldPos, 1.0), PointFaceVP[face]);
 			float zR = clip.z / max(clip.w, 1e-6);
-			float zMap = PointShadowCube.SampleLevel(SampleShadow, dir, 0).r;
-			float bias = 0.002;
-			outVis = (zR <= zMap + bias) ? 1.0 : 0.0;
+			const float bias = PointShadowCubeReceiverBias(dir);
+			const float ref = zR - bias;
+			outVis = clamp(PCF_PointShadowCube(dir, ref), 0.0, 1.0);
 		}
 	}
 	return outVis;

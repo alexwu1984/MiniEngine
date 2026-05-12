@@ -1,7 +1,8 @@
 // Forward-shaded translucent PBR after deferred lighting (UE4-style separate translucency).
-// Bindings: material t0–t4 + cbPerMaterial b6 (PBRMaterialSampling); IBL + shadows t5–t8, t10–t11 + b4/b5/b7 (matches DeferredLightingPass::BindFurForwardSharedSRVs).
+// Bindings: material t0-t4 + cbPerMaterial b6 (PBRMaterialSampling); IBL + shadows t5-t8, t10-t11 + b4/b5/b7 (matches DeferredLightingPass::BindFurForwardSharedSRVs).
 //
 // Skip fur/hair-only helpers + HairShading include to shrink JIT compile (see MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR).
+// Directional shadow: TranslucentShadowLite.hlsl (fixed-tap PCF + CSM splits) instead of PCSS - faster compile, softer contact than PCSS.
 #define MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR 1
 
 #include "PBRMaterialSampling.hlsl"
@@ -14,8 +15,7 @@ TextureCube PointShadowCube : register(t10);
 Texture2D GroundEnvLatLong : register(t12);
 
 SamplerState SampleShadow : register(s1);
-
-#include "ShadowPCSS.hlsl"
+SamplerComparisonState ShadowCompareSampler : register(s2);
 
 cbuffer cbDirectionalShadowCSM : register(b7)
 {
@@ -26,7 +26,7 @@ cbuffer cbDirectionalShadowCSM : register(b7)
 	int3 _PadDirectionalCSM;
 };
 
-#include "DirectionalShadowCSM.hlsl"
+#include "TranslucentShadowLite.hlsl"
 
 cbuffer cbPointShadow : register(b4)
 {

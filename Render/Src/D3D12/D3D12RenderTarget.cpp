@@ -29,6 +29,15 @@ namespace RenderCore
 	{
 		C_P(D3D12RenderTarget);
 		d->Size = core::vec2i(SizeX, SizeY);
+		if (Format == EPixelFormat::PF_ShadowDepth)
+		{
+			d->Tex2D.reset();
+			d->DepthTex = std::make_shared<D3D12Texture2D>(GetParentAdapter());
+			const int32_t depthFlags = ETextureCreateFlags::TexCreate_DepthStencilTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
+			if (IsMultiSampled)
+				return false;
+			return d->DepthTex->CreateTexture2D(EPixelFormat::PF_ShadowDepth, depthFlags, SizeX, SizeY, 1, NumMips);
+		}
 		d->Tex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter());
 		int32_t Flags = ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource;
 
@@ -64,7 +73,10 @@ namespace RenderCore
 	void D3D12RenderTarget::Bind()
 	{
 		C_P(D3D12RenderTarget);
-		GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->SetRenderTarget(d->Tex2D, d->DepthTex);
+		if (d->Tex2D)
+			GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->SetRenderTarget(d->Tex2D, d->DepthTex);
+		else if (d->DepthTex)
+			GetParentAdapter()->GetDevice()->GetDefaultCommandContext()->SetRenderTarget(nullptr, d->DepthTex);
 	}
 
 	void D3D12RenderTarget::UnBind()
@@ -75,15 +87,19 @@ namespace RenderCore
 	std::shared_ptr<RHITexture2D> D3D12RenderTarget::GetTex() const
 	{
 		C_P(const D3D12RenderTarget);
-		return d->Tex2D;
+		if (d->Tex2D)
+			return d->Tex2D;
+		return d->DepthTex;
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetSRV(void) const
 	{
 		C_P(const D3D12RenderTarget);
-		if (!d->Tex2D)
-			return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-		return d->Tex2D->GetSRV();
+		if (d->Tex2D)
+			return d->Tex2D->GetSRV();
+		if (d->DepthTex)
+			return d->DepthTex->GetSRV();
+		return { D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE D3D12RenderTarget::GetRTV(void) const
@@ -113,9 +129,11 @@ namespace RenderCore
 	FD3D12Resource* D3D12RenderTarget::GetResource() const
 	{
 		C_P(const D3D12RenderTarget);
-		if (!d->Tex2D)
-			return nullptr;
-		return d->Tex2D->GetResource();
+		if (d->Tex2D)
+			return d->Tex2D->GetResource();
+		if (d->DepthTex)
+			return d->DepthTex->GetResource();
+		return nullptr;
 	}
 
 	FD3D12Resource* D3D12RenderTarget::GetDepthResource() const

@@ -20,6 +20,7 @@ namespace RenderCore
 		static std::shared_ptr<RHISamplerState> WarpLinerSampler;
 		static std::shared_ptr<RHISamplerState> MirrorLinerSampler;
 		static std::shared_ptr<RHISamplerState> ShadowSampler;
+		static std::shared_ptr<RHISamplerState> ShadowCompareSampler;
 
 		static std::shared_ptr<RHIRasterizerState> RasterizerStateCullNone;
 		static std::shared_ptr<RHIRasterizerState> RasterizerStateCullBack;

@@ -198,6 +198,7 @@ namespace Engine
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 
 		BindDrawUniformBuffers(RHIContext);
 	}
@@ -314,6 +315,7 @@ namespace Engine
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
+		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Vertex, 0, RHICachedStates::WarpLinerSampler);
 
 		BindDrawUniformBuffers(RHIContext);

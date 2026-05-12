@@ -7,6 +7,7 @@ namespace RenderCore
 	std::shared_ptr<RHISamplerState> RHICachedStates::BoderLinerSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::ClampPointSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::ShadowSampler;
+	std::shared_ptr<RHISamplerState> RHICachedStates::ShadowCompareSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::WarpLinerSampler;
 	std::shared_ptr<RHISamplerState> RHICachedStates::MirrorLinerSampler;
 
@@ -30,6 +31,7 @@ namespace RenderCore
 		BoderLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Border, AM_Border, AM_Border>::CreateRHI(RHI);
 		ClampPointSampler = TStaticSamplerState<>::CreateRHI(RHI);
 		ShadowSampler = TStaticSamplerState<SF_Point, AM_Border, AM_Border, AM_Border>::CreateRHI(RHI);
+		ShadowCompareSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, 1, 0u, SCF_LessEqual>::CreateRHI(RHI);
 		WarpLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::CreateRHI(RHI);
 		MirrorLinerSampler = TStaticSamplerState<SF_Bilinear, AM_Mirror, AM_Mirror, AM_Mirror>::CreateRHI(RHI);
 
@@ -61,6 +63,7 @@ namespace RenderCore
 		BoderLinerSampler = {};
 		ClampPointSampler = {};
 		ShadowSampler = {};
+		ShadowCompareSampler = {};
 		WarpLinerSampler = {};
 		MirrorLinerSampler = {};
 

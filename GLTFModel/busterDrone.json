@@ -1,15 +1,22 @@
-{
+﻿{
   "Evn": {
     "Hdr": "ProceduralSky",
     "AmbientStrength": 1.48,
-    "SunDirection": "0.781,0.301,0.548",
+    "IBLIntensity": 1.0,
+    "DisableProcSkyAutoSpotSunKey": true,
+    "SunDirection": "0,0,-1",
     "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
     "Light": [
       {
         "LightColor": "1.0,1.0,1.0",
-        "LightDir": "0.781,0.301,0.548",
-        "LightStrength": 16.0,
-        "LightType": 0
+        "LightType": 2,
+        "LightStrength": 50.0,
+        "LightPosition": "0,0,3.5",
+        "LightDir": "0,0,-1",
+        "LightRange": 15.0,
+        "InnerConeAngle": 0.706858,
+        "OuterConeAngle": 0.785398,
+        "CastShadow": true
       }
     ],
     "EnableSSR": true,

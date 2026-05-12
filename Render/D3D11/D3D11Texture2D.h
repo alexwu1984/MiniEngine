@@ -32,6 +32,8 @@ namespace RenderCore
 		std::map < uint32_t, std::vector< win32::com_ptr <ID3D11RenderTargetView>>>& GetRTVS();
 		ID3D11ShaderResourceView* GetSRV() const;
 		ID3D11DepthStencilView* GetDSV() const;
+		/** Per-face DSV for a cubemap depth surface (6 array slices); nullptr if not created. */
+		ID3D11DepthStencilView* GetCubeFaceDSV(uint32_t FaceIndex) const;
 
 	private:
 		D3D11Texture2DPrivate* d_ptr = nullptr;

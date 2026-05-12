@@ -1,4 +1,4 @@
-// Spotlight depth (t11) + cbSpotShadow (b5). Include after ShadowPCSS.hlsl (uses kPoissonDisk16) and after SampleShadow is bound.
+// Spotlight depth (t11) + cbSpotShadow (b5). Include after ShadowPCSS.hlsl (kPoissonDisk16) and ShadowCompareSampler (s2).
 
 #ifndef MINIENGINE_SPOT_SHADOW_SAMPLING_HLSL
 #define MINIENGINE_SPOT_SHADOW_SAMPLING_HLSL
@@ -23,16 +23,16 @@ float SpotShadowReceiverBias(float3 normal, float3 LtowardLight)
 	return baseBias + slopeBias * (1.0 - NdotL);
 }
 
-float PCF_SpotShadowR32(float2 uvCenter, float zReceiver, float radiusUV, float bias)
+float PCF_SpotShadowCmp(float2 uvCenter, float zReceiver, float radiusUV, float bias)
 {
+	const float ref = zReceiver - bias;
 	float lit = 0.0;
 	[unroll]
 	for (int i = 0; i < 16; ++i)
 	{
 		float2 suv = uvCenter + kPoissonDisk16[i] * radiusUV;
 		suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-		float d = SpotShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-		lit += (zReceiver <= d + bias) ? 1.0 : 0.0;
+		lit += SpotShadowMap.SampleCmpLevelZero(ShadowCompareSampler, suv, ref);
 	}
 	return lit * (1.0 / 16.0);
 }
@@ -53,7 +53,7 @@ float SampleSpotShadowVisibility(float4 ShadowCoord, float3 Normal, float3 Ltowa
 				{
 					const float zR = clamp(proj.z, 0.0, 1.0);
 					const float bias = SpotShadowReceiverBias(Normal, LtowardLight);
-					outVis = clamp(PCF_SpotShadowR32(uv, zR, 0.0022, bias), 0.0, 1.0);
+					outVis = clamp(PCF_SpotShadowCmp(uv, zR, 0.0022, bias), 0.0, 1.0);
 				}
 			}
 		}

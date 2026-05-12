@@ -148,6 +148,13 @@ if(MINIENGINE_FULL_OPT_SHADER_PRECOMPILE AND MINIENGINE_LEVEL0_SHADER_PRECOMPILE
 	message(FATAL_ERROR "Choose at most one of MINIENGINE_FULL_OPT_SHADER_PRECOMPILE and MINIENGINE_LEVEL0_SHADER_PRECOMPILE")
 endif()
 
+# Parallel FXC: one worker per stale manifest entry. 0 = omit -j (script uses min(CPU,64) or env MINIENGINE_PRECOMPILE_JOBS).
+set(MINIENGINE_SHADER_PRECOMPILE_JOBS "0" CACHE STRING "Offline HLSL precompile parallelism (build_precompiled_shaders.py -j N). 0=auto.")
+set(MINIENGINE_PRECOMPILE_J_ARG)
+if(MINIENGINE_SHADER_PRECOMPILE_JOBS MATCHES "^[1-9][0-9]*$")
+	set(MINIENGINE_PRECOMPILE_J_ARG -j "${MINIENGINE_SHADER_PRECOMPILE_JOBS}")
+endif()
+
 find_program(MINIENGINE_PYTHON_EXECUTABLE NAMES python python3 py)
 if(MINIENGINE_PYTHON_EXECUTABLE)
 	# $<IF:...> needs CMake 3.15+ (project already requires 3.15). Non-Debug configs share the Release tier sidecar.
@@ -178,15 +185,23 @@ if(MINIENGINE_PYTHON_EXECUTABLE)
 			--shader-root "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
 			--built-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<LOWER_CASE:$<CONFIG>>/ShaderLibDX/Built"
 			${MINIENGINE_PRECOMPILE_SHADER_EXTRA}
+			${MINIENGINE_PRECOMPILE_J_ARG}
 		DEPENDS CompileShaderBlob
 			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/gen_precompile_manifest.py"
 			"${CMAKE_CURRENT_SOURCE_DIR}/Tools/build_precompiled_shaders.py"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 		COMMENT "Incremental precompile HLSL -> $<LOWER_CASE:$<CONFIG>>/ShaderLibDX/Built (under CMAKE_RUNTIME_OUTPUT_DIRECTORY)")
 	set_target_properties(PrecompileMiniEngineShaders PROPERTIES FOLDER Tools)
+	if(MINIENGINE_PRECOMPILE_J_ARG)
+		message(STATUS "MiniEngine: shader precompile -j ${MINIENGINE_SHADER_PRECOMPILE_JOBS} (CMake MINIENGINE_SHADER_PRECOMPILE_JOBS)")
+	else()
+		message(STATUS "MiniEngine: shader precompile jobs auto (Python min(CPU,64); override with cache MINIENGINE_SHADER_PRECOMPILE_JOBS or env MINIENGINE_PRECOMPILE_JOBS)")
+	endif()
 	# Run before robocopy ShaderLibDX; Built/ is written under the config output dir (sync excludes source Built/).
-	# Offline bytecode is sized for the main GLTF viewer; DemoRunner/SoftwareRender JIT extras as needed.
+	# All exes that robocopy ShaderLibDX should depend on precompile so edited HLSL (include tree hash) refreshes Built/*.cso.
 	add_dependencies(GLFFViewer_RuntimeAssets PrecompileMiniEngineShaders)
+	add_dependencies(DemoRunner_RuntimeAssets PrecompileMiniEngineShaders)
+	add_dependencies(SoftwareRender_RuntimeAssets PrecompileMiniEngineShaders)
 else()
 	message(STATUS "MiniEngine: Python not found (python/python3/py); offline shader precompile disabled (JIT only).")
 endif()

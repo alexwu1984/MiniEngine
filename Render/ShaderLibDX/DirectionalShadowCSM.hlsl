@@ -105,7 +105,7 @@ float HairCascadeVisOne(int ci, float3 worldPos, float3 Normal, float coverageAl
 	if (any(uvTile < float2(0.0, 0.0)) || any(uvTile > float2(1.0, 1.0)))
 		return 1.0;
 	float zR = clamp(proj.z, 0.0, 1.0);
-	float bias = ShadowDepthBiasPCSS(Normal);
+	float bias = ShadowDepthBiasPCSS_Cascade(Normal);
 	bias += 0.00115 + saturate(1.0 - coverageAlpha) * 0.00135;
 	float invN = CameraForwardInvCount.w;
 	float2 uvAtlas = float2(uvTile.x, ((float)ci + uvTile.y) * invN);
@@ -116,6 +116,7 @@ float HairCascadeVisOne(int ci, float3 worldPos, float3 Normal, float coverageAl
 	sincos(rotAng, sa, ca);
 
 	float lit = 0.0;
+	const float ref = zR - bias;
 	[unroll]
 	for (int i = 0; i < 16; ++i)
 	{
@@ -124,8 +125,7 @@ float HairCascadeVisOne(int ci, float3 worldPos, float3 Normal, float coverageAl
 		float2 diskOfs = float2(rd.x, rd.y * invN) * fixedPcfRadius;
 		float2 suv = uvAtlas + diskOfs;
 		suv = clamp(suv, float2(1e-4, 1e-4), float2(1.0 - 1e-4, 1.0 - 1e-4));
-		float zMap = ShadowMap.SampleLevel(SampleShadow, suv, 0.0).r;
-		lit += (zR <= zMap + bias) ? 1.0 : 0.0;
+		lit += ShadowMap.SampleCmpLevelZero(ShadowCompareSampler, suv, ref);
 	}
 	return lit * (1.0 / 16.0);
 }

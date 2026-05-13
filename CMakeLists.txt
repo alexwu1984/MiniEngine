@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngine)
 
@@ -46,12 +46,9 @@ include_directories(${PROJECT_SOURCE_DIR}/Engine)
 set ( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS" )
 
 file(GLOB Headers CONFIGURE_DEPENDS "GLFFViewer/*.h")
-set(GLFFViewer_Sources
-	"${CMAKE_CURRENT_SOURCE_DIR}/GLFFViewer/GLFFViewer.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/GLFFViewer/GltfViewerApp.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/GLFFViewer/ImGuiDirectionWidget.cpp")
+file(GLOB Sources CONFIGURE_DEPENDS "GLFFViewer/*.cpp")
 
-add_executable(GLFFViewer ${GLFFViewer_Sources} ${Headers})
+add_executable(GLFFViewer ${Sources} ${Headers})
 
 set(MINIENGINE_APP_ICON_RC "${CMAKE_CURRENT_SOURCE_DIR}/Resources/MiniEngine.rc")
 target_sources(GLFFViewer PRIVATE ${MINIENGINE_APP_ICON_RC})

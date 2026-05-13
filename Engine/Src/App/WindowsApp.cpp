@@ -71,10 +71,13 @@ namespace Engine
 		d->Engine->StartGameLoopTick();
 		const double MsStartGameTick = Boot.split_ms();
 		const double MsBootTotal = Boot.total_ms();
-		core::inf() << core::perf::hdr(core::perf::kBoot, "WinMain") << "total_ms=" << MsBootTotal << " app_window_ctor_ms=" << MsAppWinCtor
-					<< " create_window_ms=" << MsCreateWindow << " main_engine_init_ms=" << MsMainEngineInit
-					<< " start_render_workers_ms=" << MsStartRenderWorkers << " subclass_Init_ms=" << MsSubclassInit
-					<< " start_game_loop_tick_ms=" << MsStartGameTick << "\n";
+		if (core::perf::ShouldEmitPerfInfLogs())
+		{
+			core::inf() << core::perf::hdr(core::perf::kBoot, "WinMain") << "total_ms=" << MsBootTotal << " app_window_ctor_ms=" << MsAppWinCtor
+						<< " create_window_ms=" << MsCreateWindow << " main_engine_init_ms=" << MsMainEngineInit
+						<< " start_render_workers_ms=" << MsStartRenderWorkers << " subclass_Init_ms=" << MsSubclassInit
+						<< " start_game_loop_tick_ms=" << MsStartGameTick << "\n";
+		}
 		return true;
 	}
 

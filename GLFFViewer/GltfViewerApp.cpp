@@ -127,8 +127,11 @@ bool GltfViewApp::Init()
 
 	const double MsTotal = Wall.total_ms();
 	// reload_scene_ms includes ReloadSceneJson + BindImGuiToSceneRender (see ReloadScene).
-	core::inf() << core::perf::hdr(core::perf::kBoot, "GltfViewerInit") << "total_ms=" << MsTotal << " build_model_list_ms=" << MsBuildList << " reload_scene_ms=" << MsReloadScene
-				<< " camera_touch_ms=" << MsCameraTouch << " end_frame_callback_ms=" << MsEndFrameCallback << "\n";
+	if (core::perf::ShouldEmitPerfInfLogs())
+	{
+		core::inf() << core::perf::hdr(core::perf::kBoot, "GltfViewerInit") << "total_ms=" << MsTotal << " build_model_list_ms=" << MsBuildList << " reload_scene_ms=" << MsReloadScene
+					<< " camera_touch_ms=" << MsCameraTouch << " end_frame_callback_ms=" << MsEndFrameCallback << "\n";
+	}
 
 	return true;
 }

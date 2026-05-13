@@ -278,6 +278,19 @@ namespace Engine
 				ERDGPassQueue::Graphics,
 				true});
 			Graph.AddPass(FRDGPassDescriptor{
+				"BuildGpuLightLists",
+				{},
+				{},
+				[d, CommandContext, ViewConst]()
+				{
+					// Upload SceneLights + dispatch cluster CS (forward) and tile CS (deferred PS). Idempotent inside DeferredLightingPass.
+					if (d->DeferredLighting && ViewConst)
+						d->DeferredLighting->DispatchClusterLightCulling(*CommandContext, ViewConst);
+				},
+				false,
+				RDG_Compute,
+				ERDGPassQueue::Graphics});
+			Graph.AddPass(FRDGPassDescriptor{
 				FRDGDeferredLightingPass::PassNameRaster,
 				FRDGDeferredLightingPass::GatherRasterPassInputs(SceneTextures),
 				FRDGDeferredLightingPass::GatherRasterPassOutputs(SceneTextures),
@@ -291,21 +304,6 @@ namespace Engine
 				RDG_Raster,
 				ERDGPassQueue::Graphics,
 				true});
-			Graph.AddPass(FRDGPassDescriptor{
-				"BuildClusteredLights",
-				{},
-				{},
-				[d, CommandContext, ViewConst]()
-				{
-					// Clustered Forward+ pass-1: uploads SceneLights (StructuredBuffer<Light>) for this view and
-					// dispatches `ClusterLightBuildCS` so the forward translucent + fur PS can do per-cluster light
-					// lookups instead of iterating cbPerFrame.Lights[80] every pixel. Idempotent inside DeferredLightingPass.
-					if (d->DeferredLighting && ViewConst)
-						d->DeferredLighting->DispatchClusterLightCulling(*CommandContext, ViewConst);
-				},
-				false,
-				RDG_Compute,
-				ERDGPassQueue::Graphics});
 			Graph.AddPass(FRDGPassDescriptor{
 				"RenderTranslucentForward",
 				SceneTexturesIO,
@@ -411,13 +409,13 @@ namespace Engine
 
 		if (d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit)
 		{
+			Graph.AddPassDependency("BuildGpuLightLists", FRDGDeferredLightingPass::PassNameRaster);
 			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
 			Graph.AddPassDependency("RenderTranslucentForward", "RenderFurForward");
 			Graph.AddPassDependency("RenderFurForward", "Tonemapping");
-			// Cluster CS writes the SRVs consumed by both forward passes — order it explicitly so the cull dispatch
-			// can't slip after the rasterized draws.
-			Graph.AddPassDependency("BuildClusteredLights", "RenderTranslucentForward");
-			Graph.AddPassDependency("BuildClusteredLights", "RenderFurForward");
+			// Cluster/tile CS writes the SRVs consumed by deferred + forward passes — keep the dispatch before those draws.
+			Graph.AddPassDependency("BuildGpuLightLists", "RenderTranslucentForward");
+			Graph.AddPassDependency("BuildGpuLightLists", "RenderFurForward");
 		}
 
 		// After tonemapping: optional shadow debug lines, then ImGui composite and present.

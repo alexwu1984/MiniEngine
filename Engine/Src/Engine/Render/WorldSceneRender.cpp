@@ -154,10 +154,13 @@ namespace Engine
 
 				dLife->IsInit = true;
 				const double MsTotal = Wall.total_ms();
-				core::inf() << core::perf::hdr(core::perf::kRenderRt, "WorldSceneRenderInit") << "total_ms=" << MsTotal << " skylight_env_ms=" << MsSkylightEnv
-							<< " post_process_ms=" << MsPostProcess << " skylight_pass_ms=" << MsSkyLightPass
-							<< " scene_textures_ms=" << MsSceneTextures << " shadow_ms=" << MsShadow << " shadow_debug_ms=" << MsShadowDebug
-							<< " deferred_lighting_ms=" << MsDeferredLighting << "\n";
+				if (core::perf::ShouldEmitPerfInfLogs())
+				{
+					core::inf() << core::perf::hdr(core::perf::kRenderRt, "WorldSceneRenderInit") << "total_ms=" << MsTotal << " skylight_env_ms=" << MsSkylightEnv
+								<< " post_process_ms=" << MsPostProcess << " skylight_pass_ms=" << MsSkyLightPass
+								<< " scene_textures_ms=" << MsSceneTextures << " shadow_ms=" << MsShadow << " shadow_debug_ms=" << MsShadowDebug
+								<< " deferred_lighting_ms=" << MsDeferredLighting << "\n";
+				}
 			});
 	}
 
@@ -425,7 +428,7 @@ namespace Engine
 				FlushRenderingCommands(ERenderQueueFlushCategory::ThrottleQueuedSceneFrames);
 				++throttleFlushIters;
 			}
-			if (throttleFlushIters > 0)
+			if (throttleFlushIters > 0 && core::perf::ShouldEmitPerfInfLogs())
 			{
 				const double throttleMs = ThrottleWall.total_ms();
 				core::inf() << core::perf::hdr(core::perf::kTick, "SubmitSceneThrottle") << "max_in_flight=" << cap << " flush_calls=" << throttleFlushIters
@@ -471,7 +474,7 @@ namespace Engine
 		}
 
 		const double submitMs = SubmitWall.total_ms();
-		if (submitMs >= 50.0)
+		if (submitMs >= 50.0 && core::perf::ShouldEmitPerfInfLogs())
 			core::inf() << core::perf::hdr(core::perf::kTick, "SubmitSceneForRendering") << "wall_ms=" << submitMs
 						 << " note=gather_throttle_enqueue_async_Perf|render_rec|ExecuteFrame\n";
 

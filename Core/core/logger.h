@@ -231,6 +231,7 @@ namespace core
      *
      * Structured wall-time diagnostics for startup/tick/shader JIT use core::perf::hdr / core::WallSplitTimer
      * (see core/wall_timer.h): lines look like  Perf|<domain>|<event> key=value ...
+     * Those inf-level lines are suppressed unless -perfinf is passed (core::perf::ShouldEmitPerfInfLogs).
      */
     class global_logger
     {

@@ -1,4 +1,4 @@
-#include "D3D12/D3D12StructuredBuffer.h"
+﻿#include "D3D12/D3D12StructuredBuffer.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12Allocation.h"
 #include "D3D12/D3D12CommandContext.h"

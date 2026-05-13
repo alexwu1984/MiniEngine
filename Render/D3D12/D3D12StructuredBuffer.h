@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RHI/RHIStructuredBuffer.h"
 #include "D3D12/D3D12RHICommon.h"
 #include <d3d12.h>

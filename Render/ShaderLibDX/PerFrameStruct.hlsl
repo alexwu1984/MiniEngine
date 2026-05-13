@@ -49,6 +49,8 @@ struct PerFrame
     matrix        CameraCurrViewProj;
     matrix        CameraPrevViewProj;
     matrix        CameraCurrViewProjInverse;
+    /** World → view (row-vector: mul(float4(world,1), M).xyz); matches ClusterLightBuildCS ClusterViewMatrix / FSceneViewData::ViewMatrix. */
+    row_major matrix CameraWorldToView;
     matrix        RotateIBL;
 
     // View / camera parameters

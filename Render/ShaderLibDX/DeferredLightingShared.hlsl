@@ -1,6 +1,7 @@
 // Shared split-sum IBL decode + hair strand analytic lights (directional/point/spot + cube shadow).
-// Include after: ShaderUtils, PerFrameStruct, HairShading (optional; guarded), IrradianceTex/BrdfLut/PrefilterCubeMap (t5–t7),
-// ShadowMap/PointShadowCube, GroundEnvLatLong (t12, optional split hemi), SampleLinear/SampleShadow, ShadowCompareSampler (s2), ShadowPCSS.hlsl (or TranslucentShadowLite for translucent forward), cbPointShadow.
+// Load-bearing order for fullscreen deferred is documented in `DeferredLighting.hlsl` (stages 1–8). In short: include after
+// ShaderUtils, PerFrameStruct, all deferred PS textures/samplers/cbPointShadow, ShadowPCSS, DirectionalShadowCB+DirectionalShadow,
+// SpotShadowSampling, then `ClusterLightLookup.hlsl` (deferred reuses cluster tables + ClusterIndexFromPixelWorld).
 //
 // Define MINIENGINE_DEFERRED_LIGHTING_SKIP_HAIR before including this file (e.g. TranslucentPBRForward) to drop HairShading + fur-only shadow/light helpers for faster PS compile.
 

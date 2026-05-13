@@ -1,8 +1,21 @@
 // Fullscreen deferred lighting: reads scene textures from base pass, applies analytic lights + split-sum IBL.
+//
+// Include / declaration order is load-bearing. Summary (do not reorder without checking dependents):
+//   1) ShaderUtils, PerFrameStruct, DeferredShadingCommon — types + cbPerFrame (b0), no t/s registers.
+//   2) Textures, samplers, cbPointShadow (b4).
+//   3) ClusterLightLookup — t13–t15 (cluster tables shared with Forward+; deferred uses ClusterIndexFromPixelWorld).
+//   4) ShadowPCSS — needs ShadowMap (t8), s0/s1/s2, GetMainLight().
+//   5) DirectionalShadowCB + DirectionalShadow.hlsl.
+//   6) SpotShadowSampling — kPoissonDisk16, ShadowCompareSampler; t11 + cbSpotShadow (b5).
+//   7) DeferredLightingShared — IBL + point-cube PCF, ComputeShadowPCSS / hair helpers.
+//   8) DeferredLightingAnalytic — punctual lights.
+
+// --- 1. Foundation (no PS resource registers) ---
 #include "ShaderUtils.hlsl"
 #include "PerFrameStruct.hlsl"
 #include "DeferredShadingCommon.hlsl"
 
+// --- 2. PS resource bindings (must appear before any #include that samples or declares overlapping registers) ---
 Texture2D BaseColorGBuffer : register(t0);
 Texture2D NormalGBuffer : register(t1);
 Texture2D EmissiveGBuffer : register(t2);
@@ -19,54 +32,56 @@ SamplerState SampleLinear : register(s0);
 SamplerState SampleShadow : register(s1);
 SamplerComparisonState ShadowCompareSampler : register(s2);
 
-#include "ShadowPCSS.hlsl"
-
-#include "DirectionalShadowCB.hlsl"
-#include "DirectionalShadow.hlsl"
-
 cbuffer cbPointShadow : register(b4)
 {
-    row_major matrix PointFaceVP[6];
-    float4 PointShadowLightPosRange; // xyz = light pos, w = range (CPU-filled; matches Engine::CBPointShadow)
-    int PointShadowEnabled;
-    int PointShadowLightIndex;
-    uint2 PointShadowPad;
+	row_major matrix PointFaceVP[6];
+	float4 PointShadowLightPosRange; // xyz = light pos, w = range (CPU-filled; matches Engine::CBPointShadow)
+	int PointShadowEnabled;
+	int PointShadowLightIndex;
+	uint2 PointShadowPad;
 };
 
+// --- 3. Cluster light list SRVs (same registers as clustered Forward+; must precede code that references them) ---
+#include "ClusterLightLookup.hlsl"
+
+// --- 4–6. Directional + spot shadow chain ---
+#include "ShadowPCSS.hlsl"
+#include "DirectionalShadowCB.hlsl"
+#include "DirectionalShadow.hlsl"
 #include "SpotShadowSampling.hlsl"
 
+// --- 7–8. IBL / material + analytic punctual ---
 #include "DeferredLightingShared.hlsl"
+#include "DeferredLightingAnalytic.hlsl"
 
 struct PSInput
 {
-    float2 Tex : TEXCOORD;
-    float4 Pos : SV_Position;
+	float2 Tex : TEXCOORD;
+	float4 Pos : SV_Position;
 };
 
 // Fullscreen triangle; must live in this file so VS/PS share cbPerFrame at b0 (not PostProcess BloomContants).
 PSInput VS_ScreenQuad(uint VertID : SV_VertexID)
 {
-    PSInput Out;
-    float2 Tex = float2(uint2(VertID, VertID << 1) & 2);
-    Out.Tex = Tex;
-    Out.Pos = float4(lerp(float2(-1, 1), float2(1, -1), Tex), 0, 1);
-    return Out;
+	PSInput Out;
+	float2 Tex = float2(uint2(VertID, VertID << 1) & 2);
+	Out.Tex = Tex;
+	Out.Pos = float4(lerp(float2(-1, 1), float2(1, -1), Tex), 0, 1);
+	return Out;
 }
-
-#include "DeferredLightingAnalytic.hlsl"
 
 float3 ReconstructWorldPosition(float2 uv, float depthHw)
 {
-    // Hardware depth in [0,1] with clear=1 (far). Row-vector clip: world * VP = clip, clip.w = view-space Z
-    // for standard LH perspective. Recover clip before divide, then inv(VP) -> world (matches VS mul(world, VP)).
-    float2 ndcXY = float2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
-    float n = myPerFrame.CameraNearZ;
-    float f = myPerFrame.CameraFarZ;
-    float denom = max(f - depthHw * (f - n), 1e-6);
-    float clipW = (n * f) / denom;
-    float4 clipH = float4(ndcXY.x * clipW, ndcXY.y * clipW, depthHw * clipW, clipW);
-    float4 w = mul(clipH, myPerFrame.CameraCurrViewProjInverse);
-    return w.xyz / max(w.w, 1e-5);
+	// Hardware depth in [0,1] with clear=1 (far). Row-vector clip: world * VP = clip, clip.w = view-space Z
+	// for standard LH perspective. Recover clip before divide, then inv(VP) -> world (matches VS mul(world, VP)).
+	float2 ndcXY = float2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+	float n = myPerFrame.CameraNearZ;
+	float f = myPerFrame.CameraFarZ;
+	float denom = max(f - depthHw * (f - n), 1e-6);
+	float clipW = (n * f) / denom;
+	float4 clipH = float4(ndcXY.x * clipW, ndcXY.y * clipW, depthHw * clipW, clipW);
+	float4 w = mul(clipH, myPerFrame.CameraCurrViewProjInverse);
+	return w.xyz / max(w.w, 1e-5);
 }
 
 float4 PS_DeferredLighting(PSInput Input) : SV_Target0
@@ -117,9 +132,15 @@ float4 PS_DeferredLighting(PSInput Input) : SV_Target0
 
 	float3 color = float3(0, 0, 0);
 
+	const uint clusterIdx = ClusterIndexFromPixelWorld(Input.Pos.xy, worldPos);
+	const uint2 clusterRange = _ClusterLightOffsetCount[clusterIdx];
 	[loop]
-	for (int i = 0; i < myPerFrame.LightCount; ++i)
+	for (uint slot = 0u; slot < clusterRange.y; ++slot)
 	{
+		const uint li = _ClusterLightIndexList[clusterRange.x + slot];
+		if (li >= (uint)myPerFrame.LightCount)
+			continue;
+		const int i = (int)li;
 		Light light = myPerFrame.Lights[i];
 		if (light.Type == LightType_Directional)
 			color += ApplyDirectionalLightDeferred(worldPos, light, materialInfo, normal, view);

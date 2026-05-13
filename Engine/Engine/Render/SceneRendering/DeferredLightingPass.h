@@ -44,14 +44,14 @@ namespace Engine
 		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures, FWorldSceneRender* WorldSceneRender,
 									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
-		/**
-		 * Clustered Forward+ pass-1: upload per-view SceneLights (StructuredBuffer), build the cluster CB, and dispatch
-		 * `ClusterLightBuildCS` into the UAV cluster table + index list. Called once per frame from the RDG pass that
-		 * runs before forward translucent / fur. Idempotent within the same FSceneViewData identity (subsequent calls
-		 * skip the upload + dispatch).
-		 */
-		void DispatchClusterLightCulling(RenderCore::RHICommandContext& RHIContext,
-										  const std::shared_ptr<const FSceneViewData>& ViewData) const;
+	/**
+	 * Clustered Forward+ pass-1: upload per-view SceneLights (StructuredBuffer), fill the cluster CB, and dispatch
+	 * `ClusterLightBuildCS` into the UAV cluster table + index list. Deferred fullscreen lighting reuses the same
+	 * cluster lists (per-pixel index from depth via cbPerFrame.CameraWorldToView). Idempotent for the same
+	 * FSceneViewData identity (translucent + fur share the pass; a second call skips upload + dispatch).
+	 */
+	void DispatchClusterLightCulling(RenderCore::RHICommandContext& RHIContext,
+									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 	private:
 		/** VS/PS JIT here on first deferred lighting draw so InitResource / ReloadSceneJson flush is not blocked by FXC. */

@@ -46,6 +46,7 @@ namespace Engine
 		Out.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;
 		Out.CurrViewProjMatrix = ViewData->CurrViewProjMatrix;
 		Out.CurrViewProjInverseMatrix = ViewData->CurrViewProjInverseMatrix;
+		Out.CameraWorldToView = ViewData->ViewMatrix;
 		Out.PrevViewProjMatrix = ViewData->PrevViewProjMatrix;
 		Out.PrevViewProjInverseMatrix = ViewData->PrevViewProjInverseMatrix;
 		Out.TemporalAAJitter = ViewData->TemporalAAJitter;

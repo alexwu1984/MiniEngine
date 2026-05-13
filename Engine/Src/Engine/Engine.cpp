@@ -93,8 +93,11 @@ namespace Engine
 																													   RenderCore::BUF_Dynamic, nullptr);
 				if (DynamicBuf)
 					DynamicBuf->UpdateStructuredBuffer(InitialPayload.data(), (uint32_t)(InitialPayload.size() * sizeof(uint32_t)));
-				core::inf() << core::perf::hdr(core::perf::kEngine, "RHIStructuredBufferSmoke") << "static=" << (StaticBuf ? 1 : 0)
-							<< " dynamic=" << (DynamicBuf ? 1 : 0) << " stride=" << sizeof(uint32_t) << " count=" << InitialPayload.size() << "\n";
+				if (core::perf::ShouldEmitPerfInfLogs())
+				{
+					core::inf() << core::perf::hdr(core::perf::kEngine, "RHIStructuredBufferSmoke") << "static=" << (StaticBuf ? 1 : 0)
+								<< " dynamic=" << (DynamicBuf ? 1 : 0) << " stride=" << sizeof(uint32_t) << " count=" << InitialPayload.size() << "\n";
+				}
 			}
 
 			d->RThread = std::make_unique<RenderThread>(d->DynamicRHI.get());
@@ -104,11 +107,14 @@ namespace Engine
 			d->SeRender->InitResource(ViewPort);
 			const double MsSceneRenderInitResourceEnqueue = Wall.split_ms();
 			const double MsTotal = Wall.total_ms();
-			core::inf() << core::perf::hdr(core::perf::kEngine, "Init") << "total_ms=" << MsTotal << " platform_create_rhi_ms=" << MsPlatformCreateRHI
-						<< " dynamic_rhi_init_ms=" << MsDynamicRHIInit << " create_viewport_ms=" << MsCreateViewport
-						<< " render_thread_ctor_ms=" << MsRenderThreadCtor << " viewport_client_init_ms=" << MsViewportClientInit
-						<< " scene_render_init_resource_enqueue_ms=" << MsSceneRenderInitResourceEnqueue
-						<< " note=async_render_rt_init_see_Perf|render_rt|WorldSceneRenderInit\n";
+			if (core::perf::ShouldEmitPerfInfLogs())
+			{
+				core::inf() << core::perf::hdr(core::perf::kEngine, "Init") << "total_ms=" << MsTotal << " platform_create_rhi_ms=" << MsPlatformCreateRHI
+							<< " dynamic_rhi_init_ms=" << MsDynamicRHIInit << " create_viewport_ms=" << MsCreateViewport
+							<< " render_thread_ctor_ms=" << MsRenderThreadCtor << " viewport_client_init_ms=" << MsViewportClientInit
+							<< " scene_render_init_resource_enqueue_ms=" << MsSceneRenderInitResourceEnqueue
+							<< " note=async_render_rt_init_see_Perf|render_rt|WorldSceneRenderInit\n";
+			}
 		}
 	}
 
@@ -142,8 +148,11 @@ namespace Engine
 			d->bGpuIdleWaitEndOfTick = core::CommandLine::Get().GetSwitch("gpuwait");
 		}
 		const double MsWorkers = Wall.total_ms();
-		core::inf() << core::perf::hdr(core::perf::kEngine, "StartRenderWorkers") << "wall_ms=" << MsWorkers << " rhi_submit_worker=" << (bWantRHIWorker ? 1 : 0)
-					<< "\n";
+		if (core::perf::ShouldEmitPerfInfLogs())
+		{
+			core::inf() << core::perf::hdr(core::perf::kEngine, "StartRenderWorkers") << "wall_ms=" << MsWorkers << " rhi_submit_worker=" << (bWantRHIWorker ? 1 : 0)
+						<< "\n";
+		}
 	}
 
 	void MainEngine::StartGameLoopTick()
@@ -316,7 +325,7 @@ namespace Engine
 			// HighPrecisionTick DeltaTime is wall time between tick entry points; a large value usually means the prior Tick blocked (flush/sync/heavy work).
 			const bool bLongGap = DeltaTime >= 0.5f;
 			const bool bHeavyWork = msTickTotal >= 80.0 || msSubmitScene >= 80.0 || msGpuSync >= 80.0 || msViewport >= 80.0;
-			if (bLongGap || bHeavyWork)
+			if ((bLongGap || bHeavyWork) && core::perf::ShouldEmitPerfInfLogs())
 			{
 				core::inf() << core::perf::hdr(core::perf::kTick, "Heavy") << "high_precision_delta_time_s=" << DeltaTime
 							<< " viewport_client_ms=" << msViewport << " submit_scene_ms=" << msSubmitScene << " resize_ms=" << msResize

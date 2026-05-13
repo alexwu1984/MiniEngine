@@ -76,6 +76,7 @@ namespace Engine
 			const Matrix4x4 VP = Bake.CaptureViews[IndexView] * Proj;
 			Bake.m_CBPerFrameUniformBuffer.Data.myPerFrame.CameraCurrViewProj = VP;
 			Bake.m_CBPerFrameUniformBuffer.Data.myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+			Bake.m_CBPerFrameUniformBuffer.Data.myPerFrame.CameraWorldToView = Bake.CaptureViews[IndexView];
 			RHI_UpdateAndBindUniformBufferVSPS(RHIContext, Bake.m_CBPerFrameUniformBuffer);
 
 			RHIContext.SetRenderTarget(Bake.EvnCube, IndexView, 0);
@@ -115,6 +116,7 @@ namespace Engine
 			const Matrix4x4 VP = Bake.CaptureViews[IndexView] * Proj;
 			Bake.m_CBPerFrameUniformBuffer.Data.myPerFrame.CameraCurrViewProj = VP;
 			Bake.m_CBPerFrameUniformBuffer.Data.myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+			Bake.m_CBPerFrameUniformBuffer.Data.myPerFrame.CameraWorldToView = Bake.CaptureViews[IndexView];
 			RHI_UpdateAndBindUniformBufferVSPS(RHIContext, Bake.m_CBPerFrameUniformBuffer);
 
 			RHIContext.SetRenderTarget(Bake.EvnCube, IndexView, 0);

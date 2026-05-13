@@ -87,9 +87,12 @@ namespace Engine
 
 		const double MsTotal =
 			MsFlush0 + MsGpuIdle0 + MsCacheFlush + MsWorldSwapRebind + MsLoadScene + MsFlush1 + MsFinalize + MsGpuIdle1;
-		core::inf() << core::perf::hdr(core::perf::kScene, "ReloadSceneJson") << "total_ms=" << MsTotal << " path_utf8=" << core::ucs2_u8(JsonPath)
-					<< " flush0_ms=" << MsFlush0 << " gpu_idle0_ms=" << MsGpuIdle0 << " cache_clear_ms=" << MsCacheFlush
-					<< " world_swap_rebind_ms=" << MsWorldSwapRebind << " load_scene_ms=" << MsLoadScene
-					<< " flush1_ms=" << MsFlush1 << " finalize_scene_cut_ms=" << MsFinalize << " gpu_idle1_ms=" << MsGpuIdle1 << "\n";
+		if (core::perf::ShouldEmitPerfInfLogs())
+		{
+			core::inf() << core::perf::hdr(core::perf::kScene, "ReloadSceneJson") << "total_ms=" << MsTotal << " path_utf8=" << core::ucs2_u8(JsonPath)
+						<< " flush0_ms=" << MsFlush0 << " gpu_idle0_ms=" << MsGpuIdle0 << " cache_clear_ms=" << MsCacheFlush
+						<< " world_swap_rebind_ms=" << MsWorldSwapRebind << " load_scene_ms=" << MsLoadScene
+						<< " flush1_ms=" << MsFlush1 << " finalize_scene_cut_ms=" << MsFinalize << " gpu_idle1_ms=" << MsGpuIdle1 << "\n";
+		}
 	}
 }

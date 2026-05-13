@@ -57,6 +57,7 @@ namespace Engine
 			Out.Data.myPerFrame.CameraPrevViewProj = View.PrevViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProj = View.CurrViewProjMatrix;
 			Out.Data.myPerFrame.CameraCurrViewProjInverse = View.CurrViewProjInverseMatrix;
+			Out.Data.myPerFrame.CameraWorldToView = View.ViewMatrix;
 			Out.Data.myPerFrame.RotateIBL = math::Matrix4x4::ms_Materix3X3WIdentity;
 			Out.Data.myPerFrame.CameraPos = View.CameraPos;
 			Out.Data.myPerFrame.TemporalAAJitter = View.TemporalAAJitter;
@@ -289,9 +290,12 @@ namespace Engine
 		const double MsUniforms = Wall.split_ms();
 		const double MsBuffersWall = MsFallbackTex + MsUniforms;
 		const double MsTotal = Wall.total_ms();
-		core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingInit") << "wall_ms=" << MsBuffersWall << " fallback_tex_ms=" << MsFallbackTex
-					<< " uniform_buffers_ms=" << MsUniforms << " total_ms=" << MsTotal
-					<< " note=screen_quad_vs_ps_jit_on_first_ExecuteRaster_Perf|shader_jit|DeferredLightingJitShaders\n";
+		if (core::perf::ShouldEmitPerfInfLogs())
+		{
+			core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingInit") << "wall_ms=" << MsBuffersWall << " fallback_tex_ms=" << MsFallbackTex
+						<< " uniform_buffers_ms=" << MsUniforms << " total_ms=" << MsTotal
+						<< " note=screen_quad_vs_ps_jit_on_first_ExecuteRaster_Perf|shader_jit|DeferredLightingJitShaders\n";
+		}
 	}
 
 	void DeferredLightingPass::EnsureJitDeferredLightingShaders() const
@@ -310,7 +314,7 @@ namespace Engine
 		static constexpr double kPerfShaderJitLogMinWallMs = 10.0;
 		const bool bVerboseJit = core::CommandLine::Get().GetSwitch("perfshaderjitverbose");
 		const double MsJitWall = MsVs + MsPs;
-		if (bVerboseJit || MsJitWall >= kPerfShaderJitLogMinWallMs)
+		if ((bVerboseJit || MsJitWall >= kPerfShaderJitLogMinWallMs) && core::perf::ShouldEmitPerfInfLogs())
 		{
 			core::inf() << core::perf::hdr(core::perf::kShaderJit, "DeferredLightingJitShaders") << "wall_ms=" << MsJitWall << " vs_ms=" << MsVs << " ps_ms=" << MsPs << "\n";
 		}
@@ -440,6 +444,14 @@ namespace Engine
 				groundEnvSrv = std::move(gt);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrv);
 
+		// Same cluster tables as clustered Forward+ (`ClusterLightLookup.hlsl` t13–t15). Deferred PS reads indices only.
+		if (SceneLightBuffer)
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
+		if (ClusterLightOffsetCountBuffer)
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightOffsetCountSrvSlot, ClusterLightOffsetCountBuffer);
+		if (ClusterLightIndexListBuffer)
+			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightIndexListSrvSlot, ClusterLightIndexListBuffer);
+
 		RHIContext.Draw(3);
 	}
 
@@ -560,8 +572,8 @@ namespace Engine
 		const bool bCreateOffsetCount = !ClusterLightOffsetCountBuffer;
 		const bool bCreateIndexList = !ClusterLightIndexListBuffer;
 		const bool bCreateUniform = !ClusterBuildUniform;
-		const bool bCreateShader = !ClusterBuildShader;
-		const bool bCreatedAnyResource = bCreateSceneLights || bCreateOffsetCount || bCreateIndexList || bCreateUniform || bCreateShader;
+		const bool bCreateClusterShader = !ClusterBuildShader;
+		const bool bCreatedAnyResource = bCreateSceneLights || bCreateOffsetCount || bCreateIndexList || bCreateUniform || bCreateClusterShader;
 
 		// Lazy create on first use. Lights buffer stays dynamic (CPU-renewed each frame); cluster outputs are static
 		// DEFAULT-heap with UAV bind because the CS owns the writes and the PS sees them via SRV in the same frame.
@@ -586,12 +598,15 @@ namespace Engine
 		if (!SceneLightBuffer || !ClusterLightOffsetCountBuffer || !ClusterLightIndexListBuffer || !ClusterBuildUniform
 			|| !ClusterBuildUniform->GetRHIBuffer() || !ClusterBuildShader)
 		{
-			core::inf() << core::perf::hdr(core::perf::kRenderRec, "ClusteredForwardBuildFailed") << "create_ms=" << MsCreate
-						<< " scene_lights=" << (SceneLightBuffer ? 1 : 0)
-						<< " offset_count=" << (ClusterLightOffsetCountBuffer ? 1 : 0)
-						<< " index_list=" << (ClusterLightIndexListBuffer ? 1 : 0)
-						<< " uniform=" << (ClusterBuildUniform && ClusterBuildUniform->GetRHIBuffer() ? 1 : 0)
-						<< " shader=" << (ClusterBuildShader ? 1 : 0) << "\n";
+			if (core::perf::ShouldEmitPerfInfLogs())
+			{
+				core::inf() << core::perf::hdr(core::perf::kRenderRec, "ClusteredForwardBuildFailed") << "create_ms=" << MsCreate
+							<< " scene_lights=" << (SceneLightBuffer ? 1 : 0)
+							<< " offset_count=" << (ClusterLightOffsetCountBuffer ? 1 : 0)
+							<< " index_list=" << (ClusterLightIndexListBuffer ? 1 : 0)
+							<< " uniform=" << (ClusterBuildUniform && ClusterBuildUniform->GetRHIBuffer() ? 1 : 0)
+							<< " cluster_cs=" << (ClusterBuildShader ? 1 : 0) << "\n";
+			}
 			return;
 		}
 
@@ -613,26 +628,24 @@ namespace Engine
 		ClusterBuildUniform->Data.ClusterPad0 = 0u;
 		const double MsBuildCB = Timing.split_ms();
 
-		RHICommandMark Mark(RHIContext, "BuildClusteredLights");
+		RHICommandMark Mark(RHIContext, "BuildGpuLightLists");
 
-		ComputePipelineStateInitializer Init;
-		Init.ComputeShader = ClusterBuildShader;
-		RHIContext.RHISetComputePipelineState(Init);
+		ComputePipelineStateInitializer InitCluster;
+		InitCluster.ComputeShader = ClusterBuildShader;
+		RHIContext.RHISetComputePipelineState(InitCluster);
 		RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, *ClusterBuildUniform, SF_Compute);
 		RHIContext.RHISetShaderStructuredBuffer(SF_Compute, 0u, SceneLightBuffer);
 		RHIContext.RHISetShaderStructuredBufferUAV(0u, ClusterLightOffsetCountBuffer);
 		RHIContext.RHISetShaderStructuredBufferUAV(1u, ClusterLightIndexListBuffer);
-		const double MsBind = Timing.split_ms();
+		const double MsBindCluster = Timing.split_ms();
 
 		constexpr uint32_t ThreadGroupSize = 64u;
-		const uint32_t GroupCount = (ClusterLightCulling::kClusterCount + ThreadGroupSize - 1u) / ThreadGroupSize;
-		RHIContext.RHIDispatchComputeShader(GroupCount, 1u, 1u);
+		const uint32_t GroupCountCluster = (ClusterLightCulling::kClusterCount + ThreadGroupSize - 1u) / ThreadGroupSize;
+		RHIContext.RHIDispatchComputeShader(GroupCountCluster, 1u, 1u);
 
-		// Detach the UAVs after dispatch so the subsequent SetShaderStructuredBuffer(SF_Pixel, ...) can transition the
-		// same resources to PIXEL_SHADER_RESOURCE without the D3D11 simultaneous-bind warning.
 		RHIContext.RHISetShaderStructuredBufferUAV(0u, std::shared_ptr<RHIStructuredBuffer>{});
 		RHIContext.RHISetShaderStructuredBufferUAV(1u, std::shared_ptr<RHIStructuredBuffer>{});
-		const double MsDispatchRecord = Timing.split_ms();
+		const double MsDispatchCluster = Timing.split_ms();
 
 		SceneLightLastUploadedViewKey = ViewKey;
 
@@ -640,24 +653,24 @@ namespace Engine
 		const uint32_t TimingFrame = ++ClusterTimingLogFrameCounter;
 		const bool bVerbose = core::CommandLine::Get().GetName("cluster_timing_verbose");
 		const bool bPeriodic = TimingFrame <= 8u || (TimingFrame % 120u) == 0u;
-		if (bVerbose || bCreatedAnyResource || bPeriodic || MsTotal >= 1.0)
+		if ((bVerbose || bCreatedAnyResource || bPeriodic || MsTotal >= 1.0) && core::perf::ShouldEmitPerfInfLogs())
 		{
 			core::inf() << core::perf::hdr(core::perf::kRenderRec, "ClusteredForwardBuild") << "wall_ms=" << MsTotal
 						<< " create_ms=" << MsCreate
 						<< " upload_lights_ms=" << MsUploadLights
 						<< " build_cb_ms=" << MsBuildCB
-						<< " bind_ms=" << MsBind
-						<< " dispatch_record_ms=" << MsDispatchRecord
+						<< " bind_cluster_ms=" << MsBindCluster
+						<< " dispatch_cluster_ms=" << MsDispatchCluster
 						<< " lights=" << LightCount
 						<< " source_lights=" << static_cast<uint32_t>(ViewLights.size())
 						<< " clusters=" << ClusterLightCulling::kClusterCount
 						<< " max_lights_per_cluster=" << ClusterLightCulling::kMaxLightsPerCluster
-						<< " groups=" << GroupCount
+						<< " cluster_groups=" << GroupCountCluster
 						<< " created_scene_lights=" << (bCreateSceneLights ? 1 : 0)
 						<< " created_offset_count=" << (bCreateOffsetCount ? 1 : 0)
 						<< " created_index_list=" << (bCreateIndexList ? 1 : 0)
 						<< " created_uniform=" << (bCreateUniform ? 1 : 0)
-						<< " created_shader=" << (bCreateShader ? 1 : 0) << "\n";
+						<< " created_cluster_cs=" << (bCreateClusterShader ? 1 : 0) << "\n";
 		}
 	}
 }

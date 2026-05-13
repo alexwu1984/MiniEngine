@@ -7,6 +7,9 @@
  *   Perf|<domain>|<event> key=value ...
  * grep examples: Perf|  or  Perf|boot|
  *
+ * Emit control: core::inf() + perf::hdr(...) lines are skipped unless the process is started with -perfinf
+ * (core::perf::ShouldEmitPerfInfLogs).
+ *
  * Domains (stable):
  *   boot       Application shell: WinMain path, viewer Init.
  *   engine     MainEngine::Init, worker threads, optional notes.
@@ -79,5 +82,8 @@ namespace core
 		constexpr const char kFrame[] = "frame";
 		constexpr const char kTick[] = "tick";
 		constexpr const char kRenderRec[] = "render_rec";
+
+		/** Off by default. Pass -perfinf to enable core::inf() lines that use perf::hdr (Perf|domain|event ...). */
+		bool ShouldEmitPerfInfLogs();
 	} // namespace perf
 } // namespace core

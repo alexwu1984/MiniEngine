@@ -61,6 +61,8 @@ namespace Engine
 		math::Matrix4x4     CameraCurrViewProj;
 		math::Matrix4x4     CameraPrevViewProj;
 		math::Matrix4x4     CameraCurrViewProjInverse;
+		/** Same as FSceneViewData::ViewMatrix / ClusterLightBuildCS ClusterViewMatrix (world → view, row-vector). */
+		math::Matrix4x4     CameraWorldToView{};
 		math::Matrix4x4     RotateIBL;
 
 		// View / camera parameters

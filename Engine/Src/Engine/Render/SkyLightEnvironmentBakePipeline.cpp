@@ -161,6 +161,7 @@ namespace Engine
 			const Matrix4x4 VP = CaptureViews[IndexView] * Proj;
 			GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = VP;
 			GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+			GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraWorldToView = CaptureViews[IndexView];
 			RHI_UpdateAndBindUniformBufferVSPS(RHIContext, GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 
 			GET_UNIFORMDATA(ENVContant).NumSamplesPerDir = 10;
@@ -216,6 +217,7 @@ namespace Engine
 				const Matrix4x4 VP = CaptureViews[IndexView] * Proj;
 				GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProj = VP;
 				GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraCurrViewProjInverse = VP.Inverse();
+				GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraWorldToView = CaptureViews[IndexView];
 				RHI_UpdateAndBindUniformBufferVSPS(RHIContext, GET_SHADER_STRUCT_MEMBER(CBPerFrame));
 
 				RHI_UpdateAndBindUniformBuffer(RHIContext, GET_SHADER_STRUCT_MEMBER(ENVContant), SF_Pixel);

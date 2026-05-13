@@ -21,6 +21,8 @@ namespace Engine
 		math::Matrix4x4 PrevViewProjMatrix;
 		math::Matrix4x4 CurrViewProjInverseMatrix;
 		math::Matrix4x4 PrevViewProjInverseMatrix;
+		/** FSceneViewData::ViewMatrix — cluster light lookup in deferred (cbPerFrame.CameraWorldToView). */
+		math::Matrix4x4 CameraWorldToView{};
 		math::Matrix4x4 RotateIBL;
 		math::Vector4 CameraPos;
 		math::Vector4 TemporalAAJitter;

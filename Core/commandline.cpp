@@ -131,4 +131,12 @@ namespace core
 		return true;
 	}
 
+	namespace perf
+	{
+		bool ShouldEmitPerfInfLogs()
+		{
+			return CommandLine::Get().GetSwitch("perfinf");
+		}
+	} // namespace perf
+
 }

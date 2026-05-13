@@ -4,6 +4,7 @@
 // Clustered Forward+ pass-2 helper: maps the rasterized pixel to a cluster index and exposes the per-cluster
 // (offset, count) plus the flat light index list written by `ClusterLightBuildCS.hlsl`. Forward translucent + fur
 // shaders include this AFTER PerFrameStruct.hlsl + their material includes so the SRV registers line up.
+// Fullscreen deferred (`DeferredLighting.hlsl`) includes it after PS textures; punctual loop uses ClusterIndexFromPixelWorld.
 //
 // Bindings (PS SRV table — keep in sync with DeferredLightingPass.cpp constants):
 //   t13 : StructuredBuffer<Light>     _SceneLights              (already declared by the including file)
@@ -40,6 +41,15 @@ uint ClusterIndexFromPixel(float4 svPos)
 	uint cz = (uint)clamp(floor(czFloat), 0.0, (float)(CLUSTER_GRID_Z - 1));
 
 	return cx + cy * (uint)CLUSTER_GRID_X + cz * (uint)(CLUSTER_GRID_X * CLUSTER_GRID_Y);
+}
+
+// Fullscreen deferred: SV_Position.w is not geometry clip W — derive view-space Z from world (same axis as cluster build)
+// and feed ClusterIndexFromPixel via .w = 1/viewZ. Requires myPerFrame.CameraWorldToView (see FillPerFrame / material param).
+uint ClusterIndexFromPixelWorld(float2 pixelXY, float3 worldPos)
+{
+	const float vz = max(mul(float4(worldPos, 1.0), myPerFrame.CameraWorldToView).z, 1e-4);
+	float4 pseudoSv = float4(pixelXY, 0.0, 1.0 / vz);
+	return ClusterIndexFromPixel(pseudoSv);
 }
 
 #endif // CLUSTER_LIGHT_LOOKUP_HLSL

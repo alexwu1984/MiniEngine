@@ -1,4 +1,5 @@
-﻿#include "GltfViewerApp.h"
+#include "GltfViewerApp.h"
+#include "ImGuiDirectionWidget.h"
 #include "Engine/Scene/GltfActor.h"
 #include "Engine/Engine.h"
 #include "Engine/Scene/World.h"
@@ -143,6 +144,7 @@ void GltfViewApp::BuildModelList()
 
 	const core::filesystem::path gltfDir = core::filesystem::path(ProcessDir) / "GLTFModel";
 	const std::vector<std::wstring> rel = {
+		L"damaged_helmet_filament_demo.json",
 		L"mode2_pointlight.json",
 		L"busterDrone.json",
 		L"harley.json",
@@ -254,13 +256,14 @@ void GltfViewApp::BindImGuiToSceneRender()
 						dir->SetUseActorForward(false);
 
 						math::Vector3 d = dir->GetWorldDirection().Normalize();
-						float yawDeg = 0.f, pitchDeg = 0.f;
-						ConeAxisToYawPitchDeg(d, yawDeg, pitchDeg);
-						const bool chYaw = ImGui::DragFloat("Yaw deg (world toward source)", &yawDeg, 0.5f, -180.f, 180.f);
-						const bool chPitch = ImGui::DragFloat("Pitch deg (world toward source)", &pitchDeg, 0.5f, -85.f, 85.f);
-						if (chYaw || chPitch)
+						float dv[3] = { d.x, d.y, d.z };
+						if (viewer_imgui::DirectionWidget("Direction (world toward source)", dv))
 						{
-							math::Vector3 nd = YawPitchDegToConeAxis(yawDeg, pitchDeg);
+							math::Vector3 nd(dv[0], dv[1], dv[2]);
+							if (nd.GetSqrLength() < 1e-12f)
+								nd = math::Vector3(0.f, 1.f, 0.f);
+							else
+								nd = nd.Normalize();
 							dir->SetWorldDirection(nd);
 							if (auto sl = Scene->FindPrimarySkyLightComponent(); sl && sl->IsEnabled() && sl->IsProceduralSky())
 								sl->SetProceduralSunDirectionTowardSource(nd);
@@ -360,12 +363,17 @@ void GltfViewApp::BindImGuiToSceneRender()
 							math::Vector3 wp = Owner->GetPosition();
 							if (ImGui::DragFloat3("World position", &wp.x, 0.03f))
 								Owner->SetPosition(wp);
-							float yawDeg = 0.f, pitchDeg = 0.f;
-							ConeAxisToYawPitchDeg(sp->GetConeAxisWorld(), yawDeg, pitchDeg);
-							const bool yawCh = ImGui::DragFloat("Yaw deg (cone axis)", &yawDeg, 0.5f, -180.f, 180.f);
-							const bool pitchCh = ImGui::DragFloat("Pitch deg (cone axis)", &pitchDeg, 0.5f, -85.f, 85.f);
-							if (yawCh || pitchCh)
-								sp->SetConeAxisWorld(YawPitchDegToConeAxis(yawDeg, pitchDeg));
+							math::Vector3 ax = sp->GetConeAxisWorld().Normalize();
+							float av[3] = { ax.x, ax.y, ax.z };
+							if (viewer_imgui::DirectionWidget("Cone axis (world)", av))
+							{
+								math::Vector3 nd(av[0], av[1], av[2]);
+								if (nd.GetSqrLength() < 1e-12f)
+									nd = math::Vector3(0.f, 0.f, -1.f);
+								else
+									nd = nd.Normalize();
+								sp->SetConeAxisWorld(nd);
+							}
 						}
 
 						math::Vector3 cols = sp->GetColor();
@@ -411,7 +419,7 @@ void GltfViewApp::BindImGuiToSceneRender()
 
 				ImGui::Separator();
 				ImGui::TextUnformatted("SkyLight / IBL");
-				ImGui::TextDisabled("HDR rotation removed (default orbit camera).");
+				ImGui::TextDisabled("Procedural sky: directional widget also drives sun. HDR env: rotate via engine if exposed.");
 
 				ImGui::Separator();
 				ImGui::TextUnformatted("Scene model transform");

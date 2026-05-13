@@ -1,0 +1,42 @@
+{
+  "Evn": {
+    "Hdr": "HDR/lightroom_14b_1k.hdr",
+    "IBLIntensity": 1.15,
+    "AmbientStrength": 0.42,
+    "DirectionalLightFollowProceduralSun": false,
+    "Light": [
+      {
+        "LightColor": "0.96,0.84,0.78",
+        "LightDir": "0.424264,-0.707107,-0.565685",
+        "LightStrength": 5.0,
+        "LightType": 0
+      }
+    ],
+    "EnableSSR": true,
+    "AAType": "TAA"
+  },
+  "Modles": [
+    {
+      "Model": "DamagedHelmet/DamagedHelmet.glb",
+      "Scale": 1.0,
+      "Position": "0,0,0",
+      "ProjShadow": true
+    },
+    {
+      "RoamCamera": {
+        "Position": "0,0.12,2.85",
+        "LookAt": "0,0,0",
+        "NearZ": 0.05,
+        "FarZ": 80,
+        "MainCamera": true,
+        "MoveSpeed": 6.0,
+        "LookSensitivity": 0.12
+      }
+    }
+  ],
+  "Tonemapping": {
+    "Type": 1,
+    "Contrast": 1.62,
+    "Saturation": 1.12
+  }
+}

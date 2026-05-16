@@ -91,6 +91,42 @@ namespace RenderCore
 	{
 	}
 
+	bool FD3D12TransientAliasingPool::IsChunkFullyFree(FChunk& Ch, const std::shared_ptr<FD3D12Adapter>& Adapter)
+	{
+		if (Ch.SlotFree.empty())
+			return false;
+		for (uint32_t si = 0; si < Ch.SlotFree.size(); ++si)
+		{
+			if (!TryPromoteRetiredSlot(Ch, si, Adapter))
+				return false;
+			if (!Ch.SlotFree[si])
+				return false;
+		}
+		return true;
+	}
+
+	void FD3D12TransientAliasingPool::TrimEmptyChunks()
+	{
+		std::shared_ptr<FD3D12Adapter> Adapter = AdapterWeak.lock();
+		if (!Adapter)
+			return;
+
+		std::lock_guard<std::mutex> Lock(Mutex);
+		for (auto LayoutIt = LayoutToChunks.begin(); LayoutIt != LayoutToChunks.end();)
+		{
+			std::vector<FChunk>& Chunks = LayoutIt->second;
+			for (size_t ci = Chunks.size(); ci-- > 0;)
+			{
+				if (IsChunkFullyFree(Chunks[ci], Adapter))
+					Chunks.erase(Chunks.begin() + static_cast<std::ptrdiff_t>(ci));
+			}
+			if (Chunks.empty())
+				LayoutIt = LayoutToChunks.erase(LayoutIt);
+			else
+				++LayoutIt;
+		}
+	}
+
 	void FD3D12TransientAliasingPool::ReleaseSlot(const FD3D12AliasingTexLayoutKey& Key, size_t ChunkIndex, uint32_t SlotIndex)
 	{
 		std::lock_guard<std::mutex> Lock(Mutex);
@@ -218,6 +254,9 @@ namespace RenderCore
 		HRESULT hrExisting = TryPlaceInChunks(Chunks, OutResource, OutLease);
 		if (SUCCEEDED(hrExisting))
 			return S_OK;
+
+		if (Chunks.size() >= kMaxChunksPerLayout)
+			return E_FAIL;
 
 		FChunk NewChunk{};
 		NewChunk.SlotPitchBytes = SlotPitchBytes;

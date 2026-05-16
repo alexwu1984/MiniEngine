@@ -32,7 +32,7 @@ namespace RenderCore
 	};
 
 	/**
-	 * Backs RDG / RenderTexturePool UAVs with placed 2D textures in few large DEFAULT heaps so disjoint lifetimes
+	 * Backs frame-scoped RDG UAVs with placed 2D textures in few large DEFAULT heaps so disjoint lifetimes
 	 * reuse the same VRAM offsets (texture subresource aliasing at the heap level).
 	 */
 	class FD3D12TransientAliasingPool final : public std::enable_shared_from_this<FD3D12TransientAliasingPool>
@@ -51,6 +51,9 @@ namespace RenderCore
 			FD3D12Resource** OutResource,
 			std::shared_ptr<FD3D12AliasingSlotLease>* OutLease,
 			const wchar_t* DebugName);
+
+		/** Drop heaps whose slots are all free and GPU-retired; call after frame fence advances. */
+		void TrimEmptyChunks();
 
 	private:
 		friend struct FD3D12AliasingSlotLease;
@@ -98,6 +101,8 @@ namespace RenderCore
 		static bool TryPromoteRetiredSlot(FChunk& Ch, uint32_t SlotIndex, const std::shared_ptr<FD3D12Adapter>& Adapter);
 
 		static constexpr uint32_t kSlotsPerChunk = 16;
+		static constexpr uint32_t kMaxChunksPerLayout = 2;
+		static bool IsChunkFullyFree(FChunk& Ch, const std::shared_ptr<FD3D12Adapter>& Adapter);
 
 		std::weak_ptr<FD3D12Adapter> AdapterWeak;
 		std::mutex Mutex;

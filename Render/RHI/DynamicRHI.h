@@ -131,7 +131,7 @@ namespace RenderCore
 		virtual std::shared_ptr< RHITextureCube> RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth) = 0;
 		virtual std::shared_ptr< RHIUnorderedAccessView> RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY) = 0;
 		virtual std::shared_ptr< RHIUnorderedAccessView> RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D) = 0;
-		/** When true (D3D12 only), pooled UAV textures may use placed resources sharing VRAM within an aliasing heap. Other backends ignore the hint. */
+		/** When true (D3D12 only), UAV textures may use placed resources in a transient aliasing heap (frame-scoped; not for cross-frame pool cache). */
 		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessViewForTransientPool(
 			EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool bPreferAliasingHeap)
 		{

@@ -189,7 +189,7 @@ namespace Engine
 			return R;
 		}
 
-		return RHI->RHICreateUnorderedAccessViewForTransientPool(Format, Width, Height, true);
+		return RHI->RHICreateUnorderedAccessViewForTransientPool(Format, Width, Height, false);
 	}
 
 	void RenderTexturePool::ReleaseUAV(

@@ -400,6 +400,8 @@ namespace RenderCore
 	void D3D12DynamicRHI::RHIEndFrame()
 	{
 		DynamicRHI::RHIEndFrame();
+		if (TransientAliasingPool)
+			TransientAliasingPool->TrimEmptyChunks();
 		D3D12RHI_PopRecordingContextIfTopIs(ERHIRecordingContextScope::RHIFrameBoundary);
 	}
 

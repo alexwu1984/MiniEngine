@@ -12,8 +12,8 @@ namespace RenderCore
 
 namespace Engine
 {
-	// Transient RT / UAV / RTV pool keyed by format + dimensions (+ create flags).
-	// Whole-resource pooling; new pooled UAV misses prefer D3D12 placed-resource aliasing heaps when supported by the RHI.
+	// Cross-frame RT / UAV / RTV pool keyed by format + dimensions (+ create flags).
+	// Pooled UAVs use committed resources; D3D12 aliasing heaps are for frame-scoped RDG transients only.
 	class RenderTexturePool
 	{
 	public:

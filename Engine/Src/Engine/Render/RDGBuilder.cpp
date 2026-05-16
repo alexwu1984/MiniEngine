@@ -345,38 +345,15 @@ namespace Engine
 			if (!D.IsAllocatable())
 				continue;
 
-			std::shared_ptr<RenderCore::RHIUnorderedAccessView>& Slot = LiveTransientUAVByName[Spec.Name];
-			if (Slot)
-			{
-				auto OldTex = Slot->GetTexture2D();
-				if (OldTex)
-				{
-					const core::vec2i Sz = OldTex->GetSize();
-					RenderTexturePool::Get().ReleaseUAV(OldTex->GetPixelFormat(), Sz.x, Sz.y, std::move(Slot));
-				}
-				else
-					Slot.reset();
-			}
-
-			LiveTransientUAVByName[Spec.Name] = RenderTexturePool::Get().AcquireUAV(RHI, D.PixelFormat, D.Width, D.Height);
+			LiveTransientUAVByName[Spec.Name] =
+				RHI->RHICreateUnorderedAccessViewForTransientPool(D.PixelFormat, D.Width, D.Height, true);
 		}
 	}
 
 	void FRDGBuilder::ReleaseTransientPooledUAVs()
 	{
-		while (!LiveTransientUAVByName.empty())
-		{
-			auto It = LiveTransientUAVByName.begin();
-			std::shared_ptr<RenderCore::RHIUnorderedAccessView> Uav = std::move(It->second);
-			LiveTransientUAVByName.erase(It);
-			if (!Uav)
-				continue;
-			auto Tex = Uav->GetTexture2D();
-			if (!Tex)
-				continue;
-			const auto Sz = Tex->GetSize();
-			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(Uav));
-		}
+		// Frame-scoped aliasing UAVs: destroy at release so slots return to the heap (not RenderTexturePool).
+		LiveTransientUAVByName.clear();
 		TransientAcquireRHI = nullptr;
 	}
 

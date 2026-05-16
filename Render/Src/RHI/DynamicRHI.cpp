@@ -37,7 +37,7 @@ namespace RenderCore
 		if (GRHILoggedFatalGpuOnce.compare_exchange_strong(expected, true, std::memory_order_relaxed))
 		{
 			core::LOG(core::log_e::log_err,
-					  L"%s: fatal GPU device loss (HRESULT=0x%08X GetDeviceRemovedReason=0x%08X). WM_QUIT -> shell thread; render queues drop work to avoid _com_error spam.",
+					  L"%s: GPU device removed (0x%08X / 0x%08X)",
 					  apiLabel ? apiLabel : L"RHI",
 					  (unsigned)hrPresentOrZero,
 					  (unsigned)hrDeviceRemovedReason);

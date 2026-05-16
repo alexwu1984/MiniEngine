@@ -160,17 +160,42 @@ namespace RenderCore
 		static std::atomic_uint32_t sHeapCounter = 0;
 		const std::wstring HeapName = core::formatw(L"TransientAliasingHeap_", ++sHeapCounter);
 
-		auto TryCreateHeap = [&](D3D12_HEAP_FLAGS Flags) -> HRESULT {
+		const D3D12_RESOURCE_HEAP_TIER HeapTier = Adapter->GetResourceHeapTier();
+
+		// Heaps that include D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES only admit RT/DS textures (#638 for UAV).
+		// Do not use D3D12_HEAP_FLAG_DENY_BUFFERS alone as a fallback - Tier rules want NONE (Tier 2) or
+		// ALLOW_ONLY_NON_RT_DS_TEXTURES (= DENY_BUFFERS | DENY_RT_DS_TEXTURES, no DENY_NON_RT_DS bit).
+		auto TryHeapCategory = [&](D3D12_HEAP_FLAGS Flags) -> HRESULT {
 			HeapDesc.Flags = Flags;
-			return Adapter->CreateHeap(HeapDesc, &NewChunk.Heap, HeapName.c_str());
+			SafeReleaseHeap(NewChunk.Heap);
+			const HRESULT hr = Adapter->CreateHeap(HeapDesc, &NewChunk.Heap, HeapName.c_str());
+			if (FAILED(hr) || !NewChunk.Heap)
+				return FAILED(hr) ? hr : E_FAIL;
+			const D3D12_HEAP_FLAGS Actual = NewChunk.Heap->GetDesc().Flags;
+			if ((Actual & D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES) != 0)
+			{
+				SafeReleaseHeap(NewChunk.Heap);
+				return E_FAIL;
+			}
+			return S_OK;
 		};
 
-		HRESULT hrHeap = TryCreateHeap(D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES);
-		if (FAILED(hrHeap))
-			hrHeap = TryCreateHeap(D3D12_HEAP_FLAG_NONE);
+		HRESULT hrHeap = E_FAIL;
+		if (HeapTier >= D3D12_RESOURCE_HEAP_TIER_2)
+		{
+			hrHeap = TryHeapCategory(D3D12_HEAP_FLAG_NONE);
+			if (FAILED(hrHeap))
+				hrHeap = TryHeapCategory(D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES);
+		}
+		else
+		{
+			hrHeap = TryHeapCategory(D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES);
+			if (FAILED(hrHeap))
+				hrHeap = TryHeapCategory(D3D12_HEAP_FLAG_NONE);
+		}
 
 		if (FAILED(hrHeap) || !NewChunk.Heap)
-			return hrHeap;
+			return FAILED(hrHeap) ? hrHeap : E_FAIL;
 
 		Chunks.push_back(std::move(NewChunk));
 		return TryPlaceInChunks(Chunks, OutResource, OutLease);

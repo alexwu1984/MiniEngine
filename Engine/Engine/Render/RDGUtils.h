@@ -2,6 +2,7 @@
 #include "RHI/RHIRenderPass.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHITexture2D.h"
+#include "RHI/RHITextureCube.h"
 #include "Render/RDGBuilder.h"
 
 #ifdef _DEBUG
@@ -24,6 +25,15 @@ struct FRDGUtils
 
 	/** Empty render pass: unbind all RTV/DSV (same as SetRenderTarget({}, nullptr)). */
 	static void RHICmdListUnbindAllRenderTargets(RenderCore::RHICommandContext& RHICmdList);
+
+	static void RHICmdListDeclarePixelSamplingSrvs(RenderCore::RHICommandContext& RHICmdList,
+												  std::initializer_list<std::shared_ptr<RenderCore::RHITexture2D>> Texes);
+	static void RHICmdListDeclarePixelSamplingSrvCube(RenderCore::RHICommandContext& RHICmdList,
+													  const std::shared_ptr<RenderCore::RHITextureCube>& Cube);
+	static void RHICmdListDeclareComputeReadableSrvs(RenderCore::RHICommandContext& RHICmdList,
+												   std::initializer_list<std::shared_ptr<RenderCore::RHITexture2D>> Texes);
+	static void RHICmdListDeclareTextureUavs(RenderCore::RHICommandContext& RHICmdList,
+											 std::initializer_list<std::shared_ptr<RenderCore::RHITexture2D>> Texes);
 
 	static void AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out);
 
@@ -57,37 +67,82 @@ inline void FRDGUtils::RHICmdListSetViewportFromTexture(RenderCore::RHICommandCo
 	RHICmdListSetViewportSize(RHICmdList, Sz.x, Sz.y);
 }
 
-inline void FRDGUtils::RHICmdListUnbindAllRenderTargets(RenderCore::RHICommandContext& RHICmdList)
-{
-	RenderCore::RHIBeginRenderPass(RHICmdList, RenderCore::FRHIRenderPassDesc{});
-}
+	inline void FRDGUtils::RHICmdListUnbindAllRenderTargets(RenderCore::RHICommandContext& RHICmdList)
+	{
+		RenderCore::RHIBeginRenderPass(RHICmdList, RenderCore::FRHIRenderPassDesc{});
+	}
 
-inline void FRDGUtils::AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out)
-{
-#ifdef _DEBUG
-	std::unordered_map<uint64_t, FRDGResourceAccess> RDG_DebugBarrierSlotsSeen;
-#endif
-	auto AppendSlot = [&](const FRDGPassResource& R) {
-		if (R.Access == FRDGResourceAccess::Unknown || !R.Resolve)
+	inline void FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RenderCore::RHICommandContext& RHICmdList,
+															 std::initializer_list<std::shared_ptr<RenderCore::RHITexture2D>> Texes)
+	{
+		std::vector<RenderCore::FRDGTextureBarrierDesc> Barriers;
+		for (const auto& T : Texes)
+			if (T)
+				Barriers.push_back({ T, RenderCore::FRDGResourceAccess::SRV, RenderCore::FRDGAllSubresources, {} });
+		if (!Barriers.empty())
+			RHICmdList.RHIRenderPassApplyDeclaredTextureBarriers(Barriers.data(), Barriers.size(), RenderCore::ERDGPassQueue::Graphics);
+	}
+
+	inline void FRDGUtils::RHICmdListDeclarePixelSamplingSrvCube(RenderCore::RHICommandContext& RHICmdList,
+																 const std::shared_ptr<RenderCore::RHITextureCube>& Cube)
+	{
+		if (!Cube)
 			return;
-		std::shared_ptr<RenderCore::RHITexture2D> tex = R.Resolve();
-		if (!tex)
-			return;
+		RenderCore::FRDGTextureBarrierDesc Desc{};
+		Desc.TextureCube = Cube;
+		Desc.Access = RenderCore::FRDGResourceAccess::SRV;
+		Desc.SubresourceIndex = RenderCore::FRDGAllSubresources;
+		RHICmdList.RHIRenderPassApplyDeclaredTextureBarriers(&Desc, 1, RenderCore::ERDGPassQueue::Graphics);
+	}
+
+	inline void FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RenderCore::RHICommandContext& RHICmdList,
+																std::initializer_list<std::shared_ptr<RenderCore::RHITexture2D>> Texes)
+	{
+		std::vector<RenderCore::FRDGTextureBarrierDesc> Barriers;
+		for (const auto& T : Texes)
+			if (T)
+				Barriers.push_back({ T, RenderCore::FRDGResourceAccess::SRV, RenderCore::FRDGAllSubresources, {} });
+		if (!Barriers.empty())
+			RHICmdList.RHIRenderPassApplyDeclaredTextureBarriers(Barriers.data(), Barriers.size(), RenderCore::ERDGPassQueue::AsyncCompute);
+	}
+
+	inline void FRDGUtils::RHICmdListDeclareTextureUavs(RenderCore::RHICommandContext& RHICmdList,
+														std::initializer_list<std::shared_ptr<RenderCore::RHITexture2D>> Texes)
+	{
+		std::vector<RenderCore::FRDGTextureBarrierDesc> Barriers;
+		for (const auto& T : Texes)
+			if (T)
+				Barriers.push_back({ T, RenderCore::FRDGResourceAccess::UAV, RenderCore::FRDGAllSubresources, {} });
+		if (!Barriers.empty())
+			RHICmdList.RHIRenderPassApplyDeclaredTextureBarriers(Barriers.data(), Barriers.size(), RenderCore::ERDGPassQueue::Graphics);
+	}
+
+	inline void FRDGUtils::AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out)
+	{
 #ifdef _DEBUG
-		const uint64_t Key =
-			uint64_t(reinterpret_cast<uintptr_t>(tex.get())) ^ (uint64_t(R.SubresourceIndex + 1u) << 17);
-		auto Ins = RDG_DebugBarrierSlotsSeen.try_emplace(Key, R.Access);
-		if (!Ins.second && Ins.first->second != R.Access)
-			core::LOG(core::log_warning,
-					  L"AppendPassTextureBarriers: conflicting accesses on same texture/subresource (check pass IO).");
+		std::unordered_map<uint64_t, FRDGResourceAccess> RDG_DebugBarrierSlotsSeen;
 #endif
-		Out.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(tex), static_cast<RenderCore::FRDGResourceAccess>(R.Access), R.SubresourceIndex});
-	};
-	for (const FRDGPassResource& In : Pass.Inputs)
-		AppendSlot(In);
-	for (const FRDGPassResource& O : Pass.Outputs)
-		AppendSlot(O);
-}
+		auto AppendSlot = [&](const FRDGPassResource& R) {
+			if (R.Access == FRDGResourceAccess::Unknown || !R.Resolve)
+				return;
+			std::shared_ptr<RenderCore::RHITexture2D> tex = R.Resolve();
+			if (!tex)
+				return;
+#ifdef _DEBUG
+			const uint64_t Key =
+				uint64_t(reinterpret_cast<uintptr_t>(tex.get())) ^ (uint64_t(R.SubresourceIndex + 1u) << 17);
+			auto Ins = RDG_DebugBarrierSlotsSeen.try_emplace(Key, R.Access);
+			if (!Ins.second && Ins.first->second != R.Access)
+				core::LOG(core::log_warning,
+						  L"AppendPassTextureBarriers: conflicting accesses on same texture/subresource (check pass IO).");
+#endif
+			Out.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(tex), static_cast<RenderCore::FRDGResourceAccess>(R.Access), R.SubresourceIndex, {}});
+		};
+		for (const FRDGPassResource& In : Pass.Inputs)
+			AppendSlot(In);
+		for (const FRDGPassResource& O : Pass.Outputs)
+			AppendSlot(O);
+	}
 
 inline void FRDGUtils::AppendFullscreenDeclaredTextureBarriers(
 	RenderCore::FRHIRenderPassDesc& Om,
@@ -108,6 +163,6 @@ inline void FRDGUtils::AppendFullscreenDeclaredTextureBarriers(
 		std::shared_ptr<RenderCore::RHITexture2D> Rt = RtvTexture;
 		Tmp.Outputs.push_back({ "FullscreenRT", [Rt]() { return Rt; }, true, A::RTV });
 	}
-	AppendPassTextureBarriers(Tmp, Om.DeclaredTextureBarriers);
+	FRDGUtils::AppendPassTextureBarriers(Tmp, Om.DeclaredTextureBarriers);
 }
 } // namespace Engine

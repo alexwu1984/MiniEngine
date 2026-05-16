@@ -107,6 +107,13 @@ namespace Engine
 				B.Outputs.push_back({ "Depth", [DepthCopy]() { return DepthCopy; }, true, A::DSV });
 			}
 			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
+			if (d->TexCube)
+			{
+				FRDGTextureBarrierDesc CubeSrv{};
+				CubeSrv.TextureCube = d->TexCube;
+				CubeSrv.Access = FRDGResourceAccess::SRV;
+				Om.DeclaredTextureBarriers.push_back(std::move(CubeSrv));
+			}
 		}
 		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 

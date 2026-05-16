@@ -81,6 +81,7 @@ namespace RenderCore
 		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
+		virtual void RHIRenderPassApplyDeclaredStructuredBufferBarriers(const FRDGStructuredBufferBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RDGBeginGpuPassTimingFrame() override;
 		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) override;
 		virtual void RDGResolveGpuPassTimingsEndOfFrame() override;

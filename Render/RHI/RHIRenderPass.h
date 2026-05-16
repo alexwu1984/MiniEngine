@@ -1,8 +1,8 @@
 #pragma once
 
 /** Render-pass roadmap (RHIRenderPass + RDG): 0 OM discipline (PSO/OM consistency via FD3D12StateCache; no draw-path OM rebinding),
- *  1 FRHIRenderPass shell + optional inferred attachment barriers (mip subresources for RT mip binds),
- *  2 DeclaredTextureBarriers,
+ *  1 FRHIRenderPass shell + optional inferred barriers (attachments + ShaderResourceReads SRV list; mip RT subresources),
+ *  2 DeclaredTextureBarriers + DeclaredStructuredBufferBarriers,
  *  3 AppendPassTextureBarriers from FRDGPassDescriptor IO, 4-5 transient pooled UAV + Acquire/Release,
  *  6 barrier metadata single-source, 7 batched-bind hooks removed. */
 
@@ -29,12 +29,20 @@ namespace RenderCore
 		const char* DebugName = nullptr;
 		/** Optional barrier list applied before SetRenderTarget (see FRDGAllSubresources). */
 		std::vector<FRDGTextureBarrierDesc> DeclaredTextureBarriers;
+		/** Optional structured-buffer transitions (D3D12); skipped for BUF_Dynamic UPLOAD buffers in the backend. */
+		std::vector<FRDGStructuredBufferBarrierDesc> DeclaredStructuredBufferBarriers;
 		/**
 		 * When true (default), RHIBeginRenderPass prepends inferred RTV/DSV transitions for attachments in this desc.
 		 * Uses per-mip subresource indices for ColorRenderTarget mip rendering; whole-resource for other attachments.
 		 * Set false when pass barriers are fully specified in DeclaredTextureBarriers / RDG.
 		 */
 		bool bInferAttachmentBarriers = true;
+		/**
+		 * Non-null entries become FRDGTextureBarrierDesc SRV transitions (whole-resource) prepended after attachment inference.
+		 * Use for pixel/compute textures sampled in-pass without wiring FRDGPassDescriptor.
+		 */
+		std::vector<std::shared_ptr<RHITexture2D>> ShaderResourceReads;
+		bool bInferShaderResourceBarriers = true;
 
 		static FRHIRenderPassDesc SingleColor(std::shared_ptr<RHITexture2D> Color, std::shared_ptr<RHITexture2D> Depth)
 		{
@@ -82,18 +90,39 @@ namespace RenderCore
 		if (Desc.ColorRenderTarget)
 		{
 			if (std::shared_ptr<RHITexture2D> tex = Desc.ColorRenderTarget->GetTex())
-				inferred.push_back({ tex, FRDGResourceAccess::RTV, mipSubresourceSinglePlane2D(*tex, Desc.ColorRenderTargetMipIndex) });
+				inferred.push_back({ tex, FRDGResourceAccess::RTV, mipSubresourceSinglePlane2D(*tex, Desc.ColorRenderTargetMipIndex), {} });
 		}
 		else
 		{
 			for (const auto& ct : Desc.ColorTargets)
 			{
 				if (ct)
-					inferred.push_back({ ct, FRDGResourceAccess::RTV, FRDGAllSubresources });
+					inferred.push_back({ ct, FRDGResourceAccess::RTV, FRDGAllSubresources, {} });
 			}
 			if (Desc.bBindDepthStencil && Desc.DepthStencil)
-				inferred.push_back({ Desc.DepthStencil, FRDGResourceAccess::DSV, FRDGAllSubresources });
+				inferred.push_back({ Desc.DepthStencil, FRDGResourceAccess::DSV, FRDGAllSubresources, {} });
 		}
+
+		if (inferred.empty())
+			return;
+
+		std::vector<FRDGTextureBarrierDesc> merged;
+		merged.reserve(inferred.size() + Desc.DeclaredTextureBarriers.size());
+		merged.insert(merged.end(), inferred.begin(), inferred.end());
+		for (FRDGTextureBarrierDesc& B : Desc.DeclaredTextureBarriers)
+			merged.push_back(std::move(B));
+		Desc.DeclaredTextureBarriers = std::move(merged);
+	}
+
+	inline void RHIRenderPassAppendInferredShaderResourceBarriers(FRHIRenderPassDesc& Desc)
+	{
+		if (!Desc.bInferShaderResourceBarriers)
+			return;
+
+		std::vector<FRDGTextureBarrierDesc> inferred;
+		for (const std::shared_ptr<RHITexture2D>& tr : Desc.ShaderResourceReads)
+			if (tr)
+				inferred.push_back({ tr, FRDGResourceAccess::SRV, FRDGAllSubresources, {} });
 
 		if (inferred.empty())
 			return;
@@ -109,12 +138,17 @@ namespace RenderCore
 	inline void RHIBeginRenderPass(RHICommandContext& Ctx, FRHIRenderPassDesc Desc)
 	{
 		RHIRenderPassAppendInferredAttachmentBarriers(Desc);
+		RHIRenderPassAppendInferredShaderResourceBarriers(Desc);
 
 		if (Desc.DebugName)
 			Ctx.BeginUserMark(Desc.DebugName);
 
 		if (!Desc.DeclaredTextureBarriers.empty())
 			Ctx.RHIRenderPassApplyDeclaredTextureBarriers(Desc.DeclaredTextureBarriers.data(), Desc.DeclaredTextureBarriers.size(), ERDGPassQueue::Graphics);
+
+		if (!Desc.DeclaredStructuredBufferBarriers.empty())
+			Ctx.RHIRenderPassApplyDeclaredStructuredBufferBarriers(Desc.DeclaredStructuredBufferBarriers.data(), Desc.DeclaredStructuredBufferBarriers.size(),
+																   ERDGPassQueue::Graphics);
 
 		if (Desc.ColorRenderTarget)
 		{

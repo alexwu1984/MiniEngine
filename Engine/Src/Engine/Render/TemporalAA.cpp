@@ -10,6 +10,7 @@
 #include "core/system.h"
 #include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
+#include "Render/RDGUtils.h"
 
 namespace Engine
 {
@@ -146,6 +147,15 @@ namespace Engine
 
 			d->First = false;
 
+			FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext,
+															{
+																SceneColor,
+																d->TemporalColor[d->FrameIndexMod2]->GetTexture2D(),
+																SceneTextures->GetMotionVector(),
+																SceneTextures->GetDepth(),
+															});
+			FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { d->TemporalColor[Dst]->GetTexture2D() });
+
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAAMain;
 			RHIContext.RHISetComputePipelineState(Init);
@@ -161,6 +171,9 @@ namespace Engine
 
 		//Sharpener
 		{
+			FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext, { d->TemporalColor[Dst]->GetTexture2D() });
+			FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { SceneTextures->GetSceneColor() });
+
 			RenderCore::ComputePipelineStateInitializer Init;
 			Init.ComputeShader = d->TAASharpener;
 			RHIContext.RHISetComputePipelineState(Init);

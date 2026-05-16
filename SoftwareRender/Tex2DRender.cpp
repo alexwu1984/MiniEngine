@@ -5,6 +5,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIViewPort.h"
+#include "Render/RDGUtils.h"
 
 using namespace math;
 using namespace RenderCore;
@@ -62,6 +63,7 @@ void Tex2DRender::ShowTexture2D(RenderCore::RHICommandContext& RHIContext, std::
 	ViewPort->SetRenderTarget();
 
 	RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
+	Engine::FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, { Texture2D });
 	RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
 	GET_UNIFORMDATA(PSRenderDemoContant).Exposure = m_Exposure;
 	RHI_UpdateAndBindUniformBuffer(RHIContext, GET_SHADER_STRUCT_MEMBER(PSRenderDemoContant), SF_Pixel);

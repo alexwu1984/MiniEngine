@@ -274,6 +274,14 @@ namespace Engine
 	void PBRMaterialRender::BindDeferredBaseMaterialTextures(RenderCore::RHICommandContext& RHIContext)
 	{
 		C_P(PBRMaterialRender);
+		FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext,
+													  {
+														  d->MeshMaterial->GetBaseColorTexture(),
+														  d->MeshMaterial->GetNormalTexture(),
+														  d->MeshMaterial->GetMetallicRoughnessTexture(),
+														  d->MeshMaterial->GetEmissiveTexture(),
+														  d->MeshMaterial->GetOcclusionTexture(),
+													  });
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->MeshMaterial->GetNormalTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, d->MeshMaterial->GetMetallicRoughnessTexture());
@@ -305,11 +313,11 @@ namespace Engine
 		std::shared_ptr<RHITexture2D> Dt = RenderParam.SceneTextures->GetDepth();
 		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColor(Sc, Dt);
 		Om.DebugName = "TranslucentPBRForwardOM";
+		FFurForwardSharedSrvSet SharedSrv{};
 		{
 			FRDGPassDescriptor Slots{};
 			if (DeferredLighting && WorldSceneRender && ViewData)
 			{
-				FFurForwardSharedSrvSet SharedSrv{};
 				DeferredLighting->PrepareForwardSharedSrvSet(WorldSceneRender, ViewData, SharedSrv);
 				Slots.Inputs = GatherFurForwardSharedTwoDimensionalSrvInputs(SharedSrv);
 			}
@@ -320,6 +328,11 @@ namespace Engine
 				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
 			};
 			FRDGUtils::AppendPassTextureBarriers(Slots, Om.DeclaredTextureBarriers);
+		}
+		if (DeferredLighting && WorldSceneRender && ViewData)
+		{
+			AppendFurForwardSharedCubeTextureBarriers(Om.DeclaredTextureBarriers, SharedSrv);
+			AppendFurForwardSharedStructuredBufferPixelSrvBarriers(Om.DeclaredStructuredBufferBarriers, SharedSrv);
 		}
 		FRHIRenderPassScope TranslucentOmScope(RHIContext, std::move(Om));
 
@@ -396,6 +409,7 @@ namespace Engine
 		d->RenderParam = RenderParam;
 
 		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
+		FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, { d->MeshMaterial->GetBaseColorTexture() });
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		PreDrawMesh(RHIContext);
 	}

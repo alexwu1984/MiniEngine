@@ -178,6 +178,8 @@ namespace Engine
 				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
 			};
 			FRDGUtils::AppendPassTextureBarriers(FurBarrier, FurOm.DeclaredTextureBarriers);
+			AppendFurForwardSharedCubeTextureBarriers(FurOm.DeclaredTextureBarriers, SharedSrv);
+			AppendFurForwardSharedStructuredBufferPixelSrvBarriers(FurOm.DeclaredStructuredBufferBarriers, SharedSrv);
 		}
 		RenderCore::FRHIRenderPassScope FurForwardOmScope(Cmd, std::move(FurOm));
 

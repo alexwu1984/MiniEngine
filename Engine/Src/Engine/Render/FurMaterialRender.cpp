@@ -13,6 +13,7 @@
 #include "core/system.h"
 #include "core/logger.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/RDGUtils.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
 
@@ -196,6 +197,11 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
+
+		FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, {
+			GetPBRMeshMaterial()->GetBaseColorTexture(),
+			d->NoiseTex,
+		});
 
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, GetPBRMeshMaterial()->GetBaseColorTexture());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, d->NoiseTex);

@@ -253,6 +253,8 @@ namespace Engine
 			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 0.0f / (float)Size.cy;
 			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer(RHIContext);
 			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RHIContext, SF_Compute);
+			FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext, { SrcTex });
+			FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { d->BlurHorizontalBuffer->GetTexture2D() });
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SrcTex);
 			RHIContext.RHISetUAVParameter(0, d->BlurHorizontalBuffer);
 
@@ -269,6 +271,8 @@ namespace Engine
 			d->GET_UNIFORMDATA(CBBlurParam).Param.Dir.y = 1.0f / (float)Size.cy;
 			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer(RHIContext);
 			d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).SetShaderUniformBuffer(RHIContext, SF_Compute);
+			FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext, { d->BlurHorizontalBuffer->GetTexture2D() });
+			FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { Target->GetTexture2D() });
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BlurHorizontalBuffer->GetTexture2D());
 			RHIContext.RHISetUAVParameter(0, Target);
 

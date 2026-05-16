@@ -41,8 +41,11 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIStructuredBuffer> ClusterLightIndexList;
 	};
 
-	/** Declares barriers for 2D textures sampled as SRV in BindFurForwardSharedSRVs. Cubemap IBL/shadow cube slots typically transition when those views bind or via backend cube handling — extend Gather if a platform needs explicit cube subresource barriers in this raster slice. */
+	/** Declares barriers for 2D textures sampled as SRV in BindFurForwardSharedSRVs (IBL LUT/shadow 2D/lat-long). Cubemap slots need AppendFurForwardSharedCubeTextureBarriers. */
 	std::vector<FRDGPassResource> GatherFurForwardSharedTwoDimensionalSrvInputs(const FFurForwardSharedSrvSet& S);
+
+	void AppendFurForwardSharedCubeTextureBarriers(std::vector<RenderCore::FRDGTextureBarrierDesc>& Out, const FFurForwardSharedSrvSet& S);
+	void AppendFurForwardSharedStructuredBufferPixelSrvBarriers(std::vector<RenderCore::FRDGStructuredBufferBarrierDesc>& Out, const FFurForwardSharedSrvSet& S);
 
 	class DeferredLightingPass
 	{

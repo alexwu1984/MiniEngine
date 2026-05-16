@@ -95,6 +95,14 @@ namespace RenderCore
 			(void)Count;
 			(void)PassQueue;
 		}
+		/** Structured-buffer transitions before pass work (D3D12); skips UPLOAD dynamic buffers internally. */
+		virtual void RHIRenderPassApplyDeclaredStructuredBufferBarriers(const FRDGStructuredBufferBarrierDesc* Items, size_t Count,
+																		ERDGPassQueue PassQueue = ERDGPassQueue::Graphics)
+		{
+			(void)Items;
+			(void)Count;
+			(void)PassQueue;
+		}
 		/** RDG GPU segment timings (D3D12 timestamps / D3D11 disjoint); default queue / immediate context only. */
 		virtual void RDGBeginGpuPassTimingFrame() {}
 		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) {}

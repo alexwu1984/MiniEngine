@@ -235,6 +235,12 @@ void SkyLightEnvironmentDemoRunner::ShowCubeAsLongLat(RenderCore::RHICommandCont
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "SkyLightEnv_ShowCubeAsLongLat";
 	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {}, BackBuf);
+	{
+		RenderCore::FRDGTextureBarrierDesc CubeSrv{};
+		CubeSrv.TextureCube = Cube;
+		CubeSrv.Access = RenderCore::FRDGResourceAccess::SRV;
+		Om.DeclaredTextureBarriers.push_back(std::move(CubeSrv));
+	}
 	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
@@ -269,6 +275,12 @@ void SkyLightEnvironmentDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHIComman
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "SkyLightEnv_CubeCrossDebug";
 	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {}, BackBuf);
+	{
+		RenderCore::FRDGTextureBarrierDesc CubeSrv{};
+		CubeSrv.TextureCube = Cube;
+		CubeSrv.Access = RenderCore::FRDGResourceAccess::SRV;
+		Om.DeclaredTextureBarriers.push_back(std::move(CubeSrv));
+	}
 	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort((Window->GetWidth() - (int)size) / 2, (Window->GetHeight() - (int)size) / 2, (int)size, (int)size);

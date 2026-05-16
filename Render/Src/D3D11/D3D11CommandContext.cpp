@@ -1058,6 +1058,13 @@ namespace RenderCore
 		RDGApplyPassBeginBarriers(Items, Count, PassQueue);
 	}
 
+	void D3D11CommandContext::RHIRenderPassApplyDeclaredStructuredBufferBarriers(const FRDGStructuredBufferBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
+	{
+		(void)Items;
+		(void)Count;
+		(void)PassQueue;
+	}
+
 	void D3D11CommandContext::RDGBeginGpuPassTimingFrame()
 	{
 		if (!Impl->D3D11RHI || !Impl->D3D11RHI->GetDevice())

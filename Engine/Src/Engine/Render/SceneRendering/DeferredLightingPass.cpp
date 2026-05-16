@@ -40,6 +40,33 @@ namespace Engine
 		};
 	}
 
+	void AppendFurForwardSharedCubeTextureBarriers(std::vector<RenderCore::FRDGTextureBarrierDesc>& Out, const FFurForwardSharedSrvSet& S)
+	{
+		auto pushCube = [&Out](const std::shared_ptr<RenderCore::RHITextureCube>& Cube) {
+			if (!Cube)
+				return;
+			RenderCore::FRDGTextureBarrierDesc B;
+			B.TextureCube = Cube;
+			B.Access = RenderCore::FRDGResourceAccess::SRV;
+			Out.push_back(std::move(B));
+		};
+		pushCube(S.IrradianceCube);
+		pushCube(S.SpecularCube);
+		pushCube(S.PointShadowCube);
+	}
+
+	void AppendFurForwardSharedStructuredBufferPixelSrvBarriers(std::vector<RenderCore::FRDGStructuredBufferBarrierDesc>& Out, const FFurForwardSharedSrvSet& S)
+	{
+		auto pushSrv = [&Out](const std::shared_ptr<RenderCore::RHIStructuredBuffer>& Buf) {
+			if (!Buf)
+				return;
+			Out.push_back({ Buf, RenderCore::FRDGResourceAccess::SRV, false });
+		};
+		pushSrv(S.SceneLights);
+		pushSrv(S.ClusterLightOffsetCount);
+		pushSrv(S.ClusterLightIndexList);
+	}
+
 	namespace
 	{
 		// Capacity for StructuredBuffer<Light> (clustered forward PS reads slot 13).
@@ -399,6 +426,63 @@ namespace Engine
 		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr,
 							 DirectionalShadowUniform ? DirectionalShadowUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
 
+		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
+		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;
+		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
+		if (SkyLightIBL)
+		{
+			if (const auto t = SkyLightIBL->GetDiffuseIrradianceCubemap())
+				irrCube = t;
+			if (const auto t = SkyLightIBL->GetSpecularReflectionCubemap())
+				specCube = t;
+			if (const auto t = SkyLightIBL->GetBRDFIntegrationLUT())
+				brdfLut = t;
+		}
+
+		const int32_t pdi = PerFrameUniform->Data.myPerFrame.PrimaryDirectionalLightIndex;
+		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform->Data.myPerFrame.LightCount > 0 && pdi >= 0
+			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].Type == LightType_Directional
+			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].ShadowMapIndex >= 0;
+
+		std::shared_ptr<RHITexture2D> shadowSrvTex = TexFromCompareShadowDepthFallback(FallbackCompareShadowDepthRt, FallbackBrdfLut);
+		if (bDeferredShadow)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+			{
+				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
+				{
+					if (std::shared_ptr<RHITexture2D> st = shadowRt->GetTex())
+						shadowSrvTex = std::move(st);
+				}
+			}
+		}
+
+		std::shared_ptr<RHITexture2D> materialAuxSrv = FallbackBrdfLut;
+		if (std::shared_ptr<RHITexture2D> ma = SceneTextures->GetMaterialAuxBuffer())
+			materialAuxSrv = std::move(ma);
+
+		std::shared_ptr<RHITextureCube> pointShadowSrv = FallbackPointShadowCube ? FallbackPointShadowCube : FallbackIBLCube;
+		if (PointShadowUniform && PointShadowUniform->GetRHIBuffer() && PointShadowUniform->Data.Enabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (std::shared_ptr<RHITextureCube> pc = ShadowPass->GetPointShadowCube())
+					pointShadowSrv = std::move(pc);
+		}
+
+		std::shared_ptr<RHITexture2D> spotShadowSrv = TexFromCompareShadowDepthFallback(FallbackCompareShadowDepthRt, FallbackBrdfLut);
+		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer() && SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (const std::shared_ptr<RHIRenderTarget> srt = ShadowPass->GetSpotShadowMap())
+					if (std::shared_ptr<RHITexture2D> st = srt->GetTex())
+						spotShadowSrv = std::move(st);
+		}
+
+		std::shared_ptr<RHITexture2D> groundEnvSrv = FallbackBrdfLut;
+		if (SkyLightIBL)
+			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
+				groundEnvSrv = std::move(gt);
+
 		RenderCore::FRHIRenderPassDesc RasterOmDesc = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(SceneColor);
 		RasterOmDesc.DebugName = "DeferredLighting_RasterOM";
 		{
@@ -407,6 +491,33 @@ namespace Engine
 			RasterBarrierSrc.Outputs = FRDGDeferredLightingPass::GatherRasterPassOutputs(SceneTextures);
 			FRDGUtils::AppendPassTextureBarriers(RasterBarrierSrc, RasterOmDesc.DeclaredTextureBarriers);
 		}
+		auto pushSrv2d = [&RasterOmDesc](const std::shared_ptr<RHITexture2D>& Tex) {
+			if (!Tex)
+				return;
+			RasterOmDesc.DeclaredTextureBarriers.push_back({ Tex, FRDGResourceAccess::SRV, FRDGAllSubresources, {} });
+		};
+		auto pushSrvCube = [&RasterOmDesc](const std::shared_ptr<RHITextureCube>& Cube) {
+			if (!Cube)
+				return;
+			FRDGTextureBarrierDesc B;
+			B.TextureCube = Cube;
+			B.Access = FRDGResourceAccess::SRV;
+			RasterOmDesc.DeclaredTextureBarriers.push_back(std::move(B));
+		};
+		pushSrvCube(irrCube);
+		pushSrvCube(specCube);
+		pushSrv2d(brdfLut);
+		pushSrv2d(shadowSrvTex);
+		pushSrv2d(materialAuxSrv);
+		pushSrvCube(pointShadowSrv);
+		pushSrv2d(spotShadowSrv);
+		pushSrv2d(groundEnvSrv);
+
+		if (ClusterLightOffsetCountBuffer)
+			RasterOmDesc.DeclaredStructuredBufferBarriers.push_back({ ClusterLightOffsetCountBuffer, FRDGResourceAccess::SRV, false });
+		if (ClusterLightIndexListBuffer)
+			RasterOmDesc.DeclaredStructuredBufferBarriers.push_back({ ClusterLightIndexListBuffer, FRDGResourceAccess::SRV, false });
+
 		RenderCore::FRHIRenderPassScope RasterOmScope(RHIContext, std::move(RasterOmDesc));
 
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
@@ -429,70 +540,18 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(SF_Pixel, 3, SceneTextures->GetMetallicRoughnessBuffer());
 		RHIContext.RHISetShaderTexture(SF_Pixel, 4, SceneTextures->GetDepth());
 
-		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
-		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;
-		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
-		if (SkyLightIBL)
-		{
-			if (const auto t = SkyLightIBL->GetDiffuseIrradianceCubemap())
-				irrCube = t;
-			if (const auto t = SkyLightIBL->GetSpecularReflectionCubemap())
-				specCube = t;
-			if (const auto t = SkyLightIBL->GetBRDFIntegrationLUT())
-				brdfLut = t;
-		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 5, irrCube);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
 
-		// Must match CB filled above: view lights keep ShadowMapIndex == -1 (e.g. DirectionalLightComponent); shadow pass patches CB via TryGetCachedMainLightForShading.
-		const int32_t pdi = PerFrameUniform->Data.myPerFrame.PrimaryDirectionalLightIndex;
-		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform->Data.myPerFrame.LightCount > 0 && pdi >= 0
-			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].Type == LightType_Directional
-			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].ShadowMapIndex >= 0;
-		// RHISetShaderTexture ignores nullptr; leaving t8 unstaged keeps whatever was bound last frame (validation / GPU faults).
-		std::shared_ptr<RHITexture2D> shadowSrvTex = TexFromCompareShadowDepthFallback(FallbackCompareShadowDepthRt, FallbackBrdfLut);
-		if (bDeferredShadow)
-		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-			{
-				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
-				{
-					if (std::shared_ptr<RHITexture2D> st = shadowRt->GetTex())
-						shadowSrvTex = std::move(st);
-				}
-			}
-		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowSrvTex);
 
-		std::shared_ptr<RHITexture2D> materialAuxSrv = FallbackBrdfLut;
-		if (std::shared_ptr<RHITexture2D> ma = SceneTextures->GetMaterialAuxBuffer())
-			materialAuxSrv = std::move(ma);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 9, materialAuxSrv);
 
-		std::shared_ptr<RHITextureCube> pointShadowSrv = FallbackPointShadowCube ? FallbackPointShadowCube : FallbackIBLCube;
-		if (PointShadowUniform && PointShadowUniform->GetRHIBuffer() && PointShadowUniform->Data.Enabled != 0 && WorldSceneRender)
-		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-				if (std::shared_ptr<RHITextureCube> pc = ShadowPass->GetPointShadowCube())
-					pointShadowSrv = std::move(pc);
-		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 10, pointShadowSrv);
 
-		std::shared_ptr<RHITexture2D> spotShadowSrv = TexFromCompareShadowDepthFallback(FallbackCompareShadowDepthRt, FallbackBrdfLut);
-		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer() && SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
-		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-				if (const std::shared_ptr<RHIRenderTarget> srt = ShadowPass->GetSpotShadowMap())
-					if (std::shared_ptr<RHITexture2D> st = srt->GetTex())
-						spotShadowSrv = std::move(st);
-		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 11, spotShadowSrv);
 
-		std::shared_ptr<RHITexture2D> groundEnvSrv = FallbackBrdfLut;
-		if (SkyLightIBL)
-			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
-				groundEnvSrv = std::move(gt);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrv);
 
 		// Same cluster SRV layout as forward (`ClusterLightLookup.hlsl` t13-t15).
@@ -701,6 +760,14 @@ namespace Engine
 		const double MsBuildCB = Timing.split_ms();
 
 		RHICommandMark Mark(RHIContext, "BuildGpuLightLists");
+
+		{
+			std::vector<FRDGStructuredBufferBarrierDesc> ClusterBeginBarriers;
+			ClusterBeginBarriers.push_back({ SceneLightBuffer, FRDGResourceAccess::SRV, true });
+			ClusterBeginBarriers.push_back({ ClusterLightOffsetCountBuffer, FRDGResourceAccess::UAV, false });
+			ClusterBeginBarriers.push_back({ ClusterLightIndexListBuffer, FRDGResourceAccess::UAV, false });
+			RHIContext.RHIRenderPassApplyDeclaredStructuredBufferBarriers(ClusterBeginBarriers.data(), ClusterBeginBarriers.size(), ERDGPassQueue::Graphics);
+		}
 
 		ComputePipelineStateInitializer InitCluster;
 		InitCluster.ComputeShader = ClusterBuildShader;

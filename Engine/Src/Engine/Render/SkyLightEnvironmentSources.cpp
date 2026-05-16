@@ -3,6 +3,7 @@
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
+#include "Render/RDGUtils.h"
 #include "core/logger.h"
 #include "core/system.h"
 
@@ -123,6 +124,7 @@ namespace Engine
 			RHIContext.Clear(Bake.EvnCube, IndexView, 0, core::FLinearColor::Black);
 
 			RHIContext.SetViewPort(0, 0, Bake.EvnCube->GetSize().cx, Bake.EvnCube->GetSize().cy);
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, { HDRTex });
 			RHIContext.RHISetShaderTexture(SF_Pixel, 0, HDRTex);
 			Bake.RenderCube(RHIContext);
 		}

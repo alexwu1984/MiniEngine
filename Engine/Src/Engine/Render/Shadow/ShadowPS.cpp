@@ -7,6 +7,7 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "Render/MaterialPreFrame.h"
+#include "Render/RDGUtils.h"
 #include "Render/Blur.h"
 #include "Engine/GltfModel/GltfMesh.h"
 #include "Engine/GltfModel/GltfMeshBuffer.h"
@@ -108,7 +109,10 @@ namespace Engine
 		M.MaterialShaderFlags = bAlphaClip ? kMaterialShaderFlag_ShadowAlphaClip : 0u;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerMaterial));
 		if (mat && mat->GetBaseColorTexture())
+		{
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, { mat->GetBaseColorTexture() });
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, mat->GetBaseColorTexture());
+		}
 	}
 
 

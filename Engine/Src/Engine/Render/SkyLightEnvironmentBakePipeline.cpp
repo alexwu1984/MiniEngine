@@ -5,6 +5,7 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIDefinitions.h"
+#include "Render/RDGUtils.h"
 #include "math/math.h"
 #include <chrono>
 #include <vector>
@@ -171,6 +172,7 @@ namespace Engine
 			RHIContext.Clear(IrrCube, IndexView, 0, core::FLinearColor::Black);
 
 			RHIContext.SetViewPort(0, 0, IrrCube->GetSize().cx, IrrCube->GetSize().cy);
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvCube(RHIContext, EvnCube);
 			RHIContext.RHISetShaderTexture(SF_Pixel, 0, EvnCube);
 			RenderCube(RHIContext);
 		}
@@ -226,6 +228,7 @@ namespace Engine
 				RHIContext.SetViewPort(0, 0, Size, Size);
 				RHIContext.Clear(PreFilterCube, IndexView, MipLevel, core::FLinearColor::Black);
 
+				FRDGUtils::RHICmdListDeclarePixelSamplingSrvCube(RHIContext, EvnCube);
 				RHIContext.RHISetShaderTexture(SF_Pixel, 0, EvnCube);
 				RenderCube(RHIContext);
 			}

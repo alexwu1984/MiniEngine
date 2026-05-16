@@ -4,6 +4,7 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
+#include "Render/RDGUtils.h"
 
 namespace Engine
 {
@@ -20,6 +21,8 @@ namespace Engine
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
+		if (Tex)
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, { Tex });
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Tex);
 		RHIContext.Draw(3);
 	}

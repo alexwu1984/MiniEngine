@@ -7,6 +7,7 @@
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIUnorderedAccessView.h"
 #include "Render/SceneTextures.h"
+#include "Render/RDGUtils.h"
 #include "Render/RenderTexturePool.h"
 #include "core/system.h"
 #include <algorithm>
@@ -168,14 +169,18 @@ namespace Engine
 				Init.ComputeShader = d->Downsample;
 
 				RHIContext.RHISetComputePipelineState(Init);
-				
+
 				if (Index == 0)
 				{
+					FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext, { SceneTextures->GetEmissiveBuffer() });
+					FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { d->BloomBuffers[Index]->GetTexture2D() });
 					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, SceneTextures->GetEmissiveBuffer());
 				}
 				else
 				{
-					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BloomBuffers[Index-1]->GetTexture2D());
+					FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext, { d->BloomBuffers[Index - 1]->GetTexture2D() });
+					FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { d->BloomBuffers[Index]->GetTexture2D() });
+					RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BloomBuffers[Index - 1]->GetTexture2D());
 				}
 				RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 				RHIContext.RHISetUAVParameter(0, d->BloomBuffers[Index]);
@@ -195,6 +200,8 @@ namespace Engine
 				Init.ComputeShader = d->Downsample;
 
 				RHIContext.RHISetComputePipelineState(Init);
+				FRDGUtils::RHICmdListDeclareComputeReadableSrvs(RHIContext, { d->BloomBuffers[Index]->GetTexture2D() });
+				FRDGUtils::RHICmdListDeclareTextureUavs(RHIContext, { d->BloomBuffers[Index - 1]->GetTexture2D() });
 				RHIContext.RHISetShaderSampler(RenderCore::SF_Compute, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 				RHIContext.RHISetShaderTexture(RenderCore::SF_Compute, 0, d->BloomBuffers[Index]->GetTexture2D());
 				RHIContext.RHISetUAVParameter(0, d->BloomBuffers[Index-1]);

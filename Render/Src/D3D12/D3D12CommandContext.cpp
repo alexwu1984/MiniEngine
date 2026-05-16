@@ -13,6 +13,7 @@
 #include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12TextureCube.h"
+#include "D3D12/D3D12StructuredBuffer.h"
 #include "D3D12/D3D12CreateStats.h"
 #include "D3D12/D3D12SubmitStats.h"
 #include "D3D12/D3D12PresentStats.h"
@@ -547,26 +548,6 @@ namespace RenderCore
 			return;
 		}
 
-		if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
-		{
-			const bool bCompute = (ShaderType == SF_Compute);
-			const D3D12_RESOURCE_STATES TargetState = ShaderReadableStateForTexture2DSample(Texture2D, bCompute);
-			FD3D12Resource* const Res = Texture2D->GetResource();
-			if (Res && Res->RequiresResourceStateTracking())
-			{
-				if (ShouldUsePlanarDepthSrvBarrierLoop(Texture2D, Res))
-				{
-					const UINT mipLevels = Res->GetMipLevels();
-					const UINT arraySize = Res->GetArraySize();
-					const UINT planeCount = Res->GetPlaneCount();
-					for (UINT plane = 0u; plane < planeCount; ++plane)
-						for (UINT arr = 0u; arr < arraySize; ++arr)
-							TransitionSubResource(Res, TargetState, CalcSubresourceDx12(0u, arr, plane, mipLevels, arraySize), false);
-				}
-				else
-					TransitionResource(Res, TargetState, false);
-			}
-		}
 		CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, std::static_pointer_cast<D3D12Texture2D>(Texture2DRHI));
 	}
 
@@ -577,15 +558,6 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
-			{
-				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
-					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				FD3D12Resource* const Res = TextureCube->GetResource();
-				if (Res && Res->RequiresResourceStateTracking())
-					TransitionResource(Res, TargetState, false);
-			}
 			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, -1, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -597,21 +569,6 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
-			{
-				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
-					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				FD3D12Resource* const Res = TextureCube->GetResource();
-				if (Res && Res->RequiresResourceStateTracking())
-				{
-					for (int Face = 0; Face < 6; ++Face)
-					{
-						const uint32_t SubIdx = TextureCube->GetSubresourceIndex(Face, Mip);
-						TransitionSubResource(Res, TargetState, SubIdx, false);
-					}
-				}
-			}
 			CurrentStateCache->SetShaderResourceView(ShaderType, TextureIndex, Mip, std::static_pointer_cast<D3D12TextureCube>(TextureCubeRHI));
 		}
 	}
@@ -627,18 +584,6 @@ namespace RenderCore
 			return;
 		}
 
-		if (!Buffer->IsDynamic() && (ShaderType == SF_Pixel || ShaderType == SF_Compute))
-		{
-			FD3D12Resource* const Res = Buffer->GetResource();
-			if (Res && Res->RequiresResourceStateTracking())
-			{
-				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
-					? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-					: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				TransitionResource(Res, TargetState, false);
-			}
-		}
-
 		CurrentStateCache->SetShaderResourceView(ShaderType, SRVIndex, std::static_pointer_cast<D3D12StructuredBuffer>(BufferRHI));
 	}
 
@@ -647,7 +592,6 @@ namespace RenderCore
 		if (!CurrentStateCache)
 			return;
 		auto TexRHI = std::static_pointer_cast<D3D12Texture2D>(UAV->GetTexture2D());
-		TransitionResource(TexRHI->GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, false);
 		CurrentStateCache->SetUAV(UAVIndex, TexRHI);
 	}
 
@@ -661,8 +605,6 @@ namespace RenderCore
 			CurrentStateCache->SetUAV(UAVIndex, std::shared_ptr<D3D12StructuredBuffer>{});
 			return;
 		}
-		if (FD3D12Resource* const Res = Buffer->GetResource(); Res && Res->RequiresResourceStateTracking())
-			TransitionResource(Res, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, false);
 		CurrentStateCache->SetUAV(UAVIndex, std::static_pointer_cast<D3D12StructuredBuffer>(BufferRHI));
 	}
 
@@ -970,13 +912,17 @@ namespace RenderCore
 		for (size_t i = 0; i < Count; ++i)
 		{
 			const FRDGTextureBarrierDesc& D = Items[i];
-			if (!D.Texture || D.Access == FRDGResourceAccess::Unknown)
+			if (D.Access == FRDGResourceAccess::Unknown)
 				continue;
 
-			D3D12Texture2D* Tex2D = RHIResourceCast(D.Texture.get());
-			if (!Tex2D)
+			const bool bHasCube = static_cast<bool>(D.TextureCube);
+			const bool bHas2D = static_cast<bool>(D.Texture);
+			if (!bHasCube && !bHas2D)
 				continue;
-			FD3D12Resource* Res = Tex2D->GetResource();
+
+			D3D12Texture2D* Tex2D = bHas2D ? RHIResourceCast(D.Texture.get()) : nullptr;
+			D3D12TextureCube* TexCube = bHasCube ? RHIResourceCast(D.TextureCube.get()) : nullptr;
+			FD3D12Resource* Res = Tex2D ? Tex2D->GetResource() : (TexCube ? TexCube->GetResource() : nullptr);
 			if (!Res || !Res->RequiresResourceStateTracking())
 				continue;
 
@@ -985,8 +931,13 @@ namespace RenderCore
 			switch (D.Access)
 			{
 			case FRDGResourceAccess::SRV:
-				Target = ShaderReadableStateForTexture2DSample(Tex2D, bAsyncCompute);
-				bSrvPlanarDepthBarrierLoop = ShouldUsePlanarDepthSrvBarrierLoop(Tex2D, Res);
+				if (Tex2D)
+				{
+					Target = ShaderReadableStateForTexture2DSample(Tex2D, bAsyncCompute);
+					bSrvPlanarDepthBarrierLoop = ShouldUsePlanarDepthSrvBarrierLoop(Tex2D, Res);
+				}
+				else
+					Target = bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				break;
 			case FRDGResourceAccess::UAV:
 				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
@@ -1009,7 +960,7 @@ namespace RenderCore
 
 			if (D.SubresourceIndex == FRDGAllSubresources)
 			{
-				if (bSrvPlanarDepthBarrierLoop && D.Access == FRDGResourceAccess::SRV)
+				if (Tex2D && bSrvPlanarDepthBarrierLoop && D.Access == FRDGResourceAccess::SRV)
 				{
 					const UINT mipLevels = Res->GetMipLevels();
 					const UINT arraySize = Res->GetArraySize();
@@ -1031,6 +982,47 @@ namespace RenderCore
 	void D3D12CommandContext::RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
 	{
 		RDGApplyPassBeginBarriers(Items, Count, PassQueue);
+	}
+
+	void D3D12CommandContext::RHIRenderPassApplyDeclaredStructuredBufferBarriers(const FRDGStructuredBufferBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
+	{
+		if (!Items || Count == 0 || !CommandListHandle)
+			return;
+
+		const bool bAsyncCompute = (PassQueue == ERDGPassQueue::AsyncCompute);
+
+		for (size_t i = 0; i < Count; ++i)
+		{
+			const FRDGStructuredBufferBarrierDesc& D = Items[i];
+			if (!D.Buffer || D.Access == FRDGResourceAccess::Unknown)
+				continue;
+
+			D3D12StructuredBuffer* Buf = RHIResourceCast(D.Buffer.get());
+			if (!Buf || Buf->IsDynamic())
+				continue;
+
+			FD3D12Resource* Res = Buf->GetResource();
+			if (!Res || !Res->RequiresResourceStateTracking())
+				continue;
+
+			D3D12_RESOURCE_STATES Target = D3D12_RESOURCE_STATE_COMMON;
+			switch (D.Access)
+			{
+			case FRDGResourceAccess::SRV:
+				Target = (D.bNonPixelShaderSrv || bAsyncCompute) ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+																 : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				break;
+			case FRDGResourceAccess::UAV:
+				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				break;
+			default:
+				continue;
+			}
+
+			TransitionResource(Res, Target, false);
+		}
+
+		CommandListHandle.FlushResourceBarriers();
 	}
 
 	void D3D12CommandContext::RDGBeginGpuPassTimingFrame()

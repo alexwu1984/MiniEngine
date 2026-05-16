@@ -54,6 +54,7 @@ namespace RenderCore
 		virtual void RHICopyResource2D(std::shared_ptr< RHITexture2D> DstTex, std::shared_ptr< RHITexture2D> SrcTex, core::vec4u rect) override;
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
+		virtual void RHIRenderPassApplyDeclaredStructuredBufferBarriers(const FRDGStructuredBufferBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RDGBeginGpuPassTimingFrame() override;
 		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) override;
 		virtual void RDGResolveGpuPassTimingsEndOfFrame() override;

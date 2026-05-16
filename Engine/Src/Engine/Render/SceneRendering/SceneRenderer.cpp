@@ -468,6 +468,7 @@ namespace Engine
 
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = CommandContext.get();
+		RDGExecParams.RDGAcquirePooledResourcesRHI = RHI;
 		RDGExecParams.PassCpuTimingsOut = &d->ScratchPassCpuTimings;
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))
 		{

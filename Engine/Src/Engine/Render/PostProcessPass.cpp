@@ -206,19 +206,20 @@ namespace Engine
 	void BloomPass::Execute() const
 	{
 		UnbindGraphicsRenderTargets(RHIContext);
-		std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5> Pooled{};
-		bool bUsePool = RDGForPooledBloomUavs != nullptr;
-		if (bUsePool)
+		std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5> RdgBloomUavs{};
+		bool bUseRdgBloomUavs = false;
+		if (RDGForPooledBloomUavs)
 		{
+			bUseRdgBloomUavs = true;
 			for (int Idx = 0; Idx < 5; ++Idx)
 			{
-				Pooled[(size_t)Idx] = RDGForPooledBloomUavs->GetTransientUAV("Bloom.Chain" + std::to_string(Idx));
-				if (!Pooled[(size_t)Idx])
-					bUsePool = false;
+				RdgBloomUavs[(size_t)Idx] = RDGForPooledBloomUavs->GetTransientUAV("Bloom.Chain" + std::to_string(Idx));
+				if (!RdgBloomUavs[(size_t)Idx])
+					bUseRdgBloomUavs = false;
 			}
 		}
-		if (bUsePool)
-			BloomEffect->Draw(RHIContext, SceneTextures, &Pooled);
+		if (bUseRdgBloomUavs)
+			BloomEffect->Draw(RHIContext, SceneTextures, &RdgBloomUavs);
 		else
 			BloomEffect->Draw(RHIContext, SceneTextures, nullptr);
 	}

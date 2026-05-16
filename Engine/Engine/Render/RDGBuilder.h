@@ -101,7 +101,7 @@ struct FRDGCompileParameters
 	bool bWarnOnNonGraphicsPassQueues = true;
 	/** Context receiving RDGApplyPassBeginBarriers when bRDGAutoPipelineBarriers (same recording list as passes). */
 	RenderCore::RHICommandContext* RDGBarrierCommandContext = nullptr;
-	/** When non-null, ExecutePasses allocates named RegisterTransientUAV entries from RenderTexturePool at graph start and releases after all passes finish. */
+	/** When non-null, ExecutePasses allocates RegisterTransientUAV entries (D3D12: aliasing heap) at graph start and releases after passes. */
 	RenderCore::DynamicRHI* RDGAcquirePooledResourcesRHI = nullptr;
 	/** If false, skips RDGApplyPassBeginBarriers even when RDGBarrierCommandContext is set. */
 	bool bRDGAutoPipelineBarriers = true;

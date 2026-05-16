@@ -694,6 +694,9 @@ namespace RenderCore
 			return;
 
 		CurrentStateCache->SetVertexBuffer(CommandListHandle, 0, VertexBuffer->VertexBufferView());
+		static constexpr D3D12_VERTEX_BUFFER_VIEW kNullVBV{};
+		for (uint32_t s = 1u; s < 32u; ++s)
+			CurrentStateCache->SetVertexBuffer(CommandListHandle, s, kNullVBV);
 		D3D12_INDEX_BUFFER_VIEW IndexView{};
 		IndexView.Format = DXGI_FORMAT_UNKNOWN;
 		CurrentStateCache->SetIndexBuffer(CommandListHandle, IndexView);

@@ -1,11 +1,5 @@
-#pragma once
-#include "win/win32.h"
-#include "RHI/RHIDefinitions.h"
-#include <cstdint>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <vector>
+﻿#pragma once
+#include "RHIPrivate/D3D12RHIPrivate.h"
 
 struct ID3D12Heap;
 
@@ -70,6 +64,33 @@ namespace RenderCore
 			std::vector<bool> SlotFree;
 			std::vector<uint64_t> SlotRetireFence;
 
+			FChunk() = default;
+			FChunk(const FChunk&) = delete;
+			FChunk& operator=(const FChunk&) = delete;
+			FChunk(FChunk&& Other) noexcept
+				: Heap(Other.Heap)
+				, HeapSizeBytes(Other.HeapSizeBytes)
+				, SlotPitchBytes(Other.SlotPitchBytes)
+				, SlotFree(std::move(Other.SlotFree))
+				, SlotRetireFence(std::move(Other.SlotRetireFence))
+			{
+				Other.Heap = nullptr;
+			}
+			FChunk& operator=(FChunk&& Other) noexcept
+			{
+				if (this != &Other)
+				{
+					if (Heap)
+						Heap->Release();
+					Heap = Other.Heap;
+					HeapSizeBytes = Other.HeapSizeBytes;
+					SlotPitchBytes = Other.SlotPitchBytes;
+					SlotFree = std::move(Other.SlotFree);
+					SlotRetireFence = std::move(Other.SlotRetireFence);
+					Other.Heap = nullptr;
+				}
+				return *this;
+			}
 			~FChunk();
 		};
 

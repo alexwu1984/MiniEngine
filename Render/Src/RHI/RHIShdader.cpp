@@ -23,6 +23,11 @@ namespace RenderCore
 
 	void RHIVertexDeclare::AppendDeclareInput(const VertexDeclareInput& DeclareInput)
 	{
+		AppendDeclareInput(DeclareInput, static_cast<uint32_t>(Decs.size()), 0u);
+	}
+
+	void RHIVertexDeclare::AppendDeclareInput(const VertexDeclareInput& DeclareInput, uint32_t InputSlot, uint32_t AlignedByteOffset)
+	{
 		VertexElementDesc D3DElement{};
 		switch (DeclareInput.InElementType)
 		{
@@ -50,7 +55,8 @@ namespace RenderCore
 		};
 		strcpy_s(D3DElement.SemanticName, "ATTRIBUTE");
 		D3DElement.SemanticIndex = DeclareInput.InAttributeIndex;
-		D3DElement.InputSlot = (uint32_t)Decs.size();
+		D3DElement.InputSlot = InputSlot;
+		D3DElement.AlignedByteOffset = AlignedByteOffset;
 		//DeclareInput.bUseInstanceIndex ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
 		D3DElement.InputSlotClass = DeclareInput.bUseInstanceIndex ? 1 : 0;
 

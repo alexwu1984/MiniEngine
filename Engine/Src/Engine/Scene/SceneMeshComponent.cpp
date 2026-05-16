@@ -248,6 +248,38 @@ namespace Engine
 		return {};
 	}
 
+	math::AABB3 SceneMeshComponent::GetRenderWorldBounds() const
+	{
+		C_P(const SceneMeshComponent);
+		const math::Matrix4x4 W =
+			GetOwner() ? GetOwner()->GetWorldTransform() : math::Matrix4x4::ms_Materix3X3WIdentity;
+
+		if (auto PM = std::get_if<ProceduralModel>(&d->Model))
+			return PM->Box.Transform(W);
+
+		auto mergeMeshList = [&](const auto& Meshes, const math::AABB3& FallbackLocalBox) -> math::AABB3 {
+			math::AABB3 mergedWorldAabb;
+			bool mergedValid = false;
+			for (const auto& Mesh : Meshes)
+			{
+				if (!Mesh)
+					continue;
+				const math::AABB3 wbox = Mesh->GetBoundingBox().Transform(Mesh->GetMeshMat() * W);
+				mergedWorldAabb = mergedValid ? mergedWorldAabb.MergeAABB(wbox) : wbox;
+				mergedValid = true;
+			}
+			if (!mergedValid)
+				return FallbackLocalBox.Transform(W);
+			return mergedWorldAabb;
+		};
+
+		if (auto GM = std::get_if<GltfModel>(&d->Model))
+			return mergeMeshList(const_cast<GltfModel&>(*GM).GetModelMesh(), GM->GetModelBox());
+		if (auto OM = std::get_if<AssimpModel>(&d->Model))
+			return mergeMeshList(const_cast<AssimpModel&>(*OM).GetModelMesh(), OM->GetModelBox());
+		return {};
+	}
+
 	math::AABB3 SceneMeshComponent::GetShadowFrustumWorldBounds() const
 	{
 		C_P(const SceneMeshComponent);

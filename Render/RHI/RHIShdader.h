@@ -88,6 +88,8 @@ namespace RenderCore
 
 		void CreateDeclare(const std::vector< VertexDeclareInput>& Inputs);
 		void AppendDeclareInput(const VertexDeclareInput& DeclareInput);
+		/** Interleaved layout: explicit input slot and byte offset (e.g. position + color in one VB). */
+		void AppendDeclareInput(const VertexDeclareInput& DeclareInput, uint32_t InputSlot, uint32_t AlignedByteOffset);
 		const std::vector< VertexElementDesc>& GetDeclareDesc() const;
 		uint32_t GetHash() const;
 	private:

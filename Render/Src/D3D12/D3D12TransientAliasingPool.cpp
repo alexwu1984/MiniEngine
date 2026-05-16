@@ -1,5 +1,4 @@
-#include "D3D12/D3D12TransientAliasingPool.h"
-#include <atomic>
+﻿#include "D3D12/D3D12TransientAliasingPool.h"
 #include "D3D12/D3D12Adapter.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12FormatUtil.h"
@@ -171,10 +170,11 @@ namespace RenderCore
 			for (size_t ci = 0; ci < Chunks.size(); ++ci)
 			{
 				FChunk& Ch = Chunks[ci];
-				if (!Ch.Heap)
+				ID3D12Heap* const Heap = Ch.Heap;
+				if (!Heap)
 					continue;
 
-				const UINT64 HeapBytes = Ch.HeapSizeBytes != 0 ? Ch.HeapSizeBytes : Ch.Heap->GetDesc().SizeInBytes;
+				const UINT64 HeapBytes = Ch.HeapSizeBytes != 0 ? Ch.HeapSizeBytes : Heap->GetDesc().SizeInBytes;
 
 				// Slot grid pitch and heap capacity must match this layout (ignore stale undersized heaps).
 				if (Ch.SlotPitchBytes != SlotPitchBytes || HeapBytes < SlotPitchBytes)
@@ -194,7 +194,7 @@ namespace RenderCore
 					if (HeapOffset + SlotPitchBytes > HeapBytes)
 						continue;
 
-					HRESULT hrPlace = Adapter->CreatePlacedResource(Ch.Heap, HeapOffset, ResDesc,
+					HRESULT hrPlace = Adapter->CreatePlacedResource(Heap, HeapOffset, ResDesc,
 						D3D12_RESOURCE_STATE_COPY_DEST, nullptr, OutRes, DebugName ? DebugName : L"TransientAliasingUAV");
 					if (FAILED(hrPlace))
 						continue;

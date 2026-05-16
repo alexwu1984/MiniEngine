@@ -33,6 +33,8 @@ namespace Engine
 		bool Load(const nlohmann::json& ModelJson);
 		GltfModel& GetModel() const;
 		math::AABB3 GetModelBox() const;
+		/** World-space render bounds (per-mesh AABB merged with MeshMat * actor transform; matches GatherMesh culling). */
+		math::AABB3 GetRenderWorldBounds() const;
 		/** Shadow directional frustum merge: model AABB + FurLength slack so extruded shells are not clipped at a hard box edge. */
 		math::AABB3 GetShadowFrustumWorldBounds() const;
 

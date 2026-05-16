@@ -1,4 +1,5 @@
 ﻿#include "Render/ShadowDebugWireRenderer.h"
+#include <cstddef>
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIViewPort.h"
@@ -183,15 +184,14 @@ namespace Engine
 				const auto sm = act->GetComponent<SceneMeshComponent>();
 				if (!sm)
 					continue;
-				const math::AABB3 localBox = sm->GetModelBox();
-				if ((localBox.GetMaxPoint() - localBox.GetMinPoint()).GetSqrLength() < 1e-16f)
+				const math::AABB3 worldBox = sm->GetRenderWorldBounds();
+				if ((worldBox.GetMaxPoint() - worldBox.GetMinPoint()).GetSqrLength() < 1e-16f)
 					continue;
 				math::Vector3 corners[8];
-				localBox.GetPoint(corners);
-				const math::Matrix4x4 M = act->GetWorldTransform();
+				worldBox.GetPoint(corners);
 				FShadowDebugWireSubmit::FMeshBoundsWire box{};
 				for (int ci = 0; ci < 8; ++ci)
-					box.CornersWorld[ci] = M.TransformPosition(corners[ci]);
+					box.CornersWorld[ci] = corners[ci];
 				Submit.MeshBounds[Submit.NumMeshBounds++] = box;
 			}
 		}
@@ -279,8 +279,10 @@ namespace Engine
 		const std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/ShadowDebugWire.hlsl";
 
 		RHIVertexDeclare Decl;
-		Decl.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
-		Decl.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float4, false));
+		// Interleaved Pos+Color in one VB (slot 0). Separate slots left stale mesh normal VB (stride 12) vs float4 IL.
+		Decl.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false), 0u, 0u);
+		Decl.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float4, false), 0u,
+								static_cast<uint32_t>(offsetof(FShadowDebugWireVertex, Color)));
 
 		VertexShader = RHI->RHICreateVertexShader(ShaderPath, "VS", Decl, {});
 		PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PS", {});

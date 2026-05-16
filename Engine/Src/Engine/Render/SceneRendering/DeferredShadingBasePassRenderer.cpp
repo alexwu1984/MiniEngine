@@ -165,10 +165,7 @@ namespace Engine
 		const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> FurPassRt = { DrawContext.SceneTextures->GetSceneColor() };
 		Cmd.SetRenderTarget(FurPassRt, DrawContext.SceneTextures->GetDepth());
 
-		const bool bD3D12 = DrawContext.RHI && DrawContext.RHI->GetRHIAPIType() == RenderCore::RHIAPIType::E_D3D12;
 		uintptr_t furSharedBoundPsKey = 0u;
-		if (bD3D12)
-			Cmd.RHIBeginBatchedShaderResourceBindings();
 		for (const auto& Key : Flat)
 		{
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
@@ -183,7 +180,5 @@ namespace Engine
 				fur->DrawForwardFur(Cmd, P, &furSharedBoundPsKey, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 			}
 		}
-		if (bD3D12)
-			Cmd.RHIEndBatchedShaderResourceBindings();
 	}
 }

@@ -1,7 +1,9 @@
 ﻿#include "Render/RDGBuilder.h"
 #include "Render/RDGUtils.h"
 #include "Render/RenderTexturePool.h"
+#include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIUnorderedAccessView.h"
 #include "RHI/RHIRenderPass.h"
 #include "core/logger.h"
 #include "core/strings.h"
@@ -15,6 +17,28 @@ namespace Engine
 {
 	namespace
 	{
+		struct FTransientPooledScope final
+		{
+			FRDGBuilder* Builder = nullptr;
+			bool Active = false;
+
+			FTransientPooledScope(FRDGBuilder* InBuilder, RenderCore::DynamicRHI* RHI)
+				: Builder(InBuilder)
+				, Active(RHI != nullptr && InBuilder != nullptr && InBuilder->HasTransientPooledUAVSpecs())
+			{
+				if (!Active)
+					return;
+				Builder->AcquireTransientPooledUAVs(RHI);
+			}
+
+			~FTransientPooledScope()
+			{
+				if (!Active || !Builder)
+					return;
+				Builder->ReleaseTransientPooledUAVs();
+			}
+		};
+
 		bool ResourceNameForScheduling(const std::string& Name)
 		{
 			return !Name.empty();
@@ -282,8 +306,83 @@ namespace Engine
 		core::LOG(core::log_inf, L"FRDG DOT:\n%S", core::u8_ucs2(S).c_str());
 	}
 
+	FRDGBuilder::FRDGBuilder() = default;
+
+	FRDGBuilder::~FRDGBuilder()
+	{
+		ReleaseTransientPooledUAVs();
+	}
+
+	void FRDGBuilder::RegisterTransientUAV(std::string Name, std::function<FRDGTransientUAVDesc()> ResolveDesc)
+	{
+		FTransientUAVRegistration Reg;
+		Reg.Name = std::move(Name);
+		Reg.ResolveDesc = std::move(ResolveDesc);
+		RegisteredTransientUAVs.emplace_back(std::move(Reg));
+	}
+
+	std::shared_ptr<RenderCore::RHIUnorderedAccessView> FRDGBuilder::GetTransientUAV(const std::string& Name) const
+	{
+		const auto It = LiveTransientUAVByName.find(Name);
+		if (It == LiveTransientUAVByName.end())
+			return {};
+		return It->second;
+	}
+
+	void FRDGBuilder::AcquireTransientPooledUAVs(RenderCore::DynamicRHI* RHI)
+	{
+		ReleaseTransientPooledUAVs();
+		TransientAcquireRHI = RHI;
+		if (!RHI || RegisteredTransientUAVs.empty())
+			return;
+
+		for (const FTransientUAVRegistration& Spec : RegisteredTransientUAVs)
+		{
+			if (!Spec.ResolveDesc)
+				continue;
+			FRDGTransientUAVDesc D = Spec.ResolveDesc();
+			if (!D.IsAllocatable())
+				continue;
+
+			std::shared_ptr<RenderCore::RHIUnorderedAccessView>& Slot = LiveTransientUAVByName[Spec.Name];
+			if (Slot)
+			{
+				auto OldTex = Slot->GetTexture2D();
+				if (OldTex)
+				{
+					const core::vec2i Sz = OldTex->GetSize();
+					RenderTexturePool::Get().ReleaseUAV(OldTex->GetPixelFormat(), Sz.x, Sz.y, std::move(Slot));
+				}
+				else
+					Slot.reset();
+			}
+
+			LiveTransientUAVByName[Spec.Name] = RenderTexturePool::Get().AcquireUAV(RHI, D.PixelFormat, D.Width, D.Height);
+		}
+	}
+
+	void FRDGBuilder::ReleaseTransientPooledUAVs()
+	{
+		while (!LiveTransientUAVByName.empty())
+		{
+			auto It = LiveTransientUAVByName.begin();
+			std::shared_ptr<RenderCore::RHIUnorderedAccessView> Uav = std::move(It->second);
+			LiveTransientUAVByName.erase(It);
+			if (!Uav)
+				continue;
+			auto Tex = Uav->GetTexture2D();
+			if (!Tex)
+				continue;
+			const auto Sz = Tex->GetSize();
+			RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(Uav));
+		}
+		TransientAcquireRHI = nullptr;
+	}
+
 	void FRDGBuilder::Clear()
 	{
+		ReleaseTransientPooledUAVs();
+		RegisteredTransientUAVs.clear();
 		Imports.clear();
 		Passes.clear();
 		SchedulingEdges.clear();
@@ -381,6 +480,8 @@ namespace Engine
 				GpuMsPrev[P.first] = P.second;
 			Params.RDGBarrierCommandContext->RDGBeginGpuPassTimingFrame();
 		}
+
+		FTransientPooledScope Transients(this, Params.RDGAcquirePooledResourcesRHI);
 
 		for (std::size_t Idx : Order)
 		{

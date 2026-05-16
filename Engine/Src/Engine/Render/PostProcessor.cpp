@@ -1,7 +1,6 @@
 ﻿#include "Render/PostProcessor.h"
 #include "core/logger.h"
 #include "core/system.h"
-#include <cmath>
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"
@@ -21,6 +20,8 @@
 #include "Render/PostProcessPass.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/SceneRendering/SceneViewData.h"
+#include "RHI/RHITexture2D.h"
+
 namespace Engine
 {
 	using namespace RenderCore;
@@ -45,6 +46,34 @@ namespace Engine
 			}
 		}
 	} // namespace
+
+	static void RegisterBloomTransientUavs(FRDGBuilder& Graph, const std::shared_ptr<FSceneTextures>& SceneTextures)
+	{
+		if (!SceneTextures || !SceneTextures->GetSceneColor())
+			return;
+
+		auto MkDescForLevel = [SceneTextures](int Level)
+		{
+			FRDGTransientUAVDesc Desc;
+			Desc.PixelFormat = EPixelFormat::PF_FloatRGB;
+			core::vec2i Sz = SceneTextures->GetSceneColor()->GetSize();
+			for (int L = 0; L < Level; ++L)
+			{
+				Sz.x = (std::max)(1, Sz.x >> 1);
+				Sz.y = (std::max)(1, Sz.y >> 1);
+			}
+			Desc.Width = Sz.x;
+			Desc.Height = Sz.y;
+			return Desc;
+		};
+
+		for (int Idx = 0; Idx < 5; ++Idx)
+			Graph.RegisterTransientUAV(std::string("Bloom.Chain") + std::to_string(Idx),
+									   [MkDescForLevel, Idx]()
+									   {
+										   return MkDescForLevel(Idx);
+									   });
+	}
 
 	static void RegisterPostOnlySceneTexturesImports(FRDGBuilder& Graph, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
@@ -217,6 +246,7 @@ namespace Engine
 		AddFramePasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData);
 		FRDGCompileParameters RDGExecParams = d->RDGCompileParams;
 		RDGExecParams.RDGBarrierCommandContext = &RHIContext;
+		RDGExecParams.RDGAcquirePooledResourcesRHI = d->RHI;
 		if (!Graph.Compile(d->RDGCompileParams, nullptr))
 		{
 			core::LOG(core::log_err, L"FRDG: post-process graph compile failed (cycle); executing passes in AddPass order.");
@@ -297,12 +327,16 @@ namespace Engine
 	{
 		C_P(PostProcessor);
 		const std::string bloomSceneInput = UseSSRComposite ? "SceneColorWithSSR" : "SceneColor";
+
+		RegisterBloomTransientUavs(Graph, SceneTextures);
+
 		BloomPass BloomPassNode(
 			RHIContext,
 			SceneTextures,
 			d->BloomEffect,
 			[SceneTextures, UseSSRComposite]() { return UseSSRComposite ? SceneTextures->GetSceneColorWithSSR() : SceneTextures->GetSceneColor(); },
-			bloomSceneInput);
+			bloomSceneInput,
+			&Graph);
 		Graph.AddPass(BloomPassNode.BuildDesc());
 
 		Graph.AddPass(d->ApplyBloom->BuildDesc(

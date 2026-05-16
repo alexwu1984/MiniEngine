@@ -9,6 +9,7 @@
 #include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
 #include "core/system.h"
+#include <algorithm>
 
 namespace Engine
 {
@@ -22,6 +23,7 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIComputeShader> UpSample;
 
 		std::shared_ptr< RHIUnorderedAccessView> BloomBuffers[5];
+		std::shared_ptr<RHIUnorderedAccessView> PinBloomChainHead;
 
 		BloomPrivate(DynamicRHI* _RHI) :
 			RHI(_RHI),
@@ -59,6 +61,17 @@ namespace Engine
 	void Bloom::InvalidateTransientResources()
 	{
 		C_P(Bloom);
+		if (d->PinBloomChainHead)
+		{
+			auto Tex = d->PinBloomChainHead->GetTexture2D();
+			if (Tex)
+			{
+				auto Sz = Tex->GetSize();
+				RenderTexturePool::Get().ReleaseUAV(Tex->GetPixelFormat(), Sz.x, Sz.y, std::move(d->PinBloomChainHead));
+			}
+			else
+				d->PinBloomChainHead.reset();
+		}
 		for (int i = 0; i < _countof(d->BloomBuffers); ++i)
 		{
 			auto& U = d->BloomBuffers[i];
@@ -70,26 +83,61 @@ namespace Engine
 		}
 	}
 
-	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
+	void Bloom::Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
+					 const std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5>* ExternalBloomUavChain)
 	{
 		C_P(Bloom);
 		RenderCore::RHICommandMark Mark(RHIContext, "Bloom");
 		auto ScreenSize = SceneTextures->GetSceneColor()->GetSize();
-		bool NeedAlloc = !d->BloomBuffers[0];
-		if (!NeedAlloc)
+
+		bool bUseExtern = ExternalBloomUavChain != nullptr;
+		if (bUseExtern)
 		{
-			auto Sz0 = d->BloomBuffers[0]->GetTexture2D()->GetSize();
-			NeedAlloc = Sz0.x != ScreenSize.x || Sz0.y != ScreenSize.y;
-		}
-		if (NeedAlloc)
-		{
-			InvalidateTransientResources();
-			auto Size = ScreenSize;
-			for (int Index = 0; Index < _countof(d->BloomBuffers); ++Index)
+			for (int Index = 0; Index < 5 && bUseExtern; ++Index)
 			{
-				d->BloomBuffers[Index] = RenderTexturePool::Get().AcquireUAV(d->RHI, EPixelFormat::PF_FloatRGB, Size.x, Size.y);
-				Size.x >>= 1;
-				Size.y >>= 1;
+				if (!ExternalBloomUavChain->operator[](static_cast<size_t>(Index)))
+					bUseExtern = false;
+			}
+		}
+
+		if (bUseExtern)
+		{
+			d->PinBloomChainHead.reset();
+			core::vec2i ExpSize(ScreenSize);
+			for (int Index = 0; Index < 5 && bUseExtern; ++Index)
+			{
+				const auto Sz = ExternalBloomUavChain->operator[](static_cast<size_t>(Index))->GetTexture2D()->GetSize();
+				if (Sz.x != ExpSize.x || Sz.y != ExpSize.y)
+					bUseExtern = false;
+				ExpSize.x = (std::max)(1, ExpSize.x >> 1);
+				ExpSize.y = (std::max)(1, ExpSize.y >> 1);
+			}
+		}
+
+		if (bUseExtern)
+		{
+			for (int Index = 0; Index < 5; ++Index)
+				d->BloomBuffers[Index] = ExternalBloomUavChain->operator[](static_cast<size_t>(Index));
+		}
+		else
+		{
+			d->PinBloomChainHead.reset();
+			bool NeedAlloc = !d->BloomBuffers[0];
+			if (!NeedAlloc && d->BloomBuffers[0])
+			{
+				auto Sz0 = d->BloomBuffers[0]->GetTexture2D()->GetSize();
+				NeedAlloc = Sz0.x != ScreenSize.x || Sz0.y != ScreenSize.y;
+			}
+			if (NeedAlloc)
+			{
+				InvalidateTransientResources();
+				auto Size = ScreenSize;
+				for (int Index = 0; Index < _countof(d->BloomBuffers); ++Index)
+				{
+					d->BloomBuffers[Index] = RenderTexturePool::Get().AcquireUAV(d->RHI, EPixelFormat::PF_FloatRGB, Size.x, Size.y);
+					Size.x >>= 1;
+					Size.y >>= 1;
+				}
 			}
 		}
 
@@ -157,15 +205,22 @@ namespace Engine
 				RHIContext.RHIDispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, 1);
 			}
 		}
+
+		if (bUseExtern && d->BloomBuffers[0])
+		{
+			d->PinBloomChainHead = d->BloomBuffers[0];
+			for (int Index = 0; Index < 5; ++Index)
+				d->BloomBuffers[Index].reset();
+		}
 	}
 
 	std::shared_ptr< RenderCore::RHITexture2D> Bloom::GetResult() const
 	{
 		C_P(const Bloom);
+		if (d->PinBloomChainHead && d->PinBloomChainHead->GetTexture2D())
+			return d->PinBloomChainHead->GetTexture2D();
 		if (!d->BloomBuffers[0])
-		{
 			return {};
-		}
 		return d->BloomBuffers[0]->GetTexture2D();
 	}
 

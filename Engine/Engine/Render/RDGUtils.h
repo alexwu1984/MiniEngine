@@ -3,7 +3,6 @@
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHITexture2D.h"
 #include "Render/RDGBuilder.h"
-#include <vector>
 
 namespace Engine
 {

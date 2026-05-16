@@ -17,6 +17,7 @@ namespace RenderCore
 namespace Engine
 {
 	class Bloom;
+	class FRDGBuilder;
 	struct FSceneViewData;
 	class FSceneTextures;
 	class SSRProcessor;
@@ -72,7 +73,8 @@ namespace Engine
 		BloomPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 				  std::shared_ptr<Bloom> BloomEffect,
 				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
-				  std::string SceneColorDependencyName);
+				  std::string SceneColorDependencyName,
+				  FRDGBuilder* RDGPooledUavs = nullptr);
 
 		RenderPassDesc BuildDesc() const;
 
@@ -84,6 +86,7 @@ namespace Engine
 		std::shared_ptr<Bloom> BloomEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 		std::string SceneColorDependencyName;
+		FRDGBuilder* RDGForPooledBloomUavs = nullptr;
 	};
 
 	class ApplyBloomPass

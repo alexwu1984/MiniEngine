@@ -1028,21 +1028,6 @@ namespace RenderCore
 		CommandListHandle.FlushResourceBarriers();
 	}
 
-	void D3D12CommandContext::RHIBeginBatchedShaderResourceBindings()
-	{
-		++m_BatchedShaderResourceBindingDepth;
-		if (m_BatchedShaderResourceBindingDepth == 1)
-			m_BatchedTransitionedResources.clear();
-	}
-
-	void D3D12CommandContext::RHIEndBatchedShaderResourceBindings()
-	{
-		Assert(m_BatchedShaderResourceBindingDepth > 0);
-		if (m_BatchedShaderResourceBindingDepth == 1)
-			m_BatchedTransitionedResources.clear();
-		--m_BatchedShaderResourceBindingDepth;
-	}
-
 	void D3D12CommandContext::RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
 	{
 		RDGApplyPassBeginBarriers(Items, Count, PassQueue);

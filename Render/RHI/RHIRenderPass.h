@@ -15,6 +15,15 @@
  * Phase 3 - Same barrier list for RDG and immediate passes:
  * FRDGUtils::AppendPassTextureBarriers mirrors RDG pass IO -> FRDGTextureBarrierDesc; fullscreen raster (e.g. SSR) uses
  * FRHIRenderPassScope + DeclaredTextureBarriers like DeferredLighting. OM unbind goes through RHIBeginRenderPass({}).
+ *
+ * Phase 4-5 - Transient pooled resources aligned with UE-style graph lifetime:
+ * FRDGBuilder::RegisterTransientUAV plus frame-scoped Acquire/Release around ExecutePasses (RenderTexturePool) lets passes borrow UAVs for
+ * the graph segment rather than hoarding pooled handles only in subsystem objects.
+ *
+ * Phase 6 - Barrier single-source policy: derive transitions from RDG FRDGPassResource.Access and RHIRenderPass DeclaredTextureBarriers;
+ * implicit transitions inside SetRenderTarget remain a backend fallback, not the primary scheduling surface.
+ *
+ * Phase 7 - Binding discipline removed dead RHIBatched* hooks; Fur forward retains explicit shared-SRV pinning when pixel shader identity changes.
  */
 
 #include "RHI/RHICommandContext.h"

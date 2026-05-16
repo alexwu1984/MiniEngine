@@ -80,8 +80,6 @@ namespace RenderCore
 		void ReleaseCommandAllocator();
 		// Close the current command list and return it for batching/submission.
 		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
-		virtual void RHIBeginBatchedShaderResourceBindings() override;
-		virtual void RHIEndBatchedShaderResourceBindings() override;
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RDGBeginGpuPassTimingFrame() override;
@@ -136,10 +134,6 @@ namespace RenderCore
 		std::shared_ptr<FD3D12StateCache> CurrentStateCache;
 		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
 
-		uint32_t m_BatchedShaderResourceBindingDepth = 0;
-		bool IsBatchedShaderResourceBindingScopeActive() const { return m_BatchedShaderResourceBindingDepth > 0; }
-		/** Returns true when a transition should be emitted for this bind (deduped per resource inside a batch scope). */
-		bool ShouldTransitionResourceForShaderBind(FD3D12Resource* Resource, bool bForceTransition = false);
 		void TransitionTexture2DForShaderBind(D3D12Texture2D* Texture2D, EShaderFrequency ShaderType, bool bForceTransition = false);
 		void TransitionTextureCubeForShaderBind(D3D12TextureCube* TextureCube, EShaderFrequency ShaderType, int32_t Mip = -1);
 		void TransitionStructuredBufferForShaderBind(D3D12StructuredBuffer* Buffer, EShaderFrequency ShaderType);
@@ -149,7 +143,6 @@ namespace RenderCore
 		void RebindCachedOutputMergerTargets();
 		void PrepareForGraphicsDraw();
 		void RefreshDepthShaderResourceTransitionsAfterOmRebind();
-		std::unordered_set<FD3D12Resource*> m_BatchedTransitionedResources;
 		std::unordered_set<D3D12Texture2D*> m_DepthTexturesBoundForShaderSample;
 		static constexpr uint32_t kMaxCachedOutputMergerRtvs = 8u;
 		D3D12_CPU_DESCRIPTOR_HANDLE m_CachedOutputMergerRtvs[kMaxCachedOutputMergerRtvs]{};

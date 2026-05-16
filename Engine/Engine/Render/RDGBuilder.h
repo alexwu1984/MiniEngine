@@ -1,11 +1,26 @@
 ﻿#pragma once
 #include "RHI/RDGResourceAccess.h"
+#include "RHI/RHIDefinitions.h"
 
 namespace RenderCore
 {
 	class RHITexture2D;
+	class RHIUnorderedAccessView;
+	class DynamicRHI;
 	class RHICommandContext;
 }
+
+/** UAV dimensions + format resolved once per-frame when the pool acquire runs (UE-style transient resource key). */
+struct FRDGTransientUAVDesc
+{
+	RenderCore::EPixelFormat PixelFormat = RenderCore::EPixelFormat::PF_Unknown;
+	int32_t Width = 0;
+	int32_t Height = 0;
+	bool IsAllocatable() const
+	{
+		return Width > 0 && Height > 0 && PixelFormat != RenderCore::EPixelFormat::PF_Unknown;
+	}
+};
 
 namespace Engine
 {
@@ -92,6 +107,8 @@ struct FRDGCompileParameters
 	 * (UE RDG-style pipeline barriers). Must point at the same command list passes record into.
 	 */
 	RenderCore::RHICommandContext* RDGBarrierCommandContext = nullptr;
+	/** When non-null, ExecutePasses allocates named RegisterTransientUAV entries from RenderTexturePool at graph start and releases after all passes finish. */
+	RenderCore::DynamicRHI* RDGAcquirePooledResourcesRHI = nullptr;
 	/** If false, skips RDGApplyPassBeginBarriers even when RDGBarrierCommandContext is set. */
 	bool bRDGAutoPipelineBarriers = true;
 	/**
@@ -118,9 +135,19 @@ struct FRDGCompileParameters
 class FRDGBuilder
 {
 public:
+	FRDGBuilder();
+	~FRDGBuilder();
+
 	void Clear();
 
 	void ImportTexture(std::string Name, std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve, bool Required = true);
+
+	void RegisterTransientUAV(std::string Name, std::function<FRDGTransientUAVDesc()> ResolveDesc);
+	std::shared_ptr<RenderCore::RHIUnorderedAccessView> GetTransientUAV(const std::string& Name) const;
+	bool HasTransientPooledUAVSpecs() const { return !RegisteredTransientUAVs.empty(); }
+
+	void AcquireTransientPooledUAVs(RenderCore::DynamicRHI* RHI);
+	void ReleaseTransientPooledUAVs();
 
 	void AddPass(FRDGPassDescriptor Pass);
 
@@ -149,10 +176,20 @@ private:
 	void LogNonGraphicsQueueWarnings() const;
 	void ExecutePassesImpl(const FRDGCompileParameters& Params, const std::vector<std::size_t>& Order);
 
+	struct FTransientUAVRegistration
+	{
+		std::string Name;
+		std::function<FRDGTransientUAVDesc()> ResolveDesc;
+	};
+
 	std::vector<FRDGPassResource> Imports;
 	std::vector<FRDGPassDescriptor> Passes;
 	std::vector<std::pair<std::string, std::string>> SchedulingEdges;
 	std::vector<std::size_t> LastCompiledOrder;
+
+	std::vector<FTransientUAVRegistration> RegisteredTransientUAVs;
+	std::unordered_map<std::string, std::shared_ptr<RenderCore::RHIUnorderedAccessView>> LiveTransientUAVByName;
+	RenderCore::DynamicRHI* TransientAcquireRHI = nullptr;
 };
 
 } // namespace Engine

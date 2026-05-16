@@ -9,6 +9,7 @@
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHIRenderPass.h"
+#include "RHI/RHIUnorderedAccessView.h"
 #include "Render/RDGUtils.h"
 #include "Render/FXAA.h"
 #include "Render/SceneTextures.h"
@@ -161,33 +162,64 @@ namespace Engine
 	BloomPass::BloomPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<FSceneTextures> InSceneTextures,
 						 std::shared_ptr<Bloom> InBloomEffect,
 						 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture,
-						 std::string InSceneColorDependencyName)
+						 std::string InSceneColorDependencyName,
+						 FRDGBuilder* InRDGForPooledBloomUavs)
 		: RHIContext(InRHIContext)
 		, SceneTextures(std::move(InSceneTextures))
 		, BloomEffect(std::move(InBloomEffect))
 		, SourceTexture(std::move(InSourceTexture))
 		, SceneColorDependencyName(std::move(InSceneColorDependencyName))
+		, RDGForPooledBloomUavs(InRDGForPooledBloomUavs)
 	{
 	}
 
 	RenderPassDesc BloomPass::BuildDesc() const
 	{
-		return {
-			"Bloom",
-			{
-				{ SceneColorDependencyName, SourceTexture }
-			},
-			{
-				{ "BloomResult", [BloomEffect = BloomEffect]() { return BloomEffect ? BloomEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
-			},
-			[Pass = *this]() { Pass.Execute(); }
+		FRDGPassDescriptor Desc{};
+		Desc.Name = "Bloom";
+
+		FRDGPassResource SceneIn{};
+		SceneIn.Name = SceneColorDependencyName;
+		SceneIn.Resolve = SourceTexture;
+		SceneIn.Required = true;
+		SceneIn.Access = FRDGResourceAccess::SRV;
+
+		FRDGPassResource BloomOut{};
+		BloomOut.Name = "BloomResult";
+		BloomOut.Resolve = [B = BloomEffect]() {
+			return B ? B->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{};
 		};
+		BloomOut.Required = false;
+		BloomOut.Access = FRDGResourceAccess::UAV;
+
+		Desc.Inputs = { std::move(SceneIn) };
+		Desc.Outputs = { std::move(BloomOut) };
+		Desc.ValidateOutputs = false;
+		Desc.PassFlags = RDG_Compute;
+		Desc.Queue = ERDGPassQueue::Graphics;
+		Desc.bUnbindRenderTargetsBeforeRDGBarriers = true;
+		Desc.Execute = [Pass = *this]() { Pass.Execute(); };
+		return Desc;
 	}
 
 	void BloomPass::Execute() const
 	{
 		UnbindGraphicsRenderTargets(RHIContext);
-		BloomEffect->Draw(RHIContext, SceneTextures);
+		std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5> Pooled{};
+		bool bUsePool = RDGForPooledBloomUavs != nullptr;
+		if (bUsePool)
+		{
+			for (int Idx = 0; Idx < 5; ++Idx)
+			{
+				Pooled[(size_t)Idx] = RDGForPooledBloomUavs->GetTransientUAV("Bloom.Chain" + std::to_string(Idx));
+				if (!Pooled[(size_t)Idx])
+					bUsePool = false;
+			}
+		}
+		if (bUsePool)
+			BloomEffect->Draw(RHIContext, SceneTextures, &Pooled);
+		else
+			BloomEffect->Draw(RHIContext, SceneTextures, nullptr);
 	}
 
 	RenderPassDesc ApplyBloomPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,

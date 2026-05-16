@@ -87,13 +87,6 @@ namespace RenderCore
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) = 0;
 		virtual void FlushCommands(bool WaitForCompletion = false) {};
 		/**
-		 * D3D12: batched shader-resource binding scope. Transitions are deduplicated per resource on the first
-		 * RHISetShaderTexture/Cube/StructuredBuffer in the scope (same rules as outside the scope); barriers are
-		 * flushed when the outermost scope ends. No-op on D3D11. Nested scopes are reference-counted.
-		 */
-		virtual void RHIBeginBatchedShaderResourceBindings() {}
-		virtual void RHIEndBatchedShaderResourceBindings() {}
-		/**
 		 * UE-style RDG pass begin: transition textures to states implied by FRDGResourceAccess before Pass.Execute().
 		 * Default implementation is a no-op (e.g. D3D11). D3D12 batches ResourceBarrier then flushes once.
 		 */

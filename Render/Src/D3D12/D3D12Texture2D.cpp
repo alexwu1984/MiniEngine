@@ -35,7 +35,12 @@ namespace RenderCore
 		~D3D12Texture2DPrivate()
 		{
 			if (Resource)
+			{
 				Resource->Release();
+				Resource = nullptr;
+			}
+			// Retire heap slot after the placed resource is destroyed (lease must not run first).
+			AliasingLease.reset();
 		}
 	};
 

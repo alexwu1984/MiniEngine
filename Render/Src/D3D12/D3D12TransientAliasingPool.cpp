@@ -1,5 +1,7 @@
 #include "D3D12/D3D12TransientAliasingPool.h"
+#include <atomic>
 #include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12FormatUtil.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Util.h"
@@ -24,12 +26,54 @@ namespace RenderCore
 				H = nullptr;
 			}
 		}
+
+		static UINT64 ComputeSlotPitchBytes(ID3D12Device* Device, UINT NodeMask, const D3D12_RESOURCE_DESC& ResDesc)
+		{
+			D3D12_RESOURCE_ALLOCATION_INFO AllocInfo = Device->GetResourceAllocationInfo(NodeMask, 1, &ResDesc);
+			if (AllocInfo.SizeInBytes == UINT64_MAX || AllocInfo.SizeInBytes == 0)
+				return 0;
+			UINT64 Pitch = AlignUINT64(AllocInfo.SizeInBytes, AllocInfo.Alignment);
+			return AlignUINT64(Pitch, (UINT64)D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+		}
+	}
+
+	uint64_t FD3D12TransientAliasingPool::GetSlotRetireFenceValue(const std::shared_ptr<FD3D12Adapter>& Adapter)
+	{
+		if (!Adapter)
+			return 0;
+		FD3D12ManualFence& FrameFence = Adapter->GetFrameFence();
+		const uint64_t LastSignaled = FrameFence.GetLastSignaledFence();
+		if (LastSignaled != 0)
+			return LastSignaled;
+		return FrameFence.GetCurrentFence();
+	}
+
+	bool FD3D12TransientAliasingPool::TryPromoteRetiredSlot(FChunk& Ch, uint32_t SlotIndex,
+		const std::shared_ptr<FD3D12Adapter>& Adapter)
+	{
+		if (Ch.SlotFree[SlotIndex])
+			return true;
+		const uint64_t RetireFence = Ch.SlotRetireFence[SlotIndex];
+		if (RetireFence == 0)
+			return false;
+
+		if (Adapter)
+		{
+			FD3D12ManualFence& FrameFence = Adapter->GetFrameFence();
+			FrameFence.UpdateLastCompletedFence();
+			if (!FrameFence.IsFenceComplete(RetireFence))
+				return false;
+		}
+
+		Ch.SlotRetireFence[SlotIndex] = 0;
+		Ch.SlotFree[SlotIndex] = true;
+		return true;
 	}
 
 	bool FD3D12AliasingTexLayoutKey::operator<(const FD3D12AliasingTexLayoutKey& B) const
 	{
-		return std::tie(DxgiFormat, Width, Height, NumMips, ResourceFlags)
-			< std::tie(B.DxgiFormat, B.Width, B.Height, B.NumMips, B.ResourceFlags);
+		return std::tie(PixelFormat, DxgiFormat, Width, Height, NumMips, ResourceFlags)
+			< std::tie(B.PixelFormat, B.DxgiFormat, B.Width, B.Height, B.NumMips, B.ResourceFlags);
 	}
 
 	FD3D12AliasingSlotLease::~FD3D12AliasingSlotLease()
@@ -60,7 +104,18 @@ namespace RenderCore
 		FChunk& Ch = Chunks[ChunkIndex];
 		if (SlotIndex >= Ch.SlotFree.size())
 			return;
-		Ch.SlotFree[SlotIndex] = true;
+
+		const uint64_t RetireFence = GetSlotRetireFenceValue(AdapterWeak.lock());
+		Ch.SlotFree[SlotIndex] = false;
+		if (RetireFence == 0)
+		{
+			Ch.SlotRetireFence[SlotIndex] = 0;
+			Ch.SlotFree[SlotIndex] = true;
+		}
+		else
+		{
+			Ch.SlotRetireFence[SlotIndex] = RetireFence;
+		}
 	}
 
 	HRESULT FD3D12TransientAliasingPool::TryAllocatePlacedUAVTexture2D(
@@ -93,17 +148,16 @@ namespace RenderCore
 		ResDesc.SampleDesc.Count = 1;
 		ResDesc.SampleDesc.Quality = 0;
 
-		D3D12_RESOURCE_ALLOCATION_INFO AllocInfo = Device->GetResourceAllocationInfo(0, 1, &ResDesc);
-		if (AllocInfo.SizeInBytes == UINT64_MAX || AllocInfo.SizeInBytes == 0)
+		const UINT NodeMask = 1u;
+		const UINT64 SlotPitchBytes = ComputeSlotPitchBytes(Device, NodeMask, ResDesc);
+		if (SlotPitchBytes == 0)
 			return E_FAIL;
-
-		UINT64 SlotPitchBytes = AlignUINT64(AllocInfo.SizeInBytes, AllocInfo.Alignment);
-		SlotPitchBytes = AlignUINT64(SlotPitchBytes, (UINT64)D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
 
 		const UINT64 ChunkHeapBytesUnaligned = SlotPitchBytes * (UINT64)kSlotsPerChunk;
 		const UINT64 ChunkHeapBytes = AlignUINT64(ChunkHeapBytesUnaligned, (UINT64)D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
 
 		FD3D12AliasingTexLayoutKey Key{};
+		Key.PixelFormat = (uint32_t)InFormat;
 		Key.DxgiFormat = (uint32_t)PlatformResourceFormat;
 		Key.Width = (uint32_t)SizeX;
 		Key.Height = (uint32_t)SizeY;
@@ -117,18 +171,36 @@ namespace RenderCore
 			for (size_t ci = 0; ci < Chunks.size(); ++ci)
 			{
 				FChunk& Ch = Chunks[ci];
+				if (!Ch.Heap)
+					continue;
+
+				const UINT64 HeapBytes = Ch.HeapSizeBytes != 0 ? Ch.HeapSizeBytes : Ch.Heap->GetDesc().SizeInBytes;
+
+				// Slot grid pitch and heap capacity must match this layout (ignore stale undersized heaps).
+				if (Ch.SlotPitchBytes != SlotPitchBytes || HeapBytes < SlotPitchBytes)
+					continue;
+
+				if (Ch.SlotRetireFence.size() != Ch.SlotFree.size())
+					Ch.SlotRetireFence.assign(Ch.SlotFree.size(), 0);
+
 				for (uint32_t si = 0; si < Ch.SlotFree.size(); ++si)
 				{
+					if (!TryPromoteRetiredSlot(Ch, si, Adapter))
+						continue;
 					if (!Ch.SlotFree[si])
 						continue;
 
 					const UINT64 HeapOffset = Ch.SlotPitchBytes * (UINT64)si;
+					if (HeapOffset + SlotPitchBytes > HeapBytes)
+						continue;
+
 					HRESULT hrPlace = Adapter->CreatePlacedResource(Ch.Heap, HeapOffset, ResDesc,
 						D3D12_RESOURCE_STATE_COPY_DEST, nullptr, OutRes, DebugName ? DebugName : L"TransientAliasingUAV");
 					if (FAILED(hrPlace))
 						continue;
 
 					Ch.SlotFree[si] = false;
+					Ch.SlotRetireFence[si] = 0;
 
 					auto Lease = std::make_shared<FD3D12AliasingSlotLease>();
 					Lease->Pool = shared_from_this();
@@ -150,8 +222,11 @@ namespace RenderCore
 		FChunk NewChunk{};
 		NewChunk.SlotPitchBytes = SlotPitchBytes;
 		NewChunk.SlotFree.assign(kSlotsPerChunk, true);
+		NewChunk.SlotRetireFence.assign(kSlotsPerChunk, 0);
 
 		D3D12_HEAP_PROPERTIES HeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		HeapProps.CreationNodeMask = NodeMask;
+		HeapProps.VisibleNodeMask = NodeMask;
 		D3D12_HEAP_DESC HeapDesc{};
 		HeapDesc.SizeInBytes = ChunkHeapBytes;
 		HeapDesc.Properties = HeapProps;
@@ -162,9 +237,6 @@ namespace RenderCore
 
 		const D3D12_RESOURCE_HEAP_TIER HeapTier = Adapter->GetResourceHeapTier();
 
-		// Heaps that include D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES only admit RT/DS textures (#638 for UAV).
-		// Do not use D3D12_HEAP_FLAG_DENY_BUFFERS alone as a fallback - Tier rules want NONE (Tier 2) or
-		// ALLOW_ONLY_NON_RT_DS_TEXTURES (= DENY_BUFFERS | DENY_RT_DS_TEXTURES, no DENY_NON_RT_DS bit).
 		auto TryHeapCategory = [&](D3D12_HEAP_FLAGS Flags) -> HRESULT {
 			HeapDesc.Flags = Flags;
 			SafeReleaseHeap(NewChunk.Heap);
@@ -197,6 +269,11 @@ namespace RenderCore
 		if (FAILED(hrHeap) || !NewChunk.Heap)
 			return FAILED(hrHeap) ? hrHeap : E_FAIL;
 
+		const UINT64 ActualHeapBytes = NewChunk.Heap->GetDesc().SizeInBytes;
+		if (ActualHeapBytes < ChunkHeapBytes)
+			return E_FAIL;
+
+		NewChunk.HeapSizeBytes = ActualHeapBytes;
 		Chunks.push_back(std::move(NewChunk));
 		return TryPlaceInChunks(Chunks, OutResource, OutLease);
 	}

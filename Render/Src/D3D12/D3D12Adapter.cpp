@@ -466,7 +466,7 @@ namespace RenderCore
 		const wchar_t* Name)
 	{
 		C_P(FD3D12Adapter);
-		if (!Heap || !ppOutResource)
+		if (!Heap || !ppOutResource || !d->RootDevice)
 			return E_POINTER;
 
 		D3D12_RESOURCE_STATES EffectiveInitial = InitialUsage;

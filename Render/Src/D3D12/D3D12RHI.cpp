@@ -411,7 +411,6 @@ namespace RenderCore
 		{
 			D3D12Adapter->BlockUntilIdle();
 			::ImGui_ImplDX12_Shutdown();
-			// Placed UAV heaps must be released before FD3D12Adapter::Cleanup tears down the device; otherwise ~FChunk Heap::Release AVs.
 			TransientAliasingPool.reset();
 			D3D12Adapter->Cleanup();
 		}

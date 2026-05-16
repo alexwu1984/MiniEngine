@@ -17,6 +17,7 @@ namespace RenderCore
 
 	struct FD3D12AliasingTexLayoutKey
 	{
+		uint32_t PixelFormat = 0;
 		uint32_t DxgiFormat = 0;
 		uint32_t Width = 0;
 		uint32_t Height = 0;
@@ -64,11 +65,16 @@ namespace RenderCore
 		struct FChunk
 		{
 			ID3D12Heap* Heap = nullptr;
+			uint64_t HeapSizeBytes = 0;
 			uint64_t SlotPitchBytes = 0;
 			std::vector<bool> SlotFree;
+			std::vector<uint64_t> SlotRetireFence;
 
 			~FChunk();
 		};
+
+		static uint64_t GetSlotRetireFenceValue(const std::shared_ptr<FD3D12Adapter>& Adapter);
+		static bool TryPromoteRetiredSlot(FChunk& Ch, uint32_t SlotIndex, const std::shared_ptr<FD3D12Adapter>& Adapter);
 
 		static constexpr uint32_t kSlotsPerChunk = 16;
 

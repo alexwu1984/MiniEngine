@@ -13,7 +13,7 @@ namespace RenderCore
 namespace Engine
 {
 	// Transient RT / UAV / RTV pool keyed by format + dimensions (+ create flags).
-	// Whole-resource pooling plus optional D3D12 placed-resource aliasing heaps for new pooled UAVs when enabled via JSON/setter.
+	// Whole-resource pooling; new pooled UAV misses prefer D3D12 placed-resource aliasing heaps when supported by the RHI.
 	class RenderTexturePool
 	{
 	public:
@@ -38,9 +38,6 @@ namespace Engine
 
 		std::shared_ptr<RenderCore::RHIUnorderedAccessView> AcquireUAV(
 			RenderCore::DynamicRHI* RHI, RenderCore::EPixelFormat Format, int32_t Width, int32_t Height);
-
-		void SetUseAliasingHeapForNewUavs(bool b);
-		bool GetUseAliasingHeapForNewUavs() const;
 
 		void ReleaseUAV(RenderCore::EPixelFormat Format, int32_t Width, int32_t Height,
 			std::shared_ptr<RenderCore::RHIUnorderedAccessView>&& Uav);
@@ -72,7 +69,7 @@ namespace Engine
 		void SetBudgetBytes(uint64_t InBudgetBytes);
 		uint64_t GetBudgetBytes() const;
 
-		/** Optional JSON root: { "RenderTexturePool": { "BudgetMB": 512, "BudgetBytes": ..., "UseAliasingHeapForUAV": true } } */
+		/** Optional JSON root: { "RenderTexturePool": { "BudgetMB": 512, "BudgetBytes": ... } } */
 		void ApplyConfigFromJson(const nlohmann::json& Root);
 
 	private:
@@ -112,7 +109,6 @@ namespace Engine
 		uint64_t FrameCounter = 0;
 		uint64_t BudgetBytes = kDefaultBudgetBytes;
 		uint64_t EstimatedBytesFree = 0;
-		bool bUseAliasingHeapForNewUavs = false;
 
 		std::map<Tex2DKey, std::vector<PoolEntry<RenderCore::RHITexture2D>>> Tex2DFree;
 		std::map<UavKey, std::vector<PoolEntry<RenderCore::RHIUnorderedAccessView>>> UavFree;

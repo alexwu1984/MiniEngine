@@ -1,4 +1,5 @@
-﻿#include "Render/RDGBuilder.h"
+﻿#include "RHI/RDGPassExecuteContext.h"
+#include "Render/RDGBuilder.h"
 #include "Render/RDGUtils.h"
 #include "Render/RenderTexturePool.h"
 #include "RHI/DynamicRHI.h"
@@ -488,6 +489,7 @@ namespace Engine
 			const FRDGPassDescriptor& Pass = Passes[Idx];
 			if (!ValidatePass(Pass))
 				continue;
+			bool bDupSuppress = false;
 			if (Params.bRDGAutoPipelineBarriers && Params.RDGBarrierCommandContext)
 			{
 				if (Pass.bUnbindRenderTargetsBeforeRDGBarriers)
@@ -498,8 +500,12 @@ namespace Engine
 				BarrierScratch.clear();
 				FRDGUtils::AppendPassTextureBarriers(Pass, BarrierScratch);
 				if (!BarrierScratch.empty())
+				{
 					Params.RDGBarrierCommandContext->RDGApplyPassBeginBarriers(BarrierScratch.data(), BarrierScratch.size(), Pass.Queue);
+					bDupSuppress = true;
+				}
 			}
+			const RenderCore::FRDGScopedNestedPipelineBarrierDupSuppress DupSuppressScope(bDupSuppress);
 			if (Pass.Execute)
 			{
 				if (Params.PassCpuTimingsOut)

@@ -6,6 +6,7 @@
  *  3 AppendPassTextureBarriers from FRDGPassDescriptor IO, 4-5 transient pooled UAV + Acquire/Release,
  *  6 barrier metadata single-source, 7 batched-bind hooks removed. */
 
+#include "RHI/RDGPassExecuteContext.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITexture2D.h"
@@ -137,6 +138,11 @@ namespace RenderCore
 
 	inline void RHIBeginRenderPass(RHICommandContext& Ctx, FRHIRenderPassDesc Desc)
 	{
+		if (RDG_IsNestedPipelineBarrierDupSuppressActive())
+		{
+			Desc.bInferAttachmentBarriers = false;
+			Desc.bInferShaderResourceBarriers = false;
+		}
 		RHIRenderPassAppendInferredAttachmentBarriers(Desc);
 		RHIRenderPassAppendInferredShaderResourceBarriers(Desc);
 

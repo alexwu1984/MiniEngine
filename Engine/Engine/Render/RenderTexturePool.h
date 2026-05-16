@@ -14,6 +14,7 @@ namespace Engine
 {
 	// Transient RT / UAV / RTV pool keyed by format + dimensions (+ create flags).
 	// Effects acquire on draw and release back on resize or when superseded; reuse cuts Init/Resize churn.
+	// Future: alias disjoint lifetimes (PlacedResource); today whole-resource pooling only.
 	class RenderTexturePool
 	{
 	public:

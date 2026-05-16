@@ -6,6 +6,15 @@ struct VertexOutput
     float4 Pos : SV_Position;
 };
 
+VertexOutput VS_ScreenQuad(in uint VertID : SV_VertexID)
+{
+    VertexOutput Output;
+    float2 Tex = float2(uint2(VertID, VertID << 1) & 2);
+    Output.Tex = Tex;
+    Output.Pos = float4(lerp(float2(-1, 1), float2(1, -1), Tex), 0, 1);
+    return Output;
+}
+
 cbuffer cbTransition1 : register(b0)
 {
     int endx; // = 2
@@ -17,16 +26,6 @@ cbuffer cbTransition1 : register(b0)
 Texture2D FromColor : register(t0);
 Texture2D ToColor : register(t1);
 SamplerState LinearSampler : register(s0);
-
-VertexOutput VS_ScreenQuad(in uint VertID : SV_VertexID)
-{
-    VertexOutput Output;
-    // Texture coordinates range [0, 2], but only [0, 1] appears on screen.
-    float2 Tex = float2(uint2(VertID, VertID << 1) & 2);
-    Output.Tex = Tex;
-    Output.Pos = float4(lerp(float2(-1, 1), float2(1, -1), Tex), 0, 1);
-    return Output;
-}
 
 bool inBounds (float2 p) 
 {

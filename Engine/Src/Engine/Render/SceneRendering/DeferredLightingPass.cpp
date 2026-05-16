@@ -18,6 +18,7 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
+#include "D3D12/D3D12RHIRecording.h"
 #include "core/color.h"
 #include "core/commandline.h"
 #include "core/logger.h"
@@ -326,7 +327,10 @@ namespace Engine
 		{
 			FallbackCompareShadowDepthRt = RHI->RHICreateRenderTarget(EPixelFormat::PF_ShadowDepth, 1, 1, 1, false, false);
 			if (FallbackCompareShadowDepthRt && RHI->GetDefaultCommandContext())
+			{
+				const D3D12RHI_ScopedRecordingContext ScopedOutsideFrame(ERHIRecordingContextScope::OutsideFrameResourceUpload);
 				RHI->GetDefaultCommandContext()->Clear(FallbackCompareShadowDepthRt, core::FLinearColor::White, 1.f, 0);
+			}
 		}
 		if (RHI && !FallbackPointShadowCube)
 		{
@@ -334,8 +338,11 @@ namespace Engine
 				RHI->RHICreateTextureCube(EPixelFormat::PF_ShadowDepth, kFallbackPointShadowCubeSize, kFallbackPointShadowCubeSize, 1, false);
 			if (FallbackPointShadowCube)
 				if (const std::shared_ptr<RHICommandContext> InitCtx = RHI->GetDefaultCommandContext())
+				{
+					const D3D12RHI_ScopedRecordingContext ScopedOutsideFrame(ERHIRecordingContextScope::OutsideFrameResourceUpload);
 					for (int face = 0; face < 6; ++face)
 						InitCtx->Clear(FallbackPointShadowCube, face, 0, core::FLinearColor::White, 1.f, 0);
+				}
 		}
 		const double MsFallbackTex = Wall.split_ms();
 		if (RHI)

@@ -1322,6 +1322,9 @@ namespace RenderCore
 
 		CurrentReferenceStencil = 0;
 		CurrentPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		CurrentVertexHash = 0;
+		CurrentPixelHash = 0;
+		CurrentComputeHash = 0;
 
 		PSDesc = {};
 		CSDesc = {};

@@ -73,23 +73,14 @@ set_target_properties(GLFFViewer PROPERTIES
 	PROJECT_LABEL "GLFFViewer")
 
 function(copy_runtime_assets target_name)
-	# Copy assets to the config-specific runtime output directory.
-	set(runtime_output_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<LOWER_CASE:$<CONFIG>>")
-	add_custom_target(${target_name}_RuntimeAssets ALL
-		COMMAND ${CMAKE_COMMAND} -E make_directory
-				"${runtime_output_dir}"
-		# On Windows, CMake's copy_directory fails hard if any file is locked by a running exe.
-		# robocopy returns codes <= 7 for "success with some skips"; we treat those as success to keep builds stable.
-		COMMAND ${CMAKE_COMMAND} -E echo "Copy runtime assets -> ${runtime_output_dir}"
-		COMMAND cmd /c robocopy "${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel" "${runtime_output_dir}/GLTFModel" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP ^& if %ERRORLEVEL% LEQ 7 (exit 0) else (if %ERRORLEVEL% EQU 32 (exit 0) else (exit /b %ERRORLEVEL%))
-		COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.py"
-			--source "${CMAKE_CURRENT_SOURCE_DIR}/Render/ShaderLibDX"
-			--dest "${runtime_output_dir}/ShaderLibDX"
-		COMMENT "Copying runtime assets for ${target_name}")
-	add_dependencies(${target_name} ${target_name}_RuntimeAssets)
+	# GLTFModel next to exe (process_directory); copy_directory avoids robocopy backup ACL issues.
+	add_custom_command(TARGET ${target_name} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E echo "Copy GLTFModel -> $<TARGET_FILE_DIR:${target_name}>/GLTFModel"
+		COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/GLTFModel" "$<TARGET_FILE_DIR:${target_name}>/GLTFModel"
+		COMMENT "Copy GLTFModel for ${target_name}"
+		VERBATIM)
 endfunction()
 
-# Every link: sync HLSL next to the built exe (matches core::process_directory() + /ShaderLibDX/).
 function(sync_shaderlib_dx_postbuild target_name)
 	add_custom_command(TARGET ${target_name} POST_BUILD
 		COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/Tools/sync_shaderlib_dx.py"
@@ -197,11 +188,9 @@ if(MINIENGINE_PYTHON_EXECUTABLE)
 	else()
 		message(STATUS "MiniEngine: shader precompile jobs auto (Python min(CPU,64); override with cache MINIENGINE_SHADER_PRECOMPILE_JOBS or env MINIENGINE_PRECOMPILE_JOBS)")
 	endif()
-	# Run before robocopy ShaderLibDX; Built/ is written under the config output dir (sync excludes source Built/).
-	# All exes that robocopy ShaderLibDX should depend on precompile so edited HLSL (include tree hash) refreshes Built/*.cso.
-	add_dependencies(GLFFViewer_RuntimeAssets PrecompileMiniEngineShaders)
-	add_dependencies(DemoRunner_RuntimeAssets PrecompileMiniEngineShaders)
-	add_dependencies(SoftwareRender_RuntimeAssets PrecompileMiniEngineShaders)
+	add_dependencies(GLFFViewer PrecompileMiniEngineShaders)
+	add_dependencies(DemoRunner PrecompileMiniEngineShaders)
+	add_dependencies(SoftwareRender PrecompileMiniEngineShaders)
 else()
 	message(STATUS "MiniEngine: Python not found (python/python3/py); offline shader precompile disabled (JIT only).")
 endif()

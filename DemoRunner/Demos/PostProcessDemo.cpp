@@ -20,9 +20,9 @@ PostProcessorDemo::~PostProcessorDemo() = default;
 
 void PostProcessorDemo::InitResource()
 {
-	std::wstring shaderPath = core::process_directory().wstring() + L"/ShaderLibDX/PostProcessDemo.hlsl";
-	VertexShader = RHI->RHICreateVertexShader(shaderPath, "VS_ScreenQuad", {}, {});
-	PixelShader = RHI->RHICreatePixelShader(shaderPath, "PS_Transition1", {});
+	const std::wstring shaderLib = core::process_directory().wstring() + L"/ShaderLibDX/";
+	VertexShader = RHI->RHICreateVertexShader(shaderLib + L"PostProcessDemo.hlsl", "VS_ScreenQuad", {}, {});
+	PixelShader = RHI->RHICreatePixelShader(shaderLib + L"PostProcessDemo.hlsl", "PS_Transition1", {});
 
 	const std::wstring texPath = core::process_directory().wstring() + L"/GLTFModel/";
 	Texture1 = RHI->RHICreateTexture2D(texPath + L"tifa_wallpaper_3840x2160.png");

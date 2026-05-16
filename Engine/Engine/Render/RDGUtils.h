@@ -133,7 +133,7 @@ inline void FRDGUtils::RHICmdListSetViewportFromTexture(RenderCore::RHICommandCo
 				uint64_t(reinterpret_cast<uintptr_t>(tex.get())) ^ (uint64_t(R.SubresourceIndex + 1u) << 17);
 			auto Ins = RDG_DebugBarrierSlotsSeen.try_emplace(Key, R.Access);
 			if (!Ins.second && Ins.first->second != R.Access)
-				core::LOG(core::log_warning,
+				core::LOG(core::log_war,
 						  L"AppendPassTextureBarriers: conflicting accesses on same texture/subresource (check pass IO).");
 #endif
 			Out.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(tex), static_cast<RenderCore::FRDGResourceAccess>(R.Access), R.SubresourceIndex, {}});

@@ -411,7 +411,13 @@ namespace RenderCore
 		{
 			D3D12Adapter->BlockUntilIdle();
 			::ImGui_ImplDX12_Shutdown();
+			// Placed UAV heaps must be released before FD3D12Adapter::Cleanup tears down the device; otherwise ~FChunk Heap::Release AVs.
+			TransientAliasingPool.reset();
 			D3D12Adapter->Cleanup();
+		}
+		else
+		{
+			TransientAliasingPool.reset();
 		}
 		::ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
@@ -511,7 +517,6 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateTexture2D(const std::wstring& FileName)
 	{
-		std::lock_guard<std::mutex> Lock(TextureFileCacheMutex);
 		auto it = TexCaches.find(FileName);
 		if (it != TexCaches.end())
 		{
@@ -542,7 +547,6 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D12DynamicRHI::RHICreateHDRTexture2D(const std::wstring& FileName)
 	{
-		std::lock_guard<std::mutex> Lock(TextureFileCacheMutex);
 		auto it = TexCaches.find(FileName);
 		if (it != TexCaches.end())
 		{
@@ -706,10 +710,7 @@ namespace RenderCore
 	D3D12DynamicRHI::FCacheStats D3D12DynamicRHI::GetCacheStats() const
 	{
 		FCacheStats S;
-		{
-			std::lock_guard<std::mutex> Lock(TextureFileCacheMutex);
-			S.TexCaches = TexCaches.size();
-		}
+		S.TexCaches = TexCaches.size();
 		S.VS = ShaderCache.VertexShaderCache.size();
 		S.PS = ShaderCache.PixelShaderCache.size();
 		S.CS = ShaderCache.ComputeShaderCache.size();

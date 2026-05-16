@@ -20,6 +20,8 @@ namespace RenderCore
 
 		bool CreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ = 1,
 			uint32_t NumMips = 1, void* InBuffer = nullptr, int RowBytes = 0) override;
+		bool TryCreateTransientAliasingUAV(std::shared_ptr<class FD3D12TransientAliasingPool> Pool,
+			EPixelFormat Format, int32_t SizeX, int32_t SizeY);
 		bool CreateFromFile(const std::wstring& FileName) override;
 		bool CreateHDRFromFile(const std::wstring& FileName) override;
 		bool IsMultisampled() const override { return false; }

@@ -132,6 +132,16 @@ namespace Engine
 		return BudgetBytes;
 	}
 
+	void RenderTexturePool::SetUseAliasingHeapForNewUavs(bool b)
+	{
+		bUseAliasingHeapForNewUavs = b;
+	}
+
+	bool RenderTexturePool::GetUseAliasingHeapForNewUavs() const
+	{
+		return bUseAliasingHeapForNewUavs;
+	}
+
 	std::shared_ptr<RHITexture2D> RenderTexturePool::AcquireTexture2D(
 		DynamicRHI* RHI, EPixelFormat Format, int32_t CreateFlags, int32_t Width, int32_t Height, uint32_t NumMips)
 	{
@@ -189,7 +199,7 @@ namespace Engine
 			return R;
 		}
 
-		return RHI->RHICreateUnorderedAccessView(Format, Width, Height);
+		return RHI->RHICreateUnorderedAccessViewForTransientPool(Format, Width, Height, bUseAliasingHeapForNewUavs);
 	}
 
 	void RenderTexturePool::ReleaseUAV(
@@ -387,6 +397,8 @@ namespace Engine
 				if (Mb >= 0.0)
 					SetBudgetBytes(static_cast<uint64_t>(Mb * 1024.0 * 1024.0));
 			}
+			if (J.find("UseAliasingHeapForUAV") != J.end() && J["UseAliasingHeapForUAV"].is_boolean())
+				SetUseAliasingHeapForNewUavs(J["UseAliasingHeapForUAV"].get<bool>());
 		}
 		catch (const std::exception&)
 		{

@@ -6,6 +6,7 @@
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12ViewPort.h"
 #include "D3D12/D3D12Texture2D.h"
+#include "D3D12/D3D12TransientAliasingPool.h"
 #include "D3D12/D3D12Shaders.h"
 #include "D3D12/D3D12State.h"
 #include "D3D12/D3D12RenderTarget.h"
@@ -344,6 +345,8 @@ namespace RenderCore
 		D3D12Adapter->Initialize(this->shared_from_this());
 		D3D12Adapter->InitializeDevices();
 
+		TransientAliasingPool = std::make_shared<FD3D12TransientAliasingPool>(D3D12Adapter);
+
 		RHICachedStates::Initialize(this);
 	}
 
@@ -577,6 +580,18 @@ namespace RenderCore
 			return nullptr;
 		}
 		return RHICreateUnorderedAccessView(Tex2D);
+	}
+
+	std::shared_ptr<RHIUnorderedAccessView> D3D12DynamicRHI::RHICreateUnorderedAccessViewForTransientPool(
+		EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool bPreferAliasingHeap)
+	{
+		if (!bPreferAliasingHeap || !TransientAliasingPool)
+			return RHICreateUnorderedAccessView(Format, SizeX, SizeY);
+
+		std::shared_ptr<D3D12Texture2D> Tex2DRHI = std::make_shared<D3D12Texture2D>(D3D12Adapter);
+		if (Tex2DRHI->TryCreateTransientAliasingUAV(TransientAliasingPool, Format, SizeX, SizeY))
+			return RHICreateUnorderedAccessView(Tex2DRHI);
+		return RHICreateUnorderedAccessView(Format, SizeX, SizeY);
 	}
 
 	std::shared_ptr<RHIUnorderedAccessView> D3D12DynamicRHI::RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D)

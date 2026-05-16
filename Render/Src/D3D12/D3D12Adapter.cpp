@@ -438,6 +438,58 @@ namespace RenderCore
 		return hr;
 	}
 
+	HRESULT FD3D12Adapter::CreateHeap(const D3D12_HEAP_DESC& HeapDesc, ID3D12Heap** ppHeap, const wchar_t* Name)
+	{
+		C_P(FD3D12Adapter);
+		if (!ppHeap)
+			return E_POINTER;
+		ID3D12Heap* Heap = nullptr;
+		const HRESULT hr = d->RootDevice->CreateHeap(&HeapDesc, IID_PPV_ARGS(&Heap));
+		if (SUCCEEDED(hr))
+		{
+			if (Name && Heap)
+				Heap->SetName(Name);
+			*ppHeap = Heap;
+		}
+		else
+		{
+			*ppHeap = nullptr;
+		}
+		return hr;
+	}
+
+	HRESULT FD3D12Adapter::CreatePlacedResource(ID3D12Heap* Heap, UINT64 HeapOffset,
+		const D3D12_RESOURCE_DESC& InDesc,
+		const D3D12_RESOURCE_STATES& InitialUsage,
+		const D3D12_CLEAR_VALUE* ClearValue,
+		FD3D12Resource** ppOutResource,
+		const wchar_t* Name)
+	{
+		C_P(FD3D12Adapter);
+		if (!Heap || !ppOutResource)
+			return E_POINTER;
+
+		D3D12_RESOURCE_STATES EffectiveInitial = InitialUsage;
+		if (InDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+			&& (InitialUsage == D3D12_RESOURCE_STATE_GENERIC_READ || InitialUsage == D3D12_RESOURCE_STATE_COPY_DEST))
+		{
+			EffectiveInitial = D3D12_RESOURCE_STATE_COMMON;
+		}
+
+		win32::com_ptr<ID3D12Resource> pResource;
+		const HRESULT hr = d->RootDevice->CreatePlacedResource(Heap, HeapOffset, &InDesc, EffectiveInitial, ClearValue,
+			IID_PPV_ARGS(pResource.get_init_ref()));
+
+		if (SUCCEEDED(hr))
+		{
+			pResource->SetName(Name);
+			*ppOutResource = new FD3D12Resource(GetDevice(), pResource.get(), EffectiveInitial, InDesc, D3D12_HEAP_TYPE_DEFAULT);
+			(*ppOutResource)->AddRef();
+		}
+
+		return hr;
+	}
+
 	HRESULT FD3D12Adapter::CreateBuffer(D3D12_HEAP_TYPE HeapType, uint64_t HeapSize, FD3D12Resource** ppOutResource, 
 		                               const wchar_t* Name, D3D12_RESOURCE_FLAGS Flags /*= D3D12_RESOURCE_FLAG_NONE*/)
 	{

@@ -9,6 +9,7 @@ namespace RenderCore
 	class D3D12DynamicRHI;
 	class FD3D12Adapter;
 	class FD3D12Device;
+	class FD3D12TransientAliasingPool;
 
 	class D3D12DynamicRHIModule : public IDynamicRHIModule
 	{
@@ -79,6 +80,8 @@ namespace RenderCore
 		virtual std::shared_ptr<RHITextureCube> RHICreateTextureCube(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool CreateDepth) override;
 		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessView(EPixelFormat Format, int32_t SizeX, int32_t SizeY) override;
 		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessView(std::shared_ptr< RHITexture2D> Tex2D) override;
+		virtual std::shared_ptr<RHIUnorderedAccessView> RHICreateUnorderedAccessViewForTransientPool(
+			EPixelFormat Format, int32_t SizeX, int32_t SizeY, bool bPreferAliasingHeap) override;
 
 		virtual std::shared_ptr<RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips, bool IsMultiSampled, bool CreateDepth) override;
 
@@ -103,6 +106,7 @@ namespace RenderCore
 
 	private:
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;
+		std::shared_ptr<FD3D12TransientAliasingPool> TransientAliasingPool;
 		/** FileName-keyed LDR/HDR caches: must serialize — concurrent insert/find from game + render/RHI threads corrupts the map and heaps (crash in unrelated std::wstring frees). */
 		mutable std::mutex TextureFileCacheMutex;
 		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;

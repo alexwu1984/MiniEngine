@@ -91,6 +91,15 @@ namespace RenderCore
 			FD3D12Resource** ppOutResource,
 			const wchar_t* Name);
 
+		HRESULT CreateHeap(const D3D12_HEAP_DESC& HeapDesc, ID3D12Heap** ppHeap, const wchar_t* Name);
+
+		HRESULT CreatePlacedResource(ID3D12Heap* Heap, UINT64 HeapOffset,
+			const D3D12_RESOURCE_DESC& Desc,
+			const D3D12_RESOURCE_STATES& InitialUsage,
+			const D3D12_CLEAR_VALUE* ClearValue,
+			FD3D12Resource** ppOutResource,
+			const wchar_t* Name);
+
 		HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
 			uint64_t HeapSize,
 			FD3D12Resource** ppOutResource,

@@ -1,6 +1,7 @@
 ﻿#include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12TransientAliasingPool.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12CommandContext.h"
 #include "D3D12/D3D12FormatUtil.h"
@@ -23,6 +24,8 @@ namespace RenderCore
 		FD3D12ResourceAllocator::FDescriptorAllocation RtvAlloc{};
 		FD3D12ResourceAllocator::FDescriptorAllocation SrvAlloc{};
 		FD3D12ResourceAllocator::FDescriptorAllocation UavAlloc{};
+
+		std::shared_ptr<FD3D12AliasingSlotLease> AliasingLease;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE DSV{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 		D3D12_CPU_DESCRIPTOR_HANDLE RTVHandle{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
@@ -142,6 +145,35 @@ namespace RenderCore
 			CreateDerivedViews(d->PlatformResourceFormat, d->NumMipMaps);
 		}
 		
+		return d->SRVHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+	}
+
+	bool D3D12Texture2D::TryCreateTransientAliasingUAV(std::shared_ptr<FD3D12TransientAliasingPool> Pool,
+		EPixelFormat InFormat, int32_t SizeX, int32_t SizeY)
+	{
+		C_P(D3D12Texture2D);
+		if (!Pool || SizeX <= 0 || SizeY <= 0)
+			return false;
+
+		d->Size.cx = SizeX;
+		d->Size.cy = SizeY;
+		d->PixFormat = InFormat;
+		d->PlatformResourceFormat = FindSharedResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[InFormat].PlatformFormat, false);
+		d->InFlags = (int32_t)(ETextureCreateFlags::TexCreate_UAV | ETextureCreateFlags::TexCreate_ShaderResource);
+		d->NumMipMaps = 1;
+
+		std::wstring Name = core::formatw(L"A:", SizeX, "_H:", SizeY, "_", ++gCounter);
+
+		FD3D12Resource* Res = nullptr;
+		std::shared_ptr<FD3D12AliasingSlotLease> Lease;
+		const HRESULT hr = Pool->TryAllocatePlacedUAVTexture2D(InFormat, SizeX, SizeY, &Res, &Lease, Name.c_str());
+		if (FAILED(hr) || !Res)
+			return false;
+
+		d->Resource = Res;
+		d->AliasingLease = std::move(Lease);
+
+		CreateDerivedViews(d->PlatformResourceFormat, d->NumMipMaps);
 		return d->SRVHandle.ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL;
 	}
 

@@ -227,6 +227,22 @@ namespace RenderCore
 		 * Does not clear cached CBV/SRV/UAV mirrors; coherency relies on shader-boundary clears, ClearState, and external-pass notification.
 		 */
 		void MarkGraphicsLayoutDirty() { m_GraphicsLayoutDirty = true; }
+		/** If OM has no DSV, PSO depth format must be UNKNOWN (D3D12 #615). */
+		void EnsurePSODepthFormatMatchesBoundDepth(bool bDepthBoundOnOM);
+		bool UsesGraphicsDepthStencilTarget() const { return PSDesc.DSVFormat != DXGI_FORMAT_UNKNOWN; }
+		bool UsesDepthWrites() const
+		{
+			return PSDesc.DepthStencilState.DepthEnable != FALSE
+				&& PSDesc.DepthStencilState.DepthWriteMask == D3D12_DEPTH_WRITE_MASK_ALL;
+		}
+
+		void ResetSrvDirtyTracking();
+		void MarkSrvSlotDirty(EShaderFrequency ShaderType, uint32_t Slot);
+		void MarkSrvFrequencyFullyDirty(EShaderFrequency ShaderType);
+
+		/** Set by SetRenderTarget: true when OM has a valid DSV bound (used for PSO depth validation). */
+		void SetDepthBoundOnOM(bool bDepthBound) { m_bDepthBoundOnOMForPso = bDepthBound; }
+		bool GetDepthBoundOnOM() const { return m_bDepthBoundOnOMForPso; }
 
 		FD3D12SamplerStateCache SamplerCache;
 		FD3D12ConstantBufferCache ConstantBufferCache;
@@ -271,6 +287,10 @@ namespace RenderCore
 		uint64_t m_LastAppliedGraphicsRecordingGen = 0;
 		uint32_t m_GraphicsBindDirtyMask = 0;
 		bool m_GraphicsLayoutDirty = true;
+		uint32_t m_SrvDirtyMin[SF_NumStandardFrequencies]{};
+		uint32_t m_SrvDirtyMax[SF_NumStandardFrequencies]{};
+		bool m_SrvDirtyFull[SF_NumStandardFrequencies]{};
+		bool m_bDepthBoundOnOMForPso = false;
 
 		// Treat a new compute command list as having no bound state.
 		void* m_LastAppliedComputeRootSig = nullptr;

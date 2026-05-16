@@ -5,6 +5,7 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIUnorderedAccessView.h"
 #include "core/system.h"
@@ -145,6 +146,20 @@ namespace Engine
 		              std::shared_ptr<RenderCore::RHIRenderTarget> OutTex, math::Vector2 Dir)
 	{
 		C_P(BlurPS);
+		std::shared_ptr<RHITexture2D> Out = OutTex ? OutTex->GetTex() : nullptr;
+		if (!InTex || !Out)
+			return;
+
+		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(Out);
+		Om.DebugName = "BlurPS_Step";
+		{
+			using A = RenderCore::FRDGResourceAccess;
+			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ InTex, A::SRV, 0xFFFFFFFFu });
+			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Out, A::RTV, 0xFFFFFFFFu });
+		}
+		RenderCore::FRHIRenderPassScope BlurScope(RHIContext, std::move(Om));
+		RHIContext.Clear(OutTex, core::FLinearColor::Black);
+
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;
@@ -156,11 +171,6 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBBlurParam).Param.MipLevel = 0;
 		d->GET_UNIFORMDATA(CBBlurParam).Param.Dir = Dir;
 		d->GET_UNIFORMDATA(CBBlurParam).Param.Resulution.Set(d->Size.cx, d->Size.cy);
-		RHIContext.SetRenderTarget(OutTex);
-		RHIContext.Clear(OutTex, core::FLinearColor::Black);
-		RHIContext.SetViewPort(0, 0, d->Size.cx, d->Size.cy);
-
-		// Upload CB first; bind after samplers/textures (PSO already set).
 		d->GET_SHADER_STRUCT_MEMBER(CBBlurParam).UpdateUniformBuffer(RHIContext);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);

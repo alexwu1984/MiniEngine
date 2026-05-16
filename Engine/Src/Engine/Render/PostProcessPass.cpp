@@ -8,6 +8,8 @@
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
+#include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 #include "Render/FXAA.h"
 #include "Render/SceneTextures.h"
 #include "Render/SSRProcessor.h"
@@ -18,10 +20,10 @@ namespace Engine
 {
 	namespace
 	{
-		/** Unbind OM RTs before compute (avoids binding swapchain just to reset state). */
+		/** Unbind OM RTs before compute — Phase 3: same as empty FRHIRenderPass. */
 		void UnbindGraphicsRenderTargets(RenderCore::RHICommandContext& RHIContext)
 		{
-			RHIContext.SetRenderTarget(std::vector<std::shared_ptr<RenderCore::RHITexture2D>>{}, nullptr);
+			FRDGUtils::RHICmdListUnbindAllRenderTargets(RHIContext);
 		}
 
 		RenderCore::GraphicsPipelineStateInitializer CreateFullscreenPipelineState(
@@ -100,8 +102,19 @@ namespace Engine
 								  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture) const
 	{
 		RenderCore::RHICommandMark Mark(RHIContext, "Tonemapping");
-		ViewPort->SetRenderTarget();
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		std::shared_ptr<RenderCore::RHITexture2D> BackBuf = ViewPort ? ViewPort->GetBackBuffer() : nullptr;
+		if (!BackBuf)
+			return;
+		std::shared_ptr<RenderCore::RHITexture2D> SrcTex = SourceTexture();
+		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+		Om.DebugName = "Tonemapping";
+		{
+			using A = RenderCore::FRDGResourceAccess;
+			if (SrcTex)
+				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ SrcTex, A::SRV, 0xFFFFFFFFu });
+			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+		}
+		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		if (BloomConstants)
 			RenderCore::RHI_UpdateAndBindUniformBuffer(RHIContext, *BloomConstants, RenderCore::SF_Pixel);
@@ -204,8 +217,22 @@ namespace Engine
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplyBloom");
-		RHIContext.SetRenderTarget(SceneTextures->GetSceneColorWithBloom(), nullptr);
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		std::shared_ptr<RenderCore::RHITexture2D> Dst = SceneTextures ? SceneTextures->GetSceneColorWithBloom() : nullptr;
+		if (!Dst)
+			return;
+		std::shared_ptr<RenderCore::RHITexture2D> Src0 = SourceTexture();
+		std::shared_ptr<RenderCore::RHITexture2D> Src1 = BloomTexture();
+		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(Dst);
+		Om.DebugName = "ApplyBloom";
+		{
+			using A = RenderCore::FRDGResourceAccess;
+			if (Src0)
+				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Src0, A::SRV, 0xFFFFFFFFu });
+			if (Src1)
+				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Src1, A::SRV, 0xFFFFFFFFu });
+			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Dst, A::RTV, 0xFFFFFFFFu });
+		}
+		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SourceTexture());
@@ -238,16 +265,32 @@ namespace Engine
 							   std::shared_ptr<RenderCore::RHIViewPort> ViewPort,
 							   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SSRTexture) const
 	{
-		if (!SSRTexture())
+		(void)ViewPort;
+		if (!SceneTextures)
+			return;
+		std::shared_ptr<RenderCore::RHITexture2D> SSRTex = SSRTexture();
+		if (!SSRTex)
 			return;
 
 		RenderCore::RHICommandMark Mark(RHIContext, "ApplySSR");
-		RHIContext.SetRenderTarget(SceneTextures->GetSceneColorWithSSR(), nullptr);
-		RHIContext.SetViewPort(0, 0, ViewPort->GetSize().x, ViewPort->GetSize().y);
+		std::shared_ptr<RenderCore::RHITexture2D> Dst = SceneTextures->GetSceneColorWithSSR();
+		if (!Dst)
+			return;
+		std::shared_ptr<RenderCore::RHITexture2D> Sc = SceneTextures->GetSceneColor();
+		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(Dst);
+		Om.DebugName = "ApplySSR";
+		{
+			using A = RenderCore::FRDGResourceAccess;
+			if (Sc)
+				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Sc, A::SRV, 0xFFFFFFFFu });
+			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ SSRTex, A::SRV, 0xFFFFFFFFu });
+			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Dst, A::RTV, 0xFFFFFFFFu });
+		}
+		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, SceneTextures->GetSceneColor());
-		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, SSRTexture());
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Sc);
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 1, SSRTex);
 		RHIContext.Draw(3);
 	}
 

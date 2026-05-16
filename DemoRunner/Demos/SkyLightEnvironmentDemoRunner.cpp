@@ -8,6 +8,7 @@
 #include "App/AppWindow.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHITextureCube.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -181,11 +182,25 @@ void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext&
 	if (!Texture2D || !ViewPort || !Window)
 		return;
 
+	std::shared_ptr<RenderCore::RHITexture2D> BackBuf = ViewPort->GetBackBuffer();
+	if (!BackBuf)
+		return;
+
 	const float aspect = Texture2D->GetSize().w * 1.f / Texture2D->GetSize().h;
 	int W = std::min(Window->GetWidth(), Texture2D->GetSize().w);
 	int H = std::min(Window->GetHeight(), Texture2D->GetSize().h);
 	W = std::min(W, (int)(H * aspect));
 	H = std::min(H, (int)(W / aspect));
+
+	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+	Om.DebugName = "SkyLightEnv_ShowTexture2D";
+	{
+		using A = RenderCore::FRDGResourceAccess;
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Texture2D, A::SRV, 0xFFFFFFFFu });
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+	}
+	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
+
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
 
 	RenderCore::GraphicsPipelineStateInitializer Init;
@@ -195,8 +210,6 @@ void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext&
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	Ctx.RHISetGraphicsPipelineState(Init);
-
-	ViewPort->SetRenderTarget();
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Texture2D);
@@ -212,11 +225,24 @@ void SkyLightEnvironmentDemoRunner::ShowCubeAsLongLat(RenderCore::RHICommandCont
 	if (!Cube || !ShowCubeEquirectPS || !ShowTexture2DVS || !ViewPort || !Window)
 		return;
 
+	std::shared_ptr<RenderCore::RHITexture2D> BackBuf = ViewPort->GetBackBuffer();
+	if (!BackBuf)
+		return;
+
 	const int maxW = Window->GetWidth();
 	const int maxH = Window->GetHeight();
 	int H = std::min(maxH, maxW / 2);
 	int W = std::min(maxW, H * 2);
 	H = std::max(1, W / 2);
+
+	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+	Om.DebugName = "SkyLightEnv_ShowCubeAsLongLat";
+	{
+		using A = RenderCore::FRDGResourceAccess;
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+	}
+	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
+
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
 
 	RenderCore::GraphicsPipelineStateInitializer Init;
@@ -226,8 +252,6 @@ void SkyLightEnvironmentDemoRunner::ShowCubeAsLongLat(RenderCore::RHICommandCont
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	Ctx.RHISetGraphicsPipelineState(Init);
-
-	ViewPort->SetRenderTarget();
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Cube);
@@ -242,7 +266,20 @@ void SkyLightEnvironmentDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHIComman
 	if (!CubeCross || !Cube || !ViewPort || !Window)
 		return;
 
+	std::shared_ptr<RenderCore::RHITexture2D> BackBuf = ViewPort->GetBackBuffer();
+	if (!BackBuf)
+		return;
+
 	const uint32_t size = (uint32_t)std::min(Window->GetWidth(), Window->GetHeight());
+
+	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+	Om.DebugName = "SkyLightEnv_CubeCrossDebug";
+	{
+		using A = RenderCore::FRDGResourceAccess;
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+	}
+	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
+
 	Ctx.SetViewPort((Window->GetWidth() - (int)size) / 2, (Window->GetHeight() - (int)size) / 2, (int)size, (int)size);
 
 	RenderCore::GraphicsPipelineStateInitializer Init;
@@ -252,8 +289,6 @@ void SkyLightEnvironmentDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHIComman
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	Ctx.RHISetGraphicsPipelineState(Init);
-
-	ViewPort->SetRenderTarget();
 
 	GET_UNIFORMDATA(CBPerObject).myPerObject_u_mCurrWorld = math::Matrix4x4();
 	RenderCore::RHI_UpdateAndBindUniformBuffer(Ctx, GET_SHADER_STRUCT_MEMBER(CBPerObject), RenderCore::SF_Vertex);

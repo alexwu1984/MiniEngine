@@ -1,6 +1,8 @@
 ﻿#include "Render/RDGBuilder.h"
+#include "Render/RDGUtils.h"
 #include "Render/RenderTexturePool.h"
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIRenderPass.h"
 #include "core/logger.h"
 #include "core/strings.h"
 #include "core/commandline.h"
@@ -13,22 +15,6 @@ namespace Engine
 {
 	namespace
 	{
-		void AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out)
-		{
-			auto AppendSlot = [&Out](const FRDGPassResource& R) {
-				if (R.Access == FRDGResourceAccess::Unknown || !R.Resolve)
-					return;
-				std::shared_ptr<RenderCore::RHITexture2D> tex = R.Resolve();
-				if (!tex)
-					return;
-				Out.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(tex), static_cast<RenderCore::FRDGResourceAccess>(R.Access), R.SubresourceIndex});
-			};
-			for (const FRDGPassResource& In : Pass.Inputs)
-				AppendSlot(In);
-			for (const FRDGPassResource& O : Pass.Outputs)
-				AppendSlot(O);
-		}
-
 		bool ResourceNameForScheduling(const std::string& Name)
 		{
 			return !Name.empty();
@@ -405,11 +391,11 @@ namespace Engine
 			{
 				if (Pass.bUnbindRenderTargetsBeforeRDGBarriers)
 				{
-					const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> emptyTargets;
-					Params.RDGBarrierCommandContext->SetRenderTarget(emptyTargets, nullptr);
+					const RenderCore::FRHIRenderPassDesc UnbindOm{};
+					RenderCore::RHIBeginRenderPass(*Params.RDGBarrierCommandContext, UnbindOm);
 				}
 				BarrierScratch.clear();
-				AppendPassTextureBarriers(Pass, BarrierScratch);
+				FRDGUtils::AppendPassTextureBarriers(Pass, BarrierScratch);
 				if (!BarrierScratch.empty())
 					Params.RDGBarrierCommandContext->RDGApplyPassBeginBarriers(BarrierScratch.data(), BarrierScratch.size(), Pass.Queue);
 			}

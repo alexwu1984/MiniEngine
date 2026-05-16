@@ -1,0 +1,17 @@
+# Line endings: CRLF on Windows (Visual Studio). Encoding: see .editorconfig
+#   C/C++ UTF-8 BOM | HLSL/JSON UTF-8 no BOM
+* text=auto eol=crlf
+
+*.sh text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bin binary
+*.lib binary
+*.dll binary
+*.exe binary
+*.pdb binary
+*.cso binary

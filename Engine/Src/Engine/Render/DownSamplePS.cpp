@@ -5,6 +5,7 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHIRenderTarget.h"
 #include "core/system.h"
 #include "Render/SceneTextures.h"
@@ -96,7 +97,15 @@ namespace Engine
 
 		for (int32_t IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)
 		{
-			RHIContext.SetRenderTarget(d->DownSampleTarget,IndexMip);
+			std::shared_ptr<RHITexture2D> OutTex = d->DownSampleTarget->GetTex();
+			{
+				using A = FRDGResourceAccess;
+				RenderCore::FRDGTextureBarrierDesc Barriers[2];
+				Barriers[0] = { SceneColor, A::SRV, 0xFFFFFFFFu };
+				Barriers[1] = { OutTex, A::RTV, static_cast<uint32_t>(IndexMip) };
+				RHIContext.RHIRenderPassApplyDeclaredTextureBarriers(Barriers, 2, ERDGPassQueue::Graphics);
+			}
+			RHIContext.SetRenderTarget(d->DownSampleTarget, IndexMip);
 			RHIContext.SetViewPort(0, 0, d->Size.cx >> (IndexMip + 1), d->Size.cy >> (IndexMip + 1));
 
 			d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float) (d->Size.cx >> 1);

@@ -5,6 +5,7 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHIRenderTarget.h"
 #include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
@@ -100,9 +101,18 @@ namespace RenderCore
 			d->FxaaRT = Engine::RenderTexturePool::Get().AcquireRenderTarget(
 				d->RHI, SourceTexture->GetPixelFormat(), InSize.x, InSize.y, 1, false, false);
 
-		RHIContext.SetRenderTarget(d->FxaaRT);
-		const auto OutSz = d->FxaaRT->GetTex()->GetSize();
-		RHIContext.SetViewPort(0, 0, static_cast<int32_t>(OutSz.x), static_cast<int32_t>(OutSz.y));
+		std::shared_ptr<RHITexture2D> OutTex = d->FxaaRT->GetTex();
+		if (!OutTex)
+			return;
+
+		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColorNoDepth(OutTex);
+		Om.DebugName = "FXAA";
+		{
+			using A = FRDGResourceAccess;
+			Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ SourceTexture, A::SRV, 0xFFFFFFFFu });
+			Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ OutTex, A::RTV, 0xFFFFFFFFu });
+		}
+		FRHIRenderPassScope FxaaScope(RHIContext, std::move(Om));
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;

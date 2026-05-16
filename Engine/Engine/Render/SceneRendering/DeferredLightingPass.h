@@ -23,8 +23,25 @@ namespace Engine
 	struct FSceneViewData;
 
 	/** Fullscreen pass: analytic lights + IBL into scene color from deferred scene textures. */
+	struct FFurForwardSharedSrvSet
+	{
+		std::shared_ptr<RenderCore::RHITextureCube> IrradianceCube;
+		std::shared_ptr<RenderCore::RHITextureCube> SpecularCube;
+		std::shared_ptr<RenderCore::RHITexture2D> BrdfLut;
+		std::shared_ptr<RenderCore::RHITexture2D> DirectionalShadow;
+		std::shared_ptr<RenderCore::RHITextureCube> PointShadowCube;
+		std::shared_ptr<RenderCore::RHITexture2D> SpotShadow;
+		std::shared_ptr<RenderCore::RHITexture2D> GroundEnvLatLong;
+		std::shared_ptr<RenderCore::RHIStructuredBuffer> SceneLights;
+		std::shared_ptr<RenderCore::RHIStructuredBuffer> ClusterLightOffsetCount;
+		std::shared_ptr<RenderCore::RHIStructuredBuffer> ClusterLightIndexList;
+	};
+
 	class DeferredLightingPass
 	{
+		friend void GatherFurForwardSharedSrvSet(const DeferredLightingPass& Pass, FWorldSceneRender* WorldSceneRender, const FSceneViewData& ViewData,
+												 FFurForwardSharedSrvSet& Out);
+
 	public:
 		explicit DeferredLightingPass(RenderCore::DynamicRHI* InRHI);
 

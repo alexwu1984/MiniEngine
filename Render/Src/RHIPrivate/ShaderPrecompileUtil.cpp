@@ -161,7 +161,7 @@ namespace RenderCore
 		return '\0';
 	}
 
-	/** Per VS bucket: Debug=tier2 (SKIP_OPTIMIZATION) from build script; Release bucket = non-Debug configs, tier1 (LEVEL0). Legacy file if missing. */
+	/** Per VS bucket: Debug=tier2 (SKIP_OPTIMIZATION); Release bucket = non-Debug configs, tier0 (full FXC opt). Legacy file if missing. */
 	static char ReadPrecompileFxCompileTierChar(const std::filesystem::path& builtDir)
 	{
 		std::error_code ec;
@@ -179,7 +179,11 @@ namespace RenderCore
 		c = ReadOneTierChar(legacy);
 		if (c != '\0')
 			return c;
-		return '1';
+#if defined(_DEBUG)
+		return '2';
+#else
+		return '0';
+#endif
 	}
 
 	uint64_t ShaderPrecompileLookupHash(const std::string& hlslBaseFileNameUtf8, const std::string& entry, const std::string& profile,

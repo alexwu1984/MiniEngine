@@ -13,10 +13,6 @@
 #include "D3D12/D3D12FormatUtil.h"
 #include "D3D12/D3D12TextureCube.h"
 #include "core/logger.h"
-#include <atomic>
-#include <cstring>
-#include <iomanip>
-#include <string>
 
 namespace RenderCore
 {
@@ -30,6 +26,22 @@ namespace RenderCore
 			core::err() << "[D3D12] ApplyGraphicState failed (" << (reason ? reason : "?")
 						<< "). Opaque mesh draws are skipped; skybox/UI may still render. "
 						<< "Check earlier CreateGraphicsPipelineState HRESULT, or try shaderjit=1 / rebuild ShaderLibDX/Built/*.cso.";
+		}
+
+		/** Match RHICachedStates::DepthStateDisable for PSO fields (no bound DSV / DSVFormat UNKNOWN). */
+		static void ApplyDisabledDepthStencilToPSDesc(D3D12_DEPTH_STENCIL_DESC& Out)
+		{
+			Out.DepthEnable = FALSE;
+			Out.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+			Out.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+			Out.StencilEnable = FALSE;
+			Out.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+			Out.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+			Out.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+			Out.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+			Out.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+			Out.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+			Out.BackFace = Out.FrontFace;
 		}
 
 		static D3D12_CPU_DESCRIPTOR_HANDLE PickNullSrvForDeclaredDimension(
@@ -70,6 +82,28 @@ namespace RenderCore
 				}
 			}
 			heap.SetGraphicsDescriptorHandles((UINT)rootParamIndex, 0, numSrvs, tmp.data());
+		}
+
+		static void StageGraphicsSrvRange(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t dirtyMin, uint32_t dirtyMax,
+			const D3D12_CPU_DESCRIPTOR_HANDLE* views, D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D, D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube, const uint8_t* slotNullDims)
+		{
+			if (rootParamIndex < 0 || dirtyMin > dirtyMax)
+				return;
+			const uint32_t count = dirtyMax - dirtyMin + 1u;
+			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> tmp;
+			tmp.resize(count);
+			for (uint32_t i = 0; i < count; ++i)
+			{
+				const uint32_t slot = dirtyMin + i;
+				if (views[slot].ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
+					tmp[i] = views[slot];
+				else
+				{
+					const uint8_t dim = (slotNullDims && slot < kEngineSrvSlotNullDimensionCount) ? slotNullDims[slot] : (uint8_t)D3D_SRV_DIMENSION_TEXTURE2D;
+					tmp[i] = PickNullSrvForDeclaredDimension(dim, NullSrv2D, NullSrvCube);
+				}
+			}
+			heap.SetGraphicsDescriptorHandles((UINT)rootParamIndex, dirtyMin, count, tmp.data());
 		}
 
 		static void StageAllComputeSrvs(FDynamicDescriptorHeap& heap, int32_t rootParamIndex, uint32_t numSrvs, const D3D12_CPU_DESCRIPTOR_HANDLE* views,
@@ -191,7 +225,46 @@ namespace RenderCore
 		:FD3D12DeviceChild(InParent)
 		,DynamicViewDescriptorHeap(InParent, CommandContext,D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
 	{
+		ResetSrvDirtyTracking();
+	}
 
+	void FD3D12StateCache::ResetSrvDirtyTracking()
+	{
+		for (int32_t f = 0; f < SF_NumStandardFrequencies; ++f)
+		{
+			m_SrvDirtyMin[f] = MAX_SRVS;
+			m_SrvDirtyMax[f] = 0;
+			m_SrvDirtyFull[f] = false;
+		}
+	}
+
+	void FD3D12StateCache::MarkSrvSlotDirty(EShaderFrequency ShaderType, uint32_t Slot)
+	{
+		if (ShaderType >= SF_NumStandardFrequencies)
+			return;
+		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+		if (m_SrvDirtyFull[ShaderType])
+			return;
+		if (m_SrvDirtyMin[ShaderType] > m_SrvDirtyMax[ShaderType])
+		{
+			m_SrvDirtyMin[ShaderType] = Slot;
+			m_SrvDirtyMax[ShaderType] = Slot;
+		}
+		else
+		{
+			m_SrvDirtyMin[ShaderType] = (std::min)(m_SrvDirtyMin[ShaderType], Slot);
+			m_SrvDirtyMax[ShaderType] = (std::max)(m_SrvDirtyMax[ShaderType], Slot);
+		}
+	}
+
+	void FD3D12StateCache::MarkSrvFrequencyFullyDirty(EShaderFrequency ShaderType)
+	{
+		if (ShaderType >= SF_NumStandardFrequencies)
+			return;
+		m_SrvDirtyFull[ShaderType] = true;
+		m_SrvDirtyMin[ShaderType] = 0;
+		m_SrvDirtyMax[ShaderType] = MAX_SRVS > 0 ? MAX_SRVS - 1u : 0u;
+		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
 	}
 
 	FD3D12StateCache::~FD3D12StateCache()
@@ -211,7 +284,7 @@ namespace RenderCore
 			return;
 
 		ShaderResourceViewCache.ClearFrequency(SF_Vertex);
-		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+		MarkSrvFrequencyFullyDirty(SF_Vertex);
 
 		if (InVertexShader)
 		{
@@ -235,7 +308,7 @@ namespace RenderCore
 			return;
 
 		ShaderResourceViewCache.ClearFrequency(SF_Pixel);
-		m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+		MarkSrvFrequencyFullyDirty(SF_Pixel);
 
 		if (InPixelShader)
 		{
@@ -324,7 +397,7 @@ namespace RenderCore
 		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != Stored.ptr)
 		{
 			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = Stored;
-			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+			MarkSrvSlotDirty(ShaderType, TextureIndex);
 		}
 	}
 
@@ -334,7 +407,7 @@ namespace RenderCore
 		if (ShaderResourceViewCache.Views[ShaderType][TextureIndex].ptr != TextureCube->GetCubeSRV(Mip).ptr)
 		{
 			ShaderResourceViewCache.Views[ShaderType][TextureIndex] = TextureCube->GetCubeSRV(Mip);
-			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+			MarkSrvSlotDirty(ShaderType, TextureIndex);
 		}
 	}
 
@@ -349,7 +422,7 @@ namespace RenderCore
 		if (ShaderResourceViewCache.Views[ShaderType][SRVIndex].ptr != Stored.ptr)
 		{
 			ShaderResourceViewCache.Views[ShaderType][SRVIndex] = Stored;
-			m_GraphicsBindDirtyMask |= kGraphicsDirtySRV;
+			MarkSrvSlotDirty(ShaderType, SRVIndex);
 		}
 	}
 
@@ -421,6 +494,7 @@ namespace RenderCore
 		m_LastAppliedGraphicsRecordingGen = 0;
 		m_GraphicsBindDirtyMask = 0;
 		m_GraphicsLayoutDirty = true;
+		ResetSrvDirtyTracking();
 		m_LastUnifiedRootCacheKey.clear();
 		for (int32_t fi = 0; fi < SF_NumStandardFrequencies; ++fi)
 		{
@@ -811,11 +885,38 @@ namespace RenderCore
 		return RootSignature;
 	}
 
+	void FD3D12StateCache::EnsurePSODepthFormatMatchesBoundDepth(bool bDepthBoundOnOM)
+	{
+		if (bDepthBoundOnOM)
+			return;
+
+		bool bDirty = false;
+		if (PSDesc.DSVFormat != DXGI_FORMAT_UNKNOWN)
+		{
+			PSDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+			bDirty = true;
+		}
+		// Depth test on + no DSV in the PSO layout triggers D3D12 #680 (and is undefined on some paths).
+		if (PSDesc.DepthStencilState.DepthEnable || PSDesc.DepthStencilState.StencilEnable)
+		{
+			ApplyDisabledDepthStencilToPSDesc(PSDesc.DepthStencilState);
+			bDirty = true;
+		}
+		if (bDirty)
+			MarkGraphicsLayoutDirty();
+	}
+
 	bool FD3D12StateCache::ApplyGraphicState(D3D12CommandListHandle& CommandList)
 	{
 		const bool bCmdListChanged =
 			(CommandList.GraphicsCommandList() != m_LastAppliedGraphicsCmdList) ||
 			(CommandList.GetRecordingGeneration() != m_LastAppliedGraphicsRecordingGen);
+
+		// UE-style: ensure PSO depth state is consistent with OM bindings before creating/applying PSO.
+		// When OM has no DSV bound, the PSO must not reference a depth format (D3D12 #615/#680).
+		// This replaces the old per-draw RebindCachedOutputMergerTargets approach.
+		EnsurePSODepthFormatMatchesBoundDepth(m_bDepthBoundOnOMForPso);
+
 		auto RootSignature = BuildRootSignature();
 		if (!RootSignature)
 		{
@@ -1019,21 +1120,25 @@ namespace RenderCore
 			}
 		};
 
-		auto stageAllGraphicsSrvs = [&]()
+		auto stageGraphicsSrvsForFrequency = [&](EShaderFrequency Freq, uint32_t NumSrvs, const uint8_t* SlotNullDims, bool bFullTable)
 		{
+			const int32_t rootParamIndex = RootSignature->SRVRootIndex[Freq];
+			if (rootParamIndex < 0 || NumSrvs == 0)
+				return;
 			auto DevSrv = GetParentDevice();
 			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrv2D = DevSrv ? DevSrv->GetNullSrvCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
 			const D3D12_CPU_DESCRIPTOR_HANDLE NullSrvCube = DevSrv ? DevSrv->GetNullSrvCubeCpu() : D3D12_CPU_DESCRIPTOR_HANDLE{ D3D12_GPU_VIRTUAL_ADDRESS_NULL };
-			if (RootSignature->SRVRootIndex[SF_Vertex] > -1)
+			const D3D12_CPU_DESCRIPTOR_HANDLE* views = ShaderResourceViewCache.Views[Freq];
+			if (bFullTable || m_SrvDirtyFull[Freq] || m_SrvDirtyMin[Freq] > m_SrvDirtyMax[Freq])
 			{
-				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Vertex], VertexResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Vertex],
-					NullSrv2D, NullSrvCube, VertexResCount.SrvSlotNullViewDimension);
+				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, rootParamIndex, NumSrvs, views, NullSrv2D, NullSrvCube, SlotNullDims);
+				return;
 			}
-			if (RootSignature->SRVRootIndex[SF_Pixel] > -1)
-			{
-				StageAllGraphicsSrvs(DynamicViewDescriptorHeap, RootSignature->SRVRootIndex[SF_Pixel], PixelResCount.NumSRVs, ShaderResourceViewCache.Views[SF_Pixel],
-					NullSrv2D, NullSrvCube, PixelResCount.SrvSlotNullViewDimension);
-			}
+			uint32_t dirtyMin = m_SrvDirtyMin[Freq];
+			uint32_t dirtyMax = m_SrvDirtyMax[Freq];
+			if (dirtyMax >= NumSrvs)
+				dirtyMax = NumSrvs - 1u;
+			StageGraphicsSrvRange(DynamicViewDescriptorHeap, rootParamIndex, dirtyMin, dirtyMax, views, NullSrv2D, NullSrvCube, SlotNullDims);
 		};
 
 		if (bLayoutDirty)
@@ -1042,7 +1147,8 @@ namespace RenderCore
 			DynamicViewDescriptorHeap.ParseGraphicsRootSignature(*RootSignature);
 			CommandList->SetPipelineState(PipelineState.get());
 			bindAllGraphicsCbvs();
-			stageAllGraphicsSrvs();
+			stageGraphicsSrvsForFrequency(SF_Vertex, VertexResCount.NumSRVs, VertexResCount.SrvSlotNullViewDimension, true);
+			stageGraphicsSrvsForFrequency(SF_Pixel, PixelResCount.NumSRVs, PixelResCount.SrvSlotNullViewDimension, true);
 			DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
 			m_LastAppliedGraphicsPSOHash = HashCode;
 			m_LastAppliedGraphicsRootSig = RootSigPtr;
@@ -1051,6 +1157,7 @@ namespace RenderCore
 			m_LastAppliedGraphicsRecordingGen = CommandList.GetRecordingGeneration();
 			m_GraphicsLayoutDirty = false;
 			m_GraphicsBindDirtyMask = 0;
+			ResetSrvDirtyTracking();
 		}
 		else
 		{
@@ -1058,8 +1165,10 @@ namespace RenderCore
 				bindAllGraphicsCbvs();
 			if (m_GraphicsBindDirtyMask & kGraphicsDirtySRV)
 			{
-				stageAllGraphicsSrvs();
+				stageGraphicsSrvsForFrequency(SF_Vertex, VertexResCount.NumSRVs, VertexResCount.SrvSlotNullViewDimension, false);
+				stageGraphicsSrvsForFrequency(SF_Pixel, PixelResCount.NumSRVs, PixelResCount.SrvSlotNullViewDimension, false);
 				DynamicViewDescriptorHeap.CommitGraphicsRootDescriptorTables(CommandList.GraphicsCommandList());
+				ResetSrvDirtyTracking();
 			}
 			m_GraphicsBindDirtyMask = 0;
 		}
@@ -1204,6 +1313,7 @@ namespace RenderCore
 
 	void FD3D12StateCache::ClearState()
 	{
+		m_bDepthBoundOnOMForPso = false;
 		// Blend State Cache
 		CurrentBlendFactor[0] = D3D12_DEFAULT_BLEND_FACTOR_RED;
 		CurrentBlendFactor[1] = D3D12_DEFAULT_BLEND_FACTOR_GREEN;
@@ -1219,6 +1329,7 @@ namespace RenderCore
 		SamplerCache.Clear();
 		ShaderResourceViewCache.Clear();
 		UAVCache.Clear();
+		ResetSrvDirtyTracking();
 
 		for (int32_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++index)
 			CurrentDescriptorHeaps[index] = {};

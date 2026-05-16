@@ -86,12 +86,29 @@ namespace RenderCore
 		virtual bool UpdateTileMappings(std::shared_ptr< RHITilePool> TilePool,std::shared_ptr< RHITexture2D> TexRHI) = 0;
 		virtual void UpdateTiles(std::shared_ptr< RHITilePool> TilePool, std::shared_ptr< RHITexture2D> TexRHI,std::shared_ptr<uint8_t> Data) = 0;
 		virtual void FlushCommands(bool WaitForCompletion = false) {};
-		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) {};
+		/**
+		 * D3D12: batched shader-resource binding scope. Transitions are deduplicated per resource on the first
+		 * RHISetShaderTexture/Cube/StructuredBuffer in the scope (same rules as outside the scope); barriers are
+		 * flushed when the outermost scope ends. No-op on D3D11. Nested scopes are reference-counted.
+		 */
+		virtual void RHIBeginBatchedShaderResourceBindings() {}
+		virtual void RHIEndBatchedShaderResourceBindings() {}
 		/**
 		 * UE-style RDG pass begin: transition textures to states implied by FRDGResourceAccess before Pass.Execute().
 		 * Default implementation is a no-op (e.g. D3D11). D3D12 batches ResourceBarrier then flushes once.
 		 */
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) {}
+		/**
+		 * Phase 2: pass-declared texture transitions, applied inside RHIBeginRenderPass before SetRenderTarget / viewport.
+		 * Keeps layouts valid when RDG auto-barriers are off or when execution order omits RDG. D3D12 forwards to
+		 * RDGApplyPassBeginBarriers (same planar depth / SRV rules).
+		 */
+		virtual void RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue = ERDGPassQueue::Graphics)
+		{
+			(void)Items;
+			(void)Count;
+			(void)PassQueue;
+		}
 		/** RDG GPU segment timings (D3D12 timestamps / D3D11 disjoint); default queue / immediate context only. */
 		virtual void RDGBeginGpuPassTimingFrame() {}
 		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) {}

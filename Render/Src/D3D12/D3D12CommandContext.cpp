@@ -43,21 +43,25 @@ namespace RenderCore
 			}
 		}
 
+		// PS/CS SRV reads need PSR/NPSR even for depth-as-float SRV; DEPTH_READ is for read-only DSV (combinable with PSR per MSDN).
 		D3D12_RESOURCE_STATES ShaderReadableStateForTexture2DSample(const D3D12Texture2D* Tex2D, bool bAsyncCompute)
 		{
 			if (!Tex2D)
 				return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-			if (IsDepthStencilPixelFormat(Tex2D->GetPixelFormat()))
-				return D3D12_RESOURCE_STATE_DEPTH_READ;
 			return bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 		}
 
-		// D32_FLOAT_S8X24 (etc.) exposes multiple planes; depth SRV reads plane 0 only. Transitioning every subresource to
-		// DEPTH_READ corrupts the stencil plane state and can wedge GPU validation / drivers while the CPU blocks on fences/Present.
-		bool ShouldTransitionDepthPlaneOnlyForShaderSample(const D3D12Texture2D* Tex2D, FD3D12Resource* Res)
+		// Planar D/S: whole-resource transitions can miss stencil plane; transition each subresource (GBV).
+		bool ShouldUsePlanarDepthSrvBarrierLoop(const D3D12Texture2D* Tex2D, FD3D12Resource* Res)
 		{
 			return Tex2D && Res && IsDepthStencilPixelFormat(Tex2D->GetPixelFormat()) && Res->GetPlaneCount() > 1;
 		}
+
+		static UINT CalcSubresourceDx12(UINT MipSlice, UINT ArraySlice, UINT PlaneSlice, UINT MipLevels, UINT ArraySize)
+		{
+			return MipSlice + ArraySlice * MipLevels + PlaneSlice * MipLevels * ArraySize;
+		}
+
 	} // namespace
 	FD3D12CommandContextBase::FD3D12CommandContextBase(std::weak_ptr<FD3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext)
 		:FD3D12AdapterChild(InParent),
@@ -109,8 +113,7 @@ namespace RenderCore
 			auto RenderTargetRHI = RHIResourceCast(Target.get());
 			if (RenderTargetRHI && RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			{
-				// GetRTV() is mip0 only (D3D12Texture2D::CreateDerivedViews). Whole-resource RT transitions
-				// collapse tracking and break mixed mip RT/PSRV (#527) when other mips stay shader-visible.
+				// mip0 RTV only; whole-resource transitions break mixed mip RT/SRV (#527).
 				FD3D12Resource* const Res = RenderTargetRHI->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
 					TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
@@ -126,12 +129,11 @@ namespace RenderCore
 			if (bBindDepth)
 				TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 		}
-		// Defer barrier flush until Clear/Draw/Dispatch/Close — OMSetRenderTargets does not consume the RT/DS contents.
-		// If the depth texture exists but DSV was never created, binding &DSV with ptr==0 behaves like no DSV while
-		// PSDesc would still pick D32 — D3D12 ERROR #615 (DEPTH_STENCIL_FORMAT_MISMATCH_PIPELINE_STATE).
+		// Barriers defer to draw/copy; null DSV must match OM/PSO depth (#615).
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, bBindDepth ? &DSV : nullptr);
 		CurrentStateCache->SetRenderTargetFormats(Targets, bBindDepth ? Depth : nullptr);
-		++otherWorkCounter;
+			CurrentStateCache->SetDepthBoundOnOM(bBindDepth);
+			++otherWorkCounter;
 	}
 
 	void D3D12CommandContext::SetRenderTarget(std::shared_ptr<RHITexture2D> Tex, std::shared_ptr< RHITexture2D> Depth)
@@ -161,6 +163,7 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, bBindDsv ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
+			CurrentStateCache->SetDepthBoundOnOM(bBindDsv);
 			++otherWorkCounter;
 		}
 		else if (bBindDsv)
@@ -171,6 +174,7 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
 			CurrentStateCache->SetRenderTargetFormat(RenderTargetRHI);
+			CurrentStateCache->SetDepthBoundOnOM(true);
 			++otherWorkCounter;
 		}
 	}
@@ -197,6 +201,7 @@ namespace RenderCore
 			{
 				CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
 				CurrentStateCache->SetRenderTargetFormat(TextureCubeRHI);
+				CurrentStateCache->SetDepthBoundOnOM(true);
 				++otherWorkCounter;
 			}
 			return;
@@ -217,6 +222,7 @@ namespace RenderCore
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, bBindDsvCube ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(TextureCubeRHI);
+			CurrentStateCache->SetDepthBoundOnOM(bBindDsvCube);
 			++otherWorkCounter;
 		}
 	}
@@ -242,6 +248,7 @@ namespace RenderCore
 			{
 				CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
 				CurrentStateCache->SetRenderTargetFormat(TextureCube);
+				CurrentStateCache->SetDepthBoundOnOM(true);
 				++otherWorkCounter;
 			}
 			return;
@@ -261,6 +268,7 @@ namespace RenderCore
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE,
 				bBindDsvRaw ? &DSV : nullptr);
 			CurrentStateCache->SetRenderTargetFormat(TextureCube);
+			CurrentStateCache->SetDepthBoundOnOM(bBindDsvRaw);
 			++otherWorkCounter;
 		}
 	}
@@ -271,7 +279,6 @@ namespace RenderCore
 		Assert(CommandListHandle.GraphicsCommandList());
 		auto TargetRHI = RHIResourceCast(RenderTarget.get());
 		auto DepthRHI = RHIResourceCast(DepthTarget.get());
-		// Ensure resources are in the correct state for clear operations.
 		if (TargetRHI)
 		{
 			FD3D12Resource* const Res = TargetRHI->GetResource();
@@ -344,7 +351,6 @@ namespace RenderCore
 
 		if (TextureCubeRHI->GetRTV(Face, Mip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
-			// Only transition the specific face/mip we are clearing.
 			const uint32_t SubresourceIndex = TextureCubeRHI->GetSubresourceIndex(Face, Mip);
 			TransitionSubResource(TextureCubeRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, SubresourceIndex, false);
 			if (TextureCubeRHI->GetDepthResource())
@@ -401,7 +407,6 @@ namespace RenderCore
 			return;
 
 		const std::shared_ptr<FD3D12Adapter> Adapter = TryGetParentAdapter();
-		// Not in MS MiniEngine hot path; optional leak/WC diagnosis (hurts frame time).
 		if (Adapter && core::CommandLine::Get().GetName("d3d12forceidle"))
 			Adapter->BlockUntilIdle();
 
@@ -549,10 +554,15 @@ namespace RenderCore
 			FD3D12Resource* const Res = Texture2D->GetResource();
 			if (Res && Res->RequiresResourceStateTracking())
 			{
-				// Depth/stencil SRV reads plane 0 only (#527-style); color textures use one whole-resource
-				// transition when all mips share the same target (fewer ResourceBarrier calls vs per-sub loop).
-				if (ShouldTransitionDepthPlaneOnlyForShaderSample(Texture2D, Res))
-					TransitionSubResource(Res, TargetState, 0, false);
+				if (ShouldUsePlanarDepthSrvBarrierLoop(Texture2D, Res))
+				{
+					const UINT mipLevels = Res->GetMipLevels();
+					const UINT arraySize = Res->GetArraySize();
+					const UINT planeCount = Res->GetPlaneCount();
+					for (UINT plane = 0u; plane < planeCount; ++plane)
+						for (UINT arr = 0u; arr < arraySize; ++arr)
+							TransitionSubResource(Res, TargetState, CalcSubresourceDx12(0u, arr, plane, mipLevels, arraySize), false);
+				}
 				else
 					TransitionResource(Res, TargetState, false);
 			}
@@ -587,8 +597,6 @@ namespace RenderCore
 		D3D12TextureCube* TextureCube = RHIResourceCast(TextureCubeRHI.get());
 		if (TextureCube)
 		{
-			// Subresources are laid out as Face * NumMips + MipSlice (see D3D12TextureCube::GetSubresourceIndex).
-			// A cube SRV at one mip touches all six faces; transition each slice that mip level uses.
 			if (ShaderType == SF_Pixel || ShaderType == SF_Compute)
 			{
 				const D3D12_RESOURCE_STATES TargetState = (ShaderType == SF_Compute)
@@ -619,7 +627,6 @@ namespace RenderCore
 			return;
 		}
 
-		// UPLOAD-heap buffers stay in GENERIC_READ; only DEFAULT-heap buffers need transition into a shader-read state.
 		if (!Buffer->IsDynamic() && (ShaderType == SF_Pixel || ShaderType == SF_Compute))
 		{
 			FD3D12Resource* const Res = Buffer->GetResource();
@@ -654,8 +661,6 @@ namespace RenderCore
 			CurrentStateCache->SetUAV(UAVIndex, std::shared_ptr<D3D12StructuredBuffer>{});
 			return;
 		}
-		// Transition to UAV state before the upcoming dispatch; the subsequent SRV bind in the consuming pass will
-		// transition back to PIXEL_SHADER_RESOURCE / NON_PIXEL_SHADER_RESOURCE as needed.
 		if (FD3D12Resource* const Res = Buffer->GetResource(); Res && Res->RequiresResourceStateTracking())
 			TransitionResource(Res, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, false);
 		CurrentStateCache->SetUAV(UAVIndex, std::static_pointer_cast<D3D12StructuredBuffer>(BufferRHI));
@@ -842,25 +847,20 @@ namespace RenderCore
 		auto D3D12Dst = RHIResourceCast(DstTex.get());
 		if (!D3D12Src || !D3D12Dst)
 			return;
-		
-		// Use per-command-list state: global is only advanced after submit (see CommitTrackedResourceStateToGlobal).
+
 		const D3D12_RESOURCE_STATES SrcOldState = CommandListHandle.GetResourceState(D3D12Src->GetResource()).GetSubresourceState(0);
 		const D3D12_RESOURCE_STATES DstOldState = CommandListHandle.GetResourceState(D3D12Dst->GetResource()).GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
-		// Only flush barriers; avoid submitting mid-frame.
 		CommandListHandle.FlushResourceBarriers();
 		CommandListHandle->CopyResource(D3D12Dst->GetResource()->GetResource(), D3D12Src->GetResource()->GetResource());
 		++numCopies;
 
-		// Never emit transitions into TBD/CORRUPT — invalid StateAfter breaks validation and can wedge the GPU/debug runtime.
-		// Omit restore when unknown; subsequent binds (RTV/SRV) transition from COPY_DEST/COPY_SOURCE as needed.
+		// Restore when valid (not TBD); GBV rejects lingering COPY_* and bad StateAfter transitions.
 		if (IsValidD3D12ResourceState(DstOldState))
 			TransitionSubResource(D3D12Dst->GetResource(), DstOldState, 0, false);
 		if (IsValidD3D12ResourceState(SrcOldState))
 			TransitionSubResource(D3D12Src->GetResource(), SrcOldState, 0, false);
-		// Flush restore transitions before subsequent passes; GPU-based validation is stricter about leaving
-		// COPY_* states visible across unrelated commands than retail scheduling.
 		CommandListHandle.FlushResourceBarriers();
 	}
 
@@ -874,7 +874,6 @@ namespace RenderCore
 		const D3D12_RESOURCE_STATES DstOldState = CommandListHandle.GetResourceState(D3D12Dst->GetResource()).GetSubresourceState(0);
 		TransitionSubResource(D3D12Src->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0, false);
 		TransitionSubResource(D3D12Dst->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0, false);
-		// Only flush barriers; avoid submitting mid-frame.
 		CommandListHandle.FlushResourceBarriers();
 
 		D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
@@ -919,9 +918,7 @@ namespace RenderCore
 		std::shared_ptr<FD3D12Device> Device = GetParentDevice();
 		const ED3D12CommandQueueType QueueType = GetCommandListManager().GetQueueType();
 		const bool bHasPendingWork = Device ? Device->HasPendingCommandLists(QueueType) : false;
-		// Important: don't rely solely on draw/dispatch counters. We may have "real work" recorded
-		// (e.g. pending transition barriers) even when counters are 0. Skipping submit in that case
-		// prevents fence progress and makes transient allocations appear to "leak" unless Flush(true) is used.
+		// Barrier-only batches still need fence progress (counts can stay zero).
 		const bool bHasPendingBarriers = (CommandListHandle.PendingResourceBarriers().size() > 0);
 		const bool bHasDoneWork = HasRecordedCommands() || bHasPendingBarriers || bHasPendingWork;
 		const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork;
@@ -962,12 +959,6 @@ namespace RenderCore
 		CommandListHandle = {};
 	}
 
-	void D3D12CommandContext::RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush /*= false*/)
-	{
-		auto TexRHI = RHIResourceCast(Tex.get());
-		if (TexRHI)
-			TransitionResource(TexRHI->GetResource(), (D3D12_RESOURCE_STATES)NewState, Flush);
-	}
 
 	void D3D12CommandContext::RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
 	{
@@ -990,12 +981,12 @@ namespace RenderCore
 				continue;
 
 			D3D12_RESOURCE_STATES Target = D3D12_RESOURCE_STATE_COMMON;
-			bool bSrvDepthPlaneOnlyBarrier = false;
+			bool bSrvPlanarDepthBarrierLoop = false;
 			switch (D.Access)
 			{
 			case FRDGResourceAccess::SRV:
 				Target = ShaderReadableStateForTexture2DSample(Tex2D, bAsyncCompute);
-				bSrvDepthPlaneOnlyBarrier = ShouldTransitionDepthPlaneOnlyForShaderSample(Tex2D, Res);
+				bSrvPlanarDepthBarrierLoop = ShouldUsePlanarDepthSrvBarrierLoop(Tex2D, Res);
 				break;
 			case FRDGResourceAccess::UAV:
 				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
@@ -1018,8 +1009,15 @@ namespace RenderCore
 
 			if (D.SubresourceIndex == 0xFFFFFFFFu)
 			{
-				if (bSrvDepthPlaneOnlyBarrier)
-					TransitionSubResource(Res, Target, 0, false);
+				if (bSrvPlanarDepthBarrierLoop && D.Access == FRDGResourceAccess::SRV)
+				{
+					const UINT mipLevels = Res->GetMipLevels();
+					const UINT arraySize = Res->GetArraySize();
+					const UINT planeCount = Res->GetPlaneCount();
+					for (UINT plane = 0u; plane < planeCount; ++plane)
+						for (UINT arr = 0u; arr < arraySize; ++arr)
+							TransitionSubResource(Res, Target, CalcSubresourceDx12(0u, arr, plane, mipLevels, arraySize), false);
+				}
 				else
 					TransitionResource(Res, Target, false);
 			}
@@ -1028,6 +1026,26 @@ namespace RenderCore
 		}
 
 		CommandListHandle.FlushResourceBarriers();
+	}
+
+	void D3D12CommandContext::RHIBeginBatchedShaderResourceBindings()
+	{
+		++m_BatchedShaderResourceBindingDepth;
+		if (m_BatchedShaderResourceBindingDepth == 1)
+			m_BatchedTransitionedResources.clear();
+	}
+
+	void D3D12CommandContext::RHIEndBatchedShaderResourceBindings()
+	{
+		Assert(m_BatchedShaderResourceBindingDepth > 0);
+		if (m_BatchedShaderResourceBindingDepth == 1)
+			m_BatchedTransitionedResources.clear();
+		--m_BatchedShaderResourceBindingDepth;
+	}
+
+	void D3D12CommandContext::RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
+	{
+		RDGApplyPassBeginBarriers(Items, Count, PassQueue);
 	}
 
 	void D3D12CommandContext::RDGBeginGpuPassTimingFrame()
@@ -1113,11 +1131,7 @@ namespace RenderCore
 	void D3D12CommandContext::ConditionalObtainCommandAllocator()
 	{
 		if (CommandAllocator == nullptr)
-		{
-			// Obtain a command allocator if the context doesn't already have one.
-			// This will check necessary fence values to ensure the returned command allocator isn't being used by the GPU, then reset it.
 			CommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
-		}
 	}
 
 	void D3D12CommandContext::ReleaseCommandAllocator()
@@ -1148,15 +1162,15 @@ namespace RenderCore
 	void D3D12CommandContext::OpenCommandList()
 	{
 		D3D12RHI_CheckRecordingAllowed("OpenCommandList");
-		// Conditionally get a new command allocator.
-		// Each command context uses a new allocator for all command lists within a "frame".
 		ConditionalObtainCommandAllocator();
 
-		// Get a new command list
 		CommandListHandle = GetCommandListManager().ObtainCommandList(*CommandAllocator);
 		CommandListHandle.SetCurrentOwningContext(this);
 
-		// Command list Reset clears bindings; caches detect Reset via command-list reset serial.
+		// New CL: OM has no DSV until SetRenderTarget; clear stale DepthBound or PSO depth vs OM mismatches (#615).
+		if (CurrentStateCache)
+			CurrentStateCache->SetDepthBoundOnOM(false);
+
 		numDraws = 0;
 		numDispatches = 0;
 		numClears = 0;
@@ -1175,8 +1189,7 @@ namespace RenderCore
 	void D3D12CommandContext::TransitionResource(FD3D12Resource* Resource, D3D12_RESOURCE_STATES NewState, bool Flush /*= false*/)
 	{
 		D3D12RHI_CheckRecordingAllowed("TransitionResource");
-		// Per-command-list state: TBD → pending. If !Cl.AreAllSubresourcesSame(), never use ALL_SUBRESOURCES
-		// on pending (per-sub only) so GetResourceBarrierCommandList can resolve PRB.SubResource without expanding ALL.
+		// Uneven subs: pending barriers must stay per-sub (not ALL_SUBRESOURCES) until uniform.
 		if (!CommandListHandle)
 			return;
 		if (!Resource->RequiresResourceStateTracking())
@@ -1210,8 +1223,7 @@ namespace RenderCore
 				}
 			}
 
-			// Only collapse to uniform per-resource tracking if every subresource really reached NewState.
-			// Unconditional SetResourceState here overwrote per-sub states and produced bogus Before in barriers (#523).
+			// Promote uniform resource state only when every sub matches (#523).
 			if (Cl.CheckResourceState(NewState))
 			{
 				Cl.SetResourceState(NewState);
@@ -1234,7 +1246,6 @@ namespace RenderCore
 			}
 		}
 
-		// Immediate transitions are counted inside AddTransitionBarrier; do not double-count here.
 		if (Flush && (bDidImmediate || bDidPending))
 			CommandListHandle.FlushResourceBarriers();
 	}
@@ -1272,7 +1283,6 @@ namespace RenderCore
 		D3D12RHI_ScopedRecordingContext ScopedOutsideFrame(RenderCore::ERHIRecordingContextScope::OutsideFrameResourceUpload);
 		Assert(Dest);
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
-		// Get a new command list
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);
 
@@ -1280,7 +1290,6 @@ namespace RenderCore
 #if WITH_D3D12_MEMMON
 		Render::D3D12CallStats::AddUploadBytes((uint64_t)UploadBufferSize);
 #endif
-		// UpdateSubresources requires the intermediate offset to be aligned to D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT.
 		FAllocation Allocation = CommandList.GetLinearAllocator(UploadFastAllocator).Allocate(UploadBufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 		UpdateSubresources(CommandList.GraphicsCommandList(), Dest->GetResource(), Allocation.D3D12Resource, (UINT64)Allocation.Offset, 0, NumSubResources, SubData);
 #if WITH_D3D12_MEMMON
@@ -1298,7 +1307,6 @@ namespace RenderCore
 		D3D12RHI_ScopedRecordingContext ScopedOutsideFrame(RenderCore::ERHIRecordingContextScope::OutsideFrameResourceUpload);
 		Assert(Dest);
 		D3D12CommandAllocator* TempCommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
-		// Get a new command list
 		auto CommandList = GetCommandListManager().ObtainCommandList(*TempCommandAllocator);
 		CommandList.SetCurrentOwningContext(this);
 
@@ -1341,7 +1349,6 @@ namespace RenderCore
 	{
 		CurrentStateCache = {};
 		D3D12GenerateMips = {};
-		// Release the current command list handle before tearing down managers/allocators.
 		CommandListHandle = {};
 		if(CommandAllocator)
 			CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);

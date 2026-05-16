@@ -148,8 +148,9 @@ namespace Engine
 		DrawPrimitive(RHIContext);
 	}
 
-	void FurMaterialRender::DrawForwardFur(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* FurSharedBind,
-										   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
+	void FurMaterialRender::DrawForwardFur(RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam,
+										   uintptr_t* InOutSharedSrvsBoundForPsKey, DeferredLightingPass* FurSharedBind, FWorldSceneRender* WorldSceneRender,
+										   const std::shared_ptr<const FSceneViewData>& ViewData)
 	{
 		C_P(FurMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "FurForward");
@@ -167,8 +168,11 @@ namespace Engine
 		}
 
 		StoreRenderParam(RenderParam);
-		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.SceneTextures->GetSceneColor() };
-		RHIContext.SetRenderTarget(Rt, RenderParam.SceneTextures->GetDepth());
+		// OM + PSDesc must agree before PSO creation (D3D12 #615). Deferred lighting leaves no bound DSV.
+		{
+			const std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.SceneTextures->GetSceneColor() };
+			RHIContext.SetRenderTarget(Rt, RenderParam.SceneTextures->GetDepth());
+		}
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
@@ -182,9 +186,16 @@ namespace Engine
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
-		// D3D12: changing pixel shader clears staged SRV table; bind IBL + shadow (t5–t10) after PSO.
-		if (FurSharedBind && WorldSceneRender && ViewData)
-			FurSharedBind->BindFurForwardSharedSRVs(RHIContext, RenderParam.SceneTextures, WorldSceneRender, ViewData);
+		// D3D12 clears staged pixel SRVs on PS change — rebind shared table after PSO when the fur PS hash changes.
+		if (InOutSharedSrvsBoundForPsKey && FurSharedBind && WorldSceneRender && ViewData && GetPBRPixelShader())
+		{
+			const uintptr_t psKey = reinterpret_cast<uintptr_t>(GetPBRPixelShader().get());
+			if (*InOutSharedSrvsBoundForPsKey != psKey)
+			{
+				FurSharedBind->BindFurForwardSharedSRVs(RHIContext, RenderParam.SceneTextures, WorldSceneRender, ViewData);
+				*InOutSharedSrvsBoundForPsKey = psKey;
+			}
+		}
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);

@@ -1,0 +1,33 @@
+# MiniEngine source encoding (Visual Studio / MSVC):
+#   C/C++  -> UTF-8 with BOM + CRLF  (avoids C4819 on non-ASCII comments)
+#   HLSL   -> UTF-8 without BOM
+#   JSON   -> UTF-8 without BOM
+root = true
+
+[*]
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cpp,c,cc,cxx,h,hpp,hxx,inl,ipp}]
+charset = utf-8-bom
+
+[*.{hlsl,hlsli,fx,fxh}]
+charset = utf-8
+end_of_line = crlf
+
+[*.json]
+charset = utf-8
+trim_trailing_whitespace = false
+
+[*.{md,yml,yaml}]
+trim_trailing_whitespace = false
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+[*.sh]
+end_of_line = lf
+
+[*.{png,jpg,jpeg,gif,ico,bin,lib,dll,exe,pdb,cso}]
+insert_final_newline = false

@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 include(${CMAKE_HOME_DIRECTORY}/common.cmake)
 project(MiniEngine)
 
@@ -141,7 +141,7 @@ if(MSVC)
 endif()
 set_target_properties(CompileShaderBlob PROPERTIES FOLDER Tools PROJECT_LABEL "CompileShaderBlob")
 
-# Offline HLSL: Debug precompile -> tier 2 (SKIP_OPTIMIZATION); non-Debug -> tier 1 (OPT_LEVEL0). Optional full opt / forced LEVEL0.
+# Offline HLSL: Debug precompile -> tier 2 (SKIP_OPTIMIZATION); non-Debug -> tier 0 (full FXC opt). Optional LEVEL0 via MINIENGINE_LEVEL0_SHADER_PRECOMPILE.
 option(MINIENGINE_FULL_OPT_SHADER_PRECOMPILE "Pass --full-opt to offline HLSL precompile (full FXC optimization)" OFF)
 option(MINIENGINE_LEVEL0_SHADER_PRECOMPILE "Pass --hlsl-level0 to offline HLSL precompile (FXC OPT_LEVEL0, all configs)" OFF)
 if(MINIENGINE_FULL_OPT_SHADER_PRECOMPILE AND MINIENGINE_LEVEL0_SHADER_PRECOMPILE)
@@ -174,7 +174,7 @@ if(MINIENGINE_PYTHON_EXECUTABLE)
 			--precompile-config
 			${MINIENGINE_PRECOMPILE_CONFIG_GENEX}
 			--compile-tier
-			$<IF:$<CONFIG:Debug>,2,1>)
+			$<IF:$<CONFIG:Debug>,2,0>)
 	endif()
 	add_custom_target(PrecompileMiniEngineShaders
 		COMMAND "${MINIENGINE_PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/Tools/gen_precompile_manifest.py"

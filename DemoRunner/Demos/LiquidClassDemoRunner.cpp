@@ -5,6 +5,7 @@
 #include "App/AppWindow.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -128,11 +129,25 @@ void LiquidClassDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, co
 	if (!Tex2D || !ViewPort || !Window)
 		return;
 
+	std::shared_ptr<RenderCore::RHITexture2D> BackBuf = ViewPort->GetBackBuffer();
+	if (!BackBuf)
+		return;
+
 	const float aspect = Tex2D->GetSize().w * 1.f / Tex2D->GetSize().h;
 	int W = std::min(Window->GetWidth(), Tex2D->GetSize().w);
 	int H = std::min(Window->GetHeight(), Tex2D->GetSize().h);
 	W = std::min(W, (int)(H * aspect));
 	H = std::min(H, (int)(W / aspect));
+
+	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+	Om.DebugName = "LiquidClass_ShowTexture2D";
+	{
+		using A = RenderCore::FRDGResourceAccess;
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Tex2D, A::SRV, 0xFFFFFFFFu });
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+	}
+	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
+
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
 
 	RenderCore::GraphicsPipelineStateInitializer Init;
@@ -142,8 +157,6 @@ void LiquidClassDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, co
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	Ctx.RHISetGraphicsPipelineState(Init);
-
-	ViewPort->SetRenderTarget();
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampPointSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 1, Tex2D);
@@ -157,6 +170,16 @@ void LiquidClassDemoRunner::LiquidClass(RenderCore::RHICommandContext& Ctx, cons
 	if (!LiquidRT || !Tex2D)
 		return;
 
+	std::shared_ptr<RenderCore::RHITexture2D> OutTex = LiquidRT->GetTex();
+	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(OutTex);
+	Om.DebugName = "LiquidClass_Render";
+	{
+		using A = RenderCore::FRDGResourceAccess;
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Tex2D, A::SRV, 0xFFFFFFFFu });
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ OutTex, A::RTV, 0xFFFFFFFFu });
+	}
+	RenderCore::FRHIRenderPassScope LiquidScope(Ctx, std::move(Om));
+
 	Ctx.SetViewPort(0, 0, LiquidRT->GetSize().x, LiquidRT->GetSize().y);
 
 	RenderCore::GraphicsPipelineStateInitializer Init;
@@ -166,8 +189,6 @@ void LiquidClassDemoRunner::LiquidClass(RenderCore::RHICommandContext& Ctx, cons
 	Init.DepthStencilState = RenderCore::RHICachedStates::DepthStateDisable;
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 	Ctx.RHISetGraphicsPipelineState(Init);
-
-	Ctx.SetRenderTarget(LiquidRT);
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Tex2D);

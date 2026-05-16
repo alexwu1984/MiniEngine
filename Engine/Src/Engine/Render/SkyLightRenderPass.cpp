@@ -3,6 +3,7 @@
 #include "RHI/RHIShaderDefine.h"
 #include "math/vector3.h"
 #include "RHI/RHIShdader.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
@@ -84,6 +85,23 @@ namespace Engine
 		if (!d->TexCube)
 			return;
 		RenderCore::RHICommandMark Mark(RHIContext, "SkyLightRenderPass");
+
+		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::ColorTargetsAndDepth(Targets, Depth);
+		Om.DebugName = "SkyLightRenderPass_RasterOM";
+		{
+			using A = RenderCore::FRDGResourceAccess;
+			if (GroundLatLongOrDummy)
+				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ GroundLatLongOrDummy, A::SRV, 0xFFFFFFFFu });
+			for (const std::shared_ptr<RHITexture2D>& T : Targets)
+			{
+				if (T)
+					Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ T, A::RTV, 0xFFFFFFFFu });
+			}
+			if (Depth)
+				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Depth, A::DSV, 0xFFFFFFFFu });
+		}
+		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
+
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
 		Init.PixelShader = d->PixelShader;
@@ -92,21 +110,6 @@ namespace Engine
 		Init.DepthStencilState = RHICachedStates::DepthStateDisable;
 		Init.RasterizerState = RHICachedStates::RasterizerStateCullNone;
 
-		RHIContext.SetRenderTarget(Targets, Depth);
-		int32_t w = 0;
-		int32_t h = 0;
-		if (!Targets.empty() && Targets.front())
-		{
-			const core::vec2i Sz = Targets.front()->GetSize();
-			w = Sz.x;
-			h = Sz.y;
-		}
-		if (w <= 0 || h <= 0)
-		{
-			w = GEngine->GetAppWindow()->GetWidth();
-			h = GEngine->GetAppWindow()->GetHeight();
-		}
-		RHIContext.SetViewPort(0, 0, w, h);
 		RHIContext.RHISetGraphicsPipelineState(Init);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::ClampLinerSampler);
 

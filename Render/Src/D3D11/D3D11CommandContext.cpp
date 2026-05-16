@@ -987,6 +987,11 @@ namespace RenderCore
 		(void)PassQueue;
 	}
 
+	void D3D11CommandContext::RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue)
+	{
+		RDGApplyPassBeginBarriers(Items, Count, PassQueue);
+	}
+
 	void D3D11CommandContext::RDGBeginGpuPassTimingFrame()
 	{
 		if (!Impl->D3D11RHI || !Impl->D3D11RHI->GetDevice())

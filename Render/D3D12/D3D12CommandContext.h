@@ -2,6 +2,7 @@
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Allocation.h"
+#include <unordered_set>
 
 namespace RenderCore
 {
@@ -9,7 +10,10 @@ namespace RenderCore
 	class FD3D12Device;
 	class FD3D12StateCache;
 	class FD3D12GenerateMips;
+	class FD3D12Resource;
+	class D3D12Texture2D;
 	class D3D12TextureCube;
+	class D3D12StructuredBuffer;
 	// Base class used to define commands that are not device specific, or that broadcast to all devices.
 	class FD3D12CommandContextBase : public RHICommandContext, public FD3D12AdapterChild
 	{
@@ -76,8 +80,10 @@ namespace RenderCore
 		void ReleaseCommandAllocator();
 		// Close the current command list and return it for batching/submission.
 		void Finish(std::vector<D3D12CommandListHandle>& OutCommandLists);
-		virtual void RHITransitionResource(std::shared_ptr< RHITexture2D> Tex, int32_t NewState, bool Flush = false) override;
+		virtual void RHIBeginBatchedShaderResourceBindings() override;
+		virtual void RHIEndBatchedShaderResourceBindings() override;
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
+		virtual void RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) override;
 		virtual void RDGBeginGpuPassTimingFrame() override;
 		virtual void RDGWriteGpuTimestampAfterPass(const char* PassNameUtf8) override;
 		virtual void RDGResolveGpuPassTimingsEndOfFrame() override;
@@ -130,5 +136,29 @@ namespace RenderCore
 		std::shared_ptr<FD3D12StateCache> CurrentStateCache;
 		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
 
+		uint32_t m_BatchedShaderResourceBindingDepth = 0;
+		bool IsBatchedShaderResourceBindingScopeActive() const { return m_BatchedShaderResourceBindingDepth > 0; }
+		/** Returns true when a transition should be emitted for this bind (deduped per resource inside a batch scope). */
+		bool ShouldTransitionResourceForShaderBind(FD3D12Resource* Resource, bool bForceTransition = false);
+		void TransitionTexture2DForShaderBind(D3D12Texture2D* Texture2D, EShaderFrequency ShaderType, bool bForceTransition = false);
+		void TransitionTextureCubeForShaderBind(D3D12TextureCube* TextureCube, EShaderFrequency ShaderType, int32_t Mip = -1);
+		void TransitionStructuredBufferForShaderBind(D3D12StructuredBuffer* Buffer, EShaderFrequency ShaderType);
+		void FlushPendingResourceBarriers();
+		void BindOutputMerger(uint32_t NumRtvs, const D3D12_CPU_DESCRIPTOR_HANDLE* Rtvs, bool bBindDsv, D3D12_CPU_DESCRIPTOR_HANDLE Dsv);
+		/** Re-issues OMSetRenderTargets from the last bind (command-list Reset clears OM bindings, not PSDesc). */
+		void RebindCachedOutputMergerTargets();
+		void PrepareForGraphicsDraw();
+		void RefreshDepthShaderResourceTransitionsAfterOmRebind();
+		std::unordered_set<FD3D12Resource*> m_BatchedTransitionedResources;
+		std::unordered_set<D3D12Texture2D*> m_DepthTexturesBoundForShaderSample;
+		static constexpr uint32_t kMaxCachedOutputMergerRtvs = 8u;
+		D3D12_CPU_DESCRIPTOR_HANDLE m_CachedOutputMergerRtvs[kMaxCachedOutputMergerRtvs]{};
+		uint32_t m_CachedOutputMergerRtvCount = 0;
+		D3D12_CPU_DESCRIPTOR_HANDLE m_CachedOutputMergerDsv{};
+		/** Last OMSetRenderTargets actually passed a non-null DSV pointer (may be false while sticky depth intent remains set). */
+		bool m_bCachedOutputMergerDsvValid = false;
+		/** SetRenderTarget requested a bindable depth-stencil; kept across PrepareForGraphicsDraw omitting DSV for no-depth PSOs. */
+		bool m_bStickyDepthStencilFromSetRenderTarget = false;
+		FD3D12Resource* m_CachedOutputMergerDepthResource = nullptr;
 	};
 }

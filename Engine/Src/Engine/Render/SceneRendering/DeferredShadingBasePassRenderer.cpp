@@ -16,6 +16,7 @@
 #include "Engine/Render/FurMaterialRender.h"
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Engine/Render/MaterialRender.h"
+#include "RHI/DynamicRHI.h"
 
 namespace Engine
 {
@@ -161,6 +162,13 @@ namespace Engine
 		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
 		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.SceneTextures->GetSceneColor());
 
+		const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> FurPassRt = { DrawContext.SceneTextures->GetSceneColor() };
+		Cmd.SetRenderTarget(FurPassRt, DrawContext.SceneTextures->GetDepth());
+
+		const bool bD3D12 = DrawContext.RHI && DrawContext.RHI->GetRHIAPIType() == RenderCore::RHIAPIType::E_D3D12;
+		uintptr_t furSharedBoundPsKey = 0u;
+		if (bD3D12)
+			Cmd.RHIBeginBatchedShaderResourceBindings();
 		for (const auto& Key : Flat)
 		{
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
@@ -172,8 +180,10 @@ namespace Engine
 			{
 				MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 					DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
-				fur->DrawForwardFur(Cmd, P, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
+				fur->DrawForwardFur(Cmd, P, &furSharedBoundPsKey, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 			}
 		}
+		if (bD3D12)
+			Cmd.RHIEndBatchedShaderResourceBindings();
 	}
 }

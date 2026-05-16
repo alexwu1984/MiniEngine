@@ -1,5 +1,5 @@
 ﻿#include "Render/SceneRendering/DeferredLightingPass.h"
-#include "Render/RDGUtils.h"
+#include "RHI/RHIRenderPass.h"
 #include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/SceneRendering/SceneViewData.h"
@@ -356,8 +356,30 @@ namespace Engine
 		FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr,
 							 DirectionalShadowUniform ? DirectionalShadowUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
 
-		FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RHIContext, SceneColor);
-		FRDGUtils::RHICmdListSetViewportFromTexture(RHIContext, SceneColor);
+		RenderCore::FRHIRenderPassDesc RasterOmDesc = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(SceneColor);
+		RasterOmDesc.DebugName = "DeferredLighting_RasterOM";
+		// Phase 2: match FRDGDeferredLightingPass::GatherRasterPassInputs/Outputs so barriers run before OM even if RDG AutoPipelineBarriers is off.
+		{
+			using A = FRDGResourceAccess;
+			auto PushSrv = [&RasterOmDesc](std::shared_ptr<RHITexture2D> T) {
+				if (T)
+					RasterOmDesc.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{std::move(T), A::SRV, 0xFFFFFFFFu});
+			};
+			auto PushRtv = [&RasterOmDesc](std::shared_ptr<RHITexture2D> T) {
+				if (T)
+					RasterOmDesc.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{std::move(T), A::RTV, 0xFFFFFFFFu});
+			};
+			PushSrv(SceneColorPreLighting);
+			PushSrv(SceneTextures->GetNormalBuffer());
+			PushSrv(SceneTextures->GetEmissiveBuffer());
+			PushSrv(SceneTextures->GetMetallicRoughnessBuffer());
+			if (std::shared_ptr<RHITexture2D> Ma = SceneTextures->GetMaterialAuxBuffer())
+				PushSrv(std::move(Ma));
+			PushSrv(SceneTextures->GetDepth());
+			PushRtv(SceneColor);
+		}
+		RenderCore::FRHIRenderPassScope RasterOmScope(RHIContext, std::move(RasterOmDesc));
+
 		RHIContext.RHISetGraphicsPipelineState(MakeFullscreenPSO(VertexShader, PixelShader));
 
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PerFrameUniform);
@@ -462,6 +484,81 @@ namespace Engine
 		ExecuteRaster(RHIContext, std::move(ViewPort), SceneTextures, WorldSceneRender, ViewData);
 	}
 
+	void GatherFurForwardSharedSrvSet(const DeferredLightingPass& Pass, FWorldSceneRender* WorldSceneRender, const FSceneViewData& ViewData,
+									  FFurForwardSharedSrvSet& Out)
+	{
+		USkyLightComponent* SkyLightIBL = WorldSceneRender ? WorldSceneRender->GetUSkyLightComponent().get() : nullptr;
+		Out.IrradianceCube = Pass.FallbackIBLCube;
+		Out.SpecularCube = Pass.FallbackIBLCube;
+		Out.BrdfLut = Pass.FallbackBrdfLut;
+		Out.DirectionalShadow = Pass.FallbackBrdfLut;
+		Out.PointShadowCube = Pass.FallbackIBLCube;
+		Out.SpotShadow = Pass.FallbackBrdfLut;
+		Out.GroundEnvLatLong = Pass.FallbackBrdfLut;
+		Out.SceneLights = Pass.SceneLightBuffer;
+		Out.ClusterLightOffsetCount = Pass.ClusterLightOffsetCountBuffer;
+		Out.ClusterLightIndexList = Pass.ClusterLightIndexListBuffer;
+
+		if (SkyLightIBL)
+		{
+			if (const auto t = SkyLightIBL->GetDiffuseIrradianceCubemap())
+				Out.IrradianceCube = t;
+			if (const auto t = SkyLightIBL->GetSpecularReflectionCubemap())
+				Out.SpecularCube = t;
+			if (const auto t = SkyLightIBL->GetBRDFIntegrationLUT())
+				Out.BrdfLut = t;
+			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
+				Out.GroundEnvLatLong = std::move(gt);
+		}
+
+		const int32_t pdiFur = Pass.PerFrameUniform ? Pass.PerFrameUniform->Data.myPerFrame.PrimaryDirectionalLightIndex : -1;
+		const bool bDeferredShadow = WorldSceneRender && Pass.PerFrameUniform && Pass.PerFrameUniform->GetRHIBuffer() && Pass.PerFrameUniform->Data.myPerFrame.LightCount > 0 && pdiFur >= 0
+			&& Pass.PerFrameUniform->Data.myPerFrame.Lights[pdiFur].Type == LightType_Directional
+			&& Pass.PerFrameUniform->Data.myPerFrame.Lights[pdiFur].ShadowMapIndex >= 0;
+		if (bDeferredShadow)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
+					if (std::shared_ptr<RHITexture2D> st = shadowRt->GetTex())
+						Out.DirectionalShadow = std::move(st);
+		}
+
+		if (Pass.PointShadowUniform && Pass.PointShadowUniform->GetRHIBuffer() && Pass.PointShadowUniform->Data.Enabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (std::shared_ptr<RHITextureCube> pc = ShadowPass->GetPointShadowCube())
+					Out.PointShadowCube = std::move(pc);
+		}
+
+		if (Pass.SpotShadowUniform && Pass.SpotShadowUniform->GetRHIBuffer() && Pass.SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
+		{
+			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
+				if (const std::shared_ptr<RHIRenderTarget> srt = ShadowPass->GetSpotShadowMap())
+					if (std::shared_ptr<RHITexture2D> st = srt->GetTex())
+						Out.SpotShadow = std::move(st);
+		}
+	}
+
+	namespace FurForwardSharedSrvDetail
+	{
+		static void BindFurForwardSharedSrvSet(RHICommandContext& RHIContext, const FFurForwardSharedSrvSet& Srvs)
+		{
+			RHIContext.RHISetShaderTexture(SF_Pixel, 5, Srvs.IrradianceCube);
+			RHIContext.RHISetShaderTexture(SF_Pixel, 6, Srvs.BrdfLut);
+			RHIContext.RHISetShaderTexture(SF_Pixel, 7, Srvs.SpecularCube);
+			RHIContext.RHISetShaderTexture(SF_Pixel, 8, Srvs.DirectionalShadow);
+			RHIContext.RHISetShaderTexture(SF_Pixel, 10, Srvs.PointShadowCube);
+			RHIContext.RHISetShaderTexture(SF_Pixel, 11, Srvs.SpotShadow);
+			RHIContext.RHISetShaderTexture(SF_Pixel, 12, Srvs.GroundEnvLatLong);
+			if (Srvs.SceneLights)
+				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, Srvs.SceneLights);
+			if (Srvs.ClusterLightOffsetCount)
+				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightOffsetCountSrvSlot, Srvs.ClusterLightOffsetCount);
+			if (Srvs.ClusterLightIndexList)
+				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightIndexListSrvSlot, Srvs.ClusterLightIndexList);
+		}
+	} // namespace FurForwardSharedSrvDetail
+
 	void DeferredLightingPass::BindFurForwardSharedSRVs(RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures,
 														FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
@@ -484,76 +581,11 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 
-		std::shared_ptr<RHITextureCube> irrCube = FallbackIBLCube;
-		std::shared_ptr<RHITextureCube> specCube = FallbackIBLCube;
-		std::shared_ptr<RHITexture2D> brdfLut = FallbackBrdfLut;
-		if (SkyLightIBL)
+		FFurForwardSharedSrvSet Srvs;
+		GatherFurForwardSharedSrvSet(*this, WorldSceneRender, *ViewData, Srvs);
 		{
-			if (const auto t = SkyLightIBL->GetDiffuseIrradianceCubemap())
-				irrCube = t;
-			if (const auto t = SkyLightIBL->GetSpecularReflectionCubemap())
-				specCube = t;
-			if (const auto t = SkyLightIBL->GetBRDFIntegrationLUT())
-				brdfLut = t;
-		}
-		RHIContext.RHISetShaderTexture(SF_Pixel, 5, irrCube);
-		RHIContext.RHISetShaderTexture(SF_Pixel, 6, brdfLut);
-		RHIContext.RHISetShaderTexture(SF_Pixel, 7, specCube);
-
-		const int32_t pdiFur = PerFrameUniform ? PerFrameUniform->Data.myPerFrame.PrimaryDirectionalLightIndex : -1;
-		const bool bDeferredShadow = WorldSceneRender && PerFrameUniform && PerFrameUniform->GetRHIBuffer() && PerFrameUniform->Data.myPerFrame.LightCount > 0 && pdiFur >= 0
-			&& PerFrameUniform->Data.myPerFrame.Lights[pdiFur].Type == LightType_Directional
-			&& PerFrameUniform->Data.myPerFrame.Lights[pdiFur].ShadowMapIndex >= 0;
-		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
-		if (bDeferredShadow)
-		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-			{
-				if (const std::shared_ptr<RHIRenderTarget> shadowRt = ShadowPass->GetShadowMap())
-				{
-					if (std::shared_ptr<RHITexture2D> st = shadowRt->GetTex())
-						shadowSrvTex = std::move(st);
-				}
-			}
-		}
-		RHIContext.RHISetShaderTexture(SF_Pixel, 8, shadowSrvTex);
-
-		std::shared_ptr<RHITextureCube> pointShadowSrv = FallbackIBLCube;
-		if (PointShadowUniform && PointShadowUniform->GetRHIBuffer() && PointShadowUniform->Data.Enabled != 0 && WorldSceneRender)
-		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-				if (std::shared_ptr<RHITextureCube> pc = ShadowPass->GetPointShadowCube())
-					pointShadowSrv = std::move(pc);
-		}
-		RHIContext.RHISetShaderTexture(SF_Pixel, 10, pointShadowSrv);
-
-		std::shared_ptr<RHITexture2D> spotShadowSrvFur = FallbackBrdfLut;
-		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer() && SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
-		{
-			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
-				if (const std::shared_ptr<RHIRenderTarget> srt = ShadowPass->GetSpotShadowMap())
-					if (std::shared_ptr<RHITexture2D> st = srt->GetTex())
-						spotShadowSrvFur = std::move(st);
-		}
-		RHIContext.RHISetShaderTexture(SF_Pixel, 11, spotShadowSrvFur);
-
-		std::shared_ptr<RHITexture2D> groundEnvSrvFur = FallbackBrdfLut;
-		if (SkyLightIBL)
-			if (std::shared_ptr<RHITexture2D> gt = SkyLightIBL->GetGroundHemiIBLLatLong())
-				groundEnvSrvFur = std::move(gt);
-		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrvFur);
-
-		{
-			// SceneLights + cluster outputs share the SRV table with the IBL/shadow textures above; the buffers are owned
-			// here so DispatchClusterLightCulling can populate them once per frame, and BindFurForwardSharedSRVs simply
-			// rebinds the SRVs on each material draw (translucent + fur both call this helper).
 			RHICommandMark ClusterSrvMark(RHIContext, "ClusteredForward_LightSRVs");
-			if (SceneLightBuffer)
-				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
-			if (ClusterLightOffsetCountBuffer)
-				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightOffsetCountSrvSlot, ClusterLightOffsetCountBuffer);
-			if (ClusterLightIndexListBuffer)
-				RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kClusterLightIndexListSrvSlot, ClusterLightIndexListBuffer);
+			FurForwardSharedSrvDetail::BindFurForwardSharedSrvSet(RHIContext, Srvs);
 		}
 	}
 

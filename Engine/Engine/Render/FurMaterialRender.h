@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Scene/SceneModelSettings.h"
+#include <cstdint>
 
 namespace Engine
 {
@@ -20,9 +21,10 @@ namespace Engine
 		virtual void InitRenderResource() override;
 		void PreDraw(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam) override;
 
-		/** After deferred lighting: forward fur shells. Bind FurSharedBind after PSO — D3D12 clears pixel SRVs on shader change. */
-		void DrawForwardFur(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* FurSharedBind = nullptr,
-							FWorldSceneRender* WorldSceneRender = nullptr, const std::shared_ptr<const FSceneViewData>& ViewData = {});
+		/** After deferred lighting: forward fur shells. Pass-level code may bind shared SRVs once (see RenderFurForward). */
+		void DrawForwardFur(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam,
+							uintptr_t* InOutSharedSrvsBoundForPsKey = nullptr, DeferredLightingPass* FurSharedBind = nullptr, FWorldSceneRender* WorldSceneRender = nullptr,
+							const std::shared_ptr<const FSceneViewData>& ViewData = {});
 
 	protected:
 		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures) override;

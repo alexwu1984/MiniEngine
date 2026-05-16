@@ -7,6 +7,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIViewPort.h"
+#include "RHI/RHIRenderPass.h"
 
 PostProcessorDemo::PostProcessorDemo(RenderCore::DynamicRHI* InRHI)
 	: RHI(InRHI)
@@ -41,6 +42,20 @@ void PostProcessorDemo::Draw(RenderCore::RHICommandContext& Ctx,
 	if (!Texture1 || !Texture2 || !ViewPort)
 		return;
 
+	std::shared_ptr<RenderCore::RHITexture2D> BackBuf = ViewPort->GetBackBuffer();
+	if (!BackBuf)
+		return;
+
+	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+	Om.DebugName = "PostProcessDemo";
+	{
+		using A = RenderCore::FRDGResourceAccess;
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Texture1, A::SRV, 0xFFFFFFFFu });
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Texture2, A::SRV, 0xFFFFFFFFu });
+		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+	}
+	RenderCore::FRHIRenderPassScope DemoScope(Ctx, std::move(Om));
+
 	RenderCore::GraphicsPipelineStateInitializer Init;
 	Init.VertexShader = VertexShader;
 	Init.PixelShader = PixelShader;
@@ -49,7 +64,6 @@ void PostProcessorDemo::Draw(RenderCore::RHICommandContext& Ctx,
 	Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 	Ctx.RHISetGraphicsPipelineState(Init);
-	ViewPort->SetRenderTarget();
 
 	Ctx.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::WarpLinerSampler);
 	Ctx.RHISetShaderTexture(RenderCore::SF_Pixel, 0, Texture1);

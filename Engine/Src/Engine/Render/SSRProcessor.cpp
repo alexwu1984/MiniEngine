@@ -6,6 +6,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHITexture2D.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHIViewPort.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "core/system.h"
@@ -133,6 +134,29 @@ namespace Engine
 		if (!WriteSSR)
 			return;
 
+		std::shared_ptr<RHITexture2D> PrevSSR = d->SSRHistoryBuffer[d->FrameIndexMod2];
+		if (!PrevSSR)
+			PrevSSR = WriteSSR;
+
+		RenderCore::FRHIRenderPassDesc SsrOm = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(WriteSSR);
+		SsrOm.DebugName = "SSR_RasterOM";
+		{
+			using A = RenderCore::FRDGResourceAccess;
+			auto PushSrv = [&SsrOm](std::shared_ptr<RHITexture2D> T) {
+				if (T)
+					SsrOm.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(T), A::SRV, 0xFFFFFFFFu});
+			};
+			PushSrv(SceneTextures->GetNormalBuffer());
+			PushSrv(SceneTextures->GetMetallicRoughnessBuffer());
+			PushSrv(SceneTextures->GetDepth());
+			PushSrv(HistorySceneColor);
+			PushSrv(SceneTextures->GetMotionVector());
+			PushSrv(PrevSSR);
+			SsrOm.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{WriteSSR, A::RTV, 0xFFFFFFFFu});
+		}
+
+		RenderCore::FRHIRenderPassScope SsrScope(RHIContext, std::move(SsrOm));
+
 		RHIContext.Clear(WriteSSR, nullptr, core::FLinearColor::Transparent, 1.f, 0);
 		RenderCore::GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->VertexShader;
@@ -143,8 +167,6 @@ namespace Engine
 		Init.RasterizerState = RenderCore::RHICachedStates::RasterizerStateCullNone;
 
 		RHIContext.RHISetGraphicsPipelineState(Init);
-		RHIContext.SetRenderTarget(WriteSSR, nullptr);
-		RHIContext.SetViewPort(0, 0, VpW, VpH);
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RenderCore::RHICachedStates::ClampLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RenderCore::RHICachedStates::ClampPointSampler);
@@ -153,12 +175,7 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 2, SceneTextures->GetDepth());
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 3, HistorySceneColor);
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, SceneTextures->GetMotionVector());
-		{
-			std::shared_ptr<RHITexture2D> PrevSSR = d->SSRHistoryBuffer[d->FrameIndexMod2];
-			if (!PrevSSR)
-				PrevSSR = WriteSSR;
-			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, PrevSSR);
-		}
+		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 5, PrevSSR);
 		
 		d->GET_UNIFORMDATA(SSRContants).ViewProj = ViewData->SsrViewProjMatrix;
 		d->GET_UNIFORMDATA(SSRContants).InvViewProj = ViewData->SsrInvViewProjMatrix;

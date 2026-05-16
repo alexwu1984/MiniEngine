@@ -21,6 +21,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIRenderPass.h"
 #include "D3D12/D3D12RHIRecording.h"
 #include "Engine.h"
 #include "App/AppWindow.h"
@@ -380,15 +381,35 @@ namespace Engine
 					d->MainViewPort->Prepare();
 				Self->sigGuiEvent();
 				// ImGui draws to the swapchain; re-bind OM after post-process / debug overlays (same immediate context as DX11 backend).
-				if (d->MainViewPort)
-					d->MainViewPort->SetRenderTarget();
-				// Shadow / atlas passes use RSSetViewports with non-zero TopLeft; ImGui assumes full back-buffer viewport at origin.
-				if (CommandContext && d->MainViewPort)
+				if (!d->MainViewPort)
+					return;
+				std::shared_ptr<RHITexture2D> BackBuf = d->MainViewPort->GetBackBuffer();
+				const core::vec2u VpSz = d->MainViewPort->GetSize();
+
+				auto DrawImguiToRt = [&]()
 				{
-					const core::vec2u VpSz = d->MainViewPort->GetSize();
-					CommandContext->SetViewPort(0, 0, static_cast<int32_t>(VpSz.x), static_cast<int32_t>(VpSz.y));
+					if (CommandContext)
+						CommandContext->SetViewPort(0, 0, static_cast<int32_t>(VpSz.x), static_cast<int32_t>(VpSz.y));
+					d->MainViewPort->RHIImGuiRenderDrawData();
+				};
+
+				if (BackBuf && CommandContext)
+				{
+					FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+					Om.DebugName = "UIPresent";
+					{
+						using A = FRDGResourceAccess;
+						Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+					}
+					FRHIRenderPassScope UIRtPresent(*CommandContext, std::move(Om));
+					DrawImguiToRt();
 				}
-				d->MainViewPort->RHIImGuiRenderDrawData();
+				else
+				{
+					d->MainViewPort->SetRenderTarget();
+					DrawImguiToRt();
+				}
+
 				d->MainViewPort->RHISubmitAndPresentFrame();
 			},
 			false,

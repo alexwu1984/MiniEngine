@@ -2,6 +2,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIViewPort.h"
+#include "RHI/RHIRenderPass.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -323,7 +324,19 @@ namespace Engine
 		RHI->RHIUpdateVertexBuffer(VertexBuffer, verts.data(), static_cast<int32_t>(verts.size()), sizeof(FShadowDebugWireVertex));
 
 		RHICommandMark Mark(Ctx, "ShadowDebugWire");
-		ViewPort.SetRenderTarget();
+
+		std::shared_ptr<RHITexture2D> BackBuf = ViewPort.GetBackBuffer();
+		if (!BackBuf)
+			return;
+
+		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
+		Om.DebugName = "ShadowDebugWire";
+		{
+			using A = FRDGResourceAccess;
+			Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+		}
+		FRHIRenderPassScope WirePass(Ctx, std::move(Om));
+
 		const auto sz = ViewPort.GetSize();
 		Ctx.SetViewPort(0, 0, sz.x, sz.y);
 

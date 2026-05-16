@@ -94,7 +94,7 @@ namespace Engine
 		std::shared_ptr<ApplyBloomPass> ApplyBloom;
 		std::shared_ptr<ApplySSRPass> ApplySSR;
 		std::shared_ptr<TemporallAA> TAA;
-		std::shared_ptr<RenderCore::FXAA> FXaa;
+		std::shared_ptr<FXAA> FXaa;
 		std::shared_ptr<Bloom> BloomEffect;
 		std::shared_ptr<SSRProcessor> SSREffect;
 		bool EnableSSR = false;

@@ -71,6 +71,43 @@ namespace RenderCore
 		}
 	}
 
+	/** Before OMSetRenderTargets: the same ID3D11Resource cannot be RTV/DSV and bound as an SRV at the same time (SDKLayers draw hazards). */
+	static void D3D11UnbindSrvsReferencingRtvsAndDsv(D3D11DynamicRHI* RHI, ID3D11DeviceContext* ctx, UINT NumRtvs, ID3D11RenderTargetView* const* Rtvs, ID3D11DepthStencilView* Dsv)
+	{
+		if (!ctx || !RHI)
+			return;
+#if D3D11_ALLOW_STATE_CACHE
+		auto UnbindOne = [&](ID3D11Resource* res)
+		{
+			if (!res)
+				return;
+			RHI->GetStateCache().UnbindShaderResourceViewsBoundToResource(res);
+		};
+#else
+		auto UnbindOne = [&](ID3D11Resource* res)
+		{
+			if (!res)
+				return;
+			D3D11UnbindShaderResourceViewsUsingResource(ctx, res);
+		};
+#endif
+		for (UINT i = 0; i < NumRtvs; ++i)
+		{
+			ID3D11RenderTargetView* rtv = Rtvs ? Rtvs[i] : nullptr;
+			if (!rtv)
+				continue;
+			win32::com_ptr<ID3D11Resource> res;
+			rtv->GetResource(res.get_init_ref());
+			UnbindOne(res.get());
+		}
+		if (Dsv)
+		{
+			win32::com_ptr<ID3D11Resource> res;
+			Dsv->GetResource(res.get_init_ref());
+			UnbindOne(res.get());
+		}
+	}
+
 	// Primitive drawing.
 
 	static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(EPrimitiveType PrimitiveType, bool bUsingTessellation)
@@ -344,20 +381,27 @@ namespace RenderCore
 	{
 		auto TexRHI = RHIResourceCast(Tex.get());
 		auto DepthRHI = RHIResourceCast(Depth.get());
+		ID3D11DeviceContext* const ctx = Impl->D3D11RHI->GetDeviceContext();
+		D3D11DynamicRHI* const RHI = Impl->D3D11RHI;
+		ID3D11DepthStencilView* const dsv = DepthRHI ? DepthRHI->GetDSV() : nullptr;
 		if (TexRHI)
 		{
-			auto RenderTargetView = TexRHI->GetRTV();
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RenderTargetView, DepthRHI ? DepthRHI->GetDSV() : nullptr);
+			ID3D11RenderTargetView* const rtv = TexRHI->GetRTV();
+			D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, rtv ? 1u : 0u, rtv ? &rtv : nullptr, dsv);
+			ctx->OMSetRenderTargets(1, &rtv, dsv);
 		}
 		else
 		{
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, DepthRHI ? DepthRHI->GetDSV() : nullptr);
+			D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, dsv);
+			ctx->OMSetRenderTargets(0, nullptr, dsv);
 		}
 	}
 
 	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHIRenderTarget> RenderTarget, int32_t IndexMip )
 	{
 		auto RenderTargetRHI = RHIResourceCast(RenderTarget.get());
+		ID3D11DeviceContext* const ctx = Impl->D3D11RHI->GetDeviceContext();
+		D3D11DynamicRHI* const RHI = Impl->D3D11RHI;
 		if (RenderTargetRHI)
 		{
 			auto& RTVS = RenderTargetRHI->GetRTVS();
@@ -365,26 +409,35 @@ namespace RenderCore
 			if (mipIt != RTVS.end() && !mipIt->second.empty() && mipIt->second[0])
 			{
 				auto RTV = mipIt->second[0];
-				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &RTV, RenderTargetRHI->GetDSV());
+				ID3D11DepthStencilView* const dsv = RenderTargetRHI->GetDSV();
+				ID3D11RenderTargetView* rtvp = RTV.get();
+				D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 1u, &rtvp, dsv);
+				ctx->OMSetRenderTargets(1, &rtvp, dsv);
 			}
 			else if (RenderTargetRHI->GetDSV())
 			{
-				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, RenderTargetRHI->GetDSV());
+				ID3D11DepthStencilView* const dsv = RenderTargetRHI->GetDSV();
+				D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, dsv);
+				ctx->OMSetRenderTargets(0, nullptr, dsv);
 			}
 			else
 			{
-				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+				D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, nullptr);
+				ctx->OMSetRenderTargets(0, nullptr, nullptr);
 			}
 		}
 		else
 		{
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+			D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, nullptr);
+			ctx->OMSetRenderTargets(0, nullptr, nullptr);
 		}
 	}
 
 	void D3D11CommandContext::SetRenderTarget(std::shared_ptr< RHITextureCube> TextureCube, int32_t IndexView, int32_t IndexMip)
 	{
 		auto TextureCubeRHI = RHIResourceCast(TextureCube.get());
+		ID3D11DeviceContext* const ctx = Impl->D3D11RHI->GetDeviceContext();
+		D3D11DynamicRHI* const RHI = Impl->D3D11RHI;
 		if (TextureCubeRHI)
 		{
 			auto CubeRRVS = TextureCubeRHI->GetRTVS();
@@ -401,16 +454,24 @@ namespace RenderCore
 			if (hasRtv)
 			{
 				ID3D11RenderTargetView* rtv = mipIt->second[static_cast<size_t>(IndexView)].get();
-				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(1, &rtv, dsv);
+				D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 1u, &rtv, dsv);
+				ctx->OMSetRenderTargets(1, &rtv, dsv);
 			}
 			else if (dsv)
-				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, dsv);
+			{
+				D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, dsv);
+				ctx->OMSetRenderTargets(0, nullptr, dsv);
+			}
 			else
-				Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+			{
+				D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, nullptr);
+				ctx->OMSetRenderTargets(0, nullptr, nullptr);
+			}
 		}
 		else
 		{
-			Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+			D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, 0u, nullptr, nullptr);
+			ctx->OMSetRenderTargets(0, nullptr, nullptr);
 		}
 	}
 
@@ -426,7 +487,12 @@ namespace RenderCore
 				D3D11TargetViews.emplace_back(RenderTargetRHI->GetRTV());
 			}
 		}
-		Impl->D3D11RHI->GetDeviceContext()->OMSetRenderTargets((uint32_t)D3D11TargetViews.size(), D3D11TargetViews.data(), DepthRHI ? DepthRHI->GetDSV() : nullptr);
+		ID3D11DepthStencilView* const dsv = DepthRHI ? DepthRHI->GetDSV() : nullptr;
+		ID3D11DeviceContext* const ctx = Impl->D3D11RHI->GetDeviceContext();
+		D3D11DynamicRHI* const RHI = Impl->D3D11RHI;
+		const UINT n = static_cast<UINT>(D3D11TargetViews.size());
+		D3D11UnbindSrvsReferencingRtvsAndDsv(RHI, ctx, n, n ? D3D11TargetViews.data() : nullptr, dsv);
+		ctx->OMSetRenderTargets(n, n ? D3D11TargetViews.data() : nullptr, dsv);
 	}
 
 	void D3D11CommandContext::Clear(std::shared_ptr< RHITextureCube> TextureCube, int32_t Face, int32_t Mip, const core::FLinearColor& Color, float Depth /*= 1.0f*/, uint8_t Stencil /*= 0*/)

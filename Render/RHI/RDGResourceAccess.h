@@ -5,7 +5,7 @@ namespace RenderCore
 {
 	class RHITexture2D;
 
-	/** RDG texture access (maps to D3D12 resource states at pass boundaries; UE RDG-style Epilogue/Begin). */
+	/** RDG resource access → pass-begin resource states (D3D12). */
 	enum class FRDGResourceAccess : uint8_t
 	{
 		Unknown = 0,
@@ -24,10 +24,13 @@ namespace RenderCore
 		Copy = 2,
 	};
 
+	/** Whole-resource subresource index for barriers / FRDGPassResource (UINT32_MAX). */
+	inline constexpr uint32_t FRDGAllSubresources = UINT32_MAX;
+
 	struct FRDGTextureBarrierDesc
 	{
 		std::shared_ptr<RHITexture2D> Texture;
 		FRDGResourceAccess Access = FRDGResourceAccess::Unknown;
-		uint32_t SubresourceIndex = 0xFFFFFFFFu;
+		uint32_t SubresourceIndex = FRDGAllSubresources;
 	};
 }

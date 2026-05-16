@@ -6,12 +6,15 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 #include "RHI/RHIRenderTarget.h"
 #include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
 
-namespace RenderCore
+namespace Engine
 {
+	using namespace RenderCore;
+
 	struct ShaderParameter
 	{
 		math::Vector2 FXAATexelSize{};
@@ -108,9 +111,11 @@ namespace RenderCore
 		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColorNoDepth(OutTex);
 		Om.DebugName = "FXAA";
 		{
+			FRDGPassDescriptor B{};
 			using A = FRDGResourceAccess;
-			Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ SourceTexture, A::SRV, 0xFFFFFFFFu });
-			Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ OutTex, A::RTV, 0xFFFFFFFFu });
+			B.Inputs.push_back({ "FXAASrc", [SourceTexture]() { return SourceTexture; }, true, A::SRV });
+			B.Outputs.push_back({ "FXAAOut", [OutTex]() { return OutTex; }, true, A::RTV });
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		FRHIRenderPassScope FxaaScope(RHIContext, std::move(Om));
 

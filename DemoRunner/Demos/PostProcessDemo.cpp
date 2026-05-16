@@ -8,6 +8,7 @@
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 
 PostProcessorDemo::PostProcessorDemo(RenderCore::DynamicRHI* InRHI)
 	: RHI(InRHI)
@@ -48,12 +49,7 @@ void PostProcessorDemo::Draw(RenderCore::RHICommandContext& Ctx,
 
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "PostProcessDemo";
-	{
-		using A = RenderCore::FRDGResourceAccess;
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Texture1, A::SRV, 0xFFFFFFFFu });
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Texture2, A::SRV, 0xFFFFFFFFu });
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
-	}
+	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {{"Tex1", Texture1}, {"Tex2", Texture2}}, BackBuf);
 	RenderCore::FRHIRenderPassScope DemoScope(Ctx, std::move(Om));
 
 	RenderCore::GraphicsPipelineStateInitializer Init;

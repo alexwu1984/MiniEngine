@@ -1007,7 +1007,7 @@ namespace RenderCore
 				continue;
 			}
 
-			if (D.SubresourceIndex == 0xFFFFFFFFu)
+			if (D.SubresourceIndex == FRDGAllSubresources)
 			{
 				if (bSrvPlanarDepthBarrierLoop && D.Access == FRDGResourceAccess::SRV)
 				{

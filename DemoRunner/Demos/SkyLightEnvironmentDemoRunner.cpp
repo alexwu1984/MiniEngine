@@ -9,6 +9,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 #include "RHI/RHITextureCube.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -194,11 +195,7 @@ void SkyLightEnvironmentDemoRunner::ShowTexture2D(RenderCore::RHICommandContext&
 
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "SkyLightEnv_ShowTexture2D";
-	{
-		using A = RenderCore::FRDGResourceAccess;
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Texture2D, A::SRV, 0xFFFFFFFFu });
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
-	}
+	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {{"Tex2D", Texture2D}}, BackBuf);
 	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
@@ -237,10 +234,7 @@ void SkyLightEnvironmentDemoRunner::ShowCubeAsLongLat(RenderCore::RHICommandCont
 
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "SkyLightEnv_ShowCubeAsLongLat";
-	{
-		using A = RenderCore::FRDGResourceAccess;
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
-	}
+	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {}, BackBuf);
 	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
@@ -274,10 +268,7 @@ void SkyLightEnvironmentDemoRunner::ShowSHCubeMapDebugView(RenderCore::RHIComman
 
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "SkyLightEnv_CubeCrossDebug";
-	{
-		using A = RenderCore::FRDGResourceAccess;
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
-	}
+	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {}, BackBuf);
 	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort((Window->GetWidth() - (int)size) / 2, (Window->GetHeight() - (int)size) / 2, (int)size, (int)size);

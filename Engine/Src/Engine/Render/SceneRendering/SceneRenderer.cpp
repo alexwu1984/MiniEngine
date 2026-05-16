@@ -8,6 +8,7 @@
 #include "Render/SkyLightRenderPass.h"
 #include "Render/SceneTextures.h"
 #include "Render/RDGBuilder.h"
+#include "Render/RDGUtils.h"
 #include "Render/SceneRendering/RDGDeferredLightingPass.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/SceneRendering/DeferredShadingBasePassRenderer.h"
@@ -44,6 +45,22 @@ namespace Engine
 				{ "Emissive", [SceneTextures]() { return SceneTextures->GetEmissiveBuffer(); }, true, A::RTV },
 				{ "MetallicRoughness", [SceneTextures]() { return SceneTextures->GetMetallicRoughnessBuffer(); }, true, A::RTV },
 				{ "MaterialAux", [SceneTextures]() { return SceneTextures->GetMaterialAuxBuffer(); }, true, A::RTV },
+				{ "Depth", [SceneTextures]() { return SceneTextures->GetDepth(); }, true, A::DSV },
+			};
+		}
+
+		/** Outputs after clear → SetRenderTarget (no MaterialAux). */
+		std::vector<FRDGPassResource> GatherClearSceneTexturesOmBarrierOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures)
+		{
+			if (!SceneTextures)
+				return {};
+			using A = FRDGResourceAccess;
+			return {
+				{ "SceneColor", [SceneTextures]() { return SceneTextures->GetSceneColor(); }, true, A::RTV },
+				{ "MotionVector", [SceneTextures]() { return SceneTextures->GetMotionVector(); }, true, A::RTV },
+				{ "Normal", [SceneTextures]() { return SceneTextures->GetNormalBuffer(); }, true, A::RTV },
+				{ "Emissive", [SceneTextures]() { return SceneTextures->GetEmissiveBuffer(); }, true, A::RTV },
+				{ "MetallicRoughness", [SceneTextures]() { return SceneTextures->GetMetallicRoughnessBuffer(); }, true, A::RTV },
 				{ "Depth", [SceneTextures]() { return SceneTextures->GetDepth(); }, true, A::DSV },
 			};
 		}
@@ -147,9 +164,7 @@ namespace Engine
 			SceneTexturesIO,
 			[d, CommandContext]()
 			{
-				// Do not bind/clear the swapchain here: this pass only fills off-screen scene textures. Binding the back buffer
-				// then immediately switching to MRT wasted OM state and a full-screen clear before sky/base pass.
-				// ImGui NewFrame runs in UIPresent immediately before sigGuiEvent + Render so layout/clip stays coherent with present.
+				// Off-screen scene textures only (never bind swapchain).
 				int32_t width = GEngine->GetAppWindow()->GetWidth();
 				int32_t height = GEngine->GetAppWindow()->GetHeight();
 				CommandContext->SetViewPort(0, 0, width, height);
@@ -161,18 +176,25 @@ namespace Engine
 				auto Normal = d->SceneTextures->GetNormalBuffer();
 				auto MR = d->SceneTextures->GetMetallicRoughnessBuffer();
 				auto MatAux = d->SceneTextures->GetMaterialAuxBuffer();
-				// Black-only clear for motion/emissive/scene is fine. Normal+MR must use neutral dielectric defaults: SrcAlpha-
-				// blended fur shells were lerping toward black (ao=0, roughness=0), which zeros IBL diffuse (iblDiffuse*ao) and
-				// causes black fringes against the sky.
+				// Neutral defaults on Normal/MR clear (fur alpha blend otherwise pulls ao/roughness to black → broken IBL rim).
 				CommandContext->Clear(std::vector<std::shared_ptr<RenderCore::RHITexture2D>>{SceneCol, Motion, Emissive}, DepthTex,
 									  core::FLinearColor::Black, 1.f, 0);
 				CommandContext->Clear(Normal, nullptr, core::FLinearColor(0.5f, 0.5f, 1.f, 0.f), 1.f, 0);
 				CommandContext->Clear(MR, nullptr, core::FLinearColor(0.f, 1.f, 0.85f, 1.f), 1.f, 0);
-				// Default-lit shading model tag (SHADINGMODELID_DEFAULT_LIT == 1) packed in .r as 1/255; yz Hair tangent unused.
+				// MatAux.r = SHADINGMODELID_DEFAULT_LIT / 255.
 				if (MatAux)
 					CommandContext->Clear(MatAux, nullptr, core::FLinearColor(1.f / 255.f, 0.f, 0.f, 0.f), 1.f, 0);
 				std::vector<std::shared_ptr<RenderCore::RHITexture2D>> Targets = {SceneCol, Motion, Normal, Emissive, MR};
-				// Clear() uses CPU RTV handles only (no OM bind). Establish scene textures as active RTs + depth for subsequent passes.
+				// No FRHIRenderPassScope here: pass body only clears textures — an empty scope would BeginPass/bind OM then
+				// immediately destroy Desc (barrier refs + viewport churn); D3D11 showed black frames while D3D12 tolerated it.
+				{
+					FRDGPassDescriptor ClearBarrierSrc{};
+					ClearBarrierSrc.Outputs = GatherClearSceneTexturesOmBarrierOutputs(d->SceneTextures);
+					std::vector<FRDGTextureBarrierDesc> ClearOmDeclared;
+					FRDGUtils::AppendPassTextureBarriers(ClearBarrierSrc, ClearOmDeclared);
+					if (!ClearOmDeclared.empty())
+						CommandContext->RHIRenderPassApplyDeclaredTextureBarriers(ClearOmDeclared.data(), ClearOmDeclared.size(), ERDGPassQueue::Graphics);
+				}
 				CommandContext->SetRenderTarget(Targets, d->SceneTextures->GetDepth());
 			}});
 
@@ -398,8 +420,9 @@ namespace Engine
 					FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 					Om.DebugName = "UIPresent";
 					{
-						using A = FRDGResourceAccess;
-						Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+						FRDGPassDescriptor B{};
+						B.Outputs.push_back({ "BackBuf", [BackBuf]() { return BackBuf; }, true, FRDGResourceAccess::RTV });
+						FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 					}
 					FRHIRenderPassScope UIRtPresent(*CommandContext, std::move(Om));
 					DrawImguiToRt();

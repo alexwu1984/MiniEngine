@@ -1,36 +1,12 @@
 #pragma once
 
-/**
- * Phase 0 - OM / render-target discipline (moving toward UE-style pass boundaries):
- * - Treat RTV/DSV binding changes as pass-level decisions: prefer RHIBeginRenderPass (or one explicit SetRenderTarget pair)
- *   at pass entry instead of scattering binds between draws inside a logical pass.
- * - Descriptor tables / shader bindings remain separate; they still batch per backend rules.
- *
- * Phase 1 - Minimal render-pass shell:
- * FRHIRenderPassDesc + RHIBeginRenderPass centralizes SetRenderTarget + full viewport setup so callers share one path.
- *
- * Phase 2 - Declared texture uses (SRV/RTV/UAV/...) via DeclaredTextureBarriers:
- * Applied before OM binds through RHIRenderPassApplyDeclaredTextureBarriers (D3D12 uses same rules as RDGApplyPassBeginBarriers).
- *
- * Phase 3 - Same barrier list for RDG and immediate passes:
- * FRDGUtils::AppendPassTextureBarriers mirrors RDG pass IO -> FRDGTextureBarrierDesc; fullscreen raster (e.g. SSR) uses
- * FRHIRenderPassScope + DeclaredTextureBarriers like DeferredLighting. OM unbind goes through RHIBeginRenderPass({}).
- *
- * Phase 4-5 - Transient pooled resources aligned with UE-style graph lifetime:
- * FRDGBuilder::RegisterTransientUAV plus frame-scoped Acquire/Release around ExecutePasses (RenderTexturePool) lets passes borrow UAVs for
- * the graph segment rather than hoarding pooled handles only in subsystem objects.
- *
- * Phase 6 - Barrier single-source policy: derive transitions from RDG FRDGPassResource.Access and RHIRenderPass DeclaredTextureBarriers;
- * implicit transitions inside SetRenderTarget remain a backend fallback, not the primary scheduling surface.
- *
- * Phase 7 - Binding discipline removed dead RHIBatched* hooks; Fur forward retains explicit shared-SRV pinning when pixel shader identity changes.
- */
+/** Render-pass roadmap (RHIRenderPass + RDG): 0 OM discipline, 1 FRHIRenderPass shell, 2 DeclaredTextureBarriers,
+ *  3 AppendPassTextureBarriers from FRDGPassDescriptor IO, 4-5 transient pooled UAV + Acquire/Release,
+ *  6 barrier metadata single-source, 7 batched-bind hooks removed. */
 
 #include "RHI/RHICommandContext.h"
+#include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITexture2D.h"
-#include <memory>
-#include <utility>
-#include <vector>
 
 namespace RenderCore
 {
@@ -40,13 +16,16 @@ namespace RenderCore
 		std::vector<std::shared_ptr<RHITexture2D>> ColorTargets;
 		std::shared_ptr<RHITexture2D> DepthStencil;
 		bool bBindDepthStencil = true;
+		/** When set, binds via SetRenderTarget(RT, mip) and ignores ColorTargets (e.g. mip chain downsampling). */
+		std::shared_ptr<RHIRenderTarget> ColorRenderTarget;
+		int32_t ColorRenderTargetMipIndex = 0;
 		int32_t ViewportOffsetX = 0;
 		int32_t ViewportOffsetY = 0;
 		/** Non-positive: derive full rect from first non-null color target (depth-only passes must set explicitly). */
 		int32_t ViewportWidth = -1;
 		int32_t ViewportHeight = -1;
 		const char* DebugName = nullptr;
-		/** Optional: transitions flushed before SetRenderTarget (whole-resource when SubresourceIndex is 0xFFFFFFFF). */
+		/** Optional barrier list applied before SetRenderTarget (see FRDGAllSubresources). */
 		std::vector<FRDGTextureBarrierDesc> DeclaredTextureBarriers;
 
 		static FRHIRenderPassDesc SingleColor(std::shared_ptr<RHITexture2D> Color, std::shared_ptr<RHITexture2D> Depth)
@@ -82,6 +61,28 @@ namespace RenderCore
 
 		if (!Desc.DeclaredTextureBarriers.empty())
 			Ctx.RHIRenderPassApplyDeclaredTextureBarriers(Desc.DeclaredTextureBarriers.data(), Desc.DeclaredTextureBarriers.size(), ERDGPassQueue::Graphics);
+
+		if (Desc.ColorRenderTarget)
+		{
+			Ctx.SetRenderTarget(Desc.ColorRenderTarget, Desc.ColorRenderTargetMipIndex);
+			int32_t W = Desc.ViewportWidth;
+			int32_t H = Desc.ViewportHeight;
+			if (W <= 0 || H <= 0)
+			{
+				if (std::shared_ptr<RHITexture2D> Tex = Desc.ColorRenderTarget->GetTex())
+				{
+					const core::vec2i Sz = Tex->GetSize();
+					const int32_t mip = Desc.ColorRenderTargetMipIndex > 0 ? Desc.ColorRenderTargetMipIndex : 0;
+					const int32_t DimX = Sz.x >> mip;
+					const int32_t DimY = Sz.y >> mip;
+					W = DimX > 0 ? DimX : 1;
+					H = DimY > 0 ? DimY : 1;
+				}
+			}
+			if (W > 0 && H > 0)
+				Ctx.SetViewPort(Desc.ViewportOffsetX, Desc.ViewportOffsetY, W, H);
+			return;
+		}
 
 		std::shared_ptr<RHITexture2D> DepthBind = (Desc.bBindDepthStencil ? Desc.DepthStencil : nullptr);
 		if (!Desc.ColorTargets.empty())

@@ -3,23 +3,27 @@
 
 namespace RenderCore
 {
-	class RHICommandContext;
 	class DynamicRHI;
+	class RHICommandContext;
 	class RHITexture2D;
+}
+
+namespace Engine
+{
 	struct FXAAPrivate;
 
+	/** Post-process AA lives next to RDG helpers (FRDGUtils); avoids RenderCore depending on Engine barrier helpers. */
 	class FXAA
 	{
 	public:
-		FXAA(DynamicRHI* RHI);
+		FXAA(RenderCore::DynamicRHI* RHI);
 		~FXAA();
 		void InitResource();
 		void InvalidateTransientResources();
-		void Draw(RHICommandContext& RHIContext, std::shared_ptr<RHITexture2D> SourceTexture);
-		std::shared_ptr<RHITexture2D> GetResult() const;
+		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHITexture2D> SourceTexture);
+		std::shared_ptr<RenderCore::RHITexture2D> GetResult() const;
+
 	private:
 		FXAAPrivate* d_ptr;
 	};
 }
-
-

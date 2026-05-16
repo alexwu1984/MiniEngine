@@ -5,11 +5,17 @@ out/
 
 # Visual Studio / MSBuild
 .vs/
+**/.vs/
 *.suo
 *.user
 *.VC.db*
+*.VC.db-wal
 *.opendb
 ipch/
+
+# Python tools cache
+Tools/__pycache__/
+*.pyc
 
 # Offline-compiled shader blobs (regenerate: cmake --build build --target PrecompileMiniEngineShaders)
 Render/ShaderLibDX/Built/

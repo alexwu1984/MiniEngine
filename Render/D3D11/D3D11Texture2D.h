@@ -21,6 +21,8 @@ namespace RenderCore
 		bool CreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, bool bCubeTexture, uint32_t NumMips, void* InBuffer, size_t RowBytes);
 		virtual bool CreateFromFile(const std::wstring& FileName) override;
 		virtual bool CreateHDRFromFile(const std::wstring& FileName) override;
+		/** Wrap swap-chain buffer + RTV for viewport Present/Tonemap paths (AddRefs native pointers). */
+		bool WrapSwapChainBackBuffer(ID3D11Texture2D* ExistingTex, ID3D11RenderTargetView* ExistingRTV, EPixelFormat Format, int32_t SizeX, int32_t SizeY);
 		virtual bool IsMultisampled() const override;
 		virtual core::vec2i GetSize() const;
 		virtual uint32_t GetNumMips() const;

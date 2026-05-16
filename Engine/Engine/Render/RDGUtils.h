@@ -4,9 +4,14 @@
 #include "RHI/RHITexture2D.h"
 #include "Render/RDGBuilder.h"
 
+#ifdef _DEBUG
+#include "core/logger.h"
+#include <unordered_map>
+#endif
+
 namespace Engine
 {
-/** Raster helpers: bind render targets and viewport before graphics PSO (OM consistent with pipeline). */
+/** Raster helpers (viewport / OM unbind / barrier scratch from RDG-style pass slots). */
 struct FRDGUtils
 {
 	static void RHICmdListSetRenderTargetSingleColorNoDepth(RenderCore::RHICommandContext& RHICmdList,
@@ -20,8 +25,12 @@ struct FRDGUtils
 	/** Empty render pass: unbind all RTV/DSV (same as SetRenderTarget({}, nullptr)). */
 	static void RHICmdListUnbindAllRenderTargets(RenderCore::RHICommandContext& RHICmdList);
 
-	/** Collect pass Inputs/Outputs with non-Unknown access into barrier descriptors (RDG Execute and manual passes). */
 	static void AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out);
+
+	/** Merge fullscreen-style SRV inputs + optional RTV output barriers into Om (appends to Om.DeclaredTextureBarriers). */
+	static void AppendFullscreenDeclaredTextureBarriers(RenderCore::FRHIRenderPassDesc& Om,
+														std::initializer_list<std::pair<const char*, std::shared_ptr<RenderCore::RHITexture2D>>> SrvTextures,
+														std::shared_ptr<RenderCore::RHITexture2D> RtvTexture);
 };
 
 inline void FRDGUtils::RHICmdListSetRenderTargetSingleColorNoDepth(RenderCore::RHICommandContext& RHICmdList,
@@ -55,17 +64,50 @@ inline void FRDGUtils::RHICmdListUnbindAllRenderTargets(RenderCore::RHICommandCo
 
 inline void FRDGUtils::AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out)
 {
-	auto AppendSlot = [&Out](const FRDGPassResource& R) {
+#ifdef _DEBUG
+	std::unordered_map<uint64_t, FRDGResourceAccess> RDG_DebugBarrierSlotsSeen;
+#endif
+	auto AppendSlot = [&](const FRDGPassResource& R) {
 		if (R.Access == FRDGResourceAccess::Unknown || !R.Resolve)
 			return;
 		std::shared_ptr<RenderCore::RHITexture2D> tex = R.Resolve();
 		if (!tex)
 			return;
+#ifdef _DEBUG
+		const uint64_t Key =
+			uint64_t(reinterpret_cast<uintptr_t>(tex.get())) ^ (uint64_t(R.SubresourceIndex + 1u) << 17);
+		auto Ins = RDG_DebugBarrierSlotsSeen.try_emplace(Key, R.Access);
+		if (!Ins.second && Ins.first->second != R.Access)
+			core::LOG(core::log_warning,
+					  L"AppendPassTextureBarriers: conflicting accesses on same texture/subresource (check pass IO).");
+#endif
 		Out.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(tex), static_cast<RenderCore::FRDGResourceAccess>(R.Access), R.SubresourceIndex});
 	};
 	for (const FRDGPassResource& In : Pass.Inputs)
 		AppendSlot(In);
 	for (const FRDGPassResource& O : Pass.Outputs)
 		AppendSlot(O);
+}
+
+inline void FRDGUtils::AppendFullscreenDeclaredTextureBarriers(
+	RenderCore::FRHIRenderPassDesc& Om,
+	std::initializer_list<std::pair<const char*, std::shared_ptr<RenderCore::RHITexture2D>>> SrvTextures,
+	std::shared_ptr<RenderCore::RHITexture2D> RtvTexture)
+{
+	FRDGPassDescriptor Tmp{};
+	using A = FRDGResourceAccess;
+	for (const auto& Slot : SrvTextures)
+	{
+		if (!Slot.second)
+			continue;
+		std::shared_ptr<RenderCore::RHITexture2D> Cap = Slot.second;
+		Tmp.Inputs.push_back({ Slot.first ? std::string(Slot.first) : std::string("Srv"), [Cap]() { return Cap; }, true, A::SRV });
+	}
+	if (RtvTexture)
+	{
+		std::shared_ptr<RenderCore::RHITexture2D> Rt = RtvTexture;
+		Tmp.Outputs.push_back({ "FullscreenRT", [Rt]() { return Rt; }, true, A::RTV });
+	}
+	AppendPassTextureBarriers(Tmp, Om.DeclaredTextureBarriers);
 }
 } // namespace Engine

@@ -1,4 +1,6 @@
 ﻿#include "Render/SceneRendering/DeferredLightingPass.h"
+#include "Render/RDGUtils.h"
+#include "Render/SceneRendering/RDGDeferredLightingPass.h"
 #include "RHI/RHIRenderPass.h"
 #include "Render/SceneTextures.h"
 #include "Render/WorldSceneRender.h"
@@ -16,28 +18,49 @@
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIViewPort.h"
+#include "core/color.h"
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"
 #include "core/wall_timer.h"
-#include <algorithm>
 
 namespace Engine
 {
 	using namespace RenderCore;
 
+	std::vector<FRDGPassResource> GatherFurForwardSharedTwoDimensionalSrvInputs(const FFurForwardSharedSrvSet& S)
+	{
+		using A = FRDGResourceAccess;
+		// Capture shared_ptrs by value: callers may fill OmBarrier.Inputs inside a nested scope and append barriers later.
+		return {
+			{"BrdfLut", [brdf = S.BrdfLut]() { return brdf; }, true, A::SRV},
+			{"DirectionalShadow", [dirShadow = S.DirectionalShadow]() { return dirShadow; }, true, A::SRV},
+			{"SpotShadow", [spotShadow = S.SpotShadow]() { return spotShadow; }, true, A::SRV},
+			{"GroundEnvLatLong", [ground = S.GroundEnvLatLong]() { return ground; }, true, A::SRV},
+		};
+	}
+
 	namespace
 	{
-		// Capacity ceiling for the forward path's StructuredBuffer<Light>. Picked to give clustered Forward+ headroom
-		// (still well under typical 64KB CB / SRV sizing) without making cluster culling pass over an oversized list.
-		// 256 * sizeof(Light) (== ~144 bytes on this engine) ≈ 36 KB GPU mem per slot, ×3 ring slots ≈ 108 KB.
+		// Capacity for StructuredBuffer<Light> (clustered forward PS reads slot 13).
 		constexpr uint32_t kSceneLightBufferCapacity = 256u;
 
-		/** SF_Pixel slot for `StructuredBuffer<Light> _SceneLights` in forward translucent + fur HLSL. */
 		constexpr uint32_t kSceneLightsSrvSlot = 13u;
-		/** SF_Pixel slots for clustered Forward+ outputs (RWStructuredBuffer in CS, StructuredBuffer in PS). */
+		/** Pixel slots for cluster buffers (matches ClusterLightLookup.hlsl). */
 		constexpr uint32_t kClusterLightOffsetCountSrvSlot = 14u;
 		constexpr uint32_t kClusterLightIndexListSrvSlot = 15u;
+
+		constexpr int32_t kFallbackPointShadowCubeSize = 8;
+
+		/** PF_ShadowDepth 2D from FallbackCompareShadowDepthRt, else IfMissing (creation failure only — breaks SampleCmp slots). */
+		std::shared_ptr<RHITexture2D> TexFromCompareShadowDepthFallback(const std::shared_ptr<RHIRenderTarget>& DepthRt,
+																		const std::shared_ptr<RHITexture2D>& IfMissing)
+		{
+			if (DepthRt)
+				if (std::shared_ptr<RHITexture2D> T = DepthRt->GetTex())
+					return T;
+			return IfMissing;
+		}
 
 		GraphicsPipelineStateInitializer MakeFullscreenPSO(std::shared_ptr<RHIVertexShader> VS, std::shared_ptr<RHIPixelShader> PS)
 		{
@@ -271,6 +294,22 @@ namespace Engine
 			float brdfRg[4] = { 0.f, 0.f, 0.f, 1.f };
 			FallbackBrdfLut = RHI->RHICreateTexture2D(EPixelFormat::PF_G32R32F, static_cast<int32_t>(ETextureCreateFlags::TexCreate_ShaderResource), 1, 1, 1, brdfRg, 16);
 		}
+		// SampleCmp fallbacks: t8 + t11 share one 1×1 depth RT; t10 uses cube depth (see header block comment).
+		if (RHI && !FallbackCompareShadowDepthRt)
+		{
+			FallbackCompareShadowDepthRt = RHI->RHICreateRenderTarget(EPixelFormat::PF_ShadowDepth, 1, 1, 1, false, false);
+			if (FallbackCompareShadowDepthRt && RHI->GetDefaultCommandContext())
+				RHI->GetDefaultCommandContext()->Clear(FallbackCompareShadowDepthRt, core::FLinearColor::White, 1.f, 0);
+		}
+		if (RHI && !FallbackPointShadowCube)
+		{
+			FallbackPointShadowCube =
+				RHI->RHICreateTextureCube(EPixelFormat::PF_ShadowDepth, kFallbackPointShadowCubeSize, kFallbackPointShadowCubeSize, 1, false);
+			if (FallbackPointShadowCube)
+				if (const std::shared_ptr<RHICommandContext> InitCtx = RHI->GetDefaultCommandContext())
+					for (int face = 0; face < 6; ++face)
+						InitCtx->Clear(FallbackPointShadowCube, face, 0, core::FLinearColor::White, 1.f, 0);
+		}
 		const double MsFallbackTex = Wall.split_ms();
 		if (RHI)
 		{
@@ -349,6 +388,10 @@ namespace Engine
 
 		RHICommandMark Mark(RHIContext, "DeferredLighting");
 
+		// D3D11: ClusterLightBuildCS binds SceneLightBuffer on SF_Compute SRV slot 0; UAV slots are cleared after dispatch but CS SRV remains.
+		// Binding the same buffer as PS structured SRV (t13) while CS still references it triggers SDKLayers hazards at Draw().
+		RHIContext.RHISetShaderStructuredBuffer(SF_Compute, 0u, nullptr);
+
 		USkyLightComponent* SkyLightIBL = nullptr;
 		if (WorldSceneRender)
 			SkyLightIBL = WorldSceneRender->GetUSkyLightComponent().get();
@@ -358,25 +401,11 @@ namespace Engine
 
 		RenderCore::FRHIRenderPassDesc RasterOmDesc = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(SceneColor);
 		RasterOmDesc.DebugName = "DeferredLighting_RasterOM";
-		// Phase 2: match FRDGDeferredLightingPass::GatherRasterPassInputs/Outputs so barriers run before OM even if RDG AutoPipelineBarriers is off.
 		{
-			using A = FRDGResourceAccess;
-			auto PushSrv = [&RasterOmDesc](std::shared_ptr<RHITexture2D> T) {
-				if (T)
-					RasterOmDesc.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{std::move(T), A::SRV, 0xFFFFFFFFu});
-			};
-			auto PushRtv = [&RasterOmDesc](std::shared_ptr<RHITexture2D> T) {
-				if (T)
-					RasterOmDesc.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{std::move(T), A::RTV, 0xFFFFFFFFu});
-			};
-			PushSrv(SceneColorPreLighting);
-			PushSrv(SceneTextures->GetNormalBuffer());
-			PushSrv(SceneTextures->GetEmissiveBuffer());
-			PushSrv(SceneTextures->GetMetallicRoughnessBuffer());
-			if (std::shared_ptr<RHITexture2D> Ma = SceneTextures->GetMaterialAuxBuffer())
-				PushSrv(std::move(Ma));
-			PushSrv(SceneTextures->GetDepth());
-			PushRtv(SceneColor);
+			FRDGPassDescriptor RasterBarrierSrc{};
+			RasterBarrierSrc.Inputs = FRDGDeferredLightingPass::GatherRasterPassInputs(SceneTextures);
+			RasterBarrierSrc.Outputs = FRDGDeferredLightingPass::GatherRasterPassOutputs(SceneTextures);
+			FRDGUtils::AppendPassTextureBarriers(RasterBarrierSrc, RasterOmDesc.DeclaredTextureBarriers);
 		}
 		RenderCore::FRHIRenderPassScope RasterOmScope(RHIContext, std::move(RasterOmDesc));
 
@@ -422,7 +451,7 @@ namespace Engine
 			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].Type == LightType_Directional
 			&& PerFrameUniform->Data.myPerFrame.Lights[pdi].ShadowMapIndex >= 0;
 		// RHISetShaderTexture ignores nullptr; leaving t8 unstaged keeps whatever was bound last frame (validation / GPU faults).
-		std::shared_ptr<RHITexture2D> shadowSrvTex = FallbackBrdfLut;
+		std::shared_ptr<RHITexture2D> shadowSrvTex = TexFromCompareShadowDepthFallback(FallbackCompareShadowDepthRt, FallbackBrdfLut);
 		if (bDeferredShadow)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
@@ -441,7 +470,7 @@ namespace Engine
 			materialAuxSrv = std::move(ma);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 9, materialAuxSrv);
 
-		std::shared_ptr<RHITextureCube> pointShadowSrv = FallbackIBLCube;
+		std::shared_ptr<RHITextureCube> pointShadowSrv = FallbackPointShadowCube ? FallbackPointShadowCube : FallbackIBLCube;
 		if (PointShadowUniform && PointShadowUniform->GetRHIBuffer() && PointShadowUniform->Data.Enabled != 0 && WorldSceneRender)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
@@ -450,7 +479,7 @@ namespace Engine
 		}
 		RHIContext.RHISetShaderTexture(SF_Pixel, 10, pointShadowSrv);
 
-		std::shared_ptr<RHITexture2D> spotShadowSrv = FallbackBrdfLut;
+		std::shared_ptr<RHITexture2D> spotShadowSrv = TexFromCompareShadowDepthFallback(FallbackCompareShadowDepthRt, FallbackBrdfLut);
 		if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer() && SpotShadowUniform->Data.SpotShadowEnabled != 0 && WorldSceneRender)
 		{
 			if (const std::shared_ptr<ShadowRenderPass> ShadowPass = WorldSceneRender->GetShadowRenderPass())
@@ -466,7 +495,7 @@ namespace Engine
 				groundEnvSrv = std::move(gt);
 		RHIContext.RHISetShaderTexture(SF_Pixel, 12, groundEnvSrv);
 
-		// Same cluster tables as clustered Forward+ (`ClusterLightLookup.hlsl` t13–t15). Deferred PS reads indices only.
+		// Same cluster SRV layout as forward (`ClusterLightLookup.hlsl` t13-t15).
 		if (SceneLightBuffer)
 			RHIContext.RHISetShaderStructuredBuffer(SF_Pixel, kSceneLightsSrvSlot, SceneLightBuffer);
 		if (ClusterLightOffsetCountBuffer)
@@ -491,9 +520,9 @@ namespace Engine
 		Out.IrradianceCube = Pass.FallbackIBLCube;
 		Out.SpecularCube = Pass.FallbackIBLCube;
 		Out.BrdfLut = Pass.FallbackBrdfLut;
-		Out.DirectionalShadow = Pass.FallbackBrdfLut;
-		Out.PointShadowCube = Pass.FallbackIBLCube;
-		Out.SpotShadow = Pass.FallbackBrdfLut;
+		Out.DirectionalShadow = TexFromCompareShadowDepthFallback(Pass.FallbackCompareShadowDepthRt, Pass.FallbackBrdfLut);
+		Out.PointShadowCube = Pass.FallbackPointShadowCube ? Pass.FallbackPointShadowCube : Pass.FallbackIBLCube;
+		Out.SpotShadow = TexFromCompareShadowDepthFallback(Pass.FallbackCompareShadowDepthRt, Pass.FallbackBrdfLut);
 		Out.GroundEnvLatLong = Pass.FallbackBrdfLut;
 		Out.SceneLights = Pass.SceneLightBuffer;
 		Out.ClusterLightOffsetCount = Pass.ClusterLightOffsetCountBuffer;
@@ -559,16 +588,33 @@ namespace Engine
 		}
 	} // namespace FurForwardSharedSrvDetail
 
+	void DeferredLightingPass::PrepareForwardSharedSrvSet(FWorldSceneRender* WorldSceneRender,
+														  const std::shared_ptr<const FSceneViewData>& ViewData,
+														  FFurForwardSharedSrvSet& OutSrvs) const
+	{
+		OutSrvs = {};
+		if (!ViewData)
+			return;
+		USkyLightComponent* SkyLightIBL = WorldSceneRender ? WorldSceneRender->GetUSkyLightComponent().get() : nullptr;
+		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer())
+		{
+			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr,
+								 SpotShadowUniform ? SpotShadowUniform.get() : nullptr,
+								 DirectionalShadowUniform ? DirectionalShadowUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
+		}
+		GatherFurForwardSharedSrvSet(*this, WorldSceneRender, *ViewData, OutSrvs);
+	}
+
 	void DeferredLightingPass::BindFurForwardSharedSRVs(RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures,
 														FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const
 	{
 		if (!SceneTextures || !ViewData)
 			return;
-		USkyLightComponent* SkyLightIBL = WorldSceneRender ? WorldSceneRender->GetUSkyLightComponent().get() : nullptr;
+		FFurForwardSharedSrvSet Srvs;
+		PrepareForwardSharedSrvSet(WorldSceneRender, ViewData, Srvs);
+
 		if (PerFrameUniform && PerFrameUniform->GetRHIBuffer())
 		{
-			FillPerFrameFromView(*PerFrameUniform, PointShadowUniform ? PointShadowUniform.get() : nullptr, SpotShadowUniform ? SpotShadowUniform.get() : nullptr,
-								 DirectionalShadowUniform ? DirectionalShadowUniform.get() : nullptr, *ViewData, SkyLightIBL, WorldSceneRender);
 			if (PointShadowUniform && PointShadowUniform->GetRHIBuffer())
 				RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, *PointShadowUniform);
 			if (SpotShadowUniform && SpotShadowUniform->GetRHIBuffer())
@@ -581,8 +627,6 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(SF_Pixel, 1, RHICachedStates::ShadowSampler);
 		RHIContext.RHISetShaderSampler(SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 
-		FFurForwardSharedSrvSet Srvs;
-		GatherFurForwardSharedSrvSet(*this, WorldSceneRender, *ViewData, Srvs);
 		{
 			RHICommandMark ClusterSrvMark(RHIContext, "ClusteredForward_LightSRVs");
 			FurForwardSharedSrvDetail::BindFurForwardSharedSrvSet(RHIContext, Srvs);
@@ -593,8 +637,7 @@ namespace Engine
 	{
 		if (!RHI || !ViewData)
 			return;
-		// Skip when the same FSceneViewData identity already drove a build this frame — translucent + fur share the
-		// pass, so without this guard the second call would rerun the upload + dispatch over a still-busy ring slot.
+		// Idempotent per ViewData pointer (translucent + fur share this path).
 		const uintptr_t ViewKey = reinterpret_cast<uintptr_t>(ViewData.get());
 		if (ViewKey == SceneLightLastUploadedViewKey && SceneLightBuffer && ClusterLightOffsetCountBuffer && ClusterLightIndexListBuffer && ClusterBuildShader)
 			return;
@@ -607,8 +650,7 @@ namespace Engine
 		const bool bCreateClusterShader = !ClusterBuildShader;
 		const bool bCreatedAnyResource = bCreateSceneLights || bCreateOffsetCount || bCreateIndexList || bCreateUniform || bCreateClusterShader;
 
-		// Lazy create on first use. Lights buffer stays dynamic (CPU-renewed each frame); cluster outputs are static
-		// DEFAULT-heap with UAV bind because the CS owns the writes and the PS sees them via SRV in the same frame.
+		// Lazy alloc; lights buffer dynamic, cluster outputs are UAV static buffers.
 		if (!SceneLightBuffer)
 			SceneLightBuffer = RHI->RHICreateStructuredBuffer(sizeof(Light), kSceneLightBufferCapacity, BUF_Dynamic, nullptr);
 		if (!ClusterLightOffsetCountBuffer)
@@ -642,16 +684,14 @@ namespace Engine
 			return;
 		}
 
-		// Upload the per-view light list once. Both forward translucent / fur and the CS read this buffer; the dynamic
-		// ring-buffer in D3D12 advances slot so the GPU still sees the previous frame's payload until the dispatch lands.
+		// Upload lights for this ViewKey (ring slot may still expose prior frame until dispatch completes).
 		const std::vector<Light>& ViewLights = ViewData->Lights;
 		const uint32_t LightCount = (std::min)(static_cast<uint32_t>(ViewLights.size()), kSceneLightBufferCapacity);
 		if (LightCount > 0)
 			SceneLightBuffer->UpdateStructuredBuffer(ViewLights.data(), LightCount * static_cast<uint32_t>(sizeof(Light)));
 		const double MsUploadLights = Timing.split_ms();
 
-		// Build the CS CB. View + proj inverse are split out from CurrViewProjInverseMatrix because the cluster
-		// algorithm needs only the projection inverse (NDC -> view) — combining with view would break the math.
+		// Cluster CB uses InvProj for NDC→view only (do not bake view.inverse here).
 		ClusterBuildUniform->Data.ClusterViewMatrix = ViewData->ViewMatrix;
 		ClusterBuildUniform->Data.ClusterInvProjMatrix = ViewData->ProjMatrix.Inverse();
 		ClusterBuildUniform->Data.ClusterNearZ = ViewData->CameraNearZ;
@@ -677,6 +717,7 @@ namespace Engine
 
 		RHIContext.RHISetShaderStructuredBufferUAV(0u, std::shared_ptr<RHIStructuredBuffer>{});
 		RHIContext.RHISetShaderStructuredBufferUAV(1u, std::shared_ptr<RHIStructuredBuffer>{});
+		RHIContext.RHISetShaderStructuredBuffer(SF_Compute, 0u, nullptr);
 		const double MsDispatchCluster = Timing.split_ms();
 
 		SceneLightLastUploadedViewKey = ViewKey;

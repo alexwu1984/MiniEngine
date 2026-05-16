@@ -5,6 +5,7 @@
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIRenderPass.h"
 #include "RHI/RHITexture2D.h"
+#include "Render/RDGUtils.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
 #include "core/system.h"
@@ -89,16 +90,23 @@ namespace Engine
 		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::ColorTargetsAndDepth(Targets, Depth);
 		Om.DebugName = "SkyLightRenderPass_RasterOM";
 		{
+			FRDGPassDescriptor B{};
 			using A = RenderCore::FRDGResourceAccess;
 			if (GroundLatLongOrDummy)
-				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ GroundLatLongOrDummy, A::SRV, 0xFFFFFFFFu });
+				B.Inputs.push_back({ "GroundLatLong", [GroundLatLongOrDummy]() { return GroundLatLongOrDummy; }, true, A::SRV });
 			for (const std::shared_ptr<RHITexture2D>& T : Targets)
 			{
-				if (T)
-					Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ T, A::RTV, 0xFFFFFFFFu });
+				if (!T)
+					continue;
+				auto TexCopy = T;
+				B.Outputs.push_back({ "SkyRT", [TexCopy]() { return TexCopy; }, true, A::RTV });
 			}
 			if (Depth)
-				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Depth, A::DSV, 0xFFFFFFFFu });
+			{
+				auto DepthCopy = Depth;
+				B.Outputs.push_back({ "Depth", [DepthCopy]() { return DepthCopy; }, true, A::DSV });
+			}
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 

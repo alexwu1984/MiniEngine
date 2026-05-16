@@ -55,8 +55,8 @@ struct FRDGPassResource
 	std::function<std::shared_ptr<RenderCore::RHITexture2D>()> Resolve;
 	bool Required = true;
 	FRDGResourceAccess Access = FRDGResourceAccess::Unknown;
-	/** 0xFFFFFFFF = whole resource; per-mip/slice later. */
-	uint32_t SubresourceIndex = 0xFFFFFFFFu;
+	/** Default FRDGAllSubresources for whole texture; otherwise subresource index. */
+	uint32_t SubresourceIndex = RenderCore::FRDGAllSubresources;
 };
 
 /** Pass definition: declared inputs/outputs, execute lambda, flags and queue. */
@@ -69,10 +69,7 @@ struct FRDGPassDescriptor
 	bool ValidateOutputs = false;
 	uint32_t PassFlags = RDG_Raster;
 	ERDGPassQueue Queue = ERDGPassQueue::Graphics;
-	/**
-	 * When applying RDG barriers, OM bindings can make transitions illegal (e.g. RTV-bound color -> COPY_SOURCE,
-	 * DSV-bound depth -> SRV). If true, clears RTV/DSV binds on the barrier command context before transitions.
-	 */
+	/** Unbind OM before barriers when RTV/DSV would block legal transitions. */
 	bool bUnbindRenderTargetsBeforeRDGBarriers = false;
 };
 
@@ -102,10 +99,7 @@ struct FRDGCompileParameters
 	bool bLogRenderTexturePoolStats = false;
 	/** Log when a pass uses AsyncCompute/Copy: multi-queue execution ordering is not implemented. */
 	bool bWarnOnNonGraphicsPassQueues = true;
-	/**
-	 * When set with bRDGAutoPipelineBarriers, ExecutePasses inserts pass-begin transitions from FRDGResourceAccess
-	 * (UE RDG-style pipeline barriers). Must point at the same command list passes record into.
-	 */
+	/** Context receiving RDGApplyPassBeginBarriers when bRDGAutoPipelineBarriers (same recording list as passes). */
 	RenderCore::RHICommandContext* RDGBarrierCommandContext = nullptr;
 	/** When non-null, ExecutePasses allocates named RegisterTransientUAV entries from RenderTexturePool at graph start and releases after all passes finish. */
 	RenderCore::DynamicRHI* RDGAcquirePooledResourcesRHI = nullptr;

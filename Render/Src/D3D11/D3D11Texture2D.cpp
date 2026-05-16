@@ -83,6 +83,31 @@ namespace RenderCore
 		delete d_ptr;
 	}
 
+	bool D3D11Texture2D::WrapSwapChainBackBuffer(ID3D11Texture2D* ExistingTex, ID3D11RenderTargetView* ExistingRTV, EPixelFormat Format, int32_t SizeX,
+												 int32_t SizeY)
+	{
+		C_P(D3D11Texture2D);
+		if (!ExistingTex || !ExistingRTV || !d->D3D11RHI)
+			return false;
+
+		d->TexSRV.reset();
+		d->TexDSV.reset();
+		d->CubeFaceDSVs.clear();
+		d->TexRTVS.clear();
+
+		d->Tex2D = win32::com_ptr<ID3D11Texture2D>(ExistingTex);
+		d->Format = Format;
+		d->Size.cx = SizeX;
+		d->Size.cy = SizeY;
+		d->NumMips = 1;
+		d->IsMultisampled = false;
+
+		std::vector<win32::com_ptr<ID3D11RenderTargetView>> mip0;
+		mip0.emplace_back(ExistingRTV);
+		d->TexRTVS[0] = std::move(mip0);
+		return true;
+	}
+
 	bool D3D11Texture2D::CreateTexture2D(EPixelFormat Format, int32_t Flags, int32_t SizeX, int32_t SizeY, int32_t SizeZ, uint32_t NumMips, 
 		void* InBuffer /*= nullptr*/, int32_t RowBytes /*= 0*/)
 	{

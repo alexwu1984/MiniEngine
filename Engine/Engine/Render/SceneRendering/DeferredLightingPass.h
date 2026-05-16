@@ -1,7 +1,10 @@
 ﻿#pragma once
 #include "core/inc.h"
+#include "RHI/RDGResourceAccess.h"
+#include "Render/RDGBuilder.h"
 #include "Render/MaterialPreFrame.h"
 #include <memory>
+#include <vector>
 
 namespace RenderCore
 {
@@ -14,6 +17,7 @@ namespace RenderCore
 	class RHITexture2D;
 	class RHITextureCube;
 	class RHIStructuredBuffer;
+	class RHIRenderTarget;
 }
 
 namespace Engine
@@ -22,7 +26,7 @@ namespace Engine
 	class FWorldSceneRender;
 	struct FSceneViewData;
 
-	/** Fullscreen pass: analytic lights + IBL into scene color from deferred scene textures. */
+	/** IBL/shadow/cluster SRV bindings shared by fur + translucent forward PS. */
 	struct FFurForwardSharedSrvSet
 	{
 		std::shared_ptr<RenderCore::RHITextureCube> IrradianceCube;
@@ -37,6 +41,9 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIStructuredBuffer> ClusterLightIndexList;
 	};
 
+	/** Declares barriers for 2D textures sampled as SRV in BindFurForwardSharedSRVs. Cubemap IBL/shadow cube slots typically transition when those views bind or via backend cube handling — extend Gather if a platform needs explicit cube subresource barriers in this raster slice. */
+	std::vector<FRDGPassResource> GatherFurForwardSharedTwoDimensionalSrvInputs(const FFurForwardSharedSrvSet& S);
+
 	class DeferredLightingPass
 	{
 		friend void GatherFurForwardSharedSrvSet(const DeferredLightingPass& Pass, FWorldSceneRender* WorldSceneRender, const FSceneViewData& ViewData,
@@ -47,28 +54,26 @@ namespace Engine
 
 		void InitResource();
 
-		/** RDG pass 1: SceneColor → SceneColorPreLighting (base-pass HDR before lighting). */
+		/** Copy SceneColor → SceneColorPreLighting. */
 		void CopySceneColorToPreLighting(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures) const;
-		/** RDG pass 2: fullscreen deferred lighting into SceneColor (reads PreLighting + scene textures). */
+		/** Fullscreen deferred lighting into SceneColor. */
 		void ExecuteRaster(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 						   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
-		/** Copy then raster (single submission path). */
+		/** Copy then ExecuteRaster. */
 		void Execute(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::RHIViewPort> ViewPort, const std::shared_ptr<FSceneTextures>& SceneTextures,
 					 FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
-		/** Binds IBL + shadow SRVs (t5–t11) and cbPointShadow / cbSpotShadow / cbDirectionalShadow (b7) for fur/translucent forward (cbPerFrame from material draw). */
+		/** Fur/translucent forward: IBL + shadows at t5-t12 and shadow CBs; expects cbPerFrame from material draw. */
 		void BindFurForwardSharedSRVs(RenderCore::RHICommandContext& RHIContext, const std::shared_ptr<FSceneTextures>& SceneTextures, FWorldSceneRender* WorldSceneRender,
 									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
-	/**
-	 * Clustered Forward+ pass-1: upload per-view SceneLights (StructuredBuffer), fill the cluster CB, and dispatch
-	 * `ClusterLightBuildCS` into the UAV cluster table + index list. Deferred fullscreen lighting reuses the same
-	 * cluster lists (per-pixel index from depth via cbPerFrame.CameraWorldToView). Idempotent for the same
-	 * FSceneViewData identity (translucent + fur share the pass; a second call skips upload + dispatch).
-	 */
-	void DispatchClusterLightCulling(RenderCore::RHICommandContext& RHIContext,
-									  const std::shared_ptr<const FSceneViewData>& ViewData) const;
+		/** Per-frame CB + GatherFurForwardSharedSrvSet (call before OM barriers / BindFurForwardSharedSRVs). */
+		void PrepareForwardSharedSrvSet(FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData, FFurForwardSharedSrvSet& OutSrvs) const;
+
+		/** Upload lights, cluster CB, ClusterLightBuildCS; idempotent per FSceneViewData pointer per frame. */
+		void DispatchClusterLightCulling(RenderCore::RHICommandContext& RHIContext,
+										 const std::shared_ptr<const FSceneViewData>& ViewData) const;
 
 	private:
 		/** VS/PS JIT here on first deferred lighting draw so InitResource / ReloadSceneJson flush is not blocked by FXC. */
@@ -82,24 +87,24 @@ namespace Engine
 		mutable std::unique_ptr<CBDirectionalShadowWrap> DirectionalShadowUniform;
 		mutable std::shared_ptr<RenderCore::RHIVertexShader> VertexShader;
 		mutable std::shared_ptr<RenderCore::RHIPixelShader> PixelShader;
-		/** Bound to t5/t7 when IBL cubemaps are missing so PS never samples stale 2D PBR textures as cubes. */
-		std::shared_ptr<RenderCore::RHITextureCube> FallbackIBLCube;
-		/** Bound to t6 when BRDF LUT is missing; matches PF_G32R32F integration LUT layout. */
-		std::shared_ptr<RenderCore::RHITexture2D> FallbackBrdfLut;
 
 		/**
-		 * `StructuredBuffer<Light>` consumed by forward translucent + fur PS at SF_Pixel slot 13. Sized at
-		 * kSceneLightBufferCapacity to give clustered Forward+ headroom beyond cbPerFrame.Lights[80]. Filled inside
-		 * DispatchClusterLightCulling (once per frame) so the ring slot tracks GPU reads correctly. The CB array
-		 * is still filled in parallel because PerFrameStruct helpers (GetMainLight, IsEnableShadow, ...) index
-		 * Lights[] directly; PR3 will collapse the two paths.
+		 * DeferredLighting / fur-forward PS placeholders (`DeferredLighting.hlsl` etc.).
+		 * D3D11: t8 ShadowMap, t10 PointShadowCube, t11 spot shadow use SampleCmpLevelZero — only PF_ShadowDepth (2D RT or cube) is valid there.
+		 * Do not bind FallbackBrdfLut or FallbackIBLCube on those slots (DEVICE_DRAW_RESOURCE_FORMAT_SAMPLE_C_UNSUPPORTED).
 		 */
+		/** t5/t7 when sky IBL cubemaps missing. */
+		std::shared_ptr<RenderCore::RHITextureCube> FallbackIBLCube;
+		/** t6 (and non-compare 2D slots) when BRDF LUT missing. */
+		std::shared_ptr<RenderCore::RHITexture2D> FallbackBrdfLut;
+		/** 1×1 PF_ShadowDepth, cleared — default for t8 directional map and t11 spot map when real RT unavailable (shared RT is intentional). */
+		std::shared_ptr<RenderCore::RHIRenderTarget> FallbackCompareShadowDepthRt;
+		/** Small PF_ShadowDepth cube, six faces cleared — default t10 when point cube shadow unavailable. */
+		std::shared_ptr<RenderCore::RHITextureCube> FallbackPointShadowCube;
+
+		/** Lights SRV for clustered forward PS (slot 13); filled in DispatchClusterLightCulling. */
 		mutable std::shared_ptr<RenderCore::RHIStructuredBuffer> SceneLightBuffer;
-		/**
-		 * Pointer-identity of the FSceneViewData last consumed by SceneLightBuffer upload / cluster CS dispatch.
-		 * Each ExecuteFrame produces a fresh shared FSceneViewData so pointer compare uniquely identifies a frame.
-		 * Lets DispatchClusterLightCulling stay idempotent when called more than once per frame.
-		 */
+		/** Last FSceneViewData pointer used for SceneLight upload + cluster dispatch (idempotency). */
 		mutable uintptr_t SceneLightLastUploadedViewKey = 0;
 
 		/** RWStructuredBuffer<uint2> output of `ClusterLightBuildCS.hlsl`: per-cluster (offset, count) into the index list. */
@@ -108,7 +113,7 @@ namespace Engine
 		mutable std::shared_ptr<RenderCore::RHIStructuredBuffer> ClusterLightIndexListBuffer;
 		mutable std::unique_ptr<CBClusterBuildWrap> ClusterBuildUniform;
 		mutable std::shared_ptr<RenderCore::RHIComputeShader> ClusterBuildShader;
-		/** Throttles clustered Forward+ CPU split logs; RDG pass timing still records every frame. */
+		/** Debug log throttle for cluster timing splits. */
 		mutable uint32_t ClusterTimingLogFrameCounter = 0u;
 	};
 }

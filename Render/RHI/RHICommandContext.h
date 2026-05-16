@@ -4,9 +4,6 @@
 #include "core/color.h"
 #include "RHI/RHIPipeLineState.h"
 #include "core/vec4.h"
-#include <string>
-#include <utility>
-#include <vector>
 
 namespace RenderCore
 {
@@ -91,11 +88,7 @@ namespace RenderCore
 		 * Default implementation is a no-op (e.g. D3D11). D3D12 batches ResourceBarrier then flushes once.
 		 */
 		virtual void RDGApplyPassBeginBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue) {}
-		/**
-		 * Phase 2: pass-declared texture transitions, applied inside RHIBeginRenderPass before SetRenderTarget / viewport.
-		 * Keeps layouts valid when RDG auto-barriers are off or when execution order omits RDG. D3D12 forwards to
-		 * RDGApplyPassBeginBarriers (same planar depth / SRV rules).
-		 */
+		/** Declared transitions before OM bind (RHIBeginRenderPass); D3D12 forwards to RDGApplyPassBeginBarriers. */
 		virtual void RHIRenderPassApplyDeclaredTextureBarriers(const FRDGTextureBarrierDesc* Items, size_t Count, ERDGPassQueue PassQueue = ERDGPassQueue::Graphics)
 		{
 			(void)Items;

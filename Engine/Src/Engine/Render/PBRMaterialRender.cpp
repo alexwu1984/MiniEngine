@@ -18,6 +18,8 @@
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "RHI/RHITextureCube.h"
+#include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 
 namespace Engine
 {
@@ -299,8 +301,27 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "TranslucentPBRForward");
 		StoreRenderParam(RenderParam);
 
-		std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.SceneTextures->GetSceneColor() };
-		RHIContext.SetRenderTarget(Rt, RenderParam.SceneTextures->GetDepth());
+		std::shared_ptr<RHITexture2D> Sc = RenderParam.SceneTextures->GetSceneColor();
+		std::shared_ptr<RHITexture2D> Dt = RenderParam.SceneTextures->GetDepth();
+		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColor(Sc, Dt);
+		Om.DebugName = "TranslucentPBRForwardOM";
+		{
+			FRDGPassDescriptor Slots{};
+			if (DeferredLighting && WorldSceneRender && ViewData)
+			{
+				FFurForwardSharedSrvSet SharedSrv{};
+				DeferredLighting->PrepareForwardSharedSrvSet(WorldSceneRender, ViewData, SharedSrv);
+				Slots.Inputs = GatherFurForwardSharedTwoDimensionalSrvInputs(SharedSrv);
+			}
+			using A = FRDGResourceAccess;
+			auto ST = RenderParam.SceneTextures;
+			Slots.Outputs = {
+				{"SceneColor", [ST]() { return ST->GetSceneColor(); }, true, A::RTV},
+				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
+			};
+			FRDGUtils::AppendPassTextureBarriers(Slots, Om.DeclaredTextureBarriers);
+		}
+		FRHIRenderPassScope TranslucentOmScope(RHIContext, std::move(Om));
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();

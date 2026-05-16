@@ -13,6 +13,7 @@
 #include "math/vector2.h"
 #include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
+#include "Render/RDGUtils.h"
 
 using namespace RenderCore;
 
@@ -89,6 +90,27 @@ namespace Engine
 
 	namespace
 	{
+		FRDGPassDescriptor MakeSSRDeclaredBarrierPass(const std::shared_ptr<FSceneTextures>& SceneTextures,
+													  const std::shared_ptr<RHITexture2D>& HistorySceneColor,
+													  const std::shared_ptr<RHITexture2D>& PrevSSR,
+													  const std::shared_ptr<RHITexture2D>& WriteSSR)
+		{
+			FRDGPassDescriptor D{};
+			using A = FRDGResourceAccess;
+			D.Inputs = {
+				{ "Normal", [SceneTextures]() { return SceneTextures->GetNormalBuffer(); }, true, A::SRV },
+				{ "MetallicRoughness", [SceneTextures]() { return SceneTextures->GetMetallicRoughnessBuffer(); }, true, A::SRV },
+				{ "Depth", [SceneTextures]() { return SceneTextures->GetDepth(); }, true, A::SRV },
+				{ "HistorySceneColor", [HistorySceneColor]() { return HistorySceneColor; }, true, A::SRV },
+				{ "MotionVector", [SceneTextures]() { return SceneTextures->GetMotionVector(); }, true, A::SRV },
+				{ "SSRHistoryPrev", [PrevSSR]() { return PrevSSR; }, true, A::SRV },
+			};
+			D.Outputs = {
+				{ "SSR_Write", [WriteSSR]() { return WriteSSR; }, true, A::RTV },
+			};
+			return D;
+		}
+
 		void EnsureSSRHistories(SSRProcessorPrivate* d, int32_t W, int32_t H)
 		{
 			const int32_t Fl = (int32_t)(ETextureCreateFlags::TexCreate_RenderTargetable | ETextureCreateFlags::TexCreate_ShaderResource);
@@ -141,18 +163,8 @@ namespace Engine
 		RenderCore::FRHIRenderPassDesc SsrOm = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(WriteSSR);
 		SsrOm.DebugName = "SSR_RasterOM";
 		{
-			using A = RenderCore::FRDGResourceAccess;
-			auto PushSrv = [&SsrOm](std::shared_ptr<RHITexture2D> T) {
-				if (T)
-					SsrOm.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{std::move(T), A::SRV, 0xFFFFFFFFu});
-			};
-			PushSrv(SceneTextures->GetNormalBuffer());
-			PushSrv(SceneTextures->GetMetallicRoughnessBuffer());
-			PushSrv(SceneTextures->GetDepth());
-			PushSrv(HistorySceneColor);
-			PushSrv(SceneTextures->GetMotionVector());
-			PushSrv(PrevSSR);
-			SsrOm.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{WriteSSR, A::RTV, 0xFFFFFFFFu});
+			FRDGPassDescriptor SsrBarrierSrc = MakeSSRDeclaredBarrierPass(SceneTextures, HistorySceneColor, PrevSSR, WriteSSR);
+			FRDGUtils::AppendPassTextureBarriers(SsrBarrierSrc, SsrOm.DeclaredTextureBarriers);
 		}
 
 		RenderCore::FRHIRenderPassScope SsrScope(RHIContext, std::move(SsrOm));

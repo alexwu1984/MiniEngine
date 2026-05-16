@@ -3,6 +3,7 @@
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -332,8 +333,9 @@ namespace Engine
 		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 		Om.DebugName = "ShadowDebugWire";
 		{
-			using A = FRDGResourceAccess;
-			Om.DeclaredTextureBarriers.push_back(FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+			FRDGPassDescriptor B{};
+			B.Outputs.push_back({ "BackBuf", [BackBuf]() { return BackBuf; }, true, FRDGResourceAccess::RTV });
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		FRHIRenderPassScope WirePass(Ctx, std::move(Om));
 

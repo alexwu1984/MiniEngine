@@ -27,6 +27,7 @@ namespace RenderCore
 		win32::com_ptr<IDXGISwapChain> SwapChain;
 		win32::com_ptr<ID3D11RenderTargetView> BackBufferRenderTargetView;
 		win32::com_ptr<ID3D11Texture2D> BackBufferResource;
+		std::shared_ptr<D3D11Texture2D> BackBufferAsRHI;
 		std::shared_ptr<D3D11Texture2D> DepthSRV;
 		bool bAllowTearing = false;
 	};
@@ -204,22 +205,26 @@ namespace RenderCore
 	void D3D11ViewPort::Resize(uint32_t InSizeX, uint32_t InSizeY, bool bInIsFullscreen)
 	{
 		C_P(D3D11ViewPort);
-		d->D3D11RHI->ClearState();
-		d->D3D11RHI->GetDeviceContext()->Flush();
-		d->BackBufferResource = {};
-		d->BackBufferRenderTargetView = {};
+		if (InSizeX == 0 || InSizeY == 0)
+			return;
 
-		if (d->SizeX != InSizeX || d->SizeY != InSizeY )
+		if (d->SizeX != InSizeX || d->SizeY != InSizeY)
 		{
+			d->D3D11RHI->ClearState();
+			d->D3D11RHI->GetDeviceContext()->Flush();
+
+			// DXGI requires releasing every reference to the swap-chain buffers before ResizeBuffers.
+			// BackBufferAsRHI wraps the buffer via com_ptr — holding it prevents resize / leaves stale dimensions.
+			d->BackBufferAsRHI.reset();
+			d->BackBufferResource = {};
+			d->BackBufferRenderTargetView = {};
+
 			d->SizeX = InSizeX;
 			d->SizeY = InSizeY;
 
-			// Resize the swap chain.
-
 			const UINT SwapChainFlags = GetSwapChainFlags();
 			const DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(d->PixelFormat);
-			
-			// Resize all existing buffers, don't change count
+
 			VERIFYD3DRESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
 
 			if (bInIsFullscreen)
@@ -228,14 +233,15 @@ namespace RenderCore
 
 				if (FAILED(d->SwapChain->ResizeTarget(&BufferDesc)))
 				{
-					//ResetSwapChainInternal(true);
 					VERIFYD3DRESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
-
 				}
 			}
+
 			GetSwapChainSurface();
+
 			d->DepthSRV = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
-			d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable, InSizeX, InSizeY);
+			d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable,
+										 static_cast<int32_t>(d->SizeX), static_cast<int32_t>(d->SizeY));
 		}
 	}
 
@@ -247,7 +253,8 @@ namespace RenderCore
 
 	std::shared_ptr<RHITexture2D> D3D11ViewPort::GetBackBuffer() const
 	{
-		return {};
+		C_P(const D3D11ViewPort);
+		return d->BackBufferAsRHI;
 	}
 
 	DXGI_MODE_DESC D3D11ViewPort::SetupDXGI_MODE_DESC() const
@@ -269,13 +276,24 @@ namespace RenderCore
 	void D3D11ViewPort::GetSwapChainSurface()
 	{
 		C_P(D3D11ViewPort);
+		d->BackBufferAsRHI.reset();
 		VERIFYD3DRESULT(d->SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)d->BackBufferResource.get_init_ref()));
+
+		D3D11_TEXTURE2D_DESC BufferDesc{};
+		d->BackBufferResource->GetDesc(&BufferDesc);
+		d->SizeX = BufferDesc.Width;
+		d->SizeY = BufferDesc.Height;
 
 		D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
 		RTVDesc.Format = DXGI_FORMAT_UNKNOWN;
 		RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 		RTVDesc.Texture2D.MipSlice = 0;
 		VERIFYD3DRESULT(d->D3D11RHI->GetDevice()->CreateRenderTargetView(d->BackBufferResource.get(), &RTVDesc, d->BackBufferRenderTargetView.get_init_ref()));
+
+		auto Wrapped = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
+		if (Wrapped->WrapSwapChainBackBuffer(d->BackBufferResource.get(), d->BackBufferRenderTargetView.get(), d->PixelFormat, static_cast<int32_t>(d->SizeX),
+											 static_cast<int32_t>(d->SizeY)))
+			d->BackBufferAsRHI = std::move(Wrapped);
 	}
 
 	uint32_t D3D11ViewPort::GetSwapChainFlags() const

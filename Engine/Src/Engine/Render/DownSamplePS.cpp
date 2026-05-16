@@ -9,6 +9,7 @@
 #include "RHI/RHIRenderTarget.h"
 #include "core/system.h"
 #include "Render/SceneTextures.h"
+#include "Render/RDGUtils.h"
 #include "Render/RenderUtil.h"
 #include "Render/RenderTexturePool.h"
 #include "math/vector2.h"
@@ -98,15 +99,26 @@ namespace Engine
 		for (int32_t IndexMip = 0; IndexMip < d->MipLevel; IndexMip++)
 		{
 			std::shared_ptr<RHITexture2D> OutTex = d->DownSampleTarget->GetTex();
+			FRHIRenderPassDesc Om{};
+			Om.DebugName = "DownsampleMip";
+			Om.ColorRenderTarget = d->DownSampleTarget;
+			Om.ColorRenderTargetMipIndex = IndexMip;
+			Om.ViewportWidth = d->Size.cx >> (IndexMip + 1);
+			Om.ViewportHeight = d->Size.cy >> (IndexMip + 1);
 			{
+				FRDGPassDescriptor B{};
 				using A = FRDGResourceAccess;
-				RenderCore::FRDGTextureBarrierDesc Barriers[2];
-				Barriers[0] = { SceneColor, A::SRV, 0xFFFFFFFFu };
-				Barriers[1] = { OutTex, A::RTV, static_cast<uint32_t>(IndexMip) };
-				RHIContext.RHIRenderPassApplyDeclaredTextureBarriers(Barriers, 2, ERDGPassQueue::Graphics);
+				B.Inputs.push_back({ "SceneColor", [SceneColor]() { return SceneColor; }, true, A::SRV });
+				FRDGPassResource OutMip{};
+				OutMip.Name = "DownsampleMip";
+				OutMip.Resolve = [OutTex]() { return OutTex; };
+				OutMip.Required = true;
+				OutMip.Access = A::RTV;
+				OutMip.SubresourceIndex = static_cast<uint32_t>(IndexMip);
+				B.Outputs.push_back(std::move(OutMip));
+				FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 			}
-			RHIContext.SetRenderTarget(d->DownSampleTarget, IndexMip);
-			RHIContext.SetViewPort(0, 0, d->Size.cx >> (IndexMip + 1), d->Size.cy >> (IndexMip + 1));
+			FRHIRenderPassScope DownsampleMipScope(RHIContext, std::move(Om));
 
 			d->GET_UNIFORMDATA(DownSampleParam).InvSize.x = 1.f / (float) (d->Size.cx >> 1);
 			d->GET_UNIFORMDATA(DownSampleParam).InvSize.y = 1.f / (float)(d->Size.cy >> 1);

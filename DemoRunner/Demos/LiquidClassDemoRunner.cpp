@@ -6,6 +6,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIViewPort.h"
 #include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
@@ -141,11 +142,7 @@ void LiquidClassDemoRunner::ShowTexture2D(RenderCore::RHICommandContext& Ctx, co
 
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 	Om.DebugName = "LiquidClass_ShowTexture2D";
-	{
-		using A = RenderCore::FRDGResourceAccess;
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Tex2D, A::SRV, 0xFFFFFFFFu });
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
-	}
+	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {{"Tex2D", Tex2D}}, BackBuf);
 	RenderCore::FRHIRenderPassScope ShowScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort((Window->GetWidth() - W) / 2, (Window->GetHeight() - H) / 2, W, H);
@@ -173,11 +170,7 @@ void LiquidClassDemoRunner::LiquidClass(RenderCore::RHICommandContext& Ctx, cons
 	std::shared_ptr<RenderCore::RHITexture2D> OutTex = LiquidRT->GetTex();
 	RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(OutTex);
 	Om.DebugName = "LiquidClass_Render";
-	{
-		using A = RenderCore::FRDGResourceAccess;
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Tex2D, A::SRV, 0xFFFFFFFFu });
-		Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ OutTex, A::RTV, 0xFFFFFFFFu });
-	}
+	Engine::FRDGUtils::AppendFullscreenDeclaredTextureBarriers(Om, {{"Tex2D", Tex2D}}, OutTex);
 	RenderCore::FRHIRenderPassScope LiquidScope(Ctx, std::move(Om));
 
 	Ctx.SetViewPort(0, 0, LiquidRT->GetSize().x, LiquidRT->GetSize().y);

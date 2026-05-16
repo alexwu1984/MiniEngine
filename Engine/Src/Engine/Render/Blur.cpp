@@ -6,6 +6,7 @@
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHITexture2D.h"
 #include "RHI/RHIRenderPass.h"
+#include "Render/RDGUtils.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHIUnorderedAccessView.h"
 #include "core/system.h"
@@ -153,9 +154,11 @@ namespace Engine
 		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(Out);
 		Om.DebugName = "BlurPS_Step";
 		{
+			FRDGPassDescriptor B{};
 			using A = RenderCore::FRDGResourceAccess;
-			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ InTex, A::SRV, 0xFFFFFFFFu });
-			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Out, A::RTV, 0xFFFFFFFFu });
+			B.Inputs.push_back({ "BlurIn", [InTex]() { return InTex; }, true, A::SRV });
+			B.Outputs.push_back({ "BlurOut", [Out]() { return Out; }, true, A::RTV });
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		RenderCore::FRHIRenderPassScope BlurScope(RHIContext, std::move(Om));
 		RHIContext.Clear(OutTex, core::FLinearColor::Black);

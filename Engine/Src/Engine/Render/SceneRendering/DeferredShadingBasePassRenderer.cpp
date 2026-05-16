@@ -17,6 +17,7 @@
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Engine/Render/MaterialRender.h"
 #include "RHI/DynamicRHI.h"
+#include "RHI/RHIRenderPass.h"
 
 namespace Engine
 {
@@ -162,8 +163,23 @@ namespace Engine
 		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
 		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.SceneTextures->GetSceneColor());
 
-		const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> FurPassRt = { DrawContext.SceneTextures->GetSceneColor() };
-		Cmd.SetRenderTarget(FurPassRt, DrawContext.SceneTextures->GetDepth());
+		RenderCore::FRHIRenderPassDesc FurOm = RenderCore::FRHIRenderPassDesc::SingleColor(
+			DrawContext.SceneTextures->GetSceneColor(), DrawContext.SceneTextures->GetDepth());
+		FurOm.DebugName = "FurForwardOM";
+		{
+			FFurForwardSharedSrvSet SharedSrv{};
+			DrawContext.DeferredLighting->PrepareForwardSharedSrvSet(DrawContext.WorldSceneRender, DrawContext.ViewData, SharedSrv);
+			FRDGPassDescriptor FurBarrier{};
+			FurBarrier.Inputs = GatherFurForwardSharedTwoDimensionalSrvInputs(SharedSrv);
+			using A = RenderCore::FRDGResourceAccess;
+			auto ST = DrawContext.SceneTextures;
+			FurBarrier.Outputs = {
+				{"SceneColor", [ST]() { return ST->GetSceneColor(); }, true, A::RTV},
+				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
+			};
+			FRDGUtils::AppendPassTextureBarriers(FurBarrier, FurOm.DeclaredTextureBarriers);
+		}
+		RenderCore::FRHIRenderPassScope FurForwardOmScope(Cmd, std::move(FurOm));
 
 		uintptr_t furSharedBoundPsKey = 0u;
 		for (const auto& Key : Flat)

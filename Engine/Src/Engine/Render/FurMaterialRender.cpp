@@ -168,11 +168,6 @@ namespace Engine
 		}
 
 		StoreRenderParam(RenderParam);
-		// OM + PSDesc must agree before PSO creation (D3D12 #615). Deferred lighting leaves no bound DSV.
-		{
-			const std::vector<std::shared_ptr<RHITexture2D>> Rt = { RenderParam.SceneTextures->GetSceneColor() };
-			RHIContext.SetRenderTarget(Rt, RenderParam.SceneTextures->GetDepth());
-		}
 
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();

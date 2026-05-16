@@ -1,6 +1,5 @@
 ﻿#include "Render/PostProcessPass.h"
 #include "core/system.h"
-#include <vector>
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHICommandContext.h"
@@ -21,7 +20,7 @@ namespace Engine
 {
 	namespace
 	{
-		/** Unbind OM RTs before compute — Phase 3: same as empty FRHIRenderPass. */
+		/** Unbind OM before compute passes. */
 		void UnbindGraphicsRenderTargets(RenderCore::RHICommandContext& RHIContext)
 		{
 			FRDGUtils::RHICmdListUnbindAllRenderTargets(RHIContext);
@@ -110,10 +109,12 @@ namespace Engine
 		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(BackBuf);
 		Om.DebugName = "Tonemapping";
 		{
+			FRDGPassDescriptor B{};
 			using A = RenderCore::FRDGResourceAccess;
 			if (SrcTex)
-				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ SrcTex, A::SRV, 0xFFFFFFFFu });
-			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ BackBuf, A::RTV, 0xFFFFFFFFu });
+				B.Inputs.push_back({ "TonemapSrc", [SrcTex]() { return SrcTex; }, true, A::SRV });
+			B.Outputs.push_back({ "BackBuffer", [BackBuf]() { return BackBuf; }, true, A::RTV });
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
@@ -257,12 +258,14 @@ namespace Engine
 		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(Dst);
 		Om.DebugName = "ApplyBloom";
 		{
+			FRDGPassDescriptor B{};
 			using A = RenderCore::FRDGResourceAccess;
 			if (Src0)
-				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Src0, A::SRV, 0xFFFFFFFFu });
+				B.Inputs.push_back({ "SceneColor", [Src0]() { return Src0; }, true, A::SRV });
 			if (Src1)
-				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Src1, A::SRV, 0xFFFFFFFFu });
-			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Dst, A::RTV, 0xFFFFFFFFu });
+				B.Inputs.push_back({ "Bloom", [Src1]() { return Src1; }, true, A::SRV });
+			B.Outputs.push_back({ "SceneColorWithBloom", [Dst]() { return Dst; }, true, A::RTV });
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
@@ -312,11 +315,13 @@ namespace Engine
 		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::SingleColorNoDepth(Dst);
 		Om.DebugName = "ApplySSR";
 		{
+			FRDGPassDescriptor B{};
 			using A = RenderCore::FRDGResourceAccess;
 			if (Sc)
-				Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Sc, A::SRV, 0xFFFFFFFFu });
-			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ SSRTex, A::SRV, 0xFFFFFFFFu });
-			Om.DeclaredTextureBarriers.push_back(RenderCore::FRDGTextureBarrierDesc{ Dst, A::RTV, 0xFFFFFFFFu });
+				B.Inputs.push_back({ "SceneColor", [Sc]() { return Sc; }, true, A::SRV });
+			B.Inputs.push_back({ "SSRBuffer", [SSRTex]() { return SSRTex; }, true, A::SRV });
+			B.Outputs.push_back({ "SceneColorWithSSR", [Dst]() { return Dst; }, true, A::RTV });
+			FRDGUtils::AppendPassTextureBarriers(B, Om.DeclaredTextureBarriers);
 		}
 		RenderCore::FRHIRenderPassScope RasterScope(RHIContext, std::move(Om));
 		RHIContext.RHISetGraphicsPipelineState(CreateFullscreenPipelineState(VertexShader, PixelShader));
@@ -359,10 +364,10 @@ namespace Engine
 		TAA->Draw(RHIContext, SceneTextures, ViewData);
 	}
 
-	FXAAPass::FXAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<RenderCore::FXAA> InFXAA,
+	FXAAPass::FXAAPass(RenderCore::RHICommandContext& InRHIContext, std::shared_ptr<FXAA> InFxaaEffect,
 					   std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture)
 		: RHIContext(InRHIContext)
-		, FXAA(std::move(InFXAA))
+		, FxaaEffect(std::move(InFxaaEffect))
 		, SourceTexture(std::move(InSourceTexture))
 	{
 	}
@@ -375,7 +380,7 @@ namespace Engine
 				{ "SceneColorWithBloom", SourceTexture }
 			},
 			{
-				{ "FXAAResult", [FXAA = FXAA]() { return FXAA ? FXAA->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
+				{ "FXAAResult", [FxaaEffect = FxaaEffect]() { return FxaaEffect ? FxaaEffect->GetResult() : std::shared_ptr<RenderCore::RHITexture2D>{}; }, false }
 			},
 			[Pass = *this]() { Pass.Execute(); }
 		};
@@ -383,6 +388,6 @@ namespace Engine
 
 	void FXAAPass::Execute() const
 	{
-		FXAA->Draw(RHIContext, SourceTexture());
+		FxaaEffect->Draw(RHIContext, SourceTexture());
 	}
 }

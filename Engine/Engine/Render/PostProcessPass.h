@@ -6,7 +6,6 @@
 namespace RenderCore
 {
 	class DynamicRHI;
-	class FXAA;
 	class RHICommandContext;
 	class RHIPixelShader;
 	class RHITexture2D;
@@ -22,6 +21,7 @@ namespace Engine
 	class FSceneTextures;
 	class SSRProcessor;
 	class TemporallAA;
+	class FXAA;
 
 	class TonemappingPass
 	{
@@ -155,7 +155,7 @@ namespace Engine
 	class FXAAPass
 	{
 	public:
-		FXAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<RenderCore::FXAA> FXAA,
+		FXAAPass(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FXAA> InFxaaEffect,
 				 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture);
 
 		RenderPassDesc BuildDesc() const;
@@ -164,7 +164,7 @@ namespace Engine
 		void Execute() const;
 
 		RenderCore::RHICommandContext& RHIContext;
-		std::shared_ptr<RenderCore::FXAA> FXAA;
+		std::shared_ptr<FXAA> FxaaEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 	};
 }

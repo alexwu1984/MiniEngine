@@ -301,9 +301,7 @@ namespace Engine
 				d->ViewportClient->Tick(DeltaTime);
 			const double msViewport = TickWall.split_ms();
 
-			d->SeRender->Render(DeltaTime);
-			const double msSubmitScene = TickWall.split_ms();
-
+			// Apply pending swapchain/scene-target resize before submitting this frame so the first frame after WM_SIZE matches client pixels.
 			if (d->NeedResize)
 			{
 				d->SeRender->Resize(d->NewSize.w, d->NewSize.h, false);
@@ -311,6 +309,9 @@ namespace Engine
 				d->NeedResize = false;
 			}
 			const double msResize = TickWall.split_ms();
+
+			d->SeRender->Render(DeltaTime);
+			const double msSubmitScene = TickWall.split_ms();
 
 			if (d->EndFrameTickCallback)
 				d->EndFrameTickCallback();

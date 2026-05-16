@@ -243,6 +243,29 @@ namespace RenderCore
 			d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable,
 										 static_cast<int32_t>(d->SizeX), static_cast<int32_t>(d->SizeY));
 		}
+		else if (bInIsFullscreen)
+		{
+			// Fullscreen/output-mode changes may keep Width/Height; still run ResizeTarget and rebuild swap-chain views.
+			d->D3D11RHI->ClearState();
+			d->D3D11RHI->GetDeviceContext()->Flush();
+
+			DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
+			(void)d->SwapChain->ResizeTarget(&BufferDesc);
+
+			const UINT SwapChainFlags = GetSwapChainFlags();
+			const DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(d->PixelFormat);
+
+			d->BackBufferAsRHI.reset();
+			d->BackBufferResource = {};
+			d->BackBufferRenderTargetView = {};
+
+			VERIFYD3DRESULT(d->SwapChain->ResizeBuffers(0, d->SizeX, d->SizeY, RenderTargetFormat, SwapChainFlags));
+			GetSwapChainSurface();
+
+			d->DepthSRV = std::make_shared<D3D11Texture2D>(d->D3D11RHI);
+			d->DepthSRV->CreateTexture2D(RenderCore::PF_DepthStencil, ETextureCreateFlags::TexCreate_DepthStencilTargetable,
+										 static_cast<int32_t>(d->SizeX), static_cast<int32_t>(d->SizeY));
+		}
 	}
 
 	core::vec2u D3D11ViewPort::GetSize() const

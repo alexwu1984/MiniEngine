@@ -914,7 +914,7 @@ namespace RenderCore
 
 		// UE-style: ensure PSO depth state is consistent with OM bindings before creating/applying PSO.
 		// When OM has no DSV bound, the PSO must not reference a depth format (D3D12 #615/#680).
-		// This replaces the old per-draw RebindCachedOutputMergerTargets approach.
+		// Replaces legacy per-draw OM rebinding (stale PrepareForGraphicsDraw / cached OM declarations removed from D3D12CommandContext).
 		EnsurePSODepthFormatMatchesBoundDepth(m_bDepthBoundOnOMForPso);
 
 		auto RootSignature = BuildRootSignature();

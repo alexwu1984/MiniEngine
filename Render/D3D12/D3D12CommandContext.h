@@ -2,7 +2,6 @@
 #include "RHI/RHICommandContext.h"
 #include "D3D12/D3D12DirectCommandListManager.h"
 #include "D3D12/D3D12Allocation.h"
-#include <unordered_set>
 
 namespace RenderCore
 {
@@ -133,25 +132,5 @@ namespace RenderCore
 
 		std::shared_ptr<FD3D12StateCache> CurrentStateCache;
 		std::shared_ptr<FD3D12GenerateMips> D3D12GenerateMips;
-
-		void TransitionTexture2DForShaderBind(D3D12Texture2D* Texture2D, EShaderFrequency ShaderType, bool bForceTransition = false);
-		void TransitionTextureCubeForShaderBind(D3D12TextureCube* TextureCube, EShaderFrequency ShaderType, int32_t Mip = -1);
-		void TransitionStructuredBufferForShaderBind(D3D12StructuredBuffer* Buffer, EShaderFrequency ShaderType);
-		void FlushPendingResourceBarriers();
-		void BindOutputMerger(uint32_t NumRtvs, const D3D12_CPU_DESCRIPTOR_HANDLE* Rtvs, bool bBindDsv, D3D12_CPU_DESCRIPTOR_HANDLE Dsv);
-		/** Re-issues OMSetRenderTargets from the last bind (command-list Reset clears OM bindings, not PSDesc). */
-		void RebindCachedOutputMergerTargets();
-		void PrepareForGraphicsDraw();
-		void RefreshDepthShaderResourceTransitionsAfterOmRebind();
-		std::unordered_set<D3D12Texture2D*> m_DepthTexturesBoundForShaderSample;
-		static constexpr uint32_t kMaxCachedOutputMergerRtvs = 8u;
-		D3D12_CPU_DESCRIPTOR_HANDLE m_CachedOutputMergerRtvs[kMaxCachedOutputMergerRtvs]{};
-		uint32_t m_CachedOutputMergerRtvCount = 0;
-		D3D12_CPU_DESCRIPTOR_HANDLE m_CachedOutputMergerDsv{};
-		/** Last OMSetRenderTargets actually passed a non-null DSV pointer (may be false while sticky depth intent remains set). */
-		bool m_bCachedOutputMergerDsvValid = false;
-		/** SetRenderTarget requested a bindable depth-stencil; kept across PrepareForGraphicsDraw omitting DSV for no-depth PSOs. */
-		bool m_bStickyDepthStencilFromSetRenderTarget = false;
-		FD3D12Resource* m_CachedOutputMergerDepthResource = nullptr;
 	};
 }

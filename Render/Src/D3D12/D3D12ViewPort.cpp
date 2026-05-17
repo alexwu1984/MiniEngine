@@ -162,52 +162,81 @@ namespace RenderCore
 	{
 		auto Adapter = GetParentAdapter();
 		auto Device = Adapter->GetDevice();
-		if (!Device)
+		if (!Device || !SwapChain4)
+			return;
+
+		// Match D3D11: ignore minimize / zero client area — ResizeBuffers(0,0) fails and must not leave BackBuffers empty.
+		if (InSizeX == 0 || InSizeY == 0)
+			return;
+
+		if (SizeX == InSizeX && SizeY == InSizeY)
 			return;
 
 		D3D12RHI_ScopedRecordingContext RHIRecordedScope(ERHIRecordingContextScope::SwapChainMaintenance);
 
-		if (SizeX != InSizeX || SizeY != InSizeY)
+		Adapter->BlockUntilIdle();
+		Device->GetDefaultCommandContext()->ClearState();
+		Device->GetDefaultAsyncComputeContext()->ClearState();
+
+		CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
+
+		UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+		if (bAllowTearing)
+			SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+
+		const DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(PixelFormat);
+
+		// DXGI requires every reference to swap-chain buffers to be released before ResizeBuffers.
+		BackBuffers.clear();
+
+		const HRESULT hr = SwapChain4->ResizeBuffers(
+			NumBackBuffers, InSizeX, InSizeY, RenderTargetFormat, SwapChainFlags);
+		if (FAILED(hr))
 		{
-			SizeX = InSizeX;
-			SizeY = InSizeY;
-			Adapter->BlockUntilIdle();
-			Device->GetDefaultCommandContext()->ClearState();
-			Device->GetDefaultAsyncComputeContext()->ClearState();
-
-			BackBuffers.clear();
-
-			CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
-
-			UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-			if (bAllowTearing)
-				SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
-
-			HRESULT hr = SwapChain4->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags);
-			if (FAILED(hr))
-				return;
-
-			core::LOG(core::log_inf,
-					  L"[D3D12] SwapChainResize w=%u h=%u fmt=%u buffers=%u flags=0x%08x",
+			core::LOG(core::log_war,
+					  L"[D3D12] SwapChainResize failed hr=0x%08x w=%u h=%u (keeping previous %ux%u buffers)",
+					  (unsigned)hr,
+					  (unsigned)InSizeX,
+					  (unsigned)InSizeY,
 					  (unsigned)SizeX,
-					  (unsigned)SizeY,
-					  (unsigned)GetRenderTargetFormat(PixelFormat),
-					  (unsigned)NumBackBuffers,
-					  (unsigned)SwapChainFlags);
-
+					  (unsigned)SizeY);
 			for (int i = 0; i < NumBackBuffers; ++i)
 			{
 				win32::com_ptr<ID3D12Resource> BackBufferrRes;
-				VERIFYD3DRESULT(SwapChain4->GetBuffer(i, IID_PPV_ARGS(BackBufferrRes.get_init_ref())));
+				if (FAILED(SwapChain4->GetBuffer(i, IID_PPV_ARGS(BackBufferrRes.get_init_ref()))))
+					break;
 				std::shared_ptr<D3D12Texture2D> BackBufTex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter());
 				BackBufTex2D->CreateFromSwapChain(L"BackBuffer", BackBufferrRes.get());
 				BackBuffers.emplace_back(BackBufTex2D);
 			}
-			FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
-
-			// GPU is idle; next Present will re-establish frame-fence timeline.
-			PresentEndFenceLastSignaled = 0;
+			if (!BackBuffers.empty())
+				FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+			return;
 		}
+
+		SizeX = InSizeX;
+		SizeY = InSizeY;
+
+		core::LOG(core::log_inf,
+				  L"[D3D12] SwapChainResize w=%u h=%u fmt=%u buffers=%u flags=0x%08x",
+				  (unsigned)SizeX,
+				  (unsigned)SizeY,
+				  (unsigned)RenderTargetFormat,
+				  (unsigned)NumBackBuffers,
+				  (unsigned)SwapChainFlags);
+
+		for (int i = 0; i < NumBackBuffers; ++i)
+		{
+			win32::com_ptr<ID3D12Resource> BackBufferrRes;
+			VERIFYD3DRESULT(SwapChain4->GetBuffer(i, IID_PPV_ARGS(BackBufferrRes.get_init_ref())));
+			std::shared_ptr<D3D12Texture2D> BackBufTex2D = std::make_shared<D3D12Texture2D>(GetParentAdapter());
+			BackBufTex2D->CreateFromSwapChain(L"BackBuffer", BackBufferrRes.get());
+			BackBuffers.emplace_back(BackBufTex2D);
+		}
+		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+
+		// GPU is idle; next Present will re-establish frame-fence timeline.
+		PresentEndFenceLastSignaled = 0;
 	}
 
 	core::vec2u D3D12ViewPort::GetSize() const
@@ -217,12 +246,16 @@ namespace RenderCore
 
 	void D3D12ViewPort::Clear(const core::FLinearColor& Color)
 	{
+		if (BackBuffers.empty() || FrameIndex >= BackBuffers.size())
+			return;
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->Clear(BackBufTex2D, nullptr, Color);
 	}
 
 	void D3D12ViewPort::SetRenderTarget()
 	{
+		if (BackBuffers.empty() || FrameIndex >= BackBuffers.size())
+			return;
 		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
 		GetDefaultCommandContext()->SetRenderTarget(BackBufTex2D, {});
 	}
@@ -260,18 +293,34 @@ namespace RenderCore
 		RHISubmitAndPresentFrame();
 	}
 
+	static bool D3D12_ShouldSkipSwapchainPresent(HWND WindowHandle, uint32_t SizeX, uint32_t SizeY)
+	{
+		if (!WindowHandle || !::IsWindow(WindowHandle))
+			return true;
+		if (SizeX == 0 || SizeY == 0)
+			return true;
+		if (::IsIconic(WindowHandle))
+			return true;
+		return false;
+	}
+
 	void D3D12ViewPort::RHISubmitAndPresentFrame()
 	{
 		if (!SwapChain4)
 			return;
 
+		const bool bSkipPresent = D3D12_ShouldSkipSwapchainPresent(WindowHandle, SizeX, SizeY)
+			|| BackBuffers.empty()
+			|| FrameIndex >= BackBuffers.size();
+
 		auto DefaultCtx = GetDefaultCommandContext();
 		DefaultCtx->RHIEndDrawing();
-		std::shared_ptr<D3D12Texture2D> BackBufTex2D = BackBuffers[FrameIndex];
+		std::shared_ptr<D3D12Texture2D> BackBufTex2D = bSkipPresent ? nullptr : BackBuffers[FrameIndex];
 		// D3D12 validation / GPU-based validation: transitioning to PRESENT while the swap-chain image is still bound
 		// as an RTV (typical after Tonemapping + ImGui) is invalid and can wedge the GPU; retail drivers often tolerate it.
 		DefaultCtx->SetRenderTarget(std::vector<std::shared_ptr<RHITexture2D>>{}, nullptr);
-		DefaultCtx->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
+		if (BackBufTex2D)
+			DefaultCtx->TransitionResource(BackBufTex2D->GetResource(), D3D12_RESOURCE_STATE_PRESENT, false);
 
 		// Flush barriers, release allocator to pool, clear state, then flush pending work.
 		// Returning the allocator lets ObtainCommandAllocator reset it when GPU-ready before the next OpenCommandList.
@@ -365,13 +414,18 @@ namespace RenderCore
 		}
 #endif
 
-		const HRESULT hrPresent = SwapChain4->Present(syncInterval, presentFlags);
+		HRESULT hrPresent = S_OK;
+		if (!bSkipPresent)
+		{
+			hrPresent = SwapChain4->Present(syncInterval, presentFlags);
+		}
+
 		std::shared_ptr<FD3D12Adapter> Ad = TryGetParentAdapter();
 		HRESULT hrRemoved = S_OK;
 		if (Ad && Ad->GetD3DDevice())
 			hrRemoved = Ad->GetD3DDevice()->GetDeviceRemovedReason();
 
-		const bool bFatalDevice = FAILED(hrPresent) || hrRemoved != S_OK;
+		const bool bFatalDevice = !bSkipPresent && (FAILED(hrPresent) || hrRemoved != S_OK);
 		if (bFatalDevice)
 		{
 			if (Ad)
@@ -381,20 +435,25 @@ namespace RenderCore
 #if WITH_D3D12_MEMMON
 		if (RenderCore::D3D12RHI_ShouldEnableMemMon())
 		{
-			if (hrPresent == DXGI_STATUS_OCCLUDED)
-				D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
-			else if (FAILED(hrPresent))
-				D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
-			Render::D3D12CallStats::IncPresent();
+			if (!bSkipPresent)
+			{
+				if (hrPresent == DXGI_STATUS_OCCLUDED)
+					D3D12PresentStats::PresentOccluded().fetch_add(1, std::memory_order_relaxed);
+				else if (FAILED(hrPresent))
+					D3D12PresentStats::PresentFailed().fetch_add(1, std::memory_order_relaxed);
+				Render::D3D12CallStats::IncPresent();
+			}
 		}
 #endif
 
-		FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
+		if (!bSkipPresent)
+			FrameIndex = SwapChain4->GetCurrentBackBufferIndex();
 
 		// PresentEndFence: signal each frame for teardown/resize paths. Optional CPU wait (off by default):
 		// an extra wait here added ~one frame of latency vs GPU; RHIBeginFrame already caps in-flight work via
 		// d3d12_max_gpu_lag on the adapter frame fence. Pass -d3d12_present_cpu_sync to re-enable the wait.
-		if (PresentEndFence && !bFatalDevice && (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
+		if (PresentEndFence && !bFatalDevice && !bSkipPresent
+			&& (SUCCEEDED(hrPresent) || hrPresent == DXGI_STATUS_OCCLUDED))
 		{
 			int presentCpuSync = 0;
 			(void)core::CommandLine::Get().GetInteger("d3d12_present_cpu_sync", presentCpuSync);

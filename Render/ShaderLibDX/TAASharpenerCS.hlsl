@@ -54,6 +54,6 @@ void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThread
 
     float3 sharpened = ApplySharpening(center, top, left, right, bottom);
     // UE r.TemporalAASharpness default ~0.5: blend toward sharpened, not full kernel (reduces ringing / shimmer).
-    static const float SharpenBlend = 0.5f;
+    static const float SharpenBlend = 0.25f;
     HDR[globalID.xy] = float4(lerp(center, sharpened, SharpenBlend), 1.0f);
 }

@@ -1,4 +1,4 @@
-﻿#include "Render/TemporalAA.h"
+#include "Render/TemporalAA.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHIShaderDefine.h"
 #include "RHI/RHIPipeLineState.h"

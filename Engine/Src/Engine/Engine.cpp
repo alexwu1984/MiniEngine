@@ -350,6 +350,9 @@ namespace Engine
 	void MainEngine::OnSizeChanged(core::vec2i NewSize)
 	{
 		C_P(MainEngine);
+		// WM_SIZE during minimize can report 0x0; defer swapchain resize until client area is valid again.
+		if (NewSize.w <= 0 || NewSize.h <= 0)
+			return;
 		d->NeedResize = true;
 		d->NewSize = NewSize;
 	}

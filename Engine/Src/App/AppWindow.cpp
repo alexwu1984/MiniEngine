@@ -165,11 +165,19 @@ namespace Engine
 		break;
 		case WM_SIZE:
 		{
-			int32_t NewWidth = LOWORD(lParam);
-			int32_t NewHeight = HIWORD(lParam);
+			// SIZE_MINIMIZED reports 0x0 in lParam; use client rect so maximize/restore still resize.
+			if (wParam == SIZE_MINIMIZED)
+				break;
+			RECT clientRc{};
+			if (!::GetClientRect((HWND)pWnd, &clientRc))
+				break;
+			const int32_t NewWidth = clientRc.right - clientRc.left;
+			const int32_t NewHeight = clientRc.bottom - clientRc.top;
+			if (NewWidth <= 0 || NewHeight <= 0)
+				break;
 			d->_width = NewWidth;
 			d->_height = NewHeight;
-			EvtSizeChanged(core::vec2i(NewWidth,NewHeight));
+			EvtSizeChanged(core::vec2i(NewWidth, NewHeight));
 		}
 		break;
 		case WM_LBUTTONDOWN:

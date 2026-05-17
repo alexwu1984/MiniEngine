@@ -28,6 +28,8 @@ namespace RenderCore
 
 	/** Whole-resource subresource index for barriers / FRDGPassResource (UINT32_MAX). */
 	inline constexpr uint32_t FRDGAllSubresources = UINT32_MAX;
+	/** Mip0 plane0 RTV subresource for OM bind; aligns FRDG pass barriers with SetRenderTarget. */
+	inline constexpr uint32_t FRdgOmRtvBindSubresourceIndex = 0u;
 
 	struct FRDGTextureBarrierDesc
 	{

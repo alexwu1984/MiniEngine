@@ -20,6 +20,8 @@ namespace Engine
 		int64_t WndProc(void* pWnd, uint32_t message, uint64_t wParam, int64_t lParam);
 		int32_t RunLoop();
 		HWND GetWnd() const;
+		/** True when this top-level window is the Win32 foreground window. */
+		bool IsForeground() const;
 		int32_t GetWidth() const;
 		int32_t GetHeight() const;
 

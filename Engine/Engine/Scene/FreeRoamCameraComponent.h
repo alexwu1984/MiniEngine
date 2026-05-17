@@ -4,7 +4,7 @@
 
 namespace Engine
 {
-	/** FPS-style camera; input is driven by GltfDeviceInputComponent (mouse + KeyboardFrame). */
+	/** Fly camera: WASD along view axes, Space/Ctrl world up/down; input via GltfDeviceInputComponent. */
 	class FreeRoamCameraComponent final : public CameraComponent
 	{
 	public:

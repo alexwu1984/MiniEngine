@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /** Render-pass roadmap (RHIRenderPass + RDG): 0 OM discipline (PSO/OM consistency via FD3D12StateCache; no draw-path OM rebinding),
  *  1 FRHIRenderPass shell + optional inferred barriers (attachments + ShaderResourceReads SRV list; mip RT subresources),
@@ -6,7 +6,6 @@
  *  3 AppendPassTextureBarriers from FRDGPassDescriptor IO, 4-5 transient pooled UAV + Acquire/Release,
  *  6 barrier metadata single-source, 7 batched-bind hooks removed. */
 
-#include "RHI/RDGPassExecuteContext.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITexture2D.h"
@@ -98,7 +97,7 @@ namespace RenderCore
 			for (const auto& ct : Desc.ColorTargets)
 			{
 				if (ct)
-					inferred.push_back({ ct, FRDGResourceAccess::RTV, FRDGAllSubresources, {} });
+					inferred.push_back({ ct, FRDGResourceAccess::RTV, FRdgOmRtvBindSubresourceIndex, {} });
 			}
 			if (Desc.bBindDepthStencil && Desc.DepthStencil)
 				inferred.push_back({ Desc.DepthStencil, FRDGResourceAccess::DSV, FRDGAllSubresources, {} });
@@ -138,11 +137,6 @@ namespace RenderCore
 
 	inline void RHIBeginRenderPass(RHICommandContext& Ctx, FRHIRenderPassDesc Desc)
 	{
-		if (RDG_IsNestedPipelineBarrierDupSuppressActive())
-		{
-			Desc.bInferAttachmentBarriers = false;
-			Desc.bInferShaderResourceBarriers = false;
-		}
 		RHIRenderPassAppendInferredAttachmentBarriers(Desc);
 		RHIRenderPassAppendInferredShaderResourceBarriers(Desc);
 

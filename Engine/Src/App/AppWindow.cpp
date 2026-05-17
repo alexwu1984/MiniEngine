@@ -297,6 +297,12 @@ namespace Engine
 		return d->_hWnd;
 	}
 
+	bool AppWindow::IsForeground() const
+	{
+		C_P(const AppWindow);
+		return d->_hWnd != nullptr && ::GetForegroundWindow() == d->_hWnd;
+	}
+
 	int32_t AppWindow::GetWidth() const
 	{
 		C_P(const AppWindow);

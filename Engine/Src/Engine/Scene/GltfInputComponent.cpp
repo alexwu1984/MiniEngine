@@ -4,6 +4,8 @@
 #include "Scene/CameraComponent.h"
 #include "Scene/FreeRoamCameraComponent.h"
 #include "Scene/DeviceInputState.h"
+#include "Engine.h"
+#include "App/AppWindow.h"
 #include "win/cpu_clock.h"
 #include "win/win32.h"
 
@@ -14,6 +16,14 @@ namespace Engine
 		static math::Vector3 PolarToVectorGlTFSample(float yaw, float pitch)
 		{
 			return math::Vector3(sinf(yaw) * cosf(pitch), sinf(pitch), cosf(yaw) * cosf(pitch));
+		}
+
+		static bool IsViewportForeground()
+		{
+			if (!GEngine)
+				return false;
+			const auto win = GEngine->GetAppWindow();
+			return win && win->IsForeground();
 		}
 	} // namespace
 	IMP_COMPONENT_CLASS_NAME(GltfDeviceInputComponent)
@@ -106,8 +116,11 @@ namespace Engine
 
 		if (State.Device == DeviceType::KeyboardFrame)
 		{
-			if (const auto roam = GetOwner()->GetComponent<FreeRoamCameraComponent>())
-				roam->ApplyKeyboardNavigation(State.Keyboard, State.DeltaTime);
+			if (IsViewportForeground())
+			{
+				if (const auto roam = GetOwner()->GetComponent<FreeRoamCameraComponent>())
+					roam->ApplyKeyboardNavigation(State.Keyboard, State.DeltaTime);
+			}
 			return;
 		}
 
@@ -161,7 +174,7 @@ namespace Engine
 
 			// Roam look: apply before NoButton handling. WM_MOUSEMOVE often has wParam==0 even while RMB is held;
 			// the old path cleared RightButtonPressed on NoButton and required Button==RightButton, so look never worked reliably.
-			if (roamCam && d->RightButtonPressed && d->bRoamLookHasLast)
+			if (roamCam && IsViewportForeground() && d->RightButtonPressed && d->bRoamLookHasLast)
 			{
 				const core::vec2f delta{ Pos.x - d->RoamLookLastPos.x, Pos.y - d->RoamLookLastPos.y };
 				d->RoamLookLastPos = Pos;
@@ -239,7 +252,8 @@ namespace Engine
 		{
 			if (roamCam)
 			{
-				roamCam->ApplyWheelZoom(State.MouseInputState.WheelValue);
+				if (IsViewportForeground())
+					roamCam->ApplyWheelZoom(State.MouseInputState.WheelValue);
 				break;
 			}
 			std::shared_ptr<CameraComponent> MainCamera = GetOwner()->GetComponent<CameraComponent>();

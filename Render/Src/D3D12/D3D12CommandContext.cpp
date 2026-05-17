@@ -19,7 +19,7 @@
 #include "D3D12/D3D12PresentStats.h"
 #include "D3D12/D3D12MemoryMonitor.h"
 #include "D3D12/D3D12RuntimeStatsMonitor.h"
-#include "RHI/RDGPassExecuteContext.h"
+#include "D3D12/D3D12RDGBarriers.h"
 #include "RHI/RHI.h"
 #include "RHI/RHIDefinitions.h"
 #include "core/logger.h"
@@ -30,46 +30,6 @@
 
 namespace RenderCore
 {
-	namespace
-	{
-		bool IsDepthStencilPixelFormat(EPixelFormat PF)
-		{
-			switch (PF)
-			{
-			case PF_DepthStencil:
-			case PF_ShadowDepth:
-			case PF_D24:
-				return true;
-			default:
-				return false;
-			}
-		}
-
-		// PS/CS SRV reads need PSR/NPSR even for depth-as-float SRV; DEPTH_READ is for read-only DSV (combinable with PSR per MSDN).
-		D3D12_RESOURCE_STATES ShaderReadableStateForTexture2DSample(const D3D12Texture2D* Tex2D, bool bAsyncCompute)
-		{
-			if (!Tex2D)
-				return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-			return bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-		}
-
-		// Planar D/S: whole-resource transitions can miss stencil plane; transition each subresource (GBV).
-		bool ShouldUsePlanarDepthSrvBarrierLoop(const D3D12Texture2D* Tex2D, FD3D12Resource* Res)
-		{
-			return Tex2D && Res && IsDepthStencilPixelFormat(Tex2D->GetPixelFormat()) && Res->GetPlaneCount() > 1;
-		}
-
-		static UINT CalcSubresourceDx12(UINT MipSlice, UINT ArraySlice, UINT PlaneSlice, UINT MipLevels, UINT ArraySize)
-		{
-			return MipSlice + ArraySlice * MipLevels + PlaneSlice * MipLevels * ArraySize;
-		}
-
-		inline bool SkipOmBindTransitionsAfterRDGPassBarriers()
-		{
-			return RDG_IsNestedPipelineBarrierDupSuppressActive();
-		}
-
-	} // namespace
 	FD3D12CommandContextBase::FD3D12CommandContextBase(std::weak_ptr<FD3D12Adapter> InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext)
 		:FD3D12AdapterChild(InParent),
 		bIsDefaultContext(InIsDefaultContext),
@@ -121,11 +81,11 @@ namespace RenderCore
 			if (RenderTargetRHI && RenderTargetRHI->GetRTV().ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 			{
 				// mip0 RTV only; whole-resource transitions break mixed mip RT/SRV (#527).
-				if (!SkipOmBindTransitionsAfterRDGPassBarriers())
 				{
 					FD3D12Resource* const Res = RenderTargetRHI->GetResource();
 					if (Res && Res->RequiresResourceStateTracking())
-						TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, 0, false);
+						TransitionSubResource(Res, D3D12RdgAccessToResourceState(FRDGResourceAccess::RTV, RenderTargetRHI, false),
+											  FRdgOmRtvBindSubresourceIndex, false);
 				}
 				D3D12TargetViews.emplace_back(RenderTargetRHI->GetRTV());
 			}
@@ -136,8 +96,8 @@ namespace RenderCore
 		{
 			DSV = DepthRHI->GetDSV();
 			bBindDepth = (DSV.ptr != 0u);
-			if (bBindDepth && !SkipOmBindTransitionsAfterRDGPassBarriers())
-				TransitionResource(DepthRHI->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+			if (bBindDepth)
+				TransitionResource(DepthRHI->GetResource(), D3D12RdgAccessToResourceState(FRDGResourceAccess::DSV, DepthRHI, false), false);
 		}
 		// Barriers defer to draw/copy; null DSV must match OM/PSO depth (#615).
 		CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)D3D12TargetViews.size(), D3D12TargetViews.data(), FALSE, bBindDepth ? &DSV : nullptr);
@@ -167,11 +127,13 @@ namespace RenderCore
 
 		if (bHasRtv)
 		{
-			if (!SkipOmBindTransitionsAfterRDGPassBarriers())
 			{
-				TransitionSubResource(RenderTargetRHI->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, IndexMip, false);
+				const uint32_t RtvSub = IndexMip >= 0 ? static_cast<uint32_t>(IndexMip) : FRdgOmRtvBindSubresourceIndex;
+				TransitionSubResource(RenderTargetRHI->GetResource(),
+					D3D12RdgAccessToResourceState(FRDGResourceAccess::RTV, nullptr, false), RtvSub, false);
 				if (bBindDsv)
-					TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+					TransitionResource(RenderTargetRHI->GetDepthResource(), D3D12RdgAccessToResourceState(FRDGResourceAccess::DSV, nullptr, false),
+										false);
 			}
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets((uint32_t)1, &RTV, FALSE, bBindDsv ? &DSV : nullptr);
@@ -182,7 +144,7 @@ namespace RenderCore
 		else if (bBindDsv)
 		{
 			FD3D12Resource* const DepthRes = RenderTargetRHI->GetDepthResource();
-			if (!SkipOmBindTransitionsAfterRDGPassBarriers() && DepthRes && DepthRes->RequiresResourceStateTracking())
+			if (DepthRes && DepthRes->RequiresResourceStateTracking())
 				TransitionResource(DepthRes, D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = RenderTargetRHI->GetDSV();
 			CommandListHandle.GraphicsCommandList()->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
@@ -203,13 +165,12 @@ namespace RenderCore
 
 		if (TextureCubeRHI->IsShadowDepthCube())
 		{
-			if (!SkipOmBindTransitionsAfterRDGPassBarriers())
 			{
 				FD3D12Resource* const Res = TextureCubeRHI->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
 				{
 					const uint32_t SubIdx = TextureCubeRHI->GetSubresourceIndex(IndexView, IndexMip);
-					TransitionSubResource(Res, D3D12_RESOURCE_STATE_DEPTH_WRITE, SubIdx, false);
+					TransitionSubResource(Res, D3D12RdgAccessToResourceState(FRDGResourceAccess::DSV, nullptr, false), SubIdx, false);
 				}
 			}
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetFaceDSV(IndexView);
@@ -226,16 +187,16 @@ namespace RenderCore
 		if (TextureCubeRHI->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
 			const bool bBindDsvCube = TextureCubeRHI->GetDepthResource() && TextureCubeRHI->GetDSV().ptr != 0u;
-			if (!SkipOmBindTransitionsAfterRDGPassBarriers())
 			{
 				FD3D12Resource* const Res = TextureCubeRHI->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
 				{
 					const uint32_t SubIdx = TextureCubeRHI->GetSubresourceIndex(IndexView, IndexMip);
-					TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, SubIdx, false);
+					TransitionSubResource(Res, D3D12RdgAccessToResourceState(FRDGResourceAccess::RTV, nullptr, false), SubIdx, false);
 				}
 				if (bBindDsvCube)
-					TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
+					TransitionResource(TextureCubeRHI->GetDepthResource(), D3D12RdgAccessToResourceState(FRDGResourceAccess::DSV, nullptr, false),
+										false);
 			}
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCubeRHI->GetRTV(IndexView, IndexMip);
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCubeRHI->GetDSV();
@@ -256,13 +217,12 @@ namespace RenderCore
 
 		if (TextureCube->IsShadowDepthCube())
 		{
-			if (!SkipOmBindTransitionsAfterRDGPassBarriers())
 			{
 				FD3D12Resource* const Res = TextureCube->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
 				{
 					const uint32_t SubIdx = TextureCube->GetSubresourceIndex(IndexView, IndexMip);
-					TransitionSubResource(Res, D3D12_RESOURCE_STATE_DEPTH_WRITE, SubIdx, false);
+					TransitionSubResource(Res, D3D12RdgAccessToResourceState(FRDGResourceAccess::DSV, nullptr, false), SubIdx, false);
 				}
 			}
 			D3D12_CPU_DESCRIPTOR_HANDLE DSV = TextureCube->GetFaceDSV(IndexView);
@@ -278,13 +238,12 @@ namespace RenderCore
 
 		if (TextureCube->GetRTV(IndexView, IndexMip).ptr != D3D12_GPU_VIRTUAL_ADDRESS_NULL)
 		{
-			if (!SkipOmBindTransitionsAfterRDGPassBarriers())
 			{
 				FD3D12Resource* const Res = TextureCube->GetResource();
 				if (Res && Res->RequiresResourceStateTracking())
 				{
 					const uint32_t SubIdx = TextureCube->GetSubresourceIndex(IndexView, IndexMip);
-					TransitionSubResource(Res, D3D12_RESOURCE_STATE_RENDER_TARGET, SubIdx, false);
+					TransitionSubResource(Res, D3D12RdgAccessToResourceState(FRDGResourceAccess::RTV, nullptr, false), SubIdx, false);
 				}
 			}
 			D3D12_CPU_DESCRIPTOR_HANDLE RTV = TextureCube->GetRTV(IndexView, IndexMip);
@@ -933,76 +892,7 @@ namespace RenderCore
 	{
 		if (!Items || Count == 0 || !CommandListHandle)
 			return;
-
-		const bool bAsyncCompute = (PassQueue == ERDGPassQueue::AsyncCompute);
-
-		for (size_t i = 0; i < Count; ++i)
-		{
-			const FRDGTextureBarrierDesc& D = Items[i];
-			if (D.Access == FRDGResourceAccess::Unknown)
-				continue;
-
-			const bool bHasCube = static_cast<bool>(D.TextureCube);
-			const bool bHas2D = static_cast<bool>(D.Texture);
-			if (!bHasCube && !bHas2D)
-				continue;
-
-			D3D12Texture2D* Tex2D = bHas2D ? RHIResourceCast(D.Texture.get()) : nullptr;
-			D3D12TextureCube* TexCube = bHasCube ? RHIResourceCast(D.TextureCube.get()) : nullptr;
-			FD3D12Resource* Res = Tex2D ? Tex2D->GetResource() : (TexCube ? TexCube->GetResource() : nullptr);
-			if (!Res || !Res->RequiresResourceStateTracking())
-				continue;
-
-			D3D12_RESOURCE_STATES Target = D3D12_RESOURCE_STATE_COMMON;
-			bool bSrvPlanarDepthBarrierLoop = false;
-			switch (D.Access)
-			{
-			case FRDGResourceAccess::SRV:
-				if (Tex2D)
-				{
-					Target = ShaderReadableStateForTexture2DSample(Tex2D, bAsyncCompute);
-					bSrvPlanarDepthBarrierLoop = ShouldUsePlanarDepthSrvBarrierLoop(Tex2D, Res);
-				}
-				else
-					Target = bAsyncCompute ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				break;
-			case FRDGResourceAccess::UAV:
-				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-				break;
-			case FRDGResourceAccess::RTV:
-				Target = D3D12_RESOURCE_STATE_RENDER_TARGET;
-				break;
-			case FRDGResourceAccess::DSV:
-				Target = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-				break;
-			case FRDGResourceAccess::CopySrc:
-				Target = D3D12_RESOURCE_STATE_COPY_SOURCE;
-				break;
-			case FRDGResourceAccess::CopyDst:
-				Target = D3D12_RESOURCE_STATE_COPY_DEST;
-				break;
-			default:
-				continue;
-			}
-
-			if (D.SubresourceIndex == FRDGAllSubresources)
-			{
-				if (Tex2D && bSrvPlanarDepthBarrierLoop && D.Access == FRDGResourceAccess::SRV)
-				{
-					const UINT mipLevels = Res->GetMipLevels();
-					const UINT arraySize = Res->GetArraySize();
-					const UINT planeCount = Res->GetPlaneCount();
-					for (UINT plane = 0u; plane < planeCount; ++plane)
-						for (UINT arr = 0u; arr < arraySize; ++arr)
-							TransitionSubResource(Res, Target, CalcSubresourceDx12(0u, arr, plane, mipLevels, arraySize), false);
-				}
-				else
-					TransitionResource(Res, Target, false);
-			}
-			else
-				TransitionSubResource(Res, Target, D.SubresourceIndex, false);
-		}
-
+		D3D12RdgApplyTextureBarriers(*this, Items, Count, PassQueue);
 		CommandListHandle.FlushResourceBarriers();
 	}
 
@@ -1036,11 +926,8 @@ namespace RenderCore
 			switch (D.Access)
 			{
 			case FRDGResourceAccess::SRV:
-				Target = (D.bNonPixelShaderSrv || bAsyncCompute) ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-																 : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				break;
 			case FRDGResourceAccess::UAV:
-				Target = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				Target = D3D12RdgAccessToResourceState(D.Access, nullptr, bAsyncCompute, D.bNonPixelShaderSrv);
 				break;
 			default:
 				continue;

@@ -78,16 +78,20 @@ namespace Engine
 		}
 
 		{
-			InputDeviceState KeyFrame{};
-			KeyFrame.Device = DeviceType::KeyboardFrame;
-			KeyFrame.DeltaTime = DeltaTime;
-			KeyFrame.Keyboard.bW = (::GetAsyncKeyState('W') & 0x8000) != 0;
-			KeyFrame.Keyboard.bA = (::GetAsyncKeyState('A') & 0x8000) != 0;
-			KeyFrame.Keyboard.bS = (::GetAsyncKeyState('S') & 0x8000) != 0;
-			KeyFrame.Keyboard.bD = (::GetAsyncKeyState('D') & 0x8000) != 0;
-			KeyFrame.Keyboard.bSpace = (::GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
-			KeyFrame.Keyboard.bCtrl = (::GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-			World->DispatchInput(KeyFrame);
+			const bool bViewportFocused = GEngine && GEngine->GetAppWindow() && GEngine->GetAppWindow()->IsForeground();
+			if (bViewportFocused)
+			{
+				InputDeviceState KeyFrame{};
+				KeyFrame.Device = DeviceType::KeyboardFrame;
+				KeyFrame.DeltaTime = DeltaTime;
+				KeyFrame.Keyboard.bW = (::GetAsyncKeyState('W') & 0x8000) != 0;
+				KeyFrame.Keyboard.bA = (::GetAsyncKeyState('A') & 0x8000) != 0;
+				KeyFrame.Keyboard.bS = (::GetAsyncKeyState('S') & 0x8000) != 0;
+				KeyFrame.Keyboard.bD = (::GetAsyncKeyState('D') & 0x8000) != 0;
+				KeyFrame.Keyboard.bSpace = (::GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
+				KeyFrame.Keyboard.bCtrl = (::GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+				World->DispatchInput(KeyFrame);
+			}
 		}
 
 		World->TickSimulation(DeltaTime);

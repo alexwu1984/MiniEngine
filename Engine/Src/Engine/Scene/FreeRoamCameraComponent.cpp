@@ -63,23 +63,21 @@ namespace Engine
 		Vector3 forward(cosf(pitchRad) * sinf(yawRad), sinf(pitchRad), cosf(pitchRad) * cosf(yawRad));
 		forward = forward.Normalize();
 
-		Vector3 flatFwd(forward.x, 0.f, forward.z);
-		if (flatFwd.GetSqrLength() > 1e-8f)
-			flatFwd = flatFwd.Normalize();
-		else
-			flatFwd = Vector3(0.f, 0.f, 1.f);
-		const Vector3 flatRight = Vector3::Cross(Vector3::UnitY, flatFwd).Normalize();
+		Vector3 right = Vector3::Cross(Vector3::UnitY, forward);
+		if (right.GetSqrLength() < 1e-8f)
+			right = Vector3::Cross(Vector3(0.f, 0.f, 1.f), forward);
+		right = right.Normalize();
 
 		Vector3 eye = GetCameraPos();
 		const float step = MoveSpeed * DeltaTime;
 		if (Keys.bW)
-			eye = eye + flatFwd * step;
+			eye = eye + forward * step;
 		if (Keys.bS)
-			eye = eye - flatFwd * step;
+			eye = eye - forward * step;
 		if (Keys.bA)
-			eye = eye - flatRight * step;
+			eye = eye - right * step;
 		if (Keys.bD)
-			eye = eye + flatRight * step;
+			eye = eye + right * step;
 		if (Keys.bSpace)
 			eye = eye + Vector3::UnitY * step;
 		if (Keys.bCtrl)

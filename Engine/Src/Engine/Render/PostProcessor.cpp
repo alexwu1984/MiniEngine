@@ -36,7 +36,6 @@ namespace Engine
 					return;
 				const auto& J = Root["RDG"];
 				Out.bPassCullingFromSinks = J.value("PassCullingFromSinks", Out.bPassCullingFromSinks);
-				Out.bDumpDotToLog = J.value("DumpDotToLog", Out.bDumpDotToLog);
 				Out.bLogCompileSummary = J.value("LogCompileSummary", Out.bLogCompileSummary);
 				Out.bLogRenderTexturePoolStats = J.value("LogRenderTexturePoolStats", Out.bLogRenderTexturePoolStats);
 				Out.bRDGAutoPipelineBarriers = J.value("AutoPipelineBarriers", Out.bRDGAutoPipelineBarriers);

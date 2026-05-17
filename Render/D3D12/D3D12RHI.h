@@ -9,6 +9,8 @@ namespace RenderCore
 	class D3D12DynamicRHI;
 	class FD3D12Adapter;
 	class FD3D12Device;
+	class FD3D12Resource;
+	struct FD3D12AliasingSlotLease;
 	class FD3D12TransientAliasingPool;
 
 	class D3D12DynamicRHIModule : public IDynamicRHIModule
@@ -97,6 +99,10 @@ namespace RenderCore
 
 		virtual void RHIBeginFrame() override;
 		virtual void RHIEndFrame() override;
+		virtual void RHIRetireTransientPooledUAVs(std::vector<std::shared_ptr<RHIUnorderedAccessView>>&& Views) override;
+
+		/** Placed aliasing resource: defer COM release until the frame fence completes (see D3D12Texture2D). */
+		void DeferDestroyAliasingPlacedResource(FD3D12Resource* Resource, std::shared_ptr<FD3D12AliasingSlotLease> Lease);
 
 		FCacheStats GetCacheStats() const;
 
@@ -104,8 +110,28 @@ namespace RenderCore
 		std::shared_ptr<FD3D12Adapter> GetD3D12Adapter() const { return D3D12Adapter; }
 
 	private:
+		struct FDeferredTransientUavRelease
+		{
+			std::vector<std::shared_ptr<RHIUnorderedAccessView>> Views;
+			uint64_t RetireFence = kPendingGpuRetireFence;
+		};
+
+		struct FDeferredAliasingPlacedResource
+		{
+			FD3D12Resource* Resource = nullptr;
+			std::shared_ptr<FD3D12AliasingSlotLease> Lease;
+			uint64_t RetireFence = kPendingGpuRetireFence;
+		};
+
+		static constexpr uint64_t kPendingGpuRetireFence = ~0ull;
+
+		void FlushDeferredTransientUavReleases(bool bAssignPendingFence);
+		void FlushDeferredAliasingPlacedResources(bool bAssignPendingFence);
+
 		std::shared_ptr<FD3D12Adapter> D3D12Adapter;
 		std::shared_ptr<FD3D12TransientAliasingPool> TransientAliasingPool;
+		std::vector<FDeferredTransientUavRelease> DeferredTransientUavReleases;
+		std::vector<FDeferredAliasingPlacedResource> DeferredAliasingPlacedResources;
 		std::unordered_map<std::wstring, std::shared_ptr<RHITexture2D>> TexCaches;
 		RHIShaderCache ShaderCache;
 	};

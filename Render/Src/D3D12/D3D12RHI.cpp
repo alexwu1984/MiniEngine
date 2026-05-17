@@ -26,6 +26,20 @@
 
 namespace RenderCore
 {
+	namespace
+	{
+		uint64_t GetTransientUavRetireFenceValue(const std::shared_ptr<FD3D12Adapter>& Adapter)
+		{
+			if (!Adapter)
+				return 0;
+			FD3D12ManualFence& FrameFence = Adapter->GetFrameFence();
+			const uint64_t LastSignaled = FrameFence.GetLastSignaledFence();
+			if (LastSignaled != 0)
+				return LastSignaled;
+			return FrameFence.GetCurrentFence();
+		}
+	}
+
 	static size_t HashShaderMacros(const std::vector<RHIShaderMacro>& MacroDefines, size_t Hash)
 	{
 		for (const RHIShaderMacro& Macro : MacroDefines)
@@ -395,14 +409,117 @@ namespace RenderCore
 				Dev->NotifyRHIRecordingFrameBegin();
 		}
 		DynamicRHI::RHIBeginFrame();
+		FlushDeferredTransientUavReleases(false);
+		FlushDeferredAliasingPlacedResources(false);
 	}
 
 	void D3D12DynamicRHI::RHIEndFrame()
 	{
 		DynamicRHI::RHIEndFrame();
+		// UIPresent signals the frame fence during FRDG ExecutePasses; assign + drop finished batches before trimming heaps.
+		FlushDeferredTransientUavReleases(true);
+		FlushDeferredAliasingPlacedResources(true);
 		if (TransientAliasingPool)
 			TransientAliasingPool->TrimEmptyChunks();
 		D3D12RHI_PopRecordingContextIfTopIs(ERHIRecordingContextScope::RHIFrameBoundary);
+	}
+
+	void D3D12DynamicRHI::RHIRetireTransientPooledUAVs(std::vector<std::shared_ptr<RHIUnorderedAccessView>>&& Views)
+	{
+		if (Views.empty())
+			return;
+		FDeferredTransientUavRelease Batch;
+		Batch.Views = std::move(Views);
+		DeferredTransientUavReleases.push_back(std::move(Batch));
+	}
+
+	void D3D12DynamicRHI::DeferDestroyAliasingPlacedResource(FD3D12Resource* Resource, std::shared_ptr<FD3D12AliasingSlotLease> Lease)
+	{
+		if (!Resource)
+			return;
+		FDeferredAliasingPlacedResource Entry;
+		Entry.Resource = Resource;
+		Entry.Lease = std::move(Lease);
+		DeferredAliasingPlacedResources.push_back(std::move(Entry));
+	}
+
+	void D3D12DynamicRHI::FlushDeferredTransientUavReleases(bool bAssignPendingFence)
+	{
+		if (!D3D12Adapter)
+		{
+			DeferredTransientUavReleases.clear();
+			return;
+		}
+
+		FD3D12ManualFence& FrameFence = D3D12Adapter->GetFrameFence();
+		FrameFence.UpdateLastCompletedFence();
+
+		if (bAssignPendingFence)
+		{
+			const uint64_t FenceValue = GetTransientUavRetireFenceValue(D3D12Adapter);
+			if (FenceValue != 0)
+			{
+				for (FDeferredTransientUavRelease& Batch : DeferredTransientUavReleases)
+				{
+					if (Batch.RetireFence == kPendingGpuRetireFence)
+						Batch.RetireFence = FenceValue;
+				}
+			}
+		}
+
+		for (auto It = DeferredTransientUavReleases.begin(); It != DeferredTransientUavReleases.end();)
+		{
+			if (It->RetireFence != kPendingGpuRetireFence && It->RetireFence != 0 && FrameFence.IsFenceComplete(It->RetireFence))
+				It = DeferredTransientUavReleases.erase(It);
+			else
+				++It;
+		}
+	}
+
+	void D3D12DynamicRHI::FlushDeferredAliasingPlacedResources(bool bAssignPendingFence)
+	{
+		if (!D3D12Adapter)
+		{
+			for (FDeferredAliasingPlacedResource& Entry : DeferredAliasingPlacedResources)
+			{
+				if (Entry.Resource)
+					Entry.Resource->Release();
+			}
+			DeferredAliasingPlacedResources.clear();
+			return;
+		}
+
+		FD3D12ManualFence& FrameFence = D3D12Adapter->GetFrameFence();
+		FrameFence.UpdateLastCompletedFence();
+
+		if (bAssignPendingFence)
+		{
+			const uint64_t FenceValue = GetTransientUavRetireFenceValue(D3D12Adapter);
+			if (FenceValue != 0)
+			{
+				for (FDeferredAliasingPlacedResource& Entry : DeferredAliasingPlacedResources)
+				{
+					if (Entry.RetireFence == kPendingGpuRetireFence)
+						Entry.RetireFence = FenceValue;
+				}
+			}
+		}
+
+		for (auto It = DeferredAliasingPlacedResources.begin(); It != DeferredAliasingPlacedResources.end();)
+		{
+			if (It->RetireFence != kPendingGpuRetireFence && It->RetireFence != 0 && FrameFence.IsFenceComplete(It->RetireFence))
+			{
+				if (It->Resource)
+				{
+					It->Resource->Release();
+					It->Resource = nullptr;
+				}
+				It->Lease.reset();
+				It = DeferredAliasingPlacedResources.erase(It);
+			}
+			else
+				++It;
+		}
 	}
 
 	void D3D12DynamicRHI::Shutdown()
@@ -413,6 +530,13 @@ namespace RenderCore
 		{
 			D3D12Adapter->BlockUntilIdle();
 			::ImGui_ImplDX12_Shutdown();
+			DeferredTransientUavReleases.clear();
+			for (FDeferredAliasingPlacedResource& Entry : DeferredAliasingPlacedResources)
+			{
+				if (Entry.Resource)
+					Entry.Resource->Release();
+			}
+			DeferredAliasingPlacedResources.clear();
 			TransientAliasingPool.reset();
 			D3D12Adapter->Cleanup();
 		}

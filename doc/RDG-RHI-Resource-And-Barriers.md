@@ -4,6 +4,10 @@
 
 ---
 
+相关流程图文档：[FRDG-Compile-Execute.md](FRDG-Compile-Execute.md)、[SceneRenderer-Frame-Graph.md](SceneRenderer-Frame-Graph.md)。
+
+---
+
 ## 目录
 
 1. [总览与术语](#1-总览与术语)
@@ -109,7 +113,7 @@ D3D12 另外在 `D3D12DynamicRHI::RHIEndFrame` 中调用 `TransientAliasingPool:
 1. 从 pass 的 Input/Output **名字** 推导资源流边（最后写者 → 读者）
 2. 合并 `AddPassDependency` 的显式边
 3. 拓扑排序 → `LastCompiledOrder`
-4. 可选：**Sink 可达性裁剪**（`RDG_GraphSink` 为根，如 `UIPresent`）
+4. 可选：**无用可选 Pass 裁剪**（从 `RDG_GraphSink` 如 `UIPresent` 往回追依赖）
 5. 环检测；失败时 `bHadCycle`，执行阶段可能走 `ExecutePassesInSetupOrder`
 
 ### 3.3 执行阶段 `ExecutePassesImpl`

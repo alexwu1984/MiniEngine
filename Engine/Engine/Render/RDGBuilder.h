@@ -93,7 +93,6 @@ struct FRDGPassCpuTiming
 struct FRDGCompileParameters
 {
 	bool bPassCullingFromSinks = true;
-	bool bDumpDotToLog = false;
 	bool bLogCompileSummary = false;
 	/** After ExecutePasses(): log RenderTexturePool::GetStats() (compile/execute RDG boundary hook). */
 	bool bLogRenderTexturePoolStats = false;
@@ -101,7 +100,7 @@ struct FRDGCompileParameters
 	bool bWarnOnNonGraphicsPassQueues = true;
 	/** Context receiving RDGApplyPassBeginBarriers when bRDGAutoPipelineBarriers (same recording list as passes). */
 	RenderCore::RHICommandContext* RDGBarrierCommandContext = nullptr;
-	/** When non-null, ExecutePasses allocates RegisterTransientUAV entries (D3D12: aliasing heap) at graph start and releases after passes. */
+	/** When non-null, ExecutePasses allocates RegisterTransientUAV entries (D3D12: aliasing heap) at graph start; D3D12 retires them after the frame fence. */
 	RenderCore::DynamicRHI* RDGAcquirePooledResourcesRHI = nullptr;
 	/** If false, skips RDGApplyPassBeginBarriers even when RDGBarrierCommandContext is set. */
 	bool bRDGAutoPipelineBarriers = true;
@@ -115,7 +114,7 @@ struct FRDGCompileParameters
 
 /**
  * Frame render graph: ImportTexture / AddPass / AddPassDependency,
- * Compile (ordering, optional sink reachability culling, optional DOT dump),
+ * Compile (ordering, optional sink reachability culling),
  * ExecutePasses (runs the last successful Compile order; does not call Compile).
  *
  * Scheduling edges come from (1) resource name flow: each output name remembers the last pass that
@@ -166,7 +165,6 @@ private:
 	void ApplyPassCulling(const std::vector<std::pair<int, int>>& Edges, const std::vector<std::size_t>& FullTopoOrder,
 						  const FRDGCompileParameters& Params, std::vector<std::size_t>& OutOrder, FRDGCompileStats& Stats) const;
 	bool ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const;
-	void DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const;
 	void LogNonGraphicsQueueWarnings() const;
 	void ExecutePassesImpl(const FRDGCompileParameters& Params, const std::vector<std::size_t>& Order);
 
@@ -184,6 +182,8 @@ private:
 	std::vector<FTransientUAVRegistration> RegisteredTransientUAVs;
 	std::unordered_map<std::string, std::shared_ptr<RenderCore::RHIUnorderedAccessView>> LiveTransientUAVByName;
 	RenderCore::DynamicRHI* TransientAcquireRHI = nullptr;
+	/** Set in AcquireTransientPooledUAVs; used by Release so retire always reaches the creating RHI. */
+	RenderCore::DynamicRHI* TransientPoolRetireRHI = nullptr;
 };
 
 } // namespace Engine

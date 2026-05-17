@@ -1,6 +1,7 @@
 ﻿#include "D3D12/D3D12Texture2D.h"
 #include "D3D12/D3D12Resource.h"
 #include "D3D12/D3D12Adapter.h"
+#include "D3D12/D3D12RHI.h"
 #include "D3D12/D3D12TransientAliasingPool.h"
 #include "D3D12/D3D12WindowDevice.h"
 #include "D3D12/D3D12CommandContext.h"
@@ -34,14 +35,27 @@ namespace RenderCore
 
 		~D3D12Texture2DPrivate()
 		{
+			if (AliasingLease && Resource)
+			{
+				if (const std::shared_ptr<FD3D12Adapter> Adapter = ParentAdapterForDeferDestroy.lock())
+				{
+					if (const std::shared_ptr<D3D12DynamicRHI> RHI = Adapter->GetOwningRHI())
+					{
+						RHI->DeferDestroyAliasingPlacedResource(Resource, std::move(AliasingLease));
+						Resource = nullptr;
+						return;
+					}
+				}
+			}
 			if (Resource)
 			{
 				Resource->Release();
 				Resource = nullptr;
 			}
-			// Retire heap slot after the placed resource is destroyed (lease must not run first).
 			AliasingLease.reset();
 		}
+
+		std::weak_ptr<FD3D12Adapter> ParentAdapterForDeferDestroy;
 	};
 
 	static std::shared_ptr<uint8_t> GetImageData(const std::wstring& path, int32_t& SizeX, int32_t& SizeY)
@@ -53,9 +67,10 @@ namespace RenderCore
 	}
 
 	D3D12Texture2D::D3D12Texture2D(std::weak_ptr<FD3D12Adapter> InParentAdapter)
-		:FD3D12AdapterChild(InParentAdapter), d_ptr(new D3D12Texture2DPrivate())
+		: FD3D12AdapterChild(InParentAdapter)
+		, d_ptr(new D3D12Texture2DPrivate())
 	{
-
+		d_ptr->ParentAdapterForDeferDestroy = InParentAdapter;
 	}
 
 	D3D12Texture2D::~D3D12Texture2D()

@@ -33,9 +33,7 @@ namespace Engine
 
 			~FTransientPooledScope()
 			{
-				if (!Active || !Builder)
-					return;
-				Builder->ReleaseTransientPooledUAVs();
+				// Transients are released after RHISubmitAndPresentFrame (command list Close) in the UIPresent pass.
 			}
 		};
 
@@ -44,18 +42,6 @@ namespace Engine
 			return !Name.empty();
 		}
 
-		std::string DotEscapeLabel(const std::string& S)
-		{
-			std::string R;
-			R.reserve(S.size() + 8);
-			for (char C : S)
-			{
-				if (C == '"' || C == '\\')
-					R.push_back('\\');
-				R.push_back(C);
-			}
-			return R;
-		}
 	} // namespace
 
 	bool FRDGBuilder::ResolvePassIndex(const std::string& PassName, std::size_t& OutIndex) const
@@ -288,24 +274,6 @@ namespace Engine
 		}
 	}
 
-	void FRDGBuilder::DumpDotToLog(const std::vector<std::pair<int, int>>& Edges) const
-	{
-		std::ostringstream Dot;
-		Dot << "digraph FRDG {\n";
-		for (std::size_t I = 0; I < Passes.size(); ++I)
-		{
-			Dot << "  p" << I << " [label=\"" << DotEscapeLabel(Passes[I].Name) << "\"];\n";
-		}
-		for (const auto& E : Edges)
-		{
-			if (E.first >= 0 && E.second >= 0)
-				Dot << "  p" << E.first << " -> p" << E.second << ";\n";
-		}
-		Dot << "}\n";
-		const std::string S = Dot.str();
-		core::LOG(core::log_inf, L"FRDG DOT:\n%S", core::u8_ucs2(S).c_str());
-	}
-
 	FRDGBuilder::FRDGBuilder() = default;
 
 	FRDGBuilder::~FRDGBuilder()
@@ -331,6 +299,7 @@ namespace Engine
 
 	void FRDGBuilder::AcquireTransientPooledUAVs(RenderCore::DynamicRHI* RHI)
 	{
+		TransientPoolRetireRHI = RHI;
 		ReleaseTransientPooledUAVs();
 		TransientAcquireRHI = RHI;
 		if (!RHI || RegisteredTransientUAVs.empty())
@@ -351,9 +320,24 @@ namespace Engine
 
 	void FRDGBuilder::ReleaseTransientPooledUAVs()
 	{
-		// Frame-scoped aliasing UAVs: destroy at release so slots return to the heap (not RenderTexturePool).
+		if (LiveTransientUAVByName.empty())
+		{
+			TransientAcquireRHI = nullptr;
+			return;
+		}
+
+		std::vector<std::shared_ptr<RenderCore::RHIUnorderedAccessView>> ToRetire;
+		ToRetire.reserve(LiveTransientUAVByName.size());
+		for (auto& Pair : LiveTransientUAVByName)
+			ToRetire.push_back(std::move(Pair.second));
 		LiveTransientUAVByName.clear();
 		TransientAcquireRHI = nullptr;
+
+		RenderCore::DynamicRHI* RetireRHI = TransientPoolRetireRHI;
+		if (!RetireRHI)
+			RetireRHI = RenderCore::GetDynamicRHI().get();
+		if (RetireRHI)
+			RetireRHI->RHIRetireTransientPooledUAVs(std::move(ToRetire));
 	}
 
 	void FRDGBuilder::Clear()
@@ -402,8 +386,6 @@ namespace Engine
 			Stats.bHadCycle = true;
 			if (Params.bLogCompileSummary)
 				core::LOG(core::log_err, L"FRDG Compile: failed (cycle); scheduled=0");
-			if (Params.bDumpDotToLog)
-				DumpDotToLog(Edges);
 			return false;
 		}
 
@@ -412,9 +394,6 @@ namespace Engine
 
 		if (Params.bWarnOnNonGraphicsPassQueues)
 			LogNonGraphicsQueueWarnings();
-
-		if (Params.bDumpDotToLog)
-			DumpDotToLog(Edges);
 
 		if (Params.bLogCompileSummary)
 		{
@@ -516,6 +495,10 @@ namespace Engine
 					  S.EstimatedBytesFree / (1024.0 * 1024.0),
 					  S.BudgetBytes / (1024.0 * 1024.0));
 		}
+
+		// Graphs without UIPresent (e.g. PostProcessor::Draw) retire here; main scene graph already released in UIPresent.
+		if (!LiveTransientUAVByName.empty())
+			ReleaseTransientPooledUAVs();
 	}
 
 	void FRDGBuilder::ExecutePasses(const FRDGCompileParameters& Params)

@@ -397,7 +397,7 @@ namespace Engine
 			"UIPresent",
 			{},
 			{},
-			[d, Self, CommandContext]()
+			[d, Self, CommandContext, &Graph]()
 			{
 				if (d->MainViewPort)
 					d->MainViewPort->Prepare();
@@ -434,6 +434,8 @@ namespace Engine
 				}
 
 				d->MainViewPort->RHISubmitAndPresentFrame();
+				// After FlushCommands/Close: drop RDG aliasing UAVs (D3D12 defers until frame fence completes).
+				Graph.ReleaseTransientPooledUAVs();
 			},
 			false,
 			RDG_Raster | RDG_GraphSink,

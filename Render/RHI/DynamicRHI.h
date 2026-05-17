@@ -110,6 +110,12 @@ namespace RenderCore
 			return RHICreateUnorderedAccessView(Format, SizeX, SizeY);
 		}
 
+		/** D3D12: defer destruction until the frame fence completes (see RHICreateUnorderedAccessViewForTransientPool). */
+		virtual void RHIRetireTransientPooledUAVs(std::vector<std::shared_ptr<RHIUnorderedAccessView>>&& Views)
+		{
+			(void)Views;
+		}
+
 		virtual std::shared_ptr< RHIRenderTarget> RHICreateRenderTarget(EPixelFormat Format, int32_t SizeX, int32_t SizeY, uint32_t NumMips,bool IsMultiSampled, bool CreateDepth) = 0;
 
 		virtual std::shared_ptr< RHIVertexShader> RHICreateVertexShader(const std::wstring& FileName, const std::string& VSMain, const RHIVertexDeclare& VertexDeclare, const std::vector<RHIShaderMacro>& MacroDefines ) = 0;

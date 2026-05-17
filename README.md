@@ -2,7 +2,13 @@
 
 基于 DirectX 11 / 12 的学习型实时渲染引擎（Windows + CMake + MSVC）。主程序 **GLFFViewer** 加载 GLB 场景并走完整延迟着色管线；**DemoRunner** 提供独立示例；**SoftwareRender** 为软件光栅参考实现。
 
-更细的 RDG、纹理池与屏障说明见 [doc/RDG-RHI-Resource-And-Barriers.md](doc/RDG-RHI-Resource-And-Barriers.md)。
+文档：
+
+| 文档 | 内容 |
+|------|------|
+| [doc/RDG-RHI-Resource-And-Barriers.md](doc/RDG-RHI-Resource-And-Barriers.md) | RDG 资源池、D3D12 aliasing、屏障 |
+| [doc/FRDG-Compile-Execute.md](doc/FRDG-Compile-Execute.md) | FRDG 编译/执行流程 |
+| [doc/SceneRenderer-Frame-Graph.md](doc/SceneRenderer-Frame-Graph.md) | SceneRenderer 帧 Pass 流程图 |
 
 ---
 

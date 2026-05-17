@@ -142,15 +142,8 @@ namespace RenderCore
 
 		const uint64_t RetireFence = GetSlotRetireFenceValue(AdapterWeak.lock());
 		Ch.SlotFree[SlotIndex] = false;
-		if (RetireFence == 0)
-		{
-			Ch.SlotRetireFence[SlotIndex] = 0;
-			Ch.SlotFree[SlotIndex] = true;
-		}
-		else
-		{
-			Ch.SlotRetireFence[SlotIndex] = RetireFence;
-		}
+		// Never mark the slot free when RetireFence==0: GPU may still be recording into a placed resource here.
+		Ch.SlotRetireFence[SlotIndex] = RetireFence;
 	}
 
 	HRESULT FD3D12TransientAliasingPool::TryAllocatePlacedUAVTexture2D(

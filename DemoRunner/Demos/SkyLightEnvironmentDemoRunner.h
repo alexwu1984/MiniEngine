@@ -1,12 +1,6 @@
 ﻿#pragma once
-
 #include "DemoRunner/Demos/IDemo.h"
-
 #include "ShaderCommon.h"
-
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace Engine
 {

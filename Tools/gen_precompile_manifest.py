@@ -51,7 +51,7 @@ def _defs(*pairs: tuple[str, str]) -> list[list[str]]:
 
 
 def shadow_pass_permutation_axes() -> list[list[list[str]]]:
-    """ShadowPS.cpp: optional ID_SKINNING_MATRICES only; alpha clip is runtime via MaterialShaderFlags (no macro)."""
+    """FShadowPassMeshDraw.cpp: optional ID_SKINNING_MATRICES only; alpha clip is runtime via MaterialShaderFlags (no macro)."""
     out: list[list[list[str]]] = []
     for skinned in (False, True):
         pairs: list[tuple[str, str]] = []

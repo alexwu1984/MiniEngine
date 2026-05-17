@@ -6,7 +6,6 @@
 #include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Thread/RenderThread.h"
 
-
 namespace Engine
 {
 	FScene::FScene()

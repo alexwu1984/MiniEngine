@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Scene/SceneModelSettings.h"
-#include <cstdint>
 
 namespace Engine
 {

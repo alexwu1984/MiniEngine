@@ -18,13 +18,7 @@
 #include "core/logger.h"
 #include "core/strings.h"
 #include "core/system.h"
-#include <comdef.h>
-#include <algorithm>
-#include <cctype>
-#include <cstdio>
-#include <cmath>
-#include <limits>
-#include <string>
+#include "win/win32.h"
 
 namespace Engine
 {

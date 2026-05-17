@@ -3,7 +3,6 @@
 #include "Render/SkyLightEnvironmentBakePipeline.h"
 #include "Render/SkyLightEnvironmentSources.h"
 #include "RHI/RHITexture2D.h"
-#include <mutex>
 
 namespace Engine
 {

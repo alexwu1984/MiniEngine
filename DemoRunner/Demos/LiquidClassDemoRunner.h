@@ -1,11 +1,7 @@
 ﻿#pragma once
-
 #include "DemoRunner/Demos/IDemo.h"
-
 #include "ShaderCommon.h"
 #include "math/matrix4x4.h"
-
-#include <memory>
 
 namespace Engine { class BlurPS; }
 namespace RenderCore

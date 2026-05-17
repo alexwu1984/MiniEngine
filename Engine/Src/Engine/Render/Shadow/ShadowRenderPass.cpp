@@ -1,6 +1,4 @@
 ﻿#include "Render/Shadow/ShadowRenderPass.h"
-#include <algorithm>
-#include <memory>
 #include "core/vec2.h"
 #include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "Render/Shadow/FDirectionalShadowDepthPass.h"

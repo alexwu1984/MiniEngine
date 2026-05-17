@@ -1,6 +1,5 @@
 ﻿#pragma once
-
-#include <cstdint>
+#include "core/inc.h"
 
 namespace Engine
 {

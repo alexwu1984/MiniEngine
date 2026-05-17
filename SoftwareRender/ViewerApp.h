@@ -3,7 +3,6 @@
 #include "core/color.h"
 #include "math/vector3.h"
 #include "Renderer.h"
-#include <memory>
 
 namespace RenderCore
 {

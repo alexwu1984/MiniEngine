@@ -7,8 +7,6 @@
 #include "core/logger.h"
 #include "core/system.h"
 
-#include <chrono>
-
 using namespace math;
 using namespace RenderCore;
 

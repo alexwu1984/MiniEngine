@@ -78,7 +78,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 	}
 
 	// Minimal fullscreen demo.
-	std::string demoId = "post";
+	std::string demoId = "skylight";
 	core::CommandLine::Get().GetString("demo", demoId);
 
 	std::unique_ptr<DemoRunner::IDemo> demo;

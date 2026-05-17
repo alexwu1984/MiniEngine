@@ -1,9 +1,6 @@
 ﻿#pragma once
 #include "Render/MaterialRender.h"
 #include "Render/RenderStableIds.h"
-#include <cstddef>
-#include <cstdint>
-#include <unordered_map>
 
 namespace Engine
 {

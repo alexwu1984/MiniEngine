@@ -4,10 +4,6 @@
 #include "Render/Shadow/ShadowProjectorTypes.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Scene/SceneMeshComponent.h"
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
 
 namespace RenderCore
 {

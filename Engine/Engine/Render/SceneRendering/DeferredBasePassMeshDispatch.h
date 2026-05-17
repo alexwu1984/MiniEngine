@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "Render/MaterialRender.h"
 #include "Render/SceneRendering/DeferredBasePassDrawContext.h"
-#include <memory>
 
 namespace Engine
 {

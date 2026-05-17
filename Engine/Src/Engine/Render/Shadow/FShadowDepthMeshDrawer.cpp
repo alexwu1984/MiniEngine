@@ -1,13 +1,12 @@
 ﻿#include "Render/Shadow/FShadowDepthMeshDrawer.h"
 #include "Render/Shadow/FShadowSceneBounds.h"
-#include "Render/Shadow/ShadowPS.h"
+#include "Render/Shadow/FShadowPassMeshDraw.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIRenderTarget.h"
 #include "RHI/RHITextureCube.h"
 #include "GltfModel/GltfMesh.h"
 #include "Scene/SceneMeshComponent.h"
-#include <unordered_set>
 
 namespace Engine
 {
@@ -16,9 +15,9 @@ namespace Engine
 	{
 	}
 
-	void FShadowDepthMeshDrawer::UpdateShadowPSPaletteForMesh(const std::shared_ptr<ShadowPS>& shadowRender, const std::shared_ptr<MeshBase>& Mesh)
+	void FShadowDepthMeshDrawer::UpdatePassMeshDrawPalette(const std::shared_ptr<FShadowPassMeshDraw>& PassMeshDraw, const std::shared_ptr<MeshBase>& Mesh)
 	{
-		if (!shadowRender || !Mesh || !Mesh->HasSkin())
+		if (!PassMeshDraw || !Mesh || !Mesh->HasSkin())
 			return;
 		const bool bResolvedPalette = Mesh->GetSkinId() > -1 && !Mesh->GetBoneNodeArray().empty()
 			&& Mesh->GetSkinId() < static_cast<int>(Mesh->GetBoneNodeArray().size());
@@ -28,10 +27,10 @@ namespace Engine
 			const uint32_t MaxSkin = static_cast<uint32_t>(CBPerSkeleton::kPaletteMatrixCount);
 			const uint32_t NumBones = static_cast<uint32_t>(Bone.size());
 			for (uint32_t BoneIndex = 0; BoneIndex < NumBones && BoneIndex < MaxSkin; ++BoneIndex)
-				shadowRender->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
+				PassMeshDraw->SetBoneMatrix(Bone[BoneIndex].FinalMat, static_cast<int32_t>(BoneIndex));
 		}
 		else
-			shadowRender->ResetSkeletonPaletteIdentity();
+			PassMeshDraw->ResetSkeletonPaletteIdentity();
 	}
 
 	void FShadowDepthMeshDrawer::PruneStaleMeshShadowPasses(const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes,
@@ -50,10 +49,10 @@ namespace Engine
 		};
 		insertMeshes(ShadowCasterMeshes);
 		insertMeshes(FrustumBoundsMeshes);
-		for (auto it = ShadowRenders.begin(); it != ShadowRenders.end();)
+		for (auto it = PassMeshDraws.begin(); it != PassMeshDraws.end();)
 		{
 			if (!it->first || casterMeshPtrs.find(it->first.get()) == casterMeshPtrs.end())
-				it = ShadowRenders.erase(it);
+				it = PassMeshDraws.erase(it);
 			else
 				++it;
 		}
@@ -61,7 +60,7 @@ namespace Engine
 
 	void FShadowDepthMeshDrawer::ClearCache()
 	{
-		ShadowRenders.clear();
+		PassMeshDraws.clear();
 	}
 
 	void FShadowDepthMeshDrawer::DrawDirectional(RenderCore::RHICommandContext& RHIContext, const std::vector<GltfSceneMeshInfo>& ShadowCasterMeshes, const Light& LightForShadow,
@@ -74,14 +73,14 @@ namespace Engine
 				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
 				if (!Mesh || !FShadowSceneBounds::MeshWritesShadowMapDepth(Mesh))
 					continue;
-				auto& shadowRender = ShadowRenders[Mesh];
-				if (!shadowRender)
+				auto& passMeshDraw = PassMeshDraws[Mesh];
+				if (!passMeshDraw)
 				{
-					shadowRender = std::make_shared<ShadowPS>(RHI, Mesh);
-					shadowRender->InitResource();
+					passMeshDraw = std::make_shared<FShadowPassMeshDraw>(RHI, Mesh);
+					passMeshDraw->InitResource();
 				}
-				UpdateShadowPSPaletteForMesh(shadowRender, Mesh);
-				shadowRender->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, LightForShadow, Target);
+				UpdatePassMeshDrawPalette(passMeshDraw, Mesh);
+				passMeshDraw->Draw(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, LightForShadow, Target);
 			}
 		}
 	}
@@ -96,14 +95,14 @@ namespace Engine
 				std::shared_ptr<MeshBase> Mesh = MeshInfo.Meshes[MeshIndex];
 				if (!Mesh || !FShadowSceneBounds::MeshWritesShadowMapDepth(Mesh))
 					continue;
-				auto& shadowRender = ShadowRenders[Mesh];
-				if (!shadowRender)
+				auto& passMeshDraw = PassMeshDraws[Mesh];
+				if (!passMeshDraw)
 				{
-					shadowRender = std::make_shared<ShadowPS>(RHI, Mesh);
-					shadowRender->InitResource();
+					passMeshDraw = std::make_shared<FShadowPassMeshDraw>(RHI, Mesh);
+					passMeshDraw->InitResource();
 				}
-				UpdateShadowPSPaletteForMesh(shadowRender, Mesh);
-				shadowRender->DrawCubeFace(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, FaceLight, Cube, FaceIndex);
+				UpdatePassMeshDrawPalette(passMeshDraw, Mesh);
+				passMeshDraw->DrawCubeFace(RHIContext, Mesh->GetMeshMat() * MeshInfo.WorldTransform, FaceLight, Cube, FaceIndex);
 			}
 		}
 	}

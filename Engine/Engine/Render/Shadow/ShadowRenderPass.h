@@ -52,7 +52,7 @@ namespace Engine
 		bool TryGetCachedSpotShadowForDeferred(int& OutLightIndex, math::Matrix4x4& OutSpotLightViewProj,
 											   math::Matrix4x4* OutOptionalLightView = nullptr) const;
 
-		/** Drop per-mesh ShadowPS instances (VS/IL tied to vertex layout). Call after full scene swaps so layouts cannot alias recycled meshes. */
+		/** Drop per-mesh FShadowPassMeshDraw instances (VS/IL tied to vertex layout). Call after full scene swaps so layouts cannot alias recycled meshes. */
 		void ClearCachedMeshShadowPasses();
 
 	private:

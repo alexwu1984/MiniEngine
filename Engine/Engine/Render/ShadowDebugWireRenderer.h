@@ -2,8 +2,6 @@
 #include "math/matrix4x4.h"
 #include "math/vector3.h"
 #include "math/vector4.h"
-#include <cstdint>
-#include <memory>
 
 namespace RenderCore
 {

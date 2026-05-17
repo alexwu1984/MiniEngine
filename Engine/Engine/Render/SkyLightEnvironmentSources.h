@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "Render/SkyLightEnvironmentBakePipeline.h"
 #include "RHI/RHIUniformBuffer.h"
-#include <memory>
 
 namespace Engine
 {

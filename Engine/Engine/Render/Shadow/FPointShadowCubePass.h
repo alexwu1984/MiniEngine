@@ -2,8 +2,6 @@
 #include "Render/MaterialPreFrame.h"
 #include "math/matrix4x4.h"
 #include "math/vector3.h"
-#include <memory>
-#include <vector>
 
 namespace RenderCore
 {

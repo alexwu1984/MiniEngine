@@ -1,7 +1,5 @@
 ﻿#pragma once
 #include "Render/RDGBuilder.h"
-#include <memory>
-#include <vector>
 
 namespace Engine
 {

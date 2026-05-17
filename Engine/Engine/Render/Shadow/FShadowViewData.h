@@ -2,7 +2,6 @@
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/ShadowProjectorTypes.h"
 #include "math/aabb3.h"
-#include <vector>
 
 namespace Engine
 {

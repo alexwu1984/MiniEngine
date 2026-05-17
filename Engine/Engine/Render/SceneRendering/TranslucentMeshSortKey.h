@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "math/matrix4x4.h"
-#include <memory>
 
 namespace Engine
 {

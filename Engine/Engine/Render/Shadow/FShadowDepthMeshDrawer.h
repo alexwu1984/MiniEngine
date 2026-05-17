@@ -1,8 +1,5 @@
 ﻿#pragma once
 #include "Render/MaterialPreFrame.h"
-#include <map>
-#include <memory>
-#include <vector>
 
 namespace RenderCore
 {
@@ -16,9 +13,9 @@ namespace Engine
 {
 	struct GltfSceneMeshInfo;
 	class MeshBase;
-	class ShadowPS;
+	class FShadowPassMeshDraw;
 
-	/** UE-style: shared depth draws for directional / spot / point cube faces; owns ShadowPS cache per mesh. */
+	/** UE-style: shared depth draws for directional / spot / point cube faces; owns FShadowPassMeshDraw cache per mesh. */
 	class FShadowDepthMeshDrawer
 	{
 	public:
@@ -34,9 +31,9 @@ namespace Engine
 						  const std::shared_ptr<RenderCore::RHITextureCube>& Cube, int FaceIndex);
 
 	private:
-		static void UpdateShadowPSPaletteForMesh(const std::shared_ptr<ShadowPS>& shadowRender, const std::shared_ptr<MeshBase>& Mesh);
+		static void UpdatePassMeshDrawPalette(const std::shared_ptr<FShadowPassMeshDraw>& PassMeshDraw, const std::shared_ptr<MeshBase>& Mesh);
 
 		RenderCore::DynamicRHI* RHI = nullptr;
-		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<ShadowPS>> ShadowRenders;
+		std::map<std::shared_ptr<MeshBase>, std::shared_ptr<FShadowPassMeshDraw>> PassMeshDraws;
 	};
 }

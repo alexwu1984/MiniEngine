@@ -1,7 +1,5 @@
 ﻿#pragma once
 #include "Render/SceneRendering/SceneViewData.h"
-#include <cstdint>
-#include <vector>
 
 namespace Engine
 {

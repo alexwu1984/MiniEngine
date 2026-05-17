@@ -1,8 +1,6 @@
 ﻿#pragma once
 #include "Render/MaterialPreFrame.h"
 #include "math/aabb3.h"
-#include <memory>
-#include <vector>
 
 namespace RenderCore
 {

@@ -2,7 +2,6 @@
 #include "Render/SceneRendering/TranslucentMeshSortKey.h"
 #include "Scene/SceneMeshComponent.h"
 #include "math/vector3.h"
-#include <vector>
 
 namespace Engine
 {

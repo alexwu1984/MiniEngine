@@ -1,5 +1,4 @@
 ﻿#include "Render/ShadowDebugWireRenderer.h"
-#include <cstddef>
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIViewPort.h"
@@ -17,10 +16,6 @@
 #include "Scene/SceneMeshComponent.h"
 #include "Scene/World.h"
 #include "Scene/WorldSceneDebugDraw.h"
-#include <algorithm>
-#include <cmath>
-#include <memory>
-#include <vector>
 
 using namespace RenderCore;
 

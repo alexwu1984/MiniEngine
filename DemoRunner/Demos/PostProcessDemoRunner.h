@@ -1,8 +1,5 @@
 ﻿#pragma once
-
 #include "DemoRunner/Demos/IDemo.h"
-
-#include <memory>
 
 class PostProcessorDemo;
 

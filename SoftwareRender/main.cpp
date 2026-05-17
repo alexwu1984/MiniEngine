@@ -2,17 +2,13 @@
 #include "core/commandline.h"
 #include "core/logger.h"
 #include "core/system.h"
-
 #include "App/AppWindow.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHICommandContext.h"
 #include "RHI/RHIViewPort.h"
 #include "D3D12/D3D12RHIRecording.h"
-
 #include "Imgui/imgui.h"
-
 #include <shellapi.h>
-
 #include "core/strings.h"
 #include "ViewerApp.h"
 

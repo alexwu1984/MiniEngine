@@ -16,8 +16,6 @@
 #include "Engine/ComErrorLog.h"
 #include "core/logger.h"
 #include "core/wall_timer.h"
-#include <array>
-#include <functional>
 
 namespace Engine
 {

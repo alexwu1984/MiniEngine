@@ -48,7 +48,7 @@ namespace Engine
 		OwnerEngine_->GetRHI()->RHIWaitForGpuIdle();
 		MsGpuIdle0 = Wall.split_ms();
 
-		// 2) Drop shadow/mesh caches that key on MeshBase* before ~World (shadow pass map otherwise keeps old meshes + ShadowPS alive).
+		// 2) Drop shadow/mesh caches that key on MeshBase* before ~World (shadow pass map otherwise keeps old meshes + FShadowPassMeshDraw alive).
 		if (const auto srFlush = SceneRender_.lock())
 		{
 			srFlush->FlushClearShadowPassMeshCacheNow();

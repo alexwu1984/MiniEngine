@@ -1,5 +1,4 @@
 ﻿#include "Procedural/ProceduralFloor.h"
-#include <algorithm>
 #include "GltfModel/GltfMeshInfo.h"
 #include "GltfModel/GltfMeshBuffer.h"
 #include "GltfModel/MeshBase.h"

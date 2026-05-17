@@ -4,8 +4,6 @@
 #include "math/vector3.h"
 #include "math/vector4.h"
 #include "Render/MaterialPreFrame.h"
-#include <cstdint>
-#include <vector>
 
 namespace Engine
 {

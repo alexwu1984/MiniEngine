@@ -125,8 +125,7 @@ namespace Engine
 		auto AppWin = GEngine->GetAppWindow();
 		const uint32_t Width = AppWin->GetWidth();
 		const uint32_t Height = AppWin->GetHeight();
-		uint32_t UnusedProjectionJitterSampleArg = 0;
-		SetProjectionJitter(Width, Height, UnusedProjectionJitterSampleArg);
+		SetProjectionJitter(Width, Height);
 
 		static constexpr float kTemporalAATeleportMeters = 30.f;
 		const float kSq = kTemporalAATeleportMeters * kTemporalAATeleportMeters;

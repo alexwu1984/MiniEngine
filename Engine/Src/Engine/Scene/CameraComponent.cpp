@@ -65,8 +65,7 @@ namespace Engine
 		auto AppWin = GEngine->GetAppWindow();
 		auto Width = AppWin->GetWidth();
 		auto Height = AppWin->GetHeight();
-		uint32_t UnusedProjectionJitterSampleArg = 0;
-		SetProjectionJitter(Width, Height, UnusedProjectionJitterSampleArg);
+		SetProjectionJitter(Width, Height);
 
 		// Heuristic camera cut: large world-space jump in one tick (gameplay teleport / scene swap).
 		static constexpr float kTemporalAATeleportMeters = 30.f;
@@ -300,7 +299,7 @@ namespace Engine
 	}
 
 
-	void CameraComponent::SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex)
+	void CameraComponent::SetProjectionJitter(uint32_t width, uint32_t height)
 	{
 		C_P(CameraComponent);
 		d->PrevjitterX = d->jitterX;

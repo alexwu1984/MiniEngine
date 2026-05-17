@@ -39,7 +39,7 @@ namespace Engine
 		void UpdateFrustum(const math::Vector3& eye, const math::Vector3& forward, const math::Vector3& up);
 		const math::Frustum& GetFrustum() const;
 
-		void SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex);
+		void SetProjectionJitter(uint32_t width, uint32_t height);
 
 		math::Matrix4x4 HackAddTemporalAAProjectionJitter( bool PrevFrame = false);
 		int32_t GetFrameIndexMod2() const;

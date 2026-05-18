@@ -53,7 +53,10 @@ void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThread
     float3 right = TAABuffer[int2(min(xi + 1, w - 1), yi)].rgb;
 
     float3 sharpened = ApplySharpening(center, top, left, right, bottom);
-    // Light sharpen only — strong unsharp on specular/metal causes temporal shimmer after TAA.
-    static const float SharpenBlend = 0.10f;
-    HDR[globalID.xy] = float4(lerp(center, sharpened, SharpenBlend), 1.0f);
+    // Light sharpen only; skip on bright pixels (specular shimmer on small metal details).
+    static const float SharpenBlend = 0.08f;
+    static const float SharpenLumaSkip = 0.55f;
+    const float centerLuma = dot(center, float3(0.2126, 0.7152, 0.0722));
+    const float sharpenW = (centerLuma > SharpenLumaSkip) ? 0.0f : SharpenBlend;
+    HDR[globalID.xy] = float4(lerp(center, sharpened, sharpenW), 1.0f);
 }

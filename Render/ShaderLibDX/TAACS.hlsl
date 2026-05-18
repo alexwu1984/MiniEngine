@@ -18,7 +18,8 @@ cbuffer CB0 : register(b0)
     float4  CurrentJitterPixels;
 }
 
-#define SPATIAL_WEIGHT_CATMULLROM 1
+// Gaussian 3x3: less Lanczos ringing on thin specular (e.g. helmet rivets / ear details).
+#define SPATIAL_WEIGHT_CATMULLROM 0
 #define LONGEST_VELOCITY_VECTOR_SAMPLES 0
 
 // Frostbite/UE4 (Karis): variance clip in YCoCg, HDR-weighted accumulation.
@@ -35,11 +36,10 @@ float TaaVelocityPixelScale()
     return min(Resolution.x, Resolution.y) / max(VelocityRefMinDimension, 1.0f);
 }
 
-// Reactive mask: specular / metal — use neighborhood max luma so thin highlights reject history.
-static const float ReactiveLumaThreshold = 0.22f;
-static const float ReactiveLumaScale = 9.0f;
-static const float ReactiveBlendSub = 0.42f;
-static const float ReactiveBlendMin = 0.10f;
+// Reactive mask: bright specular — favor current frame (jittered highlight) over history to cut swim/flicker.
+static const float ReactiveLumaThreshold = 0.24f;
+static const float ReactiveLumaSoftRange = 0.20f;
+static const float ReactiveBlendTarget = 0.58f;
 
 static const int2 SampleOffsets[9] =
 {
@@ -362,8 +362,8 @@ void TAA_Main(
         const float3 nRgb = YCoCgToRGB(neighborhood[ri]);
         reactiveLin = max(reactiveLin, Luminance(TaaToneCurveInv(nRgb)));
     }
-    const float react = saturate((reactiveLin - ReactiveLumaThreshold) * ReactiveLumaScale);
-    blendFinal = lerp(blendFinal, max(blendFinal - ReactiveBlendSub, ReactiveBlendMin), react);
+    const float react = saturate((reactiveLin - ReactiveLumaThreshold) / max(ReactiveLumaSoftRange, 1e-4f));
+    blendFinal = lerp(blendFinal, max(blendFinal, ReactiveBlendTarget), react);
     blendFinal = saturate(blendFinal);
 
     const float filterWeight = HdrWeight4(FilteredColor, Exposure);

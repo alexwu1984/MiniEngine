@@ -1,38 +1,14 @@
 ﻿#!/usr/bin/env python3
-"""Generate Render/ShaderLibDX/precompile_manifest.json from structured Python data.
+"""Generate Render/ShaderLibDX/precompile_manifest.json (GLFFViewer scope). Do not edit the JSON by hand.
 
-Scope: **GLFFViewer** (GLFFViewer.exe → Engine + WorldSceneRender / deferred / shadows / IBL / post).
-DemoRunner / SoftwareRender / standalone demos are not listed — they JIT-compile any extra shaders locally.
+Run: python Tools/gen_precompile_manifest.py
+     or CMake target PrecompileMiniEngineShaders → build_precompiled_shaders.py
 
-Do not hand-edit the JSON. Macro **push order** must match C++ (hashes + runtime compile).
-
-Simplification model (see *_permutation_axes functions below):
-  - Shadow / PBR / translucent permutations are Cartesian products of a few boolean axes.
-  - Each axis maps to one or more RHIShaderMacro entries in fixed order (mirroring InitShader / InitResource).
-
-Run: python Tools/gen_precompile_manifest.py  |  CMake target PrecompileMiniEngineShaders (depends from GLFFViewer only; see CMakeLists.txt).
-The target then runs Tools/build_precompiled_shaders.py (HLSL/FXC) writing Built/ under the build config output dir; sync_shaderlib_dx excludes source Built/. Debug tier 2, non-Debug tier 1 unless overridden.
-
-C++ sources of truth (Engine paths used by the viewer):
-  Shadow, PBR, Fur, translucent, deferred lighting, post (tonemap/bloom/SSR/bloom CS), TAA, SSR, sky/IBL bake,
-  procedural sky cube, mips, shadow debug wire, FXAA (optional AA path). Not included: EnvironmentShaders / PostProcessDemo /
-  LuquidClass / DownSamplePS / BlurPS-only paths (no GLFFViewer references).
-
-Vertex layout: tangent always on CPU when missing. Skinning uses ID_SKINNING_MATRICES only.
-
-Directional shadow helpers (`ShadowPCSS.hlsl`, `DirectionalShadow.hlsl`, `TranslucentShadowLite.hlsl`, …) are **not**
-manifest roots: they are reached only via quoted `#include` from listed files (e.g. `DeferredLighting.hlsl`,
-`FurMaterial.hlsl`, `TranslucentPBRForward.hlsl`). `Tools/build_precompiled_shaders.py` walks that include tree for
-incremental hashes / rebuilds — no extra manifest rows when those files are added or renamed.
-
-Material shaders (PBR / Fur / translucent PS): manifest lists **both** macro sets — without `RHI_BINDLESS` (D3D11
-runtime, and D3D12 when material `WantsRHIBindless()` returns false, e.g. fur) and with `RHI_BINDLESS=1` (D3D12
-when material `WantsRHIBindless()` is true) — so offline `.cso` can match either API; macro order matches C++ push
-order per variant.
-
-Profile selection (`_ps_profile_for_defs`) must mirror D3D12Shaders.cpp::PixelShaderUsesBindlessMacros: bindless
-variants compile as `ps_5_1`, non-bindless as `ps_5_0`. Mismatched profile here = JIT cache miss = a fresh
-D3DCompile every process start (~40ms PBR / ~400ms Fur first material draw).
+Add a shader: append a dict in build_shaders_list() with file, entry, profile, defines.
+  defines order must match C++ RHIShaderMacro push order.
+  Material PS with bindless: use _ps_profile_for_defs (ps_5_1 if RHI_BINDLESS, else ps_5_0).
+  Many variants: add a *_permutation_axes() and loop like shadow_pass / pbr_material.
+  #include-only helpers need no manifest row (build script follows includes).
 """
 
 from __future__ import annotations
@@ -51,7 +27,7 @@ def _defs(*pairs: tuple[str, str]) -> list[list[str]]:
 
 
 def shadow_pass_permutation_axes() -> list[list[list[str]]]:
-    """FShadowPassMeshDraw.cpp: optional ID_SKINNING_MATRICES only; alpha clip is runtime via MaterialShaderFlags (no macro)."""
+    """Skinning on/off (ID_SKINNING_MATRICES)."""
     out: list[list[list[str]]] = []
     for skinned in (False, True):
         pairs: list[tuple[str, str]] = []
@@ -62,7 +38,7 @@ def shadow_pass_permutation_axes() -> list[list[list[str]]]:
 
 
 def pbr_material_permutation_axes() -> list[list[list[str]]]:
-    """PBRMaterialRender::InitShader: optional ID_SKINNING_MATRICES; optional RHI_BINDLESS (D3D12 only at runtime)."""
+    """Skinning × RHI_BINDLESS."""
     out: list[list[list[str]]] = []
     for skinned in (False, True):
         for use_bindless in (False, True):
@@ -76,16 +52,11 @@ def pbr_material_permutation_axes() -> list[list[list[str]]]:
 
 
 def fur_material_permutation_axes() -> list[list[list[str]]]:
-    """Fur forward: same macro axes as PBRMaterialRender::InitShader (skinning × bindless, matching inner + shell)."""
     return pbr_material_permutation_axes()
 
 
 def translucent_forward_permutation_axes() -> list[list[list[str]]]:
-    """TranslucentPBRForward PS: FilterMacrosTranslucentForwardPS leaves empty (D3D11) or RHI_BINDLESS (D3D12).
-
-    Profile must match runtime: D3D11 always ps_5_0; D3D12 uses ps_5_1 only when RHI_BINDLESS (see D3D12Shaders.cpp).
-    Precompiling the empty-macro variant as ps_5_1 would never hit TryLoadPrecompiledShaderBytecode and forces a very slow JIT.
-    """
+    """No macro vs RHI_BINDLESS."""
     return [_defs(), _defs(("RHI_BINDLESS", "1"))]
 
 
@@ -94,18 +65,10 @@ def _has_bindless(defs: list[list[str]]) -> bool:
 
 
 def _ps_profile_for_defs(defs: list[list[str]]) -> str:
-    """Pixel shader profile mirroring D3D12Shaders.cpp::PixelShaderUsesBindlessMacros: bindless → ps_5_1, else ps_5_0.
-
-    Manifest must use the same profile JIT picks, otherwise TryLoadPrecompiledShaderBytecode misses and falls back
-    to D3DCompile (~40ms PBR / ~400ms Fur on first hit).
-    """
     return "ps_5_1" if _has_bindless(defs) else "ps_5_0"
 
 
-MANIFEST_COMMENT = (
-    "AUTO-GENERATED by Tools/gen_precompile_manifest.py — GLFFViewer/Engine scope only; edit script then run "
-    "(or build PrecompileMiniEngineShaders). Defines order must match C++ RHIShaderMacro push order."
-)
+MANIFEST_COMMENT = "AUTO-GENERATED by Tools/gen_precompile_manifest.py — edit script, do not hand-edit JSON."
 
 
 def build_shaders_list() -> list[dict]:
@@ -180,7 +143,7 @@ def write_manifest(path: Path, data: dict) -> None:
 
 
 def manifest_semantically_equal_on_disk(path: Path, data: dict) -> bool:
-    """Same comparison as --check: skip rewriting when unchanged so mtime does not bust shader incremental builds."""
+    """Skip write when unchanged (preserve mtime for incremental shader builds)."""
     if not path.is_file():
         return False
     try:

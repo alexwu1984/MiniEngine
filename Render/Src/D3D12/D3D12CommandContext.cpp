@@ -497,15 +497,12 @@ namespace RenderCore
 		if (Initializer.RasterizerState)
 			RHISetRasterizerState(Initializer.RasterizerState);
 
+		// Null shader slots = leave current binding (see D3D11CommandContext::RHISetGraphicsPipelineState).
 		if (Initializer.VertexShader)
 			CurrentStateCache->SetVertexShader(d3d12VertexShader);
-		else
-			CurrentStateCache->SetVertexShader(nullptr);
 
 		if (Initializer.PixelShader)
 			CurrentStateCache->SetPixelShader(d3d12PixelShader);
-		else
-			CurrentStateCache->SetPixelShader(nullptr);
 		CurrentStateCache->SetComputeShader(nullptr);
 		CurrentStateCache->SetPrimitiveTopology(GetD3D12PrimitiveType(Initializer.PrimitiveType, false));
 	}

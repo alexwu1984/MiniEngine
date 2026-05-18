@@ -169,9 +169,23 @@ namespace Engine
 		
 	}
 
-	void PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
+	bool PBRMaterialRender::SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
 		C_P(PBRMaterialRender);
+		if (!d->VertexShader || !d->PixelShader)
+		{
+			static bool s_LoggedMissingBaseShaders = false;
+			if (!s_LoggedMissingBaseShaders)
+			{
+				s_LoggedMissingBaseShaders = true;
+				core::LOG(core::log_err,
+						  L"PBRMaterialRender: vertex or pixel shader is null (compile failed or InitShader not run); deferred draws skipped.");
+			}
+			return false;
+		}
+		if (!SceneTextures)
+			return false;
+
 		GraphicsPipelineStateInitializer Init;
 		Init.PixelShader = d->PixelShader;
 		Init.VertexShader = d->VertexShader;
@@ -203,6 +217,7 @@ namespace Engine
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 2, RHICachedStates::ShadowCompareSampler);
 
 		BindDrawUniformBuffers(RHIContext);
+		return true;
 	}
 
 	void PBRMaterialRender::StoreRenderParam(const MaterialRenderParam& p)
@@ -310,8 +325,10 @@ namespace Engine
 		StoreRenderParam(RenderParam);
 
 		std::shared_ptr<RHITexture2D> Sc = RenderParam.SceneTextures->GetSceneColor();
+		std::shared_ptr<RHITexture2D> Mv = RenderParam.SceneTextures->GetMotionVector();
 		std::shared_ptr<RHITexture2D> Dt = RenderParam.SceneTextures->GetDepth();
-		FRHIRenderPassDesc Om = FRHIRenderPassDesc::SingleColor(Sc, Dt);
+		const std::vector<std::shared_ptr<RHITexture2D>> ColorMrt = {Sc, Mv};
+		FRHIRenderPassDesc Om = FRHIRenderPassDesc::ColorTargetsAndDepth(ColorMrt, Dt);
 		Om.DebugName = "TranslucentPBRForwardOM";
 		FFurForwardSharedSrvSet SharedSrv{};
 		{
@@ -325,6 +342,7 @@ namespace Engine
 			auto ST = RenderParam.SceneTextures;
 			Slots.Outputs = {
 				{"SceneColor", [ST]() { return ST->GetSceneColor(); }, true, A::RTV},
+				{"MotionVector", [ST]() { return ST->GetMotionVector(); }, true, A::RTV},
 				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
 			};
 			FRDGUtils::AppendPassTextureBarriers(Slots, Om.DeclaredTextureBarriers);
@@ -339,7 +357,7 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
 		Init.PixelShader = d->TranslucentForwardPixelShader;
-		Init.BlendState = RHICachedStates::BlendTraditional;
+		Init.BlendState = RHICachedStates::BlendForwardColorAndVelocityMRT;
 		Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
 		Init.RasterizerState =
 			d->MeshMaterial->IsDoubleSided() ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
@@ -365,7 +383,8 @@ namespace Engine
 		C_P(PBRMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPass");
 		d->RenderParam = RenderParam;
-		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
+		if (!SetPipeLineState(RHIContext, RenderParam.SceneTextures))
+			return;
 
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 		BindDeferredBaseMaterialTextures(RHIContext);
@@ -378,7 +397,8 @@ namespace Engine
 		C_P(PBRMaterialRender);
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPassBatchBegin");
 		d->RenderParam = RenderParam;
-		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
+		if (!SetPipeLineState(RHIContext, RenderParam.SceneTextures))
+			return;
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 		BindDeferredBaseMaterialTextures(RHIContext);
 		DrawMesh(RHIContext);
@@ -408,7 +428,8 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "PBRPrePass");
 		d->RenderParam = RenderParam;
 
-		SetPipeLineState(RHIContext, RenderParam.SceneTextures);
+		if (!SetPipeLineState(RHIContext, RenderParam.SceneTextures))
+			return;
 		FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, { d->MeshMaterial->GetBaseColorTexture() });
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 0, d->MeshMaterial->GetBaseColorTexture());
 		PreDrawMesh(RHIContext);

@@ -670,25 +670,19 @@ namespace RenderCore
 
 		D3D11StateCacheBase& StateCache = Impl->D3D11RHI->GetStateCache();
 
+		// Null shader slots mean "leave current binding" — do not VSSetShader(nullptr) here or a partial
+		// GraphicsPipelineStateInitializer (blend-only update) clears VS/PS before the next draw.
 		if (Initializer.VertexShader)
 		{
 			D3D11VertexShader* VertexShaderRHI = RHIResourceCast(Initializer.VertexShader.get());
 			StateCache.SetInputLayout(VertexShaderRHI->GetNativeInputLayout());
 			StateCache.SetVertexShader(VertexShaderRHI->GetNativeVertexShader());
 		}
-		else
-		{
-			StateCache.SetVertexShader(nullptr);
-		}
 
 		if (Initializer.PixelShader)
 		{
 			D3D11PixelShader* PixelShaderRHI = RHIResourceCast(Initializer.PixelShader.get());
 			StateCache.SetPixelShader(PixelShaderRHI->GetNativePixelShader());
-		}
-		else
-		{
-			StateCache.SetPixelShader(nullptr);
 		}
 
 		

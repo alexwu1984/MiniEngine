@@ -53,7 +53,7 @@ void mainCS(uint3 globalID : SV_DispatchThreadID, uint3 localID : SV_GroupThread
     float3 right = TAABuffer[int2(min(xi + 1, w - 1), yi)].rgb;
 
     float3 sharpened = ApplySharpening(center, top, left, right, bottom);
-    // UE r.TemporalAASharpness default ~0.5: blend toward sharpened, not full kernel (reduces ringing / shimmer).
-    static const float SharpenBlend = 0.25f;
+    // Light sharpen only — strong unsharp on specular/metal causes temporal shimmer after TAA.
+    static const float SharpenBlend = 0.10f;
     HDR[globalID.xy] = float4(lerp(center, sharpened, SharpenBlend), 1.0f);
 }

@@ -14,11 +14,30 @@
 
 namespace Engine
 {
+	namespace
+	{
+		/** Max |Δ| between current and previous view-proj; roam look/pan often >> 0.01 per frame. */
+		float ViewProjMotionBlendHeuristic(const FSceneViewData& View)
+		{
+			const math::Matrix4x4& A = View.CurrViewProjMatrix;
+			const math::Matrix4x4& B = View.PrevViewProjMatrix;
+			float maxAbs = 0.f;
+			for (int i = 0; i < 16; ++i)
+				maxAbs = (std::max)(maxAbs, std::fabs(A.m[i] - B.m[i]));
+			// ~0.02 on slow WASD pan, 0.05+ on mouse look; saturate so blendFinal -> 1 quickly.
+			return (std::min)(1.f, maxAbs * 22.f);
+		}
+	}
+
 	struct TAAContants
 	{
 		math::Vector4 Resolution{};
 		int32_t FrameIndex{ 0 };
-		math::Vector3 Pad0{};
+		float ViewProjMotionBlend{ 0.f };
+		/** Short-side resolution constants were tuned at (e.g. 1080p); scales velocity pixel thresholds. */
+		float VelocityRefMinDimension{ 1080.f };
+		/** Floor for motion-history reject threshold after resolution scaling. */
+		float VelocityRejectMinPx{ 24.f };
 		math::Vector4 CurrentJitterPixels{};
 	};
 	using TAAContantsWrap = RenderCore::TUniformBufferBinding<TAAContants, 0u>;
@@ -96,7 +115,8 @@ namespace Engine
 			d->First = true;
 		}
 
-		auto SceneColor = SceneTextures->GetSceneColorWithBloom();
+		// TAA on lit scene color before bloom/SSR composite (stable input; bloom added after resolve).
+		auto SceneColor = SceneTextures->GetSceneColor();
 		const auto ScSize = SceneColor->GetSize();
 		const float width = static_cast<float>(ScSize.w);
 		const float height = static_cast<float>(ScSize.h);
@@ -138,6 +158,7 @@ namespace Engine
 
 			d->GET_UNIFORMDATA(TAAContants).Resolution = math::Vector4(width, height, rcpWidth, rcpHeight);
 			d->GET_UNIFORMDATA(TAAContants).FrameIndex = d->First ? 1 : ViewData->FrameIndex;
+			d->GET_UNIFORMDATA(TAAContants).ViewProjMotionBlend = ViewProjMotionBlendHeuristic(*ViewData);
 			const math::Vector4 TemporalAAJitter = ViewData->TemporalAAJitter;
 			d->GET_UNIFORMDATA(TAAContants).CurrentJitterPixels = math::Vector4(
 				TemporalAAJitter.x * width * 0.5f,

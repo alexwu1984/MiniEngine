@@ -17,6 +17,7 @@ namespace RenderCore
 
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendDisable;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendTraditional;
+	std::shared_ptr<RHIBlendState> RHICachedStates::BlendForwardColorAndVelocityMRT;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendDeferredTranslucentMRT;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOff;
 	std::shared_ptr<RHIBlendState> RHICachedStates::BlendOnAlphaOn;
@@ -41,6 +42,9 @@ namespace RenderCore
 
 		BlendDisable = TStaticBlendState<>::CreateRHI(RHI);
 		BlendTraditional = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::CreateRHI(RHI);
+		BlendForwardColorAndVelocityMRT = TStaticBlendState<
+			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
+			CW_RGBA, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero>::CreateRHI(RHI);
 		BlendDeferredTranslucentMRT = TStaticBlendState<
 			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
 			CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha,
@@ -73,6 +77,7 @@ namespace RenderCore
 
 		BlendDisable = {};
 		BlendTraditional = {};
+		BlendForwardColorAndVelocityMRT = {};
 		BlendDeferredTranslucentMRT = {};
 		BlendOnAlphaOff = {};
 		BlendOnAlphaOn = {};

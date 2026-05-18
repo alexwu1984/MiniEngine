@@ -26,7 +26,7 @@ namespace Engine
 							const std::shared_ptr<const FSceneViewData>& ViewData = {});
 
 	protected:
-		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures) override;
+		virtual bool SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures) override;
 		bool ShouldCompileTranslucentForwardPixelShader() const override { return false; }
 		std::wstring GetVertexShaderFileNameSuffix() const override;
 

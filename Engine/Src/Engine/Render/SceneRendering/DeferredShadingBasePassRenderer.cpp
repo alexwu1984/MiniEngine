@@ -163,8 +163,12 @@ namespace Engine
 		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
 		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.SceneTextures->GetSceneColor());
 
-		RenderCore::FRHIRenderPassDesc FurOm = RenderCore::FRHIRenderPassDesc::SingleColor(
-			DrawContext.SceneTextures->GetSceneColor(), DrawContext.SceneTextures->GetDepth());
+		const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> FurColorMrt = {
+			DrawContext.SceneTextures->GetSceneColor(),
+			DrawContext.SceneTextures->GetMotionVector(),
+		};
+		RenderCore::FRHIRenderPassDesc FurOm = RenderCore::FRHIRenderPassDesc::ColorTargetsAndDepth(
+			FurColorMrt, DrawContext.SceneTextures->GetDepth());
 		FurOm.DebugName = "FurForwardOM";
 		{
 			FFurForwardSharedSrvSet SharedSrv{};
@@ -175,6 +179,7 @@ namespace Engine
 			auto ST = DrawContext.SceneTextures;
 			FurBarrier.Outputs = {
 				{"SceneColor", [ST]() { return ST->GetSceneColor(); }, true, A::RTV},
+				{"MotionVector", [ST]() { return ST->GetMotionVector(); }, true, A::RTV},
 				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
 			};
 			FRDGUtils::AppendPassTextureBarriers(FurBarrier, FurOm.DeclaredTextureBarriers);

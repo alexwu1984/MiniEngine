@@ -348,7 +348,7 @@ namespace Engine
 		return {
 			"TAA",
 			{
-				{ "SceneColorWithBloom", SourceTexture },
+				{ "SceneColor", SourceTexture },
 				{ "MotionVector", [SceneTextures = SceneTextures]() { return SceneTextures->GetMotionVector(); } },
 				{ "Depth", [SceneTextures = SceneTextures]() { return SceneTextures->GetDepth(); } }
 			},

@@ -6,6 +6,7 @@
 
 #include "ShaderUtils.hlsl"
 #include "PerFrameStruct.hlsl"
+#include "MotionVectorFromClip.hlsl"
 #include "GLTFPbrPass-IO.hlsl"
 
 #if defined(RHI_BINDLESS)
@@ -80,20 +81,6 @@ void GetPBRParams(VS_OUTPUT_SCENE Input, out float3 diffuseColor, out float3 spe
 	perceptualRoughness = clamp(perceptualRoughness, 0.0, 1.0);
 
 	alpha = baseColor.a;
-}
-
-float3 Calculate3DVelocity(float4 CurrentVelocity, float4 PreVelocity)
-{
-	float Wc = CurrentVelocity.w != 0.0 ? CurrentVelocity.w : 1e-8;
-	float Wp = PreVelocity.w != 0.0 ? PreVelocity.w : 1e-8;
-	float2 ScreenPos = CurrentVelocity.xy / Wc - myPerFrame.TemporalAAJitter.xy;
-	float2 PrevScreenPos = PreVelocity.xy / Wp - myPerFrame.TemporalAAJitter.zw;
-
-	float DeviceZ = CurrentVelocity.z / Wc;
-	float PrevDeviceZ = PreVelocity.z / Wp;
-
-	float3 Velocity = float3(ScreenPos - PrevScreenPos, DeviceZ - PrevDeviceZ);
-	return Velocity;
 }
 
 #endif // MINIENGINE_PBR_MATERIAL_SAMPLING_HLSL

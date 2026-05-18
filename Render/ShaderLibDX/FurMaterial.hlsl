@@ -1,6 +1,7 @@
 // Forward shell pass only: VS is FurPass-VS.hlsl (furVertexFactory); PS here. Inner fill uses PBRMaterial.hlsl.
 #include "FurPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
+#include "MotionVectorFromClip.hlsl"
 #include "ShaderUtils.hlsl"
 #include "HairShading.hlsl"
 
@@ -49,12 +50,14 @@ cbuffer cbPointShadow : register(b4)
 struct PS_OUTPUT_FWD
 {
 	float4 Color : SV_Target0;
+	float4 Velocity : SV_Target1;
 };
 
 PS_OUTPUT_FWD MainPS(VS_OUTPUT_FUR Input)
 {
 	PS_OUTPUT_FWD Output;
 	Output.Color = float4(0, 0, 0, 0);
+	Output.Velocity = float4(Calculate3DVelocity(Input.svCurrPosition, Input.svPrevPosition), 0.0);
 	const uint ClusterIdx = ClusterIndexFromPixel(Input.svPosition);
 
 	float3 BaseColor = sRGBToLinear(AlbedoMap.Sample(SampleLinear, Input.UV1).rgb);

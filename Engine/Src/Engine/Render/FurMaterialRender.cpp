@@ -86,11 +86,12 @@ namespace Engine
 		});
 	}
 
-	void FurMaterialRender::SetPipeLineState(RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
+	bool FurMaterialRender::SetPipeLineState(RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures)
 	{
-		PBRMaterialRender::SetPipeLineState(RHIContext, SceneTextures);
+		if (!PBRMaterialRender::SetPipeLineState(RHIContext, SceneTextures))
+			return false;
 		if (!SceneTextures)
-			return;
+			return false;
 
 		std::vector<std::shared_ptr<RHITexture2D>> Targets = {
 			SceneTextures->GetSceneColor(),
@@ -101,6 +102,7 @@ namespace Engine
 			SceneTextures->GetMaterialAuxBuffer(),
 		};
 		RHIContext.SetRenderTarget(Targets, SceneTextures->GetDepth());
+		return true;
 	}
 
 	std::wstring FurMaterialRender::GetShaderFileName() const
@@ -120,7 +122,8 @@ namespace Engine
 		if (!RenderParam.SceneTextures || !d->InnerBasePixelShader || !d->InnerBaseVertexShader)
 			return;
 		StoreRenderParam(RenderParam);
-		PBRMaterialRender::SetPipeLineState(RHIContext, RenderParam.SceneTextures);
+		if (!PBRMaterialRender::SetPipeLineState(RHIContext, RenderParam.SceneTextures))
+			return;
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = d->InnerBaseVertexShader;
 		Init.PixelShader = d->InnerBasePixelShader;
@@ -173,7 +176,7 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
 		Init.PixelShader = GetPBRPixelShader();
-		Init.BlendState = RHICachedStates::BlendTraditional;
+		Init.BlendState = RHICachedStates::BlendForwardColorAndVelocityMRT;
 		// Match deferred shell path: depth write on so successive shells test against the previous layer, not only the
 		// inner base. LessEqual + no-write leaves a single reference depth; extruded shells often end up "behind" that
 		// test and clip entirely (no visible fur).

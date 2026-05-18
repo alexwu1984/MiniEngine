@@ -28,6 +28,8 @@ namespace RenderCore
 
 		static std::shared_ptr<RHIBlendState> BlendDisable;
 		static std::shared_ptr<RHIBlendState> BlendTraditional;
+		/** RT0: translucent alpha blend; RT1: replace (motion vector, no alpha blend). */
+		static std::shared_ptr<RHIBlendState> BlendForwardColorAndVelocityMRT;
 		/** SrcAlpha * Src.RGB + InvSrcAlpha * Dst.RGB on RT0-RT5 (scene+MRT+MaterialAux); use for deferred translucency (e.g. fur shells). */
 		static std::shared_ptr<RHIBlendState> BlendDeferredTranslucentMRT;
 		static std::shared_ptr<RHIBlendState> BlendOnAlphaOff;

@@ -12,25 +12,34 @@ cbuffer CB0 : register(b0)
 {
     float4  Resolution;                     // width, height, 1/width, 1/height
     int     FrameIndex;
-    float3  Pad0;
+    float   ViewProjMotionBlend;            // CPU: |CurrVP - PrevVP| heuristic for roam camera cuts
+    float   VelocityRefMinDimension;        // tuning reference short side (CPU default 1080)
+    float   VelocityRejectMinPx;            // min reject threshold after scale
     float4  CurrentJitterPixels;
 }
 
 #define SPATIAL_WEIGHT_CATMULLROM 1
 #define LONGEST_VELOCITY_VECTOR_SAMPLES 0
 
-// Frostbite/UE4 (Karis): fixed feedback, variance clip in YCoCg, HDR-weighted accumulation.
+// Frostbite/UE4 (Karis): variance clip in YCoCg, HDR-weighted accumulation.
 static const float Exposure = 10.0f;
-static const float Feedback = 0.04f;
+// Static pixels: low feedback keeps TAA anti-aliasing. Motion uses velocityPixels blend (below).
+static const float Feedback = 0.08f;
 static const float VarianceGamma = 1.0f;
-static const float2 kVelocityRefResolution = float2(1920.0f, 1080.0f);
-static const float kVelocityRejectPixelsAtRef = 128.0f;
+// Pixel thresholds tuned at VelocityRefMinDimension (short side); scaled by actual min(width,height).
+static const float kVelocityRejectPixelsAtRef = 48.0f;
+static const float kVelocityFullCurrentPixels = 28.0f;
 
-// UE reactive mask: reduce current-frame weight on bright highlights (less firefly / specular pop).
-static const float ReactiveLumaThreshold = 0.45f;
-static const float ReactiveLumaScale = 6.0f;
-static const float ReactiveBlendSub = 0.28f;
-static const float ReactiveBlendMin = 0.02f;
+float TaaVelocityPixelScale()
+{
+    return min(Resolution.x, Resolution.y) / max(VelocityRefMinDimension, 1.0f);
+}
+
+// Reactive mask: specular / metal — use neighborhood max luma so thin highlights reject history.
+static const float ReactiveLumaThreshold = 0.22f;
+static const float ReactiveLumaScale = 9.0f;
+static const float ReactiveBlendSub = 0.42f;
+static const float ReactiveBlendMin = 0.10f;
 
 static const int2 SampleOffsets[9] =
 {
@@ -41,7 +50,7 @@ static const int2 SampleOffsets[9] =
 
 float Luma4(float3 Color)
 {
-    return Color.r;
+    return dot(Color, float3(0.2126, 0.7152, 0.0722));
 }
 
 float HdrWeight4(float3 Color, float ExposureValue)
@@ -176,29 +185,13 @@ float2 WeightedLerpFactors(float WeightA, float WeightB, float Blend)
     return float2(BlendA * RcpBlend, BlendB * RcpBlend);
 }
 
-float2 GetVelocity(int2 screenST)
+float2 VelocityPixelsFromBuffer(int2 sampleST)
 {
-    uint2 texDim;
-    DepthBuffer.GetDimensions(texDim.x, texDim.y);
-    const int2 maxST = int2(texDim) - 1;
+    return VelocityBuffer.Load(int3(sampleST, 0)).xy * (float2(0.5f, -0.5f) * Resolution.xy);
+}
 
-    float2 velocity = 0.0f.xx;
-#if LONGEST_VELOCITY_VECTOR_SAMPLES
-    const float2 offsets[8] = { float2(-1, -1), float2(-1, 0), float2(-1, 1), float2(0, 1), float2(1, 1), float2(1, 0), float2(1, -1), float2(0, -1) };
-    float currentLengthSq = 0.0f;
-    [unroll]
-    for (uint i = 0; i < 8; ++i)
-    {
-        const int2 sampleST = clamp(screenST + int2(offsets[i]), int2(0, 0), maxST);
-        const float2 neighborVelocity = VelocityBuffer.Load(int3(sampleST, 0)).xy;
-        const float sampleLengthSq = dot(neighborVelocity, neighborVelocity);
-        if (sampleLengthSq > currentLengthSq)
-        {
-            velocity = neighborVelocity;
-            currentLengthSq = sampleLengthSq;
-        }
-    }
-#else
+float2 GetVelocityFromClosestDepth(int2 screenST, int2 maxST)
+{
     int2 closestOffset = int2(0, 0);
     float closestDepth = 1.0f;
     for (int y = -1; y <= 1; ++y)
@@ -215,10 +208,40 @@ float2 GetVelocity(int2 screenST)
         }
     }
     const int2 velST = clamp(screenST + closestOffset, int2(0, 0), maxST);
-    velocity = VelocityBuffer.Load(int3(velST, 0)).xy;
-#endif
-    velocity *= float2(0.5f, -0.5f) * Resolution.xy;
+    return VelocityPixelsFromBuffer(velST);
+}
+
+float2 GetVelocity(int2 screenST)
+{
+    uint2 texDim;
+    DepthBuffer.GetDimensions(texDim.x, texDim.y);
+    const int2 maxST = int2(texDim) - 1;
+    screenST = clamp(screenST, int2(0, 0), maxST);
+
+#if LONGEST_VELOCITY_VECTOR_SAMPLES
+    const float2 offsets[8] = { float2(-1, -1), float2(-1, 0), float2(-1, 1), float2(0, 1), float2(1, 1), float2(1, 0), float2(1, -1), float2(0, -1) };
+    float2 velocity = 0.0f.xx;
+    float currentLengthSq = 0.0f;
+    [unroll]
+    for (uint i = 0; i < 8; ++i)
+    {
+        const int2 sampleST = clamp(screenST + int2(offsets[i]), int2(0, 0), maxST);
+        const float2 neighborVelocity = VelocityPixelsFromBuffer(sampleST);
+        const float sampleLengthSq = dot(neighborVelocity, neighborVelocity);
+        if (sampleLengthSq > currentLengthSq)
+        {
+            velocity = neighborVelocity;
+            currentLengthSq = sampleLengthSq;
+        }
+    }
     return velocity;
+#else
+    // Per-pixel GBuffer velocity (camera + object motion). Depth-based path only when center is unset.
+    float2 velocity = VelocityPixelsFromBuffer(screenST);
+    if (dot(velocity, velocity) < 1e-6f)
+        velocity = GetVelocityFromClosestDepth(screenST, maxST);
+    return velocity;
+#endif
 }
 
 [numthreads(8, 8, 1)]
@@ -242,8 +265,8 @@ void TAA_Main(
 
     const float2 velocity = GetVelocity(int2(screenST));
     const float velocityMagnitude = length(velocity);
-    float velocityRejectPx = kVelocityRejectPixelsAtRef * (length(Resolution.xy) / max(length(kVelocityRefResolution), 1.0f));
-    velocityRejectPx = max(velocityRejectPx, 24.0f);
+    const float velocityResScale = TaaVelocityPixelScale();
+    float velocityRejectPx = max(kVelocityRejectPixelsAtRef * velocityResScale, VelocityRejectMinPx);
     const float velocityNormalized = saturate(velocityMagnitude / max(velocityRejectPx, 1.0f));
     const float velocityConfidenceFactor = saturate(1.0f - velocityNormalized * velocityNormalized);
 
@@ -324,13 +347,22 @@ void TAA_Main(
     else
         prevColor = FilteredColor;
 
-    float blendFinal = Feedback * motionConfidence;
+      // Pixel-velocity-driven current weight: stationary scene stays smooth; camera motion drops history fast.
+    const float blendFromVelocity = saturate(velocityMagnitude / max(kVelocityFullCurrentPixels * velocityResScale, 1.0f));
+    float blendFinal = max(Feedback * motionConfidence, blendFromVelocity);
+    blendFinal = max(blendFinal, ViewProjMotionBlend);
     const float motionReject = 1.0f - motionConfidence;
-    blendFinal = lerp(blendFinal, 0.25f, motionReject);
+    blendFinal = lerp(blendFinal, 1.0f, motionReject);
 
     const float3 centerRgb = YCoCgToRGB(neighborhood[4]);
-    const float centerLin = Luminance(TaaToneCurveInv(centerRgb));
-    const float react = saturate((centerLin - ReactiveLumaThreshold) * ReactiveLumaScale);
+    float reactiveLin = Luminance(TaaToneCurveInv(centerRgb));
+    [unroll]
+    for (int ri = 0; ri < 9; ++ri)
+    {
+        const float3 nRgb = YCoCgToRGB(neighborhood[ri]);
+        reactiveLin = max(reactiveLin, Luminance(TaaToneCurveInv(nRgb)));
+    }
+    const float react = saturate((reactiveLin - ReactiveLumaThreshold) * ReactiveLumaScale);
     blendFinal = lerp(blendFinal, max(blendFinal - ReactiveBlendSub, ReactiveBlendMin), react);
     blendFinal = saturate(blendFinal);
 

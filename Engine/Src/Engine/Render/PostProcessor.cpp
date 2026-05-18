@@ -118,11 +118,10 @@ namespace Engine
 
 	struct PostProcessPassInputs
 	{
-		// SSR samples this texture at the reflected hit point.
-		// TAA can provide stable history; FXAA uses current scene color to avoid SSR/FXAA feedback.
+		// SSR samples this texture at the reflected hit point (TAA history when AA is TAA).
 		std::shared_ptr<RenderCore::RHITexture2D> SSRReflectionColor;
 
-		// Anti-aliasing runs after SSR and bloom have been composed into SceneColorWithBloom.
+		// TAA: lit SceneColor (pre-bloom). FXAA: SceneColorWithBloom after bloom composite.
 		std::shared_ptr<RenderCore::RHITexture2D> AntiAliasingColor;
 	};
 
@@ -271,15 +270,16 @@ namespace Engine
 		}
 
 		PostProcessPassInputs PassInputs;
-		PassInputs.AntiAliasingColor = SceneTextures->GetSceneColorWithBloom();
 		switch (d->AAType)
 		{
 		case EPostProcessorAAType::TAA:
+			PassInputs.AntiAliasingColor = SceneTextures->GetSceneColor();
 			PassInputs.SSRReflectionColor = d->TAA->GetHistoryBuffer();
 			if (!PassInputs.SSRReflectionColor)
 				PassInputs.SSRReflectionColor = SceneTextures->GetSceneColor();
 			break;
 		case EPostProcessorAAType::FXAA:
+			PassInputs.AntiAliasingColor = SceneTextures->GetSceneColorWithBloom();
 			PassInputs.SSRReflectionColor = SceneTextures->GetSceneColor();
 			break;
 		}
@@ -291,9 +291,12 @@ namespace Engine
 		}
 
 		const bool UseSSRComposite = d->EnableSSR && d->SSREffect && PassInputs.SSRReflectionColor;
+		if (d->AAType == EPostProcessorAAType::TAA)
+			BuildAAPasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData, PassInputs.AntiAliasingColor);
 		BuildSSRPasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData, PassInputs.SSRReflectionColor);
 		BuildBloomPasses(Graph, RHIContext, SceneTextures, ViewPort, UseSSRComposite);
-		BuildAAPasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData, PassInputs.AntiAliasingColor);
+		if (d->AAType == EPostProcessorAAType::FXAA)
+			BuildAAPasses(Graph, RHIContext, SceneTextures, ViewPort, ViewData, PassInputs.AntiAliasingColor);
 		BuildTonemappingPass(Graph, RHIContext, SceneTextures, ViewPort);
 	}
 
@@ -376,12 +379,22 @@ namespace Engine
 											 std::shared_ptr<RenderCore::RHIViewPort> ViewPort)
 	{
 		C_P(PostProcessor);
-		const std::string tonemapInput = (d->AAType == EPostProcessorAAType::FXAA && d->FXaa) ? "FXAAResult" : "SceneColor";
+		const bool bFxaaTonemap = d->AAType == EPostProcessorAAType::FXAA && d->FXaa;
+		// TAA path: bloom composites into SceneColorWithBloom after TAA; FXAA path uses FXAAResult.
+		const bool bBloomCompositeTonemap = !bFxaaTonemap && d->BloomEffect && SceneTextures->GetSceneColorWithBloom();
+		const std::string tonemapInput = bFxaaTonemap ? "FXAAResult" : (bBloomCompositeTonemap ? "SceneColorWithBloom" : "SceneColor");
 		Graph.AddPass(d->Tonemapping->BuildDesc(
 			RHIContext,
 			SceneTextures,
 			ViewPort,
-			[d, SceneTextures]() { return d->AAType == EPostProcessorAAType::FXAA && d->FXaa ? d->FXaa->GetResult() : SceneTextures->GetSceneColor(); },
+			[d, SceneTextures, bFxaaTonemap, bBloomCompositeTonemap]()
+			{
+				if (bFxaaTonemap)
+					return d->FXaa->GetResult();
+				if (bBloomCompositeTonemap)
+					return SceneTextures->GetSceneColorWithBloom();
+				return SceneTextures->GetSceneColor();
+			},
 			tonemapInput));
 	}
 

@@ -39,7 +39,8 @@ namespace Engine
 		std::shared_ptr<RenderCore::RHIPixelShader> GetPBRPixelShader() const;
 		std::shared_ptr<MaterialBase> GetPBRMeshMaterial() const;
 	protected:
-		virtual void SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures);
+		/** Returns false when VS/PS failed to compile — caller must skip draw. */
+		virtual bool SetPipeLineState(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures);
 
 		void RefreshIBLMipAndRebindPerFrame(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 		void BindDeferredBaseMaterialTextures(RenderCore::RHICommandContext& RHIContext);

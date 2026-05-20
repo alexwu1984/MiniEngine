@@ -2,6 +2,7 @@
 #include "core/inc.h"
 #include "core/event.h"
 #include "core/color.h"
+#include "Render/GBufferVisualization.h"
 #include "Render/RDGBuilder.h"
 #include "tinygltf/json.h"
 
@@ -74,6 +75,9 @@ namespace Engine
 
 		/** Thread-safe copy of last completed frame's RDG pass CPU Encode timings (see HUD disclaimer). */
 		void GetLastFramePassCpuTimings(std::vector<FRDGPassCpuTiming>& Out) const;
+
+		FGBufferVisualizationSettings& GetGBufferVisualizationSettings();
+		const FGBufferVisualizationSettings& GetGBufferVisualizationSettings() const;
 	private:
 		/** Game thread: gather views/primitives, enqueue FSceneRenderPacket for SceneRenderer::ExecuteFrame (no per-tick Flush). */
 		void SubmitSceneForRendering(float DeltaTime);

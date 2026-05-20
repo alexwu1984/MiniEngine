@@ -498,27 +498,14 @@ namespace Engine
 			RasterBarrierSrc.Outputs = FRDGDeferredLightingPass::GatherRasterPassOutputs(SceneTextures);
 			FRDGUtils::AppendPassTextureBarriers(RasterBarrierSrc, RasterOmDesc.DeclaredTextureBarriers);
 		}
-		auto pushSrv2d = [&RasterOmDesc](const std::shared_ptr<RHITexture2D>& Tex) {
-			if (!Tex)
-				return;
-			RasterOmDesc.DeclaredTextureBarriers.push_back({ Tex, FRDGResourceAccess::SRV, FRDGAllSubresources, {} });
-		};
-		auto pushSrvCube = [&RasterOmDesc](const std::shared_ptr<RHITextureCube>& Cube) {
-			if (!Cube)
-				return;
-			FRDGTextureBarrierDesc B;
-			B.TextureCube = Cube;
-			B.Access = FRDGResourceAccess::SRV;
-			RasterOmDesc.DeclaredTextureBarriers.push_back(std::move(B));
-		};
-		pushSrvCube(irrCube);
-		pushSrvCube(specCube);
-		pushSrv2d(brdfLut);
-		pushSrv2d(shadowSrvTex);
-		pushSrv2d(materialAuxSrv);
-		pushSrvCube(pointShadowSrv);
-		pushSrv2d(spotShadowSrv);
-		pushSrv2d(groundEnvSrv);
+		FRDGUtils::AppendDeclaredTextureCubeSrv(RasterOmDesc.DeclaredTextureBarriers, irrCube);
+		FRDGUtils::AppendDeclaredTextureCubeSrv(RasterOmDesc.DeclaredTextureBarriers, specCube);
+		FRDGUtils::AppendDeclaredTexture2DSrv(RasterOmDesc.DeclaredTextureBarriers, brdfLut);
+		FRDGUtils::AppendDeclaredTexture2DSrv(RasterOmDesc.DeclaredTextureBarriers, shadowSrvTex);
+		FRDGUtils::AppendDeclaredTexture2DSrv(RasterOmDesc.DeclaredTextureBarriers, materialAuxSrv);
+		FRDGUtils::AppendDeclaredTextureCubeSrv(RasterOmDesc.DeclaredTextureBarriers, pointShadowSrv);
+		FRDGUtils::AppendDeclaredTexture2DSrv(RasterOmDesc.DeclaredTextureBarriers, spotShadowSrv);
+		FRDGUtils::AppendDeclaredTexture2DSrv(RasterOmDesc.DeclaredTextureBarriers, groundEnvSrv);
 
 		if (ClusterLightOffsetCountBuffer)
 			RasterOmDesc.DeclaredStructuredBufferBarriers.push_back({ ClusterLightOffsetCountBuffer, FRDGResourceAccess::SRV, false });

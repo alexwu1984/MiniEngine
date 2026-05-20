@@ -85,6 +85,7 @@ set(Engine_Render_SceneRendering_Source
 	Src/Engine/Render/SceneRendering/SceneViewData.cpp
 	Src/Engine/Render/SceneRendering/SceneViewFamily.cpp
 	Src/Engine/Render/SceneRendering/TranslucentMeshSorter.cpp
+	Src/Engine/Render/GBufferVisualizationPass.cpp
 )
 file(GLOB Engine_Material_Source CONFIGURE_DEPENDS Src/Engine/Material/*.cpp)
 file(GLOB Engine_Procedural_Source CONFIGURE_DEPENDS Src/Engine/Procedural/*.cpp)

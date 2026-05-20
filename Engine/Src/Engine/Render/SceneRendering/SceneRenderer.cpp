@@ -10,6 +10,7 @@
 #include "Render/RDGBuilder.h"
 #include "Render/RDGUtils.h"
 #include "Render/SceneRendering/RDGDeferredLightingPass.h"
+#include "Render/GBufferVisualization.h"
 #include "Render/SceneRendering/DeferredLightingPass.h"
 #include "Render/SceneRendering/DeferredShadingBasePassRenderer.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
@@ -371,6 +372,29 @@ namespace Engine
 				}});
 		}
 
+		const bool bDeferredLightingPath = d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit;
+		const EGBufferVisualizeMode gbufferVisMode = d->GBufferVisualizationSettings.Mode;
+		const bool bScheduleGBufferVisualization =
+			bDeferredLightingPath && d->GBufferVisualization && gbufferVisMode != EGBufferVisualizeMode::None;
+
+		if (bScheduleGBufferVisualization)
+		{
+			Graph.AddPass(FRDGPassDescriptor{
+				"GBufferVisualization",
+				{},
+				{},
+				[d, CommandContext, SceneTextures, ViewConst, gbufferVisMode]()
+				{
+					if (!d->GBufferVisualization || !SceneTextures || !ViewConst)
+						return;
+					d->GBufferVisualization->Execute(*CommandContext, SceneTextures, *ViewConst, gbufferVisMode);
+				},
+				true,
+				RDG_Raster,
+				ERDGPassQueue::Graphics,
+				false});
+		}
+
 		d->PostProcess->AddFramePasses(Graph, *CommandContext, d->SceneTextures, d->MainViewPort, ViewConst);
 
 		Graph.AddPass(FRDGPassDescriptor{
@@ -453,12 +477,19 @@ namespace Engine
 			}
 		}
 
-		if (d->DeferredLighting && SceneTextures && ViewConst && !ViewConst->bUnlit)
+		if (bDeferredLightingPath)
 		{
 			Graph.AddPassDependency("BuildGpuLightLists", FRDGDeferredLightingPass::PassNameRaster);
 			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
 			Graph.AddPassDependency("RenderTranslucentForward", "RenderFurForward");
-			Graph.AddPassDependency("RenderFurForward", "Tonemapping");
+			const char* firstPostPass = d->PostProcess ? d->PostProcess->GetFirstPostProcessPassName() : "Tonemapping";
+			if (bScheduleGBufferVisualization)
+			{
+				Graph.AddPassDependency("RenderFurForward", "GBufferVisualization");
+				Graph.AddPassDependency("GBufferVisualization", firstPostPass);
+			}
+			else
+				Graph.AddPassDependency("RenderFurForward", firstPostPass);
 			// Cluster/tile CS writes the SRVs consumed by deferred + forward passes — keep the dispatch before those draws.
 			Graph.AddPassDependency("BuildGpuLightLists", "RenderTranslucentForward");
 			Graph.AddPassDependency("BuildGpuLightLists", "RenderFurForward");

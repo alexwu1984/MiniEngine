@@ -18,6 +18,7 @@
 #include "Render/RDGBuilder.h"
 #include "Render/SceneTextures.h"
 #include "Render/RenderTexturePool.h"
+#include "Render/GBufferVisualization.h"
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/Shadow/ShadowProjectorTypes.h"
 #include "Scene/Component.h"
@@ -151,6 +152,11 @@ namespace Engine
 				dLife->DeferredLighting->InitResource();
 				const double MsDeferredLighting = Wall.split_ms();
 
+				if (!dLife->GBufferVisualization)
+					dLife->GBufferVisualization = std::make_shared<FGBufferVisualizationPass>(RHI);
+				dLife->GBufferVisualization->InitResource();
+				const double MsGBufferVis = Wall.split_ms();
+
 				dLife->IsInit = true;
 				const double MsTotal = Wall.total_ms();
 				if (core::perf::ShouldEmitPerfInfLogs())
@@ -158,7 +164,7 @@ namespace Engine
 					core::inf() << core::perf::hdr(core::perf::kRenderRt, "WorldSceneRenderInit") << "total_ms=" << MsTotal << " skylight_env_ms=" << MsSkylightEnv
 								<< " post_process_ms=" << MsPostProcess << " skylight_pass_ms=" << MsSkyLightPass
 								<< " scene_textures_ms=" << MsSceneTextures << " shadow_ms=" << MsShadow << " shadow_debug_ms=" << MsShadowDebug
-								<< " deferred_lighting_ms=" << MsDeferredLighting << "\n";
+								<< " deferred_lighting_ms=" << MsDeferredLighting << " gbuffer_vis_ms=" << MsGBufferVis << "\n";
 				}
 			});
 	}
@@ -334,6 +340,16 @@ namespace Engine
 			return;
 		std::lock_guard<std::mutex> Lock(d_ptr->PassCpuTimingMutex);
 		Out = d_ptr->LastFramePassCpuTimingsForGui;
+	}
+
+	FGBufferVisualizationSettings& FWorldSceneRender::GetGBufferVisualizationSettings()
+	{
+		return d_ptr->GBufferVisualizationSettings;
+	}
+
+	const FGBufferVisualizationSettings& FWorldSceneRender::GetGBufferVisualizationSettings() const
+	{
+		return d_ptr->GBufferVisualizationSettings;
 	}
 
 	void FWorldSceneRender::EndGameThreadFrameSync(bool bFlushRenderQueue, bool bGpuIdleWait)

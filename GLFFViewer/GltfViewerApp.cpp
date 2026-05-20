@@ -13,6 +13,7 @@
 #include "Scene/CameraComponent.h"
 #include "App/AppWindow.h"
 #include "Render/WorldSceneRender.h"
+#include "Render/GBufferVisualization.h"
 #include "Render/MaterialPreFrame.h"
 #include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
 #include "RHI/DynamicRHI.h"
@@ -178,7 +179,8 @@ void GltfViewApp::BindImGuiToSceneRender()
 				return;
 
 			ImGui::SetNextWindowPos(ImVec2(1, 1));
-			if (ImGui::Begin("Light", 0, ImGuiWindowFlags_::ImGuiWindowFlags_AlwaysAutoResize))
+			ImGui::SetNextWindowSize(ImVec2(420, 520), ImGuiCond_FirstUseEver);
+			if (ImGui::Begin("GLTF Viewer", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 			{
 				if (!ModelLabelsUtf8.empty())
 				{
@@ -451,64 +453,90 @@ void GltfViewApp::BindImGuiToSceneRender()
 					if (modelUiIdx == 0)
 						ImGui::TextDisabled("(No models with EnableRotationUI=true)");
 				}
-			}
 
-			ImGui::End();
-
-			ImGui::SetNextWindowPos(ImVec2(380, 1), ImGuiCond_FirstUseEver);
-			ImGui::SetNextWindowSize(ImVec2(480, 360), ImGuiCond_FirstUseEver);
-			if (ImGui::Begin("Pipeline", nullptr))
-			{
-				const ImGuiIO& io = ImGui::GetIO();
-				ImGui::Text("%.1f FPS   %.3f ms/frame", io.Framerate, static_cast<double>(io.DeltaTime * 1000.0f));
-				ImGui::Separator();
-
-				auto srPipe = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr;
-				if (Engine::GEngine)
+				if (ImGui::CollapsingHeader("GBuffer", ImGuiTreeNodeFlags_DefaultOpen))
 				{
-					const char* apiLabel =
-						Engine::GEngine->GetInitRHIApiType() == RenderCore::RHIAPIType::E_D3D11 ? "D3D11" : "D3D12";
-					ImGui::TextUnformatted(apiLabel);
-				}
-				ImGui::TextDisabled("CPU: render-thread wall clock in Execute(). GPU: prior-frame segment (timestamp queries).");
-				if (srPipe)
-				{
-					std::vector<Engine::FRDGPassCpuTiming> rows;
-					srPipe->GetLastFramePassCpuTimings(rows);
-					double sumCpu = 0.0;
-					double sumGpu = 0.0;
-					for (const auto& r : rows)
+					auto srVis = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr;
+					if (!srVis)
 					{
-						sumCpu += r.MsCpu;
-						if (r.MsGpu >= 0.0)
-							sumGpu += r.MsGpu;
+						ImGui::TextDisabled("(Scene render not ready)");
 					}
-					ImGui::Text("RDG sum CPU: %.3f ms   GPU (prev frame): %.3f ms", sumCpu, sumGpu);
-					// Fixed-column rows (no BeginTable): nested table clip rects were misaligned with our DX11/DX12 present path.
-					const float colCpu = 260.f;
-					const float colGpu = 360.f;
-					ImGui::Separator();
-					ImGui::TextUnformatted("Pass");
-					ImGui::SameLine(colCpu);
-					ImGui::TextUnformatted("ms CPU");
-					ImGui::SameLine(colGpu);
-					ImGui::TextUnformatted("ms GPU");
-					ImGui::Separator();
-					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.f, 3.f));
-					for (const auto& r : rows)
+					else
 					{
-						ImGui::TextUnformatted(r.Name.c_str());
+						Engine::FGBufferVisualizationSettings& vis = srVis->GetGBufferVisualizationSettings();
+						static const char* kGBufferModeLabels[] = {
+							"Off",
+							"Base Color (pre-lighting)",
+							"World Normal",
+							"Metallic",
+							"Roughness",
+							"Ambient Occlusion",
+							"Emissive",
+							"Depth (linear view Z)",
+							"Shading Model ID",
+							"Lit Scene Color",
+						};
+						int mode = static_cast<int>(vis.Mode);
+						const int modeCount = static_cast<int>(sizeof(kGBufferModeLabels) / sizeof(kGBufferModeLabels[0]));
+						if (ImGui::Combo("Buffer", &mode, kGBufferModeLabels, modeCount))
+							vis.Mode = static_cast<Engine::EGBufferVisualizeMode>(mode);
+						ImGui::TextDisabled("Replaces viewport SceneColor before post-process (RDG pass GBufferVisualization).");
+					}
+				}
+
+				if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					const ImGuiIO& io = ImGui::GetIO();
+					ImGui::Text("%.1f FPS   %.3f ms/frame", io.Framerate, static_cast<double>(io.DeltaTime * 1000.0f));
+					ImGui::Separator();
+
+					auto srPipe = Engine::GEngine ? Engine::GEngine->GetSceneRender() : nullptr;
+					if (Engine::GEngine)
+					{
+						const char* apiLabel =
+							Engine::GEngine->GetInitRHIApiType() == RenderCore::RHIAPIType::E_D3D11 ? "D3D11" : "D3D12";
+						ImGui::TextUnformatted(apiLabel);
+					}
+					ImGui::TextDisabled("CPU: render-thread wall clock in Execute(). GPU: prior-frame segment (timestamp queries).");
+					if (srPipe)
+					{
+						std::vector<Engine::FRDGPassCpuTiming> rows;
+						srPipe->GetLastFramePassCpuTimings(rows);
+						double sumCpu = 0.0;
+						double sumGpu = 0.0;
+						for (const auto& r : rows)
+						{
+							sumCpu += r.MsCpu;
+							if (r.MsGpu >= 0.0)
+								sumGpu += r.MsGpu;
+						}
+						ImGui::Text("RDG sum CPU: %.3f ms   GPU (prev frame): %.3f ms", sumCpu, sumGpu);
+						const float colCpu = 260.f;
+						const float colGpu = 360.f;
+						ImGui::Separator();
+						ImGui::TextUnformatted("Pass");
 						ImGui::SameLine(colCpu);
-						ImGui::Text("%.3f", r.MsCpu);
+						ImGui::TextUnformatted("ms CPU");
 						ImGui::SameLine(colGpu);
-						if (r.MsGpu >= 0.0)
-							ImGui::Text("%.3f", r.MsGpu);
-						else
-							ImGui::TextDisabled("-");
+						ImGui::TextUnformatted("ms GPU");
+						ImGui::Separator();
+						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.f, 3.f));
+						for (const auto& r : rows)
+						{
+							ImGui::TextUnformatted(r.Name.c_str());
+							ImGui::SameLine(colCpu);
+							ImGui::Text("%.3f", r.MsCpu);
+							ImGui::SameLine(colGpu);
+							if (r.MsGpu >= 0.0)
+								ImGui::Text("%.3f", r.MsGpu);
+							else
+								ImGui::TextDisabled("-");
+						}
+						ImGui::PopStyleVar();
 					}
-					ImGui::PopStyleVar();
 				}
 			}
+
 			ImGui::End();
 
 		},

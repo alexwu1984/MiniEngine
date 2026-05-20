@@ -43,7 +43,7 @@ flowchart TB
 | 顺序 | Pass 名 | 条件 | 主要工作 |
 |------|---------|------|----------|
 | 1 | `UpdateSkyLightCaptures` | 有 Skylight | IBL 预计算 / Cubemap 捕获 |
-| 2 | `Shadow` | 有阴影投射体或阴影光 | CSM / 点光 / 聚光 depth |
+| 2 | `Shadow` | 有阴影投射体或阴影光 | CSM / 点光 / 聚光 depth（详见 [`Shadow-Rendering.md`](Shadow-Rendering.md)） |
 | 3 | `ClearSceneTextures` | 始终 | 清空 GBuffer + Depth，绑定 MRT |
 | 4 | `RenderSky` | 始终 | 天空 / 程序化太阳 |
 | 5 | `RenderBasePass` | 有网格 | 不透明 GBuffer |
@@ -53,6 +53,8 @@ flowchart TB
 | 9 | `DeferredLighting` | 同上 | 全屏延迟光照 PS |
 | 10 | `RenderTranslucentForward` | 同上 | 前向半透明 + 光照 |
 | 11 | `RenderFurForward` | 同上 | Fur 壳层前向 |
+
+光照 Pass 细节（GBuffer、Cluster、IBL、前向共享 SRV）见 [`Lighting-Rendering.md`](Lighting-Rendering.md)。
 | 12+ | 后处理 | 见下节 | SSR / Bloom / AA / Tonemap |
 | · | `ShadowDebugWire` | 始终登记 | 阴影调试线框 |
 | 末 | `UIPresent` | Sink | ImGui + Present + 释放 RDG 瞬态 UAV |
@@ -79,10 +81,10 @@ flowchart LR
     FU[RenderFurForward]
   end
 
-  subgraph post [后处理 PostProcessor]
+  subgraph post [后处理 PostProcessor TAA 路径]
+    AA[TAA + Sharpener]
     SSR[SSR / ApplySSR]
     BL[Bloom / ApplyBloom]
-    AA[TAA 或 FXAA]
     TM[Tonemapping]
   end
 
@@ -94,7 +96,7 @@ flowchart LR
   CL --> SKY --> BP
   BP --> CP --> GPU
   GPU --> DL --> TF --> FU
-  FU --> SSR --> BL --> AA --> TM --> SD --> UI
+  FU --> AA --> SSR --> BL --> TM --> SD --> UI
 ```
 
 显式 `AddPassDependency`（与资源边叠加）：
@@ -108,39 +110,35 @@ flowchart LR
 
 ## 4. 后处理子图（PostProcessor::AddFramePasses）
 
-由 `SceneRenderer` 在同一 `FRDGBuilder` 上调用，Pass 插入在 Fur 与 ShadowDebug 之间（AddPass 顺序在 Tonemapping 之前）。
+由 `SceneRenderer` 在同一 `FRDGBuilder` 上调用，Pass 插入在 Fur 与 ShadowDebug 之间。  
+**TAA 路径**下 `AddFramePasses` 登记顺序为：**TAA → SSR → Bloom → Tonemapping**（与 FXAA 路径不同，FXAA 在 Bloom 之后）。算法细节见 [`TAA-Algorithm.md`](TAA-Algorithm.md)。
 
 ```mermaid
 flowchart TB
-  IN["SceneColor 或 SceneColorWithSSR"]
+  SC["SceneColor 已光照"]
+  TAA[TAA + Sharpener<br/>写回 SceneColor]
   SSR1{EnableSSR?}
   SSR[SSR]
   ASSR[ApplySSR]
-  BL[Bloom<br/>RDG 瞬态 UAV Chain0-4]
+  BL[Bloom]
   ABL[ApplyBloom]
-  AA{TAA / FXAA}
-  TAA[TAA]
-  FX[FXAA]
   TM[Tonemapping]
-  OUT[SceneColor 写入 tonemap 结果]
 
-  IN --> SSR1
+  SC --> TAA
+  TAA --> SSR1
   SSR1 -->|是| SSR --> ASSR --> BL
   SSR1 -->|否| BL
-  BL --> ABL --> AA
-  AA -->|TAA| TAA --> TM
-  AA -->|FXAA| FX --> TM
-  TM --> OUT
+  BL --> ABL --> TM
 ```
 
 | Pass | 资源依赖（RDG 名） |
 |------|-------------------|
-| `SSR` | 读 `ReflectionColor`，写 SSR buffer |
-| `ApplySSR` | 读 SSR + SceneColor → `SceneColorWithSSR` |
+| `TAA` | 读 `SceneColor`、`MotionVector`、`Depth`、历史 `TemporalColor`；写历史 + `SceneColor`（锐化） |
+| `SSR` | 读 `ReflectionColor`（TAA 历史）、GBuffer；写 SSR buffer |
+| `ApplySSR` | 读 SSR + `SceneColor` → `SceneColorWithSSR` |
 | `Bloom` | 读 `SceneColor` 或 `SceneColorWithSSR`，写 `BloomResult`（瞬态 UAV） |
 | `ApplyBloom` | 合成 → `SceneColorWithBloom` |
-| `TAA` / `FXAA` | 读 anti-aliasing 源，写历史或 `FXAAResult` |
-| `Tonemapping` | 读 `SceneColor` 或 `FXAAResult`，写 `SceneColor` |
+| `Tonemapping` | 读 `SceneColorWithBloom`（TAA 路径），写 `SceneColor` |
 
 ---
 

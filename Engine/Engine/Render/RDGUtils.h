@@ -37,6 +37,24 @@ struct FRDGUtils
 
 	static void AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out);
 
+	/** One FRDG pass slot (named resolve + access); no-op if Tex is null or Access is Unknown. */
+	static void AddPassTexture2D(std::vector<FRDGPassResource>& Slots, const char* Name, const std::shared_ptr<RenderCore::RHITexture2D>& Tex,
+								 FRDGResourceAccess Access);
+
+	static void AddPassTextureSrv(std::vector<FRDGPassResource>& Inputs, const char* Name, const std::shared_ptr<RenderCore::RHITexture2D>& Tex)
+	{
+		AddPassTexture2D(Inputs, Name, Tex, FRDGResourceAccess::SRV);
+	}
+
+	static void AddPassTextureRtv(std::vector<FRDGPassResource>& Outputs, const char* Name, const std::shared_ptr<RenderCore::RHITexture2D>& Tex)
+	{
+		AddPassTexture2D(Outputs, Name, Tex, FRDGResourceAccess::RTV);
+	}
+
+	/** Append a 2D / cube SRV transition directly on FRHIRenderPassDesc (no FRDG pass IO). */
+	static void AppendDeclaredTexture2DSrv(std::vector<RenderCore::FRDGTextureBarrierDesc>& Out, const std::shared_ptr<RenderCore::RHITexture2D>& Tex);
+	static void AppendDeclaredTextureCubeSrv(std::vector<RenderCore::FRDGTextureBarrierDesc>& Out, const std::shared_ptr<RenderCore::RHITextureCube>& Cube);
+
 	/** Merge fullscreen-style SRV inputs + optional RTV output barriers into Om (appends to Om.DeclaredTextureBarriers). */
 	static void AppendFullscreenDeclaredTextureBarriers(RenderCore::FRHIRenderPassDesc& Om,
 														std::initializer_list<std::pair<const char*, std::shared_ptr<RenderCore::RHITexture2D>>> SrvTextures,
@@ -117,6 +135,40 @@ inline void FRDGUtils::RHICmdListSetViewportFromTexture(RenderCore::RHICommandCo
 			RHICmdList.RHIRenderPassApplyDeclaredTextureBarriers(Barriers.data(), Barriers.size(), RenderCore::ERDGPassQueue::Graphics);
 	}
 
+	inline void FRDGUtils::AddPassTexture2D(std::vector<FRDGPassResource>& Slots, const char* Name, const std::shared_ptr<RenderCore::RHITexture2D>& Tex,
+										   FRDGResourceAccess Access)
+	{
+		if (!Tex || Access == FRDGResourceAccess::Unknown)
+			return;
+		std::shared_ptr<RenderCore::RHITexture2D> Cap = Tex;
+		Slots.push_back({
+			Name ? std::string(Name) : std::string("Texture"),
+			[Cap]() { return Cap; },
+			true,
+			Access,
+		});
+	}
+
+	inline void FRDGUtils::AppendDeclaredTexture2DSrv(std::vector<RenderCore::FRDGTextureBarrierDesc>& Out,
+														const std::shared_ptr<RenderCore::RHITexture2D>& Tex)
+	{
+		if (!Tex)
+			return;
+		Out.push_back({ Tex, RenderCore::FRDGResourceAccess::SRV, RenderCore::FRDGAllSubresources, {} });
+	}
+
+	inline void FRDGUtils::AppendDeclaredTextureCubeSrv(std::vector<RenderCore::FRDGTextureBarrierDesc>& Out,
+														  const std::shared_ptr<RenderCore::RHITextureCube>& Cube)
+	{
+		if (!Cube)
+			return;
+		RenderCore::FRDGTextureBarrierDesc B{};
+		B.TextureCube = Cube;
+		B.Access = RenderCore::FRDGResourceAccess::SRV;
+		B.SubresourceIndex = RenderCore::FRDGAllSubresources;
+		Out.push_back(std::move(B));
+	}
+
 	inline void FRDGUtils::AppendPassTextureBarriers(const FRDGPassDescriptor& Pass, std::vector<RenderCore::FRDGTextureBarrierDesc>& Out)
 	{
 #ifdef _DEBUG
@@ -150,19 +202,10 @@ inline void FRDGUtils::AppendFullscreenDeclaredTextureBarriers(
 	std::shared_ptr<RenderCore::RHITexture2D> RtvTexture)
 {
 	FRDGPassDescriptor Tmp{};
-	using A = FRDGResourceAccess;
 	for (const auto& Slot : SrvTextures)
-	{
-		if (!Slot.second)
-			continue;
-		std::shared_ptr<RenderCore::RHITexture2D> Cap = Slot.second;
-		Tmp.Inputs.push_back({ Slot.first ? std::string(Slot.first) : std::string("Srv"), [Cap]() { return Cap; }, true, A::SRV });
-	}
+		AddPassTextureSrv(Tmp.Inputs, Slot.first, Slot.second);
 	if (RtvTexture)
-	{
-		std::shared_ptr<RenderCore::RHITexture2D> Rt = RtvTexture;
-		Tmp.Outputs.push_back({ "FullscreenRT", [Rt]() { return Rt; }, true, A::RTV });
-	}
+		AddPassTextureRtv(Tmp.Outputs, "FullscreenRT", RtvTexture);
 	FRDGUtils::AppendPassTextureBarriers(Tmp, Om.DeclaredTextureBarriers);
 }
 } // namespace Engine

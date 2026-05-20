@@ -45,6 +45,9 @@ namespace Engine
 		 */
 		bool WantsHaltonProjectionJitterForMainPass() const;
 
+		/** First pass registered by AddFramePasses (for scene-graph scheduling edges). */
+		const char* GetFirstPostProcessPassName() const;
+
 	private:
 		void BuildSSRPasses(FRDGBuilder& Graph, RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
 							std::shared_ptr<RenderCore::RHIViewPort> ViewPort, std::shared_ptr<const FSceneViewData> ViewData,

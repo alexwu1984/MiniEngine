@@ -418,4 +418,18 @@ namespace Engine
 		return d->AAType == EPostProcessorAAType::TAA;
 	}
 
+	const char* PostProcessor::GetFirstPostProcessPassName() const
+	{
+		C_P(const PostProcessor);
+		if (d->AAType == EPostProcessorAAType::TAA)
+			return "TAA";
+		if (d->EnableSSR && d->SSREffect)
+			return "SSR";
+		if (d->BloomEffect)
+			return "Bloom";
+		if (d->AAType == EPostProcessorAAType::FXAA && d->FXaa)
+			return "FXAA";
+		return "Tonemapping";
+	}
+
 }

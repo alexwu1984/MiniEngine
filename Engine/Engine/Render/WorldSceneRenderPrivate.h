@@ -4,6 +4,7 @@
 #include "math/vector3.h"
 #include "Render/RDGBuilder.h"
 #include "Render/SceneRendering/SceneRenderer.h"
+#include "Render/GBufferVisualization.h"
 #include "Render/ShadowDebugWireRenderer.h"
 
 namespace RenderCore
@@ -32,6 +33,8 @@ namespace Engine
 		std::shared_ptr<ShadowRenderPass> ShadowRender;
 		std::shared_ptr<FShadowDebugWireRenderer> ShadowDebugWire;
 		std::shared_ptr<DeferredLightingPass> DeferredLighting;
+		std::shared_ptr<FGBufferVisualizationPass> GBufferVisualization;
+		FGBufferVisualizationSettings GBufferVisualizationSettings{};
 		std::atomic_bool IsInit{ false };
 		core::FLinearColor Color = core::FLinearColor::Blue;
 		FRDGCompileParameters RDGCompileParams{};

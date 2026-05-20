@@ -1,12 +1,13 @@
 ﻿#pragma once
+#include "core/inc.h"
 #include "App/WindowsApp.h"
-#include "math/vector3.h"
+
+class GltfViewerEditorPanel;
 
 namespace Engine
 {
 	class GltfActor;
 	class SimplePostProcessor;
-	class World;
 }
 
 class GltfViewApp : public Engine::WindowApplication
@@ -32,5 +33,6 @@ private:
 	std::wstring ProcessDir;
 	std::vector<std::wstring> ModelFiles;
 	std::vector<std::string> ModelLabelsUtf8;
+	std::unique_ptr<GltfViewerEditorPanel> EditorPanel;
 	std::shared_ptr<Engine::SimplePostProcessor> _Demo;
 };

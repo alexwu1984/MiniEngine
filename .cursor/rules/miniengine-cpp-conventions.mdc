@@ -1,0 +1,29 @@
+---
+description: MiniEngine C++ — pimpl, core/inc.h, math::, encoding (always on)
+alwaysApply: true
+---
+
+# MiniEngine C++ 约定
+
+完整说明见 `.cursor/skills/miniengine-cpp-conventions/SKILL.md`。编写或修改 **Engine/**、**GLFFViewer/**、**Core/**、**Render/** 下 C++ 时必须遵守：
+
+## pimpl（*Private + d_ptr）
+
+- 公开 `.h`：前向声明 `FooPrivate`，成员 `FooPrivate* d_ptr = nullptr`；不暴露实现细节。
+- `.cpp`：定义 `struct FooPrivate`，构造 `new`、析构 `delete`，成员内 `C_P(Foo);` 后用 `d->`。
+- 参考：`GBufferVisualization.h`、`GBufferVisualizationPass.cpp`、`PostProcessor`。
+- 纯 UI/无 RHI 的薄类（如 `GltfViewerEditorPanel`）可不用 pimpl。
+
+## 头文件
+
+- **优先** `#include "core/inc.h"`，不要加 `<vector>`、`<memory>`、`<atomic>`、`<cmath>` 等零散 STL 头。
+- `.cpp` 第一行优先 `core/inc.h`；引擎类型用完整头（如 `Engine/Scene/Actor.h`）。
+- `GetWorld()` 等返回 `shared_ptr`，用 `auto` + `->`，勿当裸指针。
+
+## 数学
+
+- 用 `math::Sin/Cos/Atan2/Asin/Acos`、`math::Clamp/Max/Min`、`math::MATH_PI`，不用 `std::sin` / `#include <cmath>`。
+
+## 编码
+
+- C/C++：UTF-8 BOM + CRLF；HLSL：UTF-8 无 BOM（见 `.editorconfig`）。

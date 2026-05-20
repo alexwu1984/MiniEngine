@@ -5,6 +5,7 @@
 #include "RHI/RHIRenderPass.h"
 #include "Render/RDGUtils.h"
 #include "RHI/RHIShdader.h"
+#include "RHI/VertexDeclareConfig.h"
 #include "RHI/RHIPipeLineState.h"
 #include "RHI/RHICachedStates.h"
 #include "RHI/RHIShaderDefine.h"
@@ -274,10 +275,12 @@ namespace Engine
 		const std::wstring ShaderPath = core::process_directory().wstring() + L"/ShaderLibDX/ShadowDebugWire.hlsl";
 
 		RHIVertexDeclare Decl;
-		// Interleaved Pos+Color in one VB (slot 0). Separate slots left stale mesh normal VB (stride 12) vs float4 IL.
-		Decl.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false), 0u, 0u);
-		Decl.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float4, false), 0u,
-								static_cast<uint32_t>(offsetof(FShadowDebugWireVertex, Color)));
+		// Interleaved Pos+Color in one VB (both attributes read from input slot 0).
+		const FVertexDeclareElementSpec kWireDecl[] = {
+			{ 0, EVertexElementType::VET_Float3, 0u, 0u }, // Pos   : ATTRIBUTE0 @ start of struct
+			{ 1, EVertexElementType::VET_Float4, 0u, static_cast<uint32_t>(offsetof(FShadowDebugWireVertex, Color)) }, // Color : ATTRIBUTE1
+		};
+		BuildVertexDeclareFromSpec(kWireDecl, UE_ARRAY_COUNT(kWireDecl), Decl, false);
 
 		VertexShader = RHI->RHICreateVertexShader(ShaderPath, "VS", Decl, {});
 		PixelShader = RHI->RHICreatePixelShader(ShaderPath, "PS", {});

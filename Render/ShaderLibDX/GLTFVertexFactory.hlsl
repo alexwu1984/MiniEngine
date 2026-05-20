@@ -2,7 +2,7 @@
 #include "GLTFPbrPass-IO.hlsl"
 #include "PerFrameStruct.hlsl"
 
-// ATTRIBUTE indices match PBRMaterialRender / FShadowPassMeshDraw / FurMaterialRender InitShader:
+// ATTRIBUTE indices match Engine::BuildGltfSceneVertexDeclare (PBR / shadow / fur passes):
 // 0–2 pos/normal/UV, 3 tangent (always), 4–5 joints only when ID_SKINNING_MATRICES.
 struct VS_INPUT_SCENE
 {

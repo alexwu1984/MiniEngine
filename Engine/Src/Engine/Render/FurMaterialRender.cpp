@@ -1,4 +1,5 @@
 ﻿#include "Engine/Render/FurMaterialRender.h"
+#include "GltfModel/GltfSceneVertexDeclare.h"
 #include "RHI/DynamicRHI.h"
 #include "RHI/RHIShdader.h"
 #include "RHI/RHICachedStates.h"
@@ -64,20 +65,10 @@ namespace Engine
 			// Inner base: PBRMaterial.hlsl MainVS/MainPS (same macros as PBRMaterialRender::InitShader).
 
 			RHIVertexDeclare VertexDeclareRHI;
-			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(0, EVertexElementType::VET_Float3, false));
-			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(1, EVertexElementType::VET_Float3, false));
-			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(2, EVertexElementType::VET_Float2, false));
-			int32_t DeclIndex = 2;
-			VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
-			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
-			{
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
-				VertexDeclareRHI.AppendDeclareInput(VertexDeclareInput(++DeclIndex, EVertexElementType::VET_Float4, false));
-			}
+			BuildGltfSceneVertexDeclare(VtxFeat, VertexDeclareRHI);
 
 			std::vector<RHIShaderMacro> InnerMacros;
-			if (VtxFeat & MeshBufferVertexFeatures::Skinning)
-				InnerMacros.push_back({ "ID_SKINNING_MATRICES","2" });
+			AppendGltfSceneSkinningShaderMacros(VtxFeat, InnerMacros);
 			if (GetPBRMeshMaterial() && GetPBRMeshMaterial()->WantsRHIBindless() && RHI->GetRHIAPIType() == RHIAPIType::E_D3D12)
 				InnerMacros.push_back({ "RHI_BINDLESS", "1" });
 			const std::wstring PbrPath = ShaderRoot + L"PBRMaterial.hlsl";

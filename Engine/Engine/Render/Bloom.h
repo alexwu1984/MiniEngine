@@ -37,7 +37,7 @@ namespace Engine
 		// Drop UAV mips (e.g. after scene texture resize). Shaders stay valid.
 		void InvalidateTransientResources();
 		void Draw(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,
-				  const std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5>* ExternalBloomUavChain = nullptr);
+				  const std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5>& ExternalBloomUavChain);
 		std::shared_ptr<RenderCore::RHITexture2D> GetResult() const;
 	private:
 		BloomPrivate* d_ptr = nullptr;

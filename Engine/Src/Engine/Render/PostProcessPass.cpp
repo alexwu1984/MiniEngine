@@ -164,7 +164,7 @@ namespace Engine
 						 std::shared_ptr<Bloom> InBloomEffect,
 						 std::function<std::shared_ptr<RenderCore::RHITexture2D>()> InSourceTexture,
 						 std::string InSceneColorDependencyName,
-						 FRDGBuilder* InRDGForPooledBloomUavs)
+						 FRDGBuilder& InRDGForPooledBloomUavs)
 		: RHIContext(InRHIContext)
 		, SceneTextures(std::move(InSceneTextures))
 		, BloomEffect(std::move(InBloomEffect))
@@ -207,21 +207,11 @@ namespace Engine
 	{
 		UnbindGraphicsRenderTargets(RHIContext);
 		std::array<std::shared_ptr<RenderCore::RHIUnorderedAccessView>, 5> RdgBloomUavs{};
-		bool bUseRdgBloomUavs = false;
-		if (RDGForPooledBloomUavs)
+		for (int Idx = 0; Idx < 5; ++Idx)
 		{
-			bUseRdgBloomUavs = true;
-			for (int Idx = 0; Idx < 5; ++Idx)
-			{
-				RdgBloomUavs[(size_t)Idx] = RDGForPooledBloomUavs->GetTransientUAV("Bloom.Chain" + std::to_string(Idx));
-				if (!RdgBloomUavs[(size_t)Idx])
-					bUseRdgBloomUavs = false;
-			}
+			RdgBloomUavs[(size_t)Idx] = RDGForPooledBloomUavs.GetTransientUAV("Bloom.Chain" + std::to_string(Idx));
 		}
-		if (bUseRdgBloomUavs)
-			BloomEffect->Draw(RHIContext, SceneTextures, &RdgBloomUavs);
-		else
-			BloomEffect->Draw(RHIContext, SceneTextures, nullptr);
+		BloomEffect->Draw(RHIContext, SceneTextures, RdgBloomUavs);
 	}
 
 	RenderPassDesc ApplyBloomPass::BuildDesc(RenderCore::RHICommandContext& RHIContext, std::shared_ptr<FSceneTextures> SceneTextures,

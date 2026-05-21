@@ -74,7 +74,7 @@ namespace Engine
 				  std::shared_ptr<Bloom> BloomEffect,
 				  std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture,
 				  std::string SceneColorDependencyName,
-				  FRDGBuilder* RDGPooledUavs = nullptr);
+				  FRDGBuilder& RDGPooledUavs);
 
 		RenderPassDesc BuildDesc() const;
 
@@ -86,7 +86,7 @@ namespace Engine
 		std::shared_ptr<Bloom> BloomEffect;
 		std::function<std::shared_ptr<RenderCore::RHITexture2D>()> SourceTexture;
 		std::string SceneColorDependencyName;
-		FRDGBuilder* RDGForPooledBloomUavs = nullptr;
+		FRDGBuilder& RDGForPooledBloomUavs;
 	};
 
 	class ApplyBloomPass

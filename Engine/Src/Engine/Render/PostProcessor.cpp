@@ -338,7 +338,7 @@ namespace Engine
 			d->BloomEffect,
 			[SceneTextures, UseSSRComposite]() { return UseSSRComposite ? SceneTextures->GetSceneColorWithSSR() : SceneTextures->GetSceneColor(); },
 			bloomSceneInput,
-			&Graph);
+			Graph);
 		Graph.AddPass(BloomPassNode.BuildDesc());
 
 		Graph.AddPass(d->ApplyBloom->BuildDesc(

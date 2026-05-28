@@ -72,6 +72,7 @@ void GltfViewApp::BuildModelList()
 		L"Model4_fur.json",
 		L"old_bicycle.json",
 		L"dragon_dispersion.json",
+		L"alpha_blend_test.json",
 	};
 
 	ModelFiles.reserve(rel.size());

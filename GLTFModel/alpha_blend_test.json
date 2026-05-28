@@ -1,0 +1,37 @@
+{
+  "Evn": {
+    "Hdr": "ProceduralSky",
+    "AmbientStrength": 1.0,
+    "SunDirection": "0.2,0.85,0.48",
+    "DirectionalLightFollowProceduralSun": true,
+    "GroundIBLHdr": "HDR/spruit_sunrise_2k.hdr",
+    "Light": [
+      {
+        "LightColor": "1.0,1.0,1.0",
+        "LightDir": "0.2,0.85,0.48",
+        "LightStrength": 3.5,
+        "LightType": 0
+      }
+    ],
+    "EnableSSR": false,
+    "AAType": "FXAA"
+  },
+  "Modles": [
+    {
+      "ProceduralFloor": {
+        "Finish": "frosted",
+        "Size": "12,12",
+        "Segments": "32,32",
+        "UVScale": 3.0
+      },
+      "ProjShadow": true
+    },
+    {
+      "Model": "AlphaBlendModeTest_ok.glb",
+      "Scale": 1.0,
+      "Position": "0.0,0.0,0.0",
+      "EnableRotationUI": true,
+      "ProjShadow": false
+    }
+  ]
+}

@@ -13,19 +13,10 @@
         "LightType": 0
       }
     ],
-    "EnableSSR": true,
+    "EnableSSR": false,
     "AAType": "FXAA"
   },
   "Modles": [
-    {
-      "ProceduralFloor": {
-        "Finish": "frosted",
-        "Size": "16,16",
-        "Segments": "48,48",
-        "UVScale": 4.0
-      },
-      "ProjShadow": true
-    },
     {
       "Model": "DragonDispersion.glb",
       "Scale": 1.2,

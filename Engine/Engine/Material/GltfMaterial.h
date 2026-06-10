@@ -27,6 +27,11 @@ namespace Engine
 		bool UsesMaterialAlphaMask() const override;
 		float GetMaterialAlphaCutoff() const override;
 		bool IsDoubleSided() const override;
+		bool UsesTransmissionShading() const override;
+		float GetTransmissionFactor() const override;
+		float GetAttenuationDistance() const override;
+		math::Vector3 GetAttenuationColor() const override;
+		float GetThicknessFactor() const override;
 		bool WantsRHIBindless() const override;
 		void SetTransparent(bool Transparent);
 

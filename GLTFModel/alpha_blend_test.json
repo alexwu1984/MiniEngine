@@ -18,15 +18,6 @@
   },
   "Modles": [
     {
-      "ProceduralFloor": {
-        "Finish": "frosted",
-        "Size": "12,12",
-        "Segments": "32,32",
-        "UVScale": 3.0
-      },
-      "ProjShadow": true
-    },
-    {
       "Model": "AlphaBlendModeTest_ok.glb",
       "Scale": 1.0,
       "Position": "0.0,0.0,0.0",

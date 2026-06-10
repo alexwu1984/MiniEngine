@@ -47,13 +47,21 @@ namespace Engine
 	{
 		float Metallic{ 0.f };
 		float AlphaCutoff{ 0.5f };
+		/** KHR_materials_transmission: 0 = opaque, 1 = fully transmissive. */
+		float TransmissionFactor{ 0.f };
+		/** KHR_materials_volume attenuationDistance (Beer–Lambert scale). */
+		float AttenuationDistance{ 1.f };
+		math::Vector3 AttenuationColor{ 1.f, 1.f, 1.f };
+		float ThicknessFactor{ 1.f };
 		uint32_t AlphaMask{ 0 };
-		/** Bit flags — keep sizeof(MaterialPerFrame)==16 and match PerFrameStruct.hlsl / ShadowPass-PS cbPerMaterial tail uint. */
+		/** Bit flags — match PerFrameStruct.hlsl / ShadowPass-PS cbPerMaterial. */
 		uint32_t MaterialShaderFlags{ 0 };
+		uint32_t PadMaterial[2]{};
 	};
 	inline constexpr uint32_t kMaterialShaderFlag_WriteBaseColorAlphaToGBuffer = 1u << 0;
 	inline constexpr uint32_t kMaterialShaderFlag_DoubleSidedShading = 1u << 1;
 	inline constexpr uint32_t kMaterialShaderFlag_ShadowAlphaClip = 1u << 2;
+	inline constexpr uint32_t kMaterialShaderFlag_Transmission = 1u << 3;
 
 	struct PerFrame
 	{

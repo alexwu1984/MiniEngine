@@ -38,6 +38,12 @@ namespace Engine
 		virtual float GetMaterialAlphaCutoff() const { return 0.5f; }
 		/** glTF doubleSided / DCC two-sided: disable back-face cull; shaders flip shading normal toward camera on back faces. */
 		virtual bool IsDoubleSided() const { return false; }
+		/** KHR_materials_transmission (+ optional volume): approximate as forward translucent with Beer–Lambert opacity. */
+		virtual bool UsesTransmissionShading() const { return false; }
+		virtual float GetTransmissionFactor() const { return 0.f; }
+		virtual float GetAttenuationDistance() const { return 1.f; }
+		virtual math::Vector3 GetAttenuationColor() const { return math::Vector3(1.f, 1.f, 1.f); }
+		virtual float GetThicknessFactor() const { return 1.f; }
 		/**
 		 * When true and RHI is D3D12, PBR/Fur/translucent material shaders compile with RHI_BINDLESS=1 (texture heap layout).
 		 * Default false; glTF/Assimp/procedural PBR materials override true.

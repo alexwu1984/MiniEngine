@@ -81,6 +81,18 @@ void GetPBRParams(VS_OUTPUT_SCENE Input, out float3 diffuseColor, out float3 spe
 	perceptualRoughness = clamp(perceptualRoughness, 0.0, 1.0);
 
 	alpha = baseColor.a;
+
+	if ((myMaterial.MaterialShaderFlags & kMatShaderFlag_Transmission) != 0)
+	{
+		float thicknessSample = AoMap.Sample(SampleLinear, Input.UV0).r;
+		float thickness = thicknessSample * myMaterial.ThicknessFactor;
+		float attDist = max(myMaterial.AttenuationDistance, 1e-4);
+		float transmittance = myMaterial.TransmissionFactor * exp(-thickness / attDist);
+		alpha = saturate(1.0 - transmittance);
+		float3 attColor = myMaterial.AttenuationColor;
+		diffuseColor = attColor * (float3(1.0, 1.0, 1.0) - f0) * (1.0 - metallic);
+		specularColor = lerp(f0, attColor, metallic);
+	}
 }
 
 #endif // MINIENGINE_PBR_MATERIAL_SAMPLING_HLSL

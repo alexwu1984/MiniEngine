@@ -245,12 +245,18 @@ namespace Engine
 
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.Metallic = d->MeshMaterial->GetMaterialConfig().Metallic;
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaCutoff = d->MeshMaterial->GetMaterialAlphaCutoff();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.TransmissionFactor = d->MeshMaterial->GetTransmissionFactor();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AttenuationDistance = d->MeshMaterial->GetAttenuationDistance();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AttenuationColor = d->MeshMaterial->GetAttenuationColor();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.ThicknessFactor = d->MeshMaterial->GetThicknessFactor();
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaMask = d->MeshMaterial->UsesMaterialAlphaMask() ? 1u : 0u;
 		uint32_t shaderFlags = 0u;
 		if (d->MeshMaterial->IsTransparent())
 			shaderFlags |= kMaterialShaderFlag_WriteBaseColorAlphaToGBuffer;
 		if (d->MeshMaterial->IsDoubleSided())
 			shaderFlags |= kMaterialShaderFlag_DoubleSidedShading;
+		if (d->MeshMaterial->UsesTransmissionShading())
+			shaderFlags |= kMaterialShaderFlag_Transmission;
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.MaterialShaderFlags = shaderFlags;
 		RenderCore::RHI_UpdateAndBindUniformBufferVSPS(RHIContext, d->GET_SHADER_STRUCT_MEMBER(CBPerMaterial));
 

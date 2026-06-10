@@ -35,13 +35,19 @@ struct MaterialPerFrame
 {
     float Metallic;
     float AlphaCutoff;
+    float TransmissionFactor;
+    float AttenuationDistance;
+    float3 AttenuationColor;
+    float ThicknessFactor;
     uint AlphaMask;
     uint MaterialShaderFlags;
+    uint2 _PadMaterial;
 };
 
 static const uint kMatShaderFlag_WriteBaseColorAlpha = 1u << 0;
 static const uint kMatShaderFlag_DoubleSidedShading = 1u << 1;
 static const uint kMatShaderFlag_ShadowAlphaClip = 1u << 2;
+static const uint kMatShaderFlag_Transmission = 1u << 3;
 
 struct PerFrame
 {

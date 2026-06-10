@@ -12,6 +12,23 @@ namespace Engine
 	using namespace RenderCore;
 	using namespace math;
 
+	namespace
+	{
+		float ReadGltfExtNumber(const tinygltf::Value& V, float Default)
+		{
+			if (V.IsNumber())
+				return static_cast<float>(V.GetNumberAsDouble());
+			return Default;
+		}
+
+		int ReadGltfExtTextureIndex(const tinygltf::Value& TexInfo)
+		{
+			if (!TexInfo.IsObject() || !TexInfo.Has("index"))
+				return -1;
+			return TexInfo.Get("index").GetNumberAsInt();
+		}
+	}
+
 	struct GltfMaterialPrivate
 	{
 		GltfModel* Owner = nullptr;
@@ -23,6 +40,11 @@ namespace Engine
 		float AlphaCutoff = 0.5f;
 		/** BLEND + baseColorTexture: write depth in base pass (UE-style textured translucency). */
 		bool WritesTranslucentDepth = false;
+		bool UsesTransmission = false;
+		float TransmissionFactor = 0.f;
+		float AttenuationDistance = 1.f;
+		Vector3 AttenuationColor = Vector3(1.f, 1.f, 1.f);
+		float ThicknessFactor = 1.f;
 
 		std::shared_ptr<RHITexture2D> BaseColorTexture;
 		std::shared_ptr<RHITexture2D> MetallicRoughnessTexture;
@@ -99,16 +121,68 @@ namespace Engine
 			d->UsesAlphaMask = (Material.alphaMode == "MASK");
 			d->AlphaCutoff = static_cast<float>(Material.alphaCutoff);
 			const int bcIdx = Material.pbrMetallicRoughness.baseColorTexture.index;
+
+			d->UsesTransmission = false;
+			d->TransmissionFactor = 0.f;
+			d->AttenuationDistance = 1.f;
+			d->AttenuationColor = Vector3(1.f, 1.f, 1.f);
+			d->ThicknessFactor = 1.f;
+			int thicknessTexIdx = -1;
+
+			if (const auto transIt = Material.extensions.find("KHR_materials_transmission"); transIt != Material.extensions.end())
+			{
+				const tinygltf::Value& transExt = transIt->second;
+				if (transExt.IsObject())
+				{
+					d->TransmissionFactor = ReadGltfExtNumber(transExt.Get("transmissionFactor"), 0.f);
+					if (d->TransmissionFactor > 1e-4f)
+					{
+						d->UsesTransmission = true;
+						d->IsTransParent = true;
+					}
+				}
+			}
+			if (const auto volIt = Material.extensions.find("KHR_materials_volume"); volIt != Material.extensions.end())
+			{
+				const tinygltf::Value& volExt = volIt->second;
+				if (volExt.IsObject())
+				{
+					const tinygltf::Value& attColor = volExt.Get("attenuationColor");
+					if (attColor.IsArray() && attColor.ArrayLen() >= 3u)
+					{
+						d->AttenuationColor.x = ReadGltfExtNumber(attColor.Get(0), 1.f);
+						d->AttenuationColor.y = ReadGltfExtNumber(attColor.Get(1), 1.f);
+						d->AttenuationColor.z = ReadGltfExtNumber(attColor.Get(2), 1.f);
+					}
+					d->AttenuationDistance = math::Max(ReadGltfExtNumber(volExt.Get("attenuationDistance"), 1.f), 1e-4f);
+					d->ThicknessFactor = ReadGltfExtNumber(volExt.Get("thicknessFactor"), 1.f);
+					thicknessTexIdx = ReadGltfExtTextureIndex(volExt.Get("thicknessTexture"));
+				}
+			}
+
 			d->WritesTranslucentDepth = (Material.alphaMode == "BLEND") && (bcIdx >= 0);
 
-			auto CreateTexCommand = [this, Material, CreateTexture](DynamicRHI* DyRHI) {
+			const core::FLinearColor attLinear(
+				static_cast<float>(d->AttenuationColor.x),
+				static_cast<float>(d->AttenuationColor.y),
+				static_cast<float>(d->AttenuationColor.z),
+				1.f);
+			const core::FLinearColor baseFallback = d->UsesTransmission
+				? attLinear
+				: core::FLinearColor(GetMaterialConfig().BaseColor);
+
+			auto CreateTexCommand = [this, Material, CreateTexture, baseFallback, thicknessTexIdx](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
 				int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
-				d->BaseColorTexture = CreateTexture(Index, core::FLinearColor(GetMaterialConfig().BaseColor), GetMaterialConfig().UseConfig);
+				d->BaseColorTexture = CreateTexture(Index, baseFallback, d->UsesTransmission || GetMaterialConfig().UseConfig);
 
 				Index = Material.pbrMetallicRoughness.metallicRoughnessTexture.index;
-				d->MetallicRoughnessTexture = CreateTexture(Index, core::FLinearColor(1.f, float(GetMaterialConfig().Roughness), float(GetMaterialConfig().Metallic), 1.0)
-																, GetMaterialConfig().UseConfig);
+				const float gltfRough = static_cast<float>(Material.pbrMetallicRoughness.roughnessFactor);
+				const float gltfMetal = static_cast<float>(Material.pbrMetallicRoughness.metallicFactor);
+				d->MetallicRoughnessTexture = CreateTexture(
+					Index,
+					core::FLinearColor(1.f, gltfRough, gltfMetal, 1.0),
+					(d->UsesTransmission ? false : GetMaterialConfig().UseConfig));
 
 				auto EmissiveColor = Material.emissiveFactor;
 				Index = Material.emissiveTexture.index;
@@ -117,7 +191,7 @@ namespace Engine
 				Index = Material.normalTexture.index;
 				d->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f),false);
 
-				Index = Material.occlusionTexture.index;
+				Index = d->UsesTransmission ? thicknessTexIdx : Material.occlusionTexture.index;
 				d->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f),false);
 				};
 
@@ -161,6 +235,36 @@ namespace Engine
 	{
 		C_P(const GltfMaterial);
 		return d->DoubleSided;
+	}
+
+	bool GltfMaterial::UsesTransmissionShading() const
+	{
+		C_P(const GltfMaterial);
+		return d->UsesTransmission;
+	}
+
+	float GltfMaterial::GetTransmissionFactor() const
+	{
+		C_P(const GltfMaterial);
+		return d->TransmissionFactor;
+	}
+
+	float GltfMaterial::GetAttenuationDistance() const
+	{
+		C_P(const GltfMaterial);
+		return d->AttenuationDistance;
+	}
+
+	math::Vector3 GltfMaterial::GetAttenuationColor() const
+	{
+		C_P(const GltfMaterial);
+		return d->AttenuationColor;
+	}
+
+	float GltfMaterial::GetThicknessFactor() const
+	{
+		C_P(const GltfMaterial);
+		return d->ThicknessFactor;
 	}
 
 	bool GltfMaterial::WantsRHIBindless() const

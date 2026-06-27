@@ -50,7 +50,7 @@ set(Engine_Scene_Source
 	Src/Engine/Scene/DirectionalLightComponent.cpp
 	Src/Engine/Scene/PointLightComponent.cpp
 	Src/Engine/Scene/SpotLightComponent.cpp
-	Src/Engine/Scene/FScene.cpp
+	Src/Engine/Scene/Scene.cpp
 	Src/Engine/Scene/GameViewportClient.cpp
 	Src/Engine/Scene/GltfActor.cpp
 	Src/Engine/Scene/GltfInputComponent.cpp

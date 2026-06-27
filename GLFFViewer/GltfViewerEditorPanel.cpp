@@ -12,7 +12,7 @@
 #include "Scene/SceneMeshComponent.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/GBufferVisualization.h"
-#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
+#include "Render/Shadow/DirectionalShadowFrustumFitter.h"
 #include "Render/RDGBuilder.h"
 #include "RHI/DynamicRHI.h"
 #include "Imgui/imgui.h"

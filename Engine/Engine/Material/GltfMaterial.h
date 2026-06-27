@@ -32,6 +32,8 @@ namespace Engine
 		float GetAttenuationDistance() const override;
 		math::Vector3 GetAttenuationColor() const override;
 		float GetThicknessFactor() const override;
+		float GetMaterialIor() const override;
+		float GetMaterialDispersion() const override;
 		bool WantsRHIBindless() const override;
 		void SetTransparent(bool Transparent);
 

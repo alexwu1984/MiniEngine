@@ -11,16 +11,59 @@
 #include "Render/SceneTextures.h"
 #include "Scene/SceneMeshComponent.h"
 #include "GltfModel/GltfMesh.h"
-#include "Material/GltfMaterial.h"
 #include "Material/MaterialBase.h"
 #include "Engine/Render/FurMaterialRender.h"
 #include "Engine/Render/PBRMaterialRender.h"
 #include "Engine/Render/MaterialRender.h"
-#include "RHI/DynamicRHI.h"
 #include "RHI/RHIRenderPass.h"
+#include "RHI/RHICommandContext.h"
 
 namespace Engine
 {
+	namespace
+	{
+		bool IsClassicTranslucentBasePassMesh(const std::shared_ptr<MaterialBase>& meshMat)
+		{
+			return meshMat && meshMat->IsTransparent() && !meshMat->UsesTransmissionShading();
+		}
+
+		/** SceneColor may still be bound as RTV after deferred lighting; unbind before copy (D3D12 hazard). */
+		void CopySceneColorForTransmissionBackground(RenderCore::RHICommandContext& Cmd,
+													 const std::shared_ptr<RenderCore::RHITexture2D>& SceneColor,
+													 const std::shared_ptr<RenderCore::RHITexture2D>& TransmissionBg)
+		{
+			if (!SceneColor || !TransmissionBg)
+				return;
+			FRDGUtils::RHICmdListUnbindAllRenderTargets(Cmd);
+			RenderCore::RHICommandMark CopyMark(Cmd, "CopySceneColorForTransmission");
+			Cmd.RHICopyResource(TransmissionBg, SceneColor);
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(Cmd, {TransmissionBg});
+		}
+		bool SceneNeedsTransmissionBackground(const std::vector<GltfSceneMeshInfo>& SceneMeshInfos)
+		{
+			for (const auto& Info : SceneMeshInfos)
+			{
+				for (const auto& Mesh : Info.Meshes)
+				{
+					const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
+					if (meshMat && meshMat->UsesTransmissionShading())
+						return true;
+				}
+			}
+			return false;
+		}
+	} // namespace
+
+	void FDeferredShadingBasePassRenderer::CopyTransmissionBackground(const FDeferredBasePassDrawContext& DrawContext)
+	{
+		if (!DrawContext.RHICmdList || !DrawContext.SceneTextures || !DrawContext.MeshesForDraw)
+			return;
+		if (!SceneNeedsTransmissionBackground(*DrawContext.MeshesForDraw))
+			return;
+		CopySceneColorForTransmissionBackground(*DrawContext.RHICmdList, DrawContext.SceneTextures->GetSceneColor(),
+												DrawContext.SceneTextures->GetSceneColorWithSSR());
+	}
+
 	void FDeferredShadingBasePassRenderer::RenderBasePassOpaque(const FDeferredBasePassDrawContext& DrawContext)
 	{
 		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, true);
@@ -41,7 +84,7 @@ namespace Engine
 		for (const auto& Key : SortedKeys)
 		{
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-			if (Mesh->GetMaterial()->IsTransparent())
+			if (IsClassicTranslucentBasePassMesh(Mesh ? Mesh->GetMaterial() : nullptr))
 			{
 				FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
 														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
@@ -50,7 +93,7 @@ namespace Engine
 		for (const auto& Key : SortedKeys)
 		{
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-			if (Mesh->GetMaterial()->IsTransparent())
+			if (IsClassicTranslucentBasePassMesh(Mesh ? Mesh->GetMaterial() : nullptr))
 			{
 				FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
 														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
@@ -73,7 +116,7 @@ namespace Engine
 			for (const auto& Key : SortedKeys)
 			{
 				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-				if (Mesh->GetMaterial()->IsTransparent())
+				if (IsClassicTranslucentBasePassMesh(Mesh ? Mesh->GetMaterial() : nullptr))
 				{
 					FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
 														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
@@ -87,7 +130,7 @@ namespace Engine
 			for (const auto& Key : SortedKeys)
 			{
 				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-				if (Mesh->GetMaterial()->IsTransparent())
+				if (IsClassicTranslucentBasePassMesh(Mesh ? Mesh->GetMaterial() : nullptr))
 				{
 					FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
 														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
@@ -125,6 +168,9 @@ namespace Engine
 				continue;
 			MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 				DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
+			// Screen-space transmission: snap prev=curr so rotating the model does not smear background samples.
+			if (meshMat->UsesTransmissionShading())
+				P.PrevModelMatrix = P.CurrModelMatrix;
 			pbr->DrawTranslucentForwardLit(Cmd, P, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 		}
 	}

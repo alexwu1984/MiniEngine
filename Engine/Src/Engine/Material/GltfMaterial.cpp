@@ -45,6 +45,8 @@ namespace Engine
 		float AttenuationDistance = 1.f;
 		Vector3 AttenuationColor = Vector3(1.f, 1.f, 1.f);
 		float ThicknessFactor = 1.f;
+		float MaterialIor = 1.5f;
+		float MaterialDispersion = 0.f;
 
 		std::shared_ptr<RHITexture2D> BaseColorTexture;
 		std::shared_ptr<RHITexture2D> MetallicRoughnessTexture;
@@ -127,7 +129,22 @@ namespace Engine
 			d->AttenuationDistance = 1.f;
 			d->AttenuationColor = Vector3(1.f, 1.f, 1.f);
 			d->ThicknessFactor = 1.f;
+			d->MaterialIor = 1.5f;
+			d->MaterialDispersion = 0.f;
 			int thicknessTexIdx = -1;
+
+			if (const auto iorIt = Material.extensions.find("KHR_materials_ior"); iorIt != Material.extensions.end())
+			{
+				const tinygltf::Value& iorExt = iorIt->second;
+				if (iorExt.IsObject())
+					d->MaterialIor = math::Max(ReadGltfExtNumber(iorExt.Get("ior"), 1.5f), 1.0f);
+			}
+			if (const auto dispIt = Material.extensions.find("KHR_materials_dispersion"); dispIt != Material.extensions.end())
+			{
+				const tinygltf::Value& dispExt = dispIt->second;
+				if (dispExt.IsObject())
+					d->MaterialDispersion = math::Max(ReadGltfExtNumber(dispExt.Get("dispersion"), 0.f), 0.f);
+			}
 
 			if (const auto transIt = Material.extensions.find("KHR_materials_transmission"); transIt != Material.extensions.end())
 			{
@@ -162,19 +179,16 @@ namespace Engine
 
 			d->WritesTranslucentDepth = (Material.alphaMode == "BLEND") && (bcIdx >= 0);
 
-			const core::FLinearColor attLinear(
-				static_cast<float>(d->AttenuationColor.x),
-				static_cast<float>(d->AttenuationColor.y),
-				static_cast<float>(d->AttenuationColor.z),
-				1.f);
-			const core::FLinearColor baseFallback = d->UsesTransmission
-				? attLinear
-				: core::FLinearColor(GetMaterialConfig().BaseColor);
+			// glTF default baseColorFactor is opaque white; attenuationColor is volume-only (KHR_materials_volume).
+			const core::FLinearColor baseFallback = GetMaterialConfig().UseConfig
+				? core::FLinearColor(GetMaterialConfig().BaseColor)
+				: core::FLinearColor(1.f, 1.f, 1.f, 1.f);
+			const bool bUseJsonMaterialOverride = GetMaterialConfig().UseConfig;
 
-			auto CreateTexCommand = [this, Material, CreateTexture, baseFallback, thicknessTexIdx](DynamicRHI* DyRHI) {
+			auto CreateTexCommand = [this, Material, CreateTexture, baseFallback, bUseJsonMaterialOverride, thicknessTexIdx](DynamicRHI* DyRHI) {
 				C_P(GltfMaterial);
 				int32_t Index = Material.pbrMetallicRoughness.baseColorTexture.index;
-				d->BaseColorTexture = CreateTexture(Index, baseFallback, d->UsesTransmission || GetMaterialConfig().UseConfig);
+				d->BaseColorTexture = CreateTexture(Index, baseFallback, bUseJsonMaterialOverride);
 
 				Index = Material.pbrMetallicRoughness.metallicRoughnessTexture.index;
 				const float gltfRough = static_cast<float>(Material.pbrMetallicRoughness.roughnessFactor);
@@ -182,17 +196,18 @@ namespace Engine
 				d->MetallicRoughnessTexture = CreateTexture(
 					Index,
 					core::FLinearColor(1.f, gltfRough, gltfMetal, 1.0),
-					(d->UsesTransmission ? false : GetMaterialConfig().UseConfig));
+					bUseJsonMaterialOverride);
 
 				auto EmissiveColor = Material.emissiveFactor;
 				Index = Material.emissiveTexture.index;
-				d->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])), GetMaterialConfig().UseConfig);
+				d->EmissiveTexture = CreateTexture(Index, core::FLinearColor(float(EmissiveColor[0]), float(EmissiveColor[0]), float(EmissiveColor[1]), float(EmissiveColor[2])), bUseJsonMaterialOverride);
 
 				Index = Material.normalTexture.index;
-				d->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f),false);
+				d->NormalTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f), false);
 
+				// glTF: missing occlusion → factor 1.0 (no darkening). KHR_materials_volume thickness is in G channel.
 				Index = d->UsesTransmission ? thicknessTexIdx : Material.occlusionTexture.index;
-				d->OcclusionTexture = CreateTexture(Index, core::FLinearColor(0.5f, 0.5f, 1.f, 1.f),false);
+				d->OcclusionTexture = CreateTexture(Index, core::FLinearColor(1.f, 1.f, 1.f, 1.f), false);
 				};
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND(CreateTexCommand);
@@ -265,6 +280,18 @@ namespace Engine
 	{
 		C_P(const GltfMaterial);
 		return d->ThicknessFactor;
+	}
+
+	float GltfMaterial::GetMaterialIor() const
+	{
+		C_P(const GltfMaterial);
+		return d->MaterialIor;
+	}
+
+	float GltfMaterial::GetMaterialDispersion() const
+	{
+		C_P(const GltfMaterial);
+		return d->MaterialDispersion;
 	}
 
 	bool GltfMaterial::WantsRHIBindless() const

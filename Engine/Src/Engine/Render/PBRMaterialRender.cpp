@@ -228,6 +228,7 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraWorldToView = d->RenderParam.CameraWorldToView;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.RotateIBL = d->RenderParam.RotateIBL;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.CameraPos = d->RenderParam.CameraPos;
+		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.InvScreenResolution = d->RenderParam.InvScreenResolution;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.TemporalAAJitter = d->RenderParam.TemporalAAJitter;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLFactor = d->RenderParam.SkyLightIBLScale;
 		d->GET_UNIFORMDATA(CBPerFrame).myPerFrame.IBLDirShadowCoupling =
@@ -249,6 +250,8 @@ namespace Engine
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AttenuationDistance = d->MeshMaterial->GetAttenuationDistance();
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AttenuationColor = d->MeshMaterial->GetAttenuationColor();
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.ThicknessFactor = d->MeshMaterial->GetThicknessFactor();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.MaterialIor = d->MeshMaterial->GetMaterialIor();
+		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.MaterialDispersion = d->MeshMaterial->GetMaterialDispersion();
 		d->GET_UNIFORMDATA(CBPerMaterial).myMaterial.AlphaMask = d->MeshMaterial->UsesMaterialAlphaMask() ? 1u : 0u;
 		uint32_t shaderFlags = 0u;
 		if (d->MeshMaterial->IsTransparent())
@@ -319,6 +322,10 @@ namespace Engine
 		RenderCore::RHICommandMark Mark(RHIContext, "TranslucentPBRForward");
 		StoreRenderParam(RenderParam);
 
+		const bool bTransmission = d->MeshMaterial->UsesTransmissionShading();
+		const std::shared_ptr<RHITexture2D> TransmissionBg =
+			bTransmission ? RenderParam.SceneTextures->GetSceneColorWithSSR() : nullptr;
+
 		std::shared_ptr<RHITexture2D> Sc = RenderParam.SceneTextures->GetSceneColor();
 		std::shared_ptr<RHITexture2D> Mv = RenderParam.SceneTextures->GetMotionVector();
 		std::shared_ptr<RHITexture2D> Dt = RenderParam.SceneTextures->GetDepth();
@@ -332,6 +339,11 @@ namespace Engine
 			{
 				DeferredLighting->PrepareForwardSharedSrvSet(WorldSceneRender, ViewData, SharedSrv);
 				Slots.Inputs = GatherFurForwardSharedTwoDimensionalSrvInputs(SharedSrv);
+			}
+			if (TransmissionBg)
+			{
+				const std::shared_ptr<RHITexture2D> BgScene = TransmissionBg;
+				Slots.Inputs.push_back({"TransmissionBackground", [BgScene]() { return BgScene; }, true, FRDGResourceAccess::SRV});
 			}
 			using A = FRDGResourceAccess;
 			auto ST = RenderParam.SceneTextures;
@@ -352,7 +364,7 @@ namespace Engine
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
 		Init.PixelShader = d->TranslucentForwardPixelShader;
-		Init.BlendState = RHICachedStates::BlendForwardColorAndVelocityMRT;
+		Init.BlendState = bTransmission ? RHICachedStates::BlendDisable : RHICachedStates::BlendForwardColorAndVelocityMRT;
 		Init.DepthStencilState = RHICachedStates::DepthStateLessEqualNoWrite;
 		Init.RasterizerState =
 			d->MeshMaterial->IsDoubleSided() ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
@@ -369,6 +381,11 @@ namespace Engine
 		BindDrawUniformBuffers(RHIContext);
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 		BindDeferredBaseMaterialTextures(RHIContext);
+		if (TransmissionBg)
+		{
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, {TransmissionBg});
+			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 9, TransmissionBg);
+		}
 
 		DrawPrimitive(RHIContext);
 	}

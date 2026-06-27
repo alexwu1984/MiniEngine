@@ -44,6 +44,18 @@ void DecodeMaterialFromGBuffer(float3 baseColor, float metallic, float perceptua
 	materialInfo.reflectance90 = float3(1.0, 1.0, 1.0) * clamp(reflectance * 50.0, 0.0, 1.0);
 }
 
+void BuildMaterialInfoFromPBRColors(float3 diffuseColor, float3 specularColor, float metallic, float perceptualRoughness, out MaterialInfo materialInfo)
+{
+	materialInfo.Metallic = metallic;
+	materialInfo.perceptualRoughness = clamp(perceptualRoughness, 0.0, 1.0);
+	materialInfo.alphaRoughness = materialInfo.perceptualRoughness * materialInfo.perceptualRoughness;
+	materialInfo.diffuseColor = diffuseColor;
+	materialInfo.specularColor = specularColor;
+	float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+	materialInfo.reflectance0 = specularColor;
+	materialInfo.reflectance90 = float3(1.0, 1.0, 1.0) * clamp(reflectance * 50.0, 0.0, 1.0);
+}
+
 float2 DirectionToLatLongUV(float3 dir)
 {
 	float3 v = normalize(dir);

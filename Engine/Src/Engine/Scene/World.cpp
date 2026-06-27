@@ -80,6 +80,8 @@ namespace Engine
 			{
 				if (Evn.find("IBLIntensity") != Evn.end() && Evn["IBLIntensity"].is_number())
 					comp->SetIBLIntensity(static_cast<float>(Evn["IBLIntensity"].get<double>()));
+				else if (Evn.find("AmbientStrength") != Evn.end() && Evn["AmbientStrength"].is_number())
+					comp->SetIBLIntensity(static_cast<float>(Evn["AmbientStrength"].get<double>()));
 			}
 			catch (const std::exception&)
 			{

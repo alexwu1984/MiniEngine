@@ -51,8 +51,9 @@ flowchart TB
 | 7 | `DeferredLighting_CopySceneColor` | 延迟且非 Unlit | 拷贝 SceneColor 供光照 |
 | 8 | `BuildGpuLightLists` | 同上 | Cluster / Tile 光源列表 CS |
 | 9 | `DeferredLighting` | 同上 | 全屏延迟光照 PS |
-| 10 | `RenderTranslucentForward` | 同上 | 前向半透明 + 光照 |
-| 11 | `RenderFurForward` | 同上 | Fur 壳层前向 |
+| 10 | `CopyTransmissionBackground` | 同上且场景含透射 mesh | 拷贝已光照 SceneColor → SceneColorWithSSR（透射背景，见 §9.1） |
+| 11 | `RenderTranslucentForward` | 同上 | 前向半透明 + 透射 |
+| 12 | `RenderFurForward` | 同上 | Fur 壳层前向 |
 
 光照 Pass 细节（GBuffer、Cluster、IBL、前向共享 SRV）见 [`Lighting-Rendering.md`](Lighting-Rendering.md)。
 | 12+ | 后处理 | 见下节 | SSR / Bloom / AA / Tonemap |
@@ -63,7 +64,7 @@ flowchart TB
 
 ## 3. 延迟着色路径（典型 GLFFViewer）
 
-当 `DeferredLighting` 有效且 `!ViewData->bUnlit` 时启用第 7–11 步；`RenderTranslucency` 通常直接返回，半透明改在 `RenderTranslucentForward`。
+当 `DeferredLighting` 有效且 `!ViewData->bUnlit` 时启用第 7–12 步；`RenderTranslucency` 通常直接返回，半透明改在 `RenderTranslucentForward`。
 
 ```mermaid
 flowchart LR
@@ -77,6 +78,7 @@ flowchart LR
     CP[DeferredLighting_CopySceneColor]
     GPU[BuildGpuLightLists]
     DL[DeferredLighting]
+    TB[CopyTransmissionBackground]
     TF[RenderTranslucentForward]
     FU[RenderFurForward]
   end
@@ -95,7 +97,7 @@ flowchart LR
 
   CL --> SKY --> BP
   BP --> CP --> GPU
-  GPU --> DL --> TF --> FU
+  GPU --> DL --> TB --> TF --> FU
   FU --> AA --> SSR --> BL --> TM --> SD --> UI
 ```
 
@@ -103,6 +105,7 @@ flowchart LR
 
 - `Shadow` → `ClearSceneTextures` / `RenderBasePass` / `DeferredLighting` / …
 - `BuildGpuLightLists` → `DeferredLighting`、`RenderTranslucentForward`、`RenderFurForward`
+- `DeferredLighting` → `CopyTransmissionBackground` → `RenderTranslucentForward`（透射场景）
 - `RenderFurForward` → `Tonemapping`
 - `Tonemapping` → `ShadowDebugWire` → `UIPresent`
 
@@ -174,6 +177,8 @@ flowchart TB
 | `MetallicRoughness` | GetMetallicRoughnessBuffer |
 | `MaterialAux` | GetMaterialAuxBuffer |
 | `Depth` | GetDepth |
+
+`SceneColorWithSSR` 在 SSR 关闭时仍分配；透射场景下由独立 Pass **`CopyTransmissionBackground`** 将已光照 `SceneColor` 拷贝至其中，供 `RenderTranslucentForward` 采样（见 [`Lighting-Rendering.md`](Lighting-Rendering.md) §9.1）。
 
 后处理还会 `ImportTexture("ReflectionColor")` 等，见 `PostProcessor.cpp`。
 

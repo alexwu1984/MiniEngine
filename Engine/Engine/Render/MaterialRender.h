@@ -25,6 +25,7 @@ namespace Engine
 		math::Matrix4x4 CameraWorldToView{};
 		math::Matrix4x4 RotateIBL;
 		math::Vector4 CameraPos;
+		math::Vector2 InvScreenResolution{};
 		math::Vector4 TemporalAAJitter;
 		bool HasSkin = false;
 		std::weak_ptr<USkyLightComponent> skylightEnvironment;

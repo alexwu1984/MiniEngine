@@ -84,14 +84,12 @@ void GetPBRParams(VS_OUTPUT_SCENE Input, out float3 diffuseColor, out float3 spe
 
 	if ((myMaterial.MaterialShaderFlags & kMatShaderFlag_Transmission) != 0)
 	{
-		float thicknessSample = AoMap.Sample(SampleLinear, Input.UV0).r;
+		float thicknessSample = AoMap.Sample(SampleLinear, Input.UV0).g;
 		float thickness = thicknessSample * myMaterial.ThicknessFactor;
 		float attDist = max(myMaterial.AttenuationDistance, 1e-4);
 		float transmittance = myMaterial.TransmissionFactor * exp(-thickness / attDist);
 		alpha = saturate(1.0 - transmittance);
-		float3 attColor = myMaterial.AttenuationColor;
-		diffuseColor = attColor * (float3(1.0, 1.0, 1.0) - f0) * (1.0 - metallic);
-		specularColor = lerp(f0, attColor, metallic);
+		// Volume attenuationColor is applied in forward transmission pass only; base albedo stays glTF baseColor.
 	}
 }
 

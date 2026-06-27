@@ -20,6 +20,10 @@ namespace Engine
 		static std::vector<FRDGPassResource> GatherCopyPassInputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
 		static std::vector<FRDGPassResource> GatherCopyPassOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
 
+		static constexpr const char* PassNameCopyTransmissionBackground = "CopyTransmissionBackground";
+		static std::vector<FRDGPassResource> GatherTransmissionBackgroundCopyInputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
+		static std::vector<FRDGPassResource> GatherTransmissionBackgroundCopyOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
+
 		static std::vector<FRDGPassResource> GatherRasterPassInputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
 		static std::vector<FRDGPassResource> GatherRasterPassOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures);
 	};

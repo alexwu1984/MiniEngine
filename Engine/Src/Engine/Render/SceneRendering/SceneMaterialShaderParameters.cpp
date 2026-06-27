@@ -42,6 +42,11 @@ namespace Engine
 			}
 		}
 		Out.CameraPos = ViewData->CameraPos;
+		if (ViewData->ViewRectSizeX > 0 && ViewData->ViewRectSizeY > 0)
+		{
+			Out.InvScreenResolution.x = 1.f / static_cast<float>(ViewData->ViewRectSizeX);
+			Out.InvScreenResolution.y = 1.f / static_cast<float>(ViewData->ViewRectSizeY);
+		}
 		Out.CurrModelMatrix = Mesh->GetMeshMat() * WorldTransform;
 		Out.PrevModelMatrix = Mesh->GetMeshMat() * PrevWorldTransform;
 		Out.CurrViewProjMatrix = ViewData->CurrViewProjMatrix;

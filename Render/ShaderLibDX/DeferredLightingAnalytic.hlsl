@@ -33,10 +33,11 @@ float MicrofacetDistribution(MaterialInfo MaterialInfo, AngularInfo AngularInfo)
 	return alphaRoughnessSq / (PI * f * f + 0.000001f);
 }
 
-float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Normal, float3 View)
+void GetPointShadeSplit(float3 PointToLight, MaterialInfo MaterialInfo, float3 Normal, float3 View, out float3 outDiffuse, out float3 outSpecular)
 {
 	AngularInfo angularInfo = GetAngularInfo(PointToLight, Normal, View);
-	float3 shade = float3(0.0, 0.0, 0.0);
+	outDiffuse = float3(0.0, 0.0, 0.0);
+	outSpecular = float3(0.0, 0.0, 0.0);
 	if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
 	{
 		float3 F = SpecularReflection(MaterialInfo, angularInfo);
@@ -44,9 +45,17 @@ float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Norm
 		float D = MicrofacetDistribution(MaterialInfo, angularInfo);
 		float3 diffuseContrib = (1.0 - F) * Diffuse(MaterialInfo);
 		float3 specContrib = F * Vis * D;
-		shade = angularInfo.NdotL * (diffuseContrib + specContrib);
+		outDiffuse = angularInfo.NdotL * diffuseContrib;
+		outSpecular = angularInfo.NdotL * specContrib;
 	}
-	return shade;
+}
+
+float3 GetPointShade(float3 PointToLight, MaterialInfo MaterialInfo, float3 Normal, float3 View)
+{
+	float3 diffuseContrib;
+	float3 specContrib;
+	GetPointShadeSplit(PointToLight, MaterialInfo, Normal, View, diffuseContrib, specContrib);
+	return diffuseContrib + specContrib;
 }
 
 float3 ApplyDirectionalLightDeferred(float3 worldPos, Light light, MaterialInfo materialInfo, float3 normal, float3 view)

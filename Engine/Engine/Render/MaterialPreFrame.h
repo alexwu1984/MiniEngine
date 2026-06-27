@@ -53,10 +53,13 @@ namespace Engine
 		float AttenuationDistance{ 1.f };
 		math::Vector3 AttenuationColor{ 1.f, 1.f, 1.f };
 		float ThicknessFactor{ 1.f };
+		/** KHR_materials_ior (default 1.5 when extension absent). */
+		float MaterialIor{ 1.5f };
+		/** KHR_materials_dispersion (0 = off). */
+		float MaterialDispersion{ 0.f };
 		uint32_t AlphaMask{ 0 };
 		/** Bit flags — match PerFrameStruct.hlsl / ShadowPass-PS cbPerMaterial. */
 		uint32_t MaterialShaderFlags{ 0 };
-		uint32_t PadMaterial[2]{};
 	};
 	inline constexpr uint32_t kMaterialShaderFlag_WriteBaseColorAlphaToGBuffer = 1u << 0;
 	inline constexpr uint32_t kMaterialShaderFlag_DoubleSidedShading = 1u << 1;

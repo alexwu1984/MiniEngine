@@ -21,6 +21,24 @@ namespace Engine
 		};
 	}
 
+	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherTransmissionBackgroundCopyInputs(const std::shared_ptr<FSceneTextures>& SceneTextures)
+	{
+		if (!SceneTextures)
+			return {};
+		return {
+			{ "SceneColor", [SceneTextures]() { return SceneTextures->GetSceneColor(); }, true, FRDGResourceAccess::CopySrc },
+		};
+	}
+
+	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherTransmissionBackgroundCopyOutputs(const std::shared_ptr<FSceneTextures>& SceneTextures)
+	{
+		if (!SceneTextures)
+			return {};
+		return {
+			{ "SceneColorWithSSR", [SceneTextures]() { return SceneTextures->GetSceneColorWithSSR(); }, true, FRDGResourceAccess::CopyDst },
+		};
+	}
+
 	std::vector<FRDGPassResource> FRDGDeferredLightingPass::GatherRasterPassInputs(const std::shared_ptr<FSceneTextures>& SceneTextures)
 	{
 		if (!SceneTextures)

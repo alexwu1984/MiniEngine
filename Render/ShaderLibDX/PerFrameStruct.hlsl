@@ -39,9 +39,10 @@ struct MaterialPerFrame
     float AttenuationDistance;
     float3 AttenuationColor;
     float ThicknessFactor;
+    float MaterialIor;
+    float MaterialDispersion;
     uint AlphaMask;
     uint MaterialShaderFlags;
-    uint2 _PadMaterial;
 };
 
 static const uint kMatShaderFlag_WriteBaseColorAlpha = 1u << 0;

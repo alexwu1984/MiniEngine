@@ -1,6 +1,7 @@
 ﻿#include "Scene/GameViewportClient.h"
 #include "Scene/World.h"
 #include "Scene/DeviceInputState.h"
+#include "Scene/FreeRoamCameraComponent.h"
 #include "App/AppWindow.h"
 #include "Engine.h"
 #include "win/win32.h"
@@ -90,7 +91,18 @@ namespace Engine
 				KeyFrame.Keyboard.bD = (::GetAsyncKeyState('D') & 0x8000) != 0;
 				KeyFrame.Keyboard.bSpace = (::GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 				KeyFrame.Keyboard.bCtrl = (::GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-				World->DispatchInput(KeyFrame);
+
+				// Roam scenes: drive main FreeRoamCamera directly (same path as harley.json).
+				if (World->UsesRoamCameraScene())
+				{
+					if (const auto mainCam = World->GetMainCamera())
+					{
+						if (const auto roam = std::dynamic_pointer_cast<FreeRoamCameraComponent>(mainCam))
+							roam->ApplyKeyboardNavigation(KeyFrame.Keyboard, DeltaTime);
+					}
+				}
+				else
+					World->DispatchInput(KeyFrame);
 			}
 		}
 

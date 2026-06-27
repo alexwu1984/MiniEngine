@@ -306,8 +306,8 @@ flowchart TB
     VZ --> IDX1[ClusterIndexFromPixel<br/>pseudoSv.w = 1/viewZ]
   end
 
-  subgraph forward ["半透明 / Fur"]
-    SV[Input.svPosition] --> IDX2[ClusterIndexFromPixel<br/>sv.w = 1/clip_w]
+  subgraph forward ["半透明 / Fur / Transmission"]
+    SV[pixelPos SV_Position] --> IDX2[ClusterIndexFromPixel]
   end
 
   IDX1 --> LOOKUP[_ClusterLightOffsetCount[idx]]
@@ -344,6 +344,53 @@ flowchart TB
 - **共享 SRV**：`FFurForwardSharedSrvSet`（IBL、三阴影、SceneLights、Cluster 缓冲）与延迟 raster 对齐。  
 - **半透明**：在已光照的 `SceneColor` 上 **alpha 混合** 追加直接光 + IBL。  
 - **Fur**：Deferred 跳过 Hair SM；在此 pass 用壳层法线 + 简化高光路径。
+
+### 9.1 KHR_materials_transmission（屏空间透射）
+
+实现范围：`KHR_materials_transmission` + `KHR_materials_volume` + `KHR_materials_ior` + `KHR_materials_dispersion`（屏空间折射采样；色散为三通道 IOR 偏移合成）。
+
+**材质加载（`GltfMaterial.cpp`）**
+
+| glTF | 引擎行为 |
+|------|----------|
+| `transmissionFactor > 0` | `UsesTransmissionShading()`、`IsTransparent()` |
+| `KHR_materials_volume` | `AttenuationColor/Distance`、`ThicknessFactor`、厚度贴图 **G 通道** → t4 |
+| `KHR_materials_ior` | `MaterialIor`（默认 1.5）→ 折射背景 UV |
+| `KHR_materials_dispersion` | `MaterialDispersion`（0 = 关）→ cbPerMaterial |
+| 无 baseColor 贴图 | 默认 `(1,1,1,1)`；**不用** `attenuationColor` 作 baseColor |
+| 无 occlusion 贴图 | AO 默认 **1.0**（非 0.5） |
+
+**Pass 调度**
+
+```mermaid
+flowchart LR
+  DL[DeferredLighting<br/>SceneColor 已光照]
+  CP[CopyTransmissionBackground<br/>SceneColor → SceneColorWithSSR]
+  TF[RenderTranslucentForward<br/>仅 transmission mesh]
+  PS[TranslucentPBRForward<br/>t9 采样背景]
+
+  DL --> CP --> TF --> PS
+```
+
+1. **跳过 BasePass 半透明**：`UsesTransmissionShading()` 的 mesh 不写 GBuffer 半透明 MRT（避免与 forward 冲突）。
+2. **独立 RDG Pass `CopyTransmissionBackground`**（`DeferredLighting` 与 `RenderTranslucentForward` 之间）：场景含透射 mesh 时执行 `CopySceneColorForTransmissionBackground`：
+   - `RHICmdListUnbindAllRenderTargets`（D3D12：延迟光照后 SceneColor 仍可能绑为 RTV，直接 Copy 会 hazard）
+   - `RHICopyResource(SceneColorWithSSR, SceneColor)`
+   - 将 `SceneColorWithSSR` 转为 SRV
+3. **`PBRMaterialRender::DrawTranslucentForwardLit`**：透射材质绑 **t9** `BackgroundSceneColor`；OM barrier 声明 SRV；`BlendDisable` 全量替换像素；velocity 写 0；`InvScreenResolution` 经 `MaterialRenderParam` 传入 forward pass。
+
+**着色（`TranslucentPBRForward.hlsl`）**
+
+| 项 | 说明 |
+|----|------|
+| 背景 UV | 世界空间折射出口 NDC + **视空间 parallax** 偏移；`BackgroundSceneColor.Sample(SampleLinear, uv)` 双线性；UV clamp 到屏幕边缘 |
+| 色散 | `MaterialDispersion > 0` 时对 R/G/B 分别用 `ior ± spread` 采样，合成 `outRgb[i] = samp[i]` |
+| 体积衰减 | Beer–Lambert；`distance = length(refractRay)`，含 `modelScale` |
+| IOR / F0 | `KHR_materials_ior` → split-sum `EnvironmentBRDF` + BRDF LUT |
+| 合成 | `lerp(outgoingDiffuse, (1-F)*bg*baseColor*volumeAtt, T) + directSpec + iblSpec + emiss`（镜面保留完整 direct + IBL） |
+| 旋转 UI 残影 | forward 绘制时对透射 mesh 令 `PrevModelMatrix = CurrModelMatrix` |
+
+**参考场景 JSON**：`GLTFModel/dragon_dispersion.json` — IBL `HDR/spruit_sunrise_2k.hdr`、`IBLIntensity` 1.0、方向光 `LightStrength` 2.5；含 **`RoamCamera`**（与 `harley.json` 同参数：WASD / Space·Ctrl / 右键视角 / 滚轮缩放）；**勿**启用 `GroundIBLHdr`。
 
 ---
 

@@ -302,7 +302,7 @@ namespace Engine
 		RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 4, d->MeshMaterial->GetOcclusionTexture());
 	}
 
-	void PBRMaterialRender::DrawTranslucentForwardLit(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* DeferredLighting,
+	void PBRMaterialRender::DrawTranslucentForwardLit(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, uintptr_t* InOutSharedSrvsBoundForPsKey, DeferredLightingPass* DeferredLighting,
 													  FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData)
 	{
 		C_P(PBRMaterialRender);
@@ -326,41 +326,6 @@ namespace Engine
 		const std::shared_ptr<RHITexture2D> TransmissionBg =
 			bTransmission ? RenderParam.SceneTextures->GetSceneColorWithSSR() : nullptr;
 
-		std::shared_ptr<RHITexture2D> Sc = RenderParam.SceneTextures->GetSceneColor();
-		std::shared_ptr<RHITexture2D> Mv = RenderParam.SceneTextures->GetMotionVector();
-		std::shared_ptr<RHITexture2D> Dt = RenderParam.SceneTextures->GetDepth();
-		const std::vector<std::shared_ptr<RHITexture2D>> ColorMrt = {Sc, Mv};
-		FRHIRenderPassDesc Om = FRHIRenderPassDesc::ColorTargetsAndDepth(ColorMrt, Dt);
-		Om.DebugName = "TranslucentPBRForwardOM";
-		FFurForwardSharedSrvSet SharedSrv{};
-		{
-			FRDGPassDescriptor Slots{};
-			if (DeferredLighting && WorldSceneRender && ViewData)
-			{
-				DeferredLighting->PrepareForwardSharedSrvSet(WorldSceneRender, ViewData, SharedSrv);
-				Slots.Inputs = GatherFurForwardSharedTwoDimensionalSrvInputs(SharedSrv);
-			}
-			if (TransmissionBg)
-			{
-				const std::shared_ptr<RHITexture2D> BgScene = TransmissionBg;
-				Slots.Inputs.push_back({"TransmissionBackground", [BgScene]() { return BgScene; }, true, FRDGResourceAccess::SRV});
-			}
-			using A = FRDGResourceAccess;
-			auto ST = RenderParam.SceneTextures;
-			Slots.Outputs = {
-				{"SceneColor", [ST]() { return ST->GetSceneColor(); }, true, A::RTV},
-				{"MotionVector", [ST]() { return ST->GetMotionVector(); }, true, A::RTV},
-				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
-			};
-			FRDGUtils::AppendPassTextureBarriers(Slots, Om.DeclaredTextureBarriers);
-		}
-		if (DeferredLighting && WorldSceneRender && ViewData)
-		{
-			AppendFurForwardSharedCubeTextureBarriers(Om.DeclaredTextureBarriers, SharedSrv);
-			AppendFurForwardSharedStructuredBufferPixelSrvBarriers(Om.DeclaredStructuredBufferBarriers, SharedSrv);
-		}
-		FRHIRenderPassScope TranslucentOmScope(RHIContext, std::move(Om));
-
 		GraphicsPipelineStateInitializer Init;
 		Init.VertexShader = GetPBRVertexShader();
 		Init.PixelShader = d->TranslucentForwardPixelShader;
@@ -370,8 +335,15 @@ namespace Engine
 			d->MeshMaterial->IsDoubleSided() ? RHICachedStates::RasterizerStateCullNone : RHICachedStates::RasterizerStateCullBack;
 		RHIContext.RHISetGraphicsPipelineState(Init);
 
-		if (DeferredLighting && WorldSceneRender && ViewData)
-			DeferredLighting->BindFurForwardSharedSRVs(RHIContext, RenderParam.SceneTextures, WorldSceneRender, ViewData);
+		if (InOutSharedSrvsBoundForPsKey && DeferredLighting && WorldSceneRender && ViewData && d->TranslucentForwardPixelShader)
+		{
+			const uintptr_t psKey = reinterpret_cast<uintptr_t>(d->TranslucentForwardPixelShader.get());
+			if (*InOutSharedSrvsBoundForPsKey != psKey)
+			{
+				DeferredLighting->BindFurForwardSharedSRVs(RHIContext, RenderParam.SceneTextures, WorldSceneRender, ViewData);
+				*InOutSharedSrvsBoundForPsKey = psKey;
+			}
+		}
 
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 0, RHICachedStates::WarpLinerSampler);
 		RHIContext.RHISetShaderSampler(RenderCore::SF_Pixel, 1, RHICachedStates::ShadowSampler);
@@ -382,10 +354,7 @@ namespace Engine
 		RefreshIBLMipAndRebindPerFrame(RHIContext, RenderParam);
 		BindDeferredBaseMaterialTextures(RHIContext);
 		if (TransmissionBg)
-		{
-			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(RHIContext, {TransmissionBg});
 			RHIContext.RHISetShaderTexture(RenderCore::SF_Pixel, 9, TransmissionBg);
-		}
 
 		DrawPrimitive(RHIContext);
 	}

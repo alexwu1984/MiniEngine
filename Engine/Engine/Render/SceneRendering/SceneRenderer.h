@@ -35,6 +35,8 @@ namespace Engine
 		FSkyLightSourceDesc SkyLightSource{};
 		/** Matches FWorldSceneRenderPrivate::SubmissionSequence for this enqueue; carried so ExecuteFrame / profiling need not dereference viewport state. Starts at 1 for the first queued frame. */
 		uint64_t SubmissionSequence = 0;
+		/** Visible draws include a mesh with UsesTransmissionShading() (game thread, per enqueue). */
+		bool bSceneHasTransmissionMesh = false;
 	};
 
 	/**

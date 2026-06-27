@@ -9,7 +9,6 @@ namespace Engine
 	public:
 		static void RenderBasePassOpaque(const FDeferredBasePassDrawContext& DrawContext);
 		static void RenderBasePassTranslucent(const FDeferredBasePassDrawContext& DrawContext);
-		static void RenderDeferredBasePassFullSequence(const FDeferredBasePassDrawContext& DrawContext);
 
 		/** Forward translucent PBR onto lit SceneColor (after deferred lighting). */
 		static void RenderTranslucentForward(const FDeferredBasePassDrawContext& DrawContext);

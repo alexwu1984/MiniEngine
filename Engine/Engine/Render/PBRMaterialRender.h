@@ -49,9 +49,9 @@ namespace Engine
 		void BeginDeferredOpaqueDrawBatch(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 		void DrawDeferredOpaqueBatchInstance(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam);
 
-		/** After deferred lighting: blend into SceneColor only; depth test, no depth write (see TranslucentPBRForward.hlsl). */
-		void DrawTranslucentForwardLit(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, DeferredLightingPass* DeferredLighting,
-									   FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData);
+		/** Per-mesh draw inside an open TranslucentPBRForward OM scope (see DeferredShadingBasePassRenderer::RenderTranslucentForward). */
+		void DrawTranslucentForwardLit(RenderCore::RHICommandContext& RHIContext, const MaterialRenderParam& RenderParam, uintptr_t* InOutSharedSrvsBoundForPsKey,
+									   DeferredLightingPass* DeferredLighting, FWorldSceneRender* WorldSceneRender, const std::shared_ptr<const FSceneViewData>& ViewData);
 
 	private:
 		virtual std::wstring GetShaderFileName() const;

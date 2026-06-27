@@ -19,5 +19,6 @@ namespace Engine
 	{
 	public:
 		static void GatherVisiblePrimitives(const FSceneViewData& ViewData, const FScene& Scene, FPrimitiveGatherResult& OutResult);
+		static bool SceneContainsTransmissionMesh(const std::vector<GltfSceneMeshInfo>& SceneMeshInfos);
 	};
 }

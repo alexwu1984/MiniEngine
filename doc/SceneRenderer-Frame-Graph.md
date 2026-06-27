@@ -51,7 +51,7 @@ flowchart TB
 | 7 | `DeferredLighting_CopySceneColor` | 延迟且非 Unlit | 拷贝 SceneColor 供光照 |
 | 8 | `BuildGpuLightLists` | 同上 | Cluster / Tile 光源列表 CS |
 | 9 | `DeferredLighting` | 同上 | 全屏延迟光照 PS |
-| 10 | `CopyTransmissionBackground` | 同上且场景含透射 mesh | 拷贝已光照 SceneColor → SceneColorWithSSR（透射背景，见 §9.1） |
+| 10 | `CopyTransmissionBackground` | 同上且 `bSceneHasTransmissionMesh` | 拷贝已光照 SceneColor → SceneColorWithSSR（透射背景，见 §9.1） |
 | 11 | `RenderTranslucentForward` | 同上 | 前向半透明 + 透射 |
 | 12 | `RenderFurForward` | 同上 | Fur 壳层前向 |
 

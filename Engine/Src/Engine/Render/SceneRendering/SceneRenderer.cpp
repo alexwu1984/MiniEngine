@@ -78,6 +78,7 @@ namespace Engine
 		FWorldSceneRenderPrivate* const d = Packet.SceneResources;
 		std::shared_ptr<const FSceneViewData> ViewConst = std::move(Packet.ViewData);
 		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(Packet.MeshesInfo);
+		const bool bSceneHasTransmissionMesh = Packet.bSceneHasTransmissionMesh;
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(Packet.ShadowCasters);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(Packet.ShadowFrustumBounds);
 		std::vector<Light> ShadowPassLights = std::move(Packet.LightsForShadow);
@@ -328,31 +329,26 @@ namespace Engine
 				RDG_Raster,
 				ERDGPassQueue::Graphics,
 				true});
-			Graph.AddPass(FRDGPassDescriptor{
-				FRDGDeferredLightingPass::PassNameCopyTransmissionBackground,
-				FRDGDeferredLightingPass::GatherTransmissionBackgroundCopyInputs(SceneTextures),
-				FRDGDeferredLightingPass::GatherTransmissionBackgroundCopyOutputs(SceneTextures),
-				[d, Self, RHI, CommandContext, MeshesForDraw, ViewConst, WorldSceneForFrame]()
-				{
-					FMeshMaterialRenderCache* MeshCache = WorldSceneForFrame ? WorldSceneForFrame->GetMeshMaterialRenderCache() : nullptr;
-					if (!MeshesForDraw->empty() && MeshCache && d->DeferredLighting)
+			if (bSceneHasTransmissionMesh)
+			{
+				Graph.AddPass(FRDGPassDescriptor{
+					FRDGDeferredLightingPass::PassNameCopyTransmissionBackground,
+					FRDGDeferredLightingPass::GatherTransmissionBackgroundCopyInputs(SceneTextures),
+					FRDGDeferredLightingPass::GatherTransmissionBackgroundCopyOutputs(SceneTextures),
+					[d, CommandContext, SceneTextures]()
 					{
-						FDeferredBasePassDrawContext DrawContext;
-						DrawContext.RHI = RHI;
-						DrawContext.ViewData = ViewConst;
-						DrawContext.SceneTextures = d->SceneTextures;
-						DrawContext.WorldSceneRender = Self;
+						if (!d->DeferredLighting || !SceneTextures)
+							return;
+						FDeferredBasePassDrawContext DrawContext{};
 						DrawContext.RHICmdList = CommandContext.get();
-						DrawContext.MeshesForDraw = MeshesForDraw;
-						DrawContext.MaterialCache = MeshCache;
-						DrawContext.DeferredLighting = d->DeferredLighting.get();
+						DrawContext.SceneTextures = SceneTextures;
 						FDeferredShadingBasePassRenderer::CopyTransmissionBackground(DrawContext);
-					}
-				},
-				true,
-				RDG_Copy,
-				ERDGPassQueue::Graphics,
-				true});
+					},
+					true,
+					RDG_Copy,
+					ERDGPassQueue::Graphics,
+					true});
+			}
 			Graph.AddPass(FRDGPassDescriptor{
 				"RenderTranslucentForward",
 				SceneTexturesIO,
@@ -505,9 +501,13 @@ namespace Engine
 		if (bDeferredLightingPath)
 		{
 			Graph.AddPassDependency("BuildGpuLightLists", FRDGDeferredLightingPass::PassNameRaster);
-			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, FRDGDeferredLightingPass::PassNameCopyTransmissionBackground);
-			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameCopyTransmissionBackground, "RenderTranslucentForward");
-			Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
+			if (bSceneHasTransmissionMesh)
+			{
+				Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, FRDGDeferredLightingPass::PassNameCopyTransmissionBackground);
+				Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameCopyTransmissionBackground, "RenderTranslucentForward");
+			}
+			else
+				Graph.AddPassDependency(FRDGDeferredLightingPass::PassNameRaster, "RenderTranslucentForward");
 			Graph.AddPassDependency("RenderTranslucentForward", "RenderFurForward");
 			const char* firstPostPass = d->PostProcess ? d->PostProcess->GetFirstPostProcessPassName() : "Tonemapping";
 			if (bScheduleGBufferVisualization)

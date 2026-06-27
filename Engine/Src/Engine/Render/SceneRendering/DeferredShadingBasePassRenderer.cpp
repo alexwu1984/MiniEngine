@@ -37,28 +37,12 @@ namespace Engine
 			FRDGUtils::RHICmdListUnbindAllRenderTargets(Cmd);
 			RenderCore::RHICommandMark CopyMark(Cmd, "CopySceneColorForTransmission");
 			Cmd.RHICopyResource(TransmissionBg, SceneColor);
-			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(Cmd, {TransmissionBg});
-		}
-		bool SceneNeedsTransmissionBackground(const std::vector<GltfSceneMeshInfo>& SceneMeshInfos)
-		{
-			for (const auto& Info : SceneMeshInfos)
-			{
-				for (const auto& Mesh : Info.Meshes)
-				{
-					const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
-					if (meshMat && meshMat->UsesTransmissionShading())
-						return true;
-				}
-			}
-			return false;
 		}
 	} // namespace
 
 	void FDeferredShadingBasePassRenderer::CopyTransmissionBackground(const FDeferredBasePassDrawContext& DrawContext)
 	{
-		if (!DrawContext.RHICmdList || !DrawContext.SceneTextures || !DrawContext.MeshesForDraw)
-			return;
-		if (!SceneNeedsTransmissionBackground(*DrawContext.MeshesForDraw))
+		if (!DrawContext.RHICmdList || !DrawContext.SceneTextures)
 			return;
 		CopySceneColorForTransmissionBackground(*DrawContext.RHICmdList, DrawContext.SceneTextures->GetSceneColor(),
 												DrawContext.SceneTextures->GetSceneColorWithSSR());
@@ -101,44 +85,6 @@ namespace Engine
 		}
 	}
 
-	void FDeferredShadingBasePassRenderer::RenderDeferredBasePassFullSequence(const FDeferredBasePassDrawContext& DrawContext)
-	{
-		if (!DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
-			return;
-		const std::vector<GltfSceneMeshInfo>& SceneMeshInfos = *DrawContext.MeshesForDraw;
-		FMeshMaterialRenderCache& MaterialCache = *DrawContext.MaterialCache;
-		const math::Vector3 CamPos = DrawContext.ViewData ? DrawContext.ViewData->CameraPos : math::Vector3();
-
-		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, true);
-		{
-			std::vector<FTranslucentMeshSortKey> SortedKeys;
-			FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
-			for (const auto& Key : SortedKeys)
-			{
-				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-				if (IsClassicTranslucentBasePassMesh(Mesh ? Mesh->GetMaterial() : nullptr))
-				{
-					FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
-														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), true, DrawContext);
-				}
-			}
-		}
-		FOpaqueMeshDrawBuilder::DrawSortedOpaqueMeshes(DrawContext, false);
-		{
-			std::vector<FTranslucentMeshSortKey> SortedKeys;
-			FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
-			for (const auto& Key : SortedKeys)
-			{
-				const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
-				if (IsClassicTranslucentBasePassMesh(Mesh ? Mesh->GetMaterial() : nullptr))
-				{
-					FDeferredBasePassMeshDispatch::Dispatch(Mesh, Key.WorldTransform, Key.PrevWorldTransform,
-														MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey), false, DrawContext);
-				}
-			}
-		}
-	}
-
 	void FDeferredShadingBasePassRenderer::RenderTranslucentForward(const FDeferredBasePassDrawContext& DrawContext)
 	{
 		if (!DrawContext.RHICmdList || !DrawContext.ViewData || !DrawContext.SceneTextures || !DrawContext.WorldSceneRender || !DrawContext.MeshesForDraw || !DrawContext.MaterialCache)
@@ -151,9 +97,70 @@ namespace Engine
 		std::vector<FTranslucentMeshSortKey> SortedKeys;
 		FTranslucentMeshSorter::AppendSceneSortKeys(SceneMeshInfos, CamPos, SortedKeys);
 
+		bool anyPbrTranslucent = false;
+		bool bSceneHasTransmission = false;
+		for (const auto& Key : SortedKeys)
+		{
+			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
+			const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
+			if (!Mesh || !meshMat || !meshMat->IsTransparent())
+				continue;
+			std::shared_ptr<MaterialRender> Mat = MaterialCache.GetOrCreate(Mesh, Key.MaterialRenderCacheKey);
+			if (dynamic_cast<FurMaterialRender*>(Mat.get()))
+				continue;
+			if (!dynamic_cast<PBRMaterialRender*>(Mat.get()))
+				continue;
+			anyPbrTranslucent = true;
+			if (meshMat->UsesTransmissionShading())
+				bSceneHasTransmission = true;
+		}
+		if (!anyPbrTranslucent)
+			return;
+
 		RenderCore::RHICommandContext& Cmd = *DrawContext.RHICmdList;
 		FRDGUtils::RHICmdListSetViewportFromTexture(Cmd, DrawContext.SceneTextures->GetSceneColor());
 
+		const std::shared_ptr<RenderCore::RHITexture2D> TransmissionBg =
+			bSceneHasTransmission ? DrawContext.SceneTextures->GetSceneColorWithSSR() : nullptr;
+
+		const std::vector<std::shared_ptr<RenderCore::RHITexture2D>> ColorMrt = {
+			DrawContext.SceneTextures->GetSceneColor(),
+			DrawContext.SceneTextures->GetMotionVector(),
+		};
+		RenderCore::FRHIRenderPassDesc Om = RenderCore::FRHIRenderPassDesc::ColorTargetsAndDepth(ColorMrt, DrawContext.SceneTextures->GetDepth());
+		Om.DebugName = "TranslucentPBRForwardOM";
+		FFurForwardSharedSrvSet SharedSrv{};
+		{
+			FRDGPassDescriptor Slots{};
+			if (DrawContext.DeferredLighting && DrawContext.WorldSceneRender && DrawContext.ViewData)
+			{
+				DrawContext.DeferredLighting->PrepareForwardSharedSrvSet(DrawContext.WorldSceneRender, DrawContext.ViewData, SharedSrv);
+				Slots.Inputs = GatherFurForwardSharedTwoDimensionalSrvInputs(SharedSrv);
+			}
+			if (TransmissionBg)
+			{
+				const std::shared_ptr<RenderCore::RHITexture2D> BgScene = TransmissionBg;
+				Slots.Inputs.push_back({"TransmissionBackground", [BgScene]() { return BgScene; }, true, FRDGResourceAccess::SRV});
+			}
+			using A = FRDGResourceAccess;
+			auto ST = DrawContext.SceneTextures;
+			Slots.Outputs = {
+				{"SceneColor", [ST]() { return ST->GetSceneColor(); }, true, A::RTV},
+				{"MotionVector", [ST]() { return ST->GetMotionVector(); }, true, A::RTV},
+				{"Depth", [ST]() { return ST->GetDepth(); }, true, A::DSV},
+			};
+			FRDGUtils::AppendPassTextureBarriers(Slots, Om.DeclaredTextureBarriers);
+		}
+		if (DrawContext.DeferredLighting && DrawContext.WorldSceneRender && DrawContext.ViewData)
+		{
+			AppendFurForwardSharedCubeTextureBarriers(Om.DeclaredTextureBarriers, SharedSrv);
+			AppendFurForwardSharedStructuredBufferPixelSrvBarriers(Om.DeclaredStructuredBufferBarriers, SharedSrv);
+		}
+		RenderCore::FRHIRenderPassScope TranslucentOmScope(Cmd, std::move(Om));
+		if (TransmissionBg)
+			FRDGUtils::RHICmdListDeclarePixelSamplingSrvs(Cmd, {TransmissionBg});
+
+		uintptr_t sharedSrvBoundPsKey = 0u;
 		for (const auto& Key : SortedKeys)
 		{
 			const std::shared_ptr<MeshBase>& Mesh = Key.Mesh;
@@ -168,10 +175,9 @@ namespace Engine
 				continue;
 			MaterialRenderParam P = FSceneMaterialShaderParameters::BuildForDeferredBasePass(
 				DrawContext.WorldSceneRender, DrawContext.ViewData.get(), Mesh.get(), Key.WorldTransform, Key.PrevWorldTransform, DrawContext.SceneTextures);
-			// Screen-space transmission: snap prev=curr so rotating the model does not smear background samples.
 			if (meshMat->UsesTransmissionShading())
 				P.PrevModelMatrix = P.CurrModelMatrix;
-			pbr->DrawTranslucentForwardLit(Cmd, P, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
+			pbr->DrawTranslucentForwardLit(Cmd, P, &sharedSrvBoundPsKey, DrawContext.DeferredLighting, DrawContext.WorldSceneRender, DrawContext.ViewData);
 		}
 	}
 

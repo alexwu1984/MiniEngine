@@ -92,17 +92,7 @@ namespace Engine
 				KeyFrame.Keyboard.bSpace = (::GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 				KeyFrame.Keyboard.bCtrl = (::GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
 
-				// Roam scenes: drive main FreeRoamCamera directly (same path as harley.json).
-				if (World->UsesRoamCameraScene())
-				{
-					if (const auto mainCam = World->GetMainCamera())
-					{
-						if (const auto roam = std::dynamic_pointer_cast<FreeRoamCameraComponent>(mainCam))
-							roam->ApplyKeyboardNavigation(KeyFrame.Keyboard, DeltaTime);
-					}
-				}
-				else
-					World->DispatchInput(KeyFrame);
+				World->DispatchInput(KeyFrame);
 			}
 		}
 

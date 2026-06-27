@@ -399,6 +399,7 @@ namespace Engine
 		FSceneRendererPrimitiveGather::GatherVisiblePrimitives(*ViewConst, *WorldScene, PrimitiveGather);
 
 		std::vector<GltfSceneMeshInfo> MeshesInfoCopy = std::move(PrimitiveGather.VisiblePrimitives);
+		const bool bSceneHasTransmissionMesh = FSceneRendererPrimitiveGather::SceneContainsTransmissionMesh(MeshesInfoCopy);
 		std::vector<GltfSceneMeshInfo> shadowCasters = std::move(PrimitiveGather.DynamicShadowCastingPrimitives);
 		std::vector<GltfSceneMeshInfo> shadowFrustumBounds = std::move(PrimitiveGather.ShadowFrustumCullPrimitives);
 
@@ -458,6 +459,7 @@ namespace Engine
 			Packet.WorldScene = WorldScene;
 			Packet.ViewData = ViewConst;
 			Packet.MeshesInfo = std::move(MeshesInfoCopy);
+			Packet.bSceneHasTransmissionMesh = bSceneHasTransmissionMesh;
 			Packet.ShadowCasters = std::move(shadowCasters);
 			Packet.ShadowFrustumBounds = std::move(shadowFrustumBounds);
 			Packet.LightsForShadow = std::move(shadowLights);

@@ -373,11 +373,11 @@ flowchart LR
 ```
 
 1. **跳过 BasePass 半透明**：`UsesTransmissionShading()` 的 mesh 不写 GBuffer 半透明 MRT（避免与 forward 冲突）。
-2. **独立 RDG Pass `CopyTransmissionBackground`**（`DeferredLighting` 与 `RenderTranslucentForward` 之间）：场景含透射 mesh 时执行 `CopySceneColorForTransmissionBackground`：
+2. **独立 RDG Pass `CopyTransmissionBackground`**（`DeferredLighting` 与 `RenderTranslucentForward` 之间）：**仅当** `FSceneRenderPacket::bSceneHasTransmissionMesh` 为真时登记，执行 `CopySceneColorForTransmissionBackground`：
    - `RHICmdListUnbindAllRenderTargets`（D3D12：延迟光照后 SceneColor 仍可能绑为 RTV，直接 Copy 会 hazard）
    - `RHICopyResource(SceneColorWithSSR, SceneColor)`
    - 将 `SceneColorWithSSR` 转为 SRV
-3. **`PBRMaterialRender::DrawTranslucentForwardLit`**：透射材质绑 **t9** `BackgroundSceneColor`；OM barrier 声明 SRV；`BlendDisable` 全量替换像素；velocity 写 0；`InvScreenResolution` 经 `MaterialRenderParam` 传入 forward pass。
+3. **`PBRMaterialRender::DrawTranslucentForwardLit`**（在 `RenderTranslucentForward` 的单一 OM scope 内逐 mesh 调用）：透射材质绑 **t9** `BackgroundSceneColor`；`BlendDisable` 全量替换像素；velocity 写 0；`InvScreenResolution` 经 `MaterialRenderParam` 传入 forward pass。
 
 **着色（`TranslucentPBRForward.hlsl`）**
 

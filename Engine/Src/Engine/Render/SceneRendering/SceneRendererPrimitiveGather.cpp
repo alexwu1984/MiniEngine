@@ -1,9 +1,25 @@
 ﻿#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Scene/FScene.h"
+#include "Material/MaterialBase.h"
+#include "GltfModel/GltfMesh.h"
 
 namespace Engine
 {
+	bool FSceneRendererPrimitiveGather::SceneContainsTransmissionMesh(const std::vector<GltfSceneMeshInfo>& SceneMeshInfos)
+	{
+		for (const auto& Info : SceneMeshInfos)
+		{
+			for (const auto& Mesh : Info.Meshes)
+			{
+				const std::shared_ptr<MaterialBase> meshMat = Mesh ? Mesh->GetMaterial() : nullptr;
+				if (meshMat && meshMat->UsesTransmissionShading())
+					return true;
+			}
+		}
+		return false;
+	}
+
 	void FSceneRendererPrimitiveGather::GatherVisiblePrimitives(const FSceneViewData& ViewData, const FScene& Scene,
 																FPrimitiveGatherResult& OutResult)
 	{

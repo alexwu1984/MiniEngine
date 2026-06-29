@@ -1,6 +1,6 @@
 ﻿#include "Render/SceneRendering/SceneRendererPrimitiveGather.h"
 #include "Render/SceneRendering/SceneViewData.h"
-#include "Scene/FScene.h"
+#include "Scene/Scene.h"
 #include "Material/MaterialBase.h"
 #include "GltfModel/GltfMesh.h"
 

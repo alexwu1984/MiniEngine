@@ -1,5 +1,5 @@
 ﻿#include "Scene/WorldDirectionalShadowCSMSettings.h"
-#include "Render/Shadow/FDirectionalShadowFrustumFitter.h"
+#include "Render/Shadow/DirectionalShadowFrustumFitter.h"
 
 namespace Engine
 {

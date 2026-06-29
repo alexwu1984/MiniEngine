@@ -15,7 +15,7 @@
 #include "Scene/Actor.h"
 #include "Scene/CameraComponent.h"
 #include "Scene/World.h"
-#include "Scene/FScene.h"
+#include "Scene/Scene.h"
 #include "math/aabb3.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Thread/RenderThread.h"

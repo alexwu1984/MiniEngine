@@ -22,7 +22,7 @@
 #include "Render/Shadow/ShadowRenderPass.h"
 #include "Render/Shadow/ShadowProjectorTypes.h"
 #include "Scene/Component.h"
-#include "Scene/FScene.h"
+#include "Scene/Scene.h"
 #include "Render/SceneRendering/MeshMaterialRenderCache.h"
 #include "Render/SceneRendering/SceneViewData.h"
 #include "Render/SceneRendering/SceneViewFamily.h"

@@ -2,7 +2,7 @@
 #include "core/logger.h"
 #include "Render/WorldSceneRender.h"
 #include "Render/WorldSceneRenderPrivate.h"
-#include "Scene/FScene.h"
+#include "Scene/Scene.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Render/PostProcessor.h"
 #include "Render/SkyLightRenderPass.h"

@@ -3,7 +3,7 @@
 #include "Scene/ActorPrivate.h"
 #include "Scene/Component.h"
 #include "Scene/World.h"
-#include "Scene/FScene.h"
+#include "Scene/Scene.h"
 #include "Scene/SceneMeshComponent.h"
 #include "Render/RenderStableIds.h"
 

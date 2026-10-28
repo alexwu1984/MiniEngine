@@ -376,7 +376,6 @@ float D_GGX(float a2, float NoH)
 	return a2 / (PI*d*d);					// 4 mul, 1 rcp
 }
 
-// ´ó¶àÊý·Ç½ðÊôµÄF0·¶Î§ÊÇ0.02~0.04
 float DielectricSpecularToF0(float Specular)
 {
 	// 0.08f map Specular = 0.5 to 0.04
@@ -510,7 +509,7 @@ float3 AMDTonemapping(float3 color)
 {
     static float hdrMax = 16.0; // How much HDR range before clipping. HDR modes likely need this pushed up to say 25.0.
     static float contrast = 2.0f; // Use as a baseline to tune the amount of contrast the tonemapper has.
-    static float shoulder = 1.0; // Likely don¡¯t need to mess with this factor, unless matching existing tonemapper is not working well..
+    static float shoulder = 1.0; // Likely don't need to mess with this factor, unless matching existing tonemapper is not working well..
     static float midIn = 0.18; // most games will have a {0.0 to 1.0} range for LDR so midIn should be 0.18.
     static float midOut = 0.18; // Use for LDR. For HDR10 10:10:10:2 use maybe 0.18/25.0 to start. For scRGB, I forget what a good starting point is, need to re-calculate.
 
